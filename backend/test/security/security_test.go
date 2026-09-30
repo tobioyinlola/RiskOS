@@ -1,0 +1,200 @@
+// Package security holds black-box tests of the HTTP surface against hostile input: a real
+// http.Server with production limits, no internals. They run in the normal test suite (no Docker)
+// and grow with every phase (spec §16: auth, authorization, tenant isolation, replay, …).
+package security
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"io"
+	"log/slog"
+	"net"
+	"net/http"
+	"strings"
+	"testing"
+	"time"
+
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpserver"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+)
+
+// syncBuffer is a goroutine-safe log sink.
+type syncBuffer struct {
+	ch chan []byte
+}
+
+func (b *syncBuffer) Write(p []byte) (int, error) {
+	b.ch <- bytes.Clone(p)
+	return len(p), nil
+}
+
+func (b *syncBuffer) String() string {
+	var sb strings.Builder
+	for {
+		select {
+		case p := <-b.ch:
+			sb.Write(p)
+		default:
+			return sb.String()
+		}
+	}
+}
+
+type server struct {
+	url  string
+	logs *syncBuffer
+}
+
+// startServer runs the real API handler behind the real http.Server with default limits.
+func startServer(t *testing.T) server {
+	t.Helper()
+	cfg, err := config.Load(func(k string) (string, bool) {
+		v, ok := map[string]string{
+			"RISKOS_POSTGRES_URL":          "postgres://unused@localhost/unused",
+			"RISKOS_REDIS_ADDR":            "localhost:0",
+			"RISKOS_HTTP_MAX_BODY_BYTES":   "1024",
+			"RISKOS_HTTP_MAX_HEADER_BYTES": "4096",
+		}[k]
+		return v, ok
+	})
+	require.NoError(t, err)
+
+	logs := &syncBuffer{ch: make(chan []byte, 1024)}
+	logger := logging.New(logs, slog.LevelDebug, "security-test")
+	tel, err := telemetry.Setup(t.Context(), cfg.Telemetry, "security-test", cfg.Env)
+	require.NoError(t, err)
+	h := httpapi.New(httpapi.Deps{
+		Logger: logger, Clock: clock.System{}, HTTP: cfg.HTTP, Telemetry: tel,
+		Health: health.NewService(logger),
+	})
+
+	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
+	require.NoError(t, err)
+	ctx, cancel := context.WithCancel(context.Background())
+	done := make(chan error, 1)
+	go func() {
+		done <- httpserver.Run(ctx, httpserver.New(cfg.HTTP, h, logger), ln, httpserver.Lifecycle{ShutdownTimeout: 5 * time.Second}, logger)
+	}()
+	t.Cleanup(func() {
+		cancel()
+		require.NoError(t, <-done)
+	})
+	return server{url: "http://" + ln.Addr().String(), logs: logs}
+}
+
+// response is a fully read response; the body is already closed.
+type response struct {
+	StatusCode int
+	Header     http.Header
+	Body       []byte
+}
+
+func (s server) do(t *testing.T, method, path string, body io.Reader, headers map[string]string) response {
+	t.Helper()
+	req, err := http.NewRequestWithContext(t.Context(), method, s.url+path, body)
+	require.NoError(t, err)
+	for k, v := range headers {
+		req.Header.Set(k, v)
+	}
+	resp, err := http.DefaultClient.Do(req)
+	require.NoError(t, err)
+	defer resp.Body.Close()
+	b, err := io.ReadAll(resp.Body)
+	require.NoError(t, err)
+	return response{StatusCode: resp.StatusCode, Header: resp.Header, Body: b}
+}
+
+func requireErrorContract(t *testing.T, resp response, status int, code string) {
+	body := resp.Body
+	t.Helper()
+	assert.Equal(t, status, resp.StatusCode, string(body))
+	var e apigen.ErrorResponse
+	dec := json.NewDecoder(bytes.NewReader(body))
+	dec.DisallowUnknownFields()
+	require.NoError(t, dec.Decode(&e), string(body))
+	assert.Equal(t, code, e.Error.Code)
+	assert.Equal(t, resp.Header.Get("X-Request-ID"), e.Error.RequestId)
+}
+
+func TestHostileRequestsGetTheErrorContract(t *testing.T) {
+	s := startServer(t)
+	tests := []struct {
+		name   string
+		method string
+		path   string
+		body   io.Reader
+		status int
+		code   string
+	}{
+		{"path traversal", http.MethodGet, "/health/../../etc/passwd", nil, http.StatusNotFound, "NOT_FOUND"},
+		{"encoded traversal", http.MethodGet, "/api/v1/%2e%2e/%2e%2e/etc/passwd", nil, http.StatusNotFound, "NOT_FOUND"},
+		{"sql injection in path", http.MethodGet, "/api/v1/events/1%27%20OR%20%271%27=%271", nil, http.StatusNotFound, "NOT_FOUND"},
+		{"script in path", http.MethodGet, "/%3Cscript%3Ealert(1)%3C%2Fscript%3E", nil, http.StatusNotFound, "NOT_FOUND"},
+		{"unsupported method", http.MethodDelete, "/health/ready", nil, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED"},
+		{"oversized body", http.MethodPost, "/api/v1/events", strings.NewReader(strings.Repeat("a", 4096)), http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			resp := s.do(t, tt.method, tt.path, tt.body, nil)
+			if tt.status == http.StatusNotFound && resp.StatusCode == http.StatusMovedPermanently {
+				// net/http cleans ".." paths with a redirect; the target must still be contained.
+				assert.NotContains(t, resp.Header.Get("Location"), "..")
+				return
+			}
+			requireErrorContract(t, resp, tt.status, tt.code)
+			assert.NotContains(t, string(resp.Body), "<script>", "input must not be reflected")
+			assert.Equal(t, "nosniff", resp.Header.Get("X-Content-Type-Options"))
+		})
+	}
+}
+
+func TestOversizedHeadersAreRejected(t *testing.T) {
+	s := startServer(t)
+	resp := s.do(t, http.MethodGet, "/health/live", nil, map[string]string{"X-Padding": strings.Repeat("a", 64<<10)})
+	assert.Equal(t, http.StatusRequestHeaderFieldsTooLarge, resp.StatusCode)
+}
+
+func TestResponsesNeverLeakInternals(t *testing.T) {
+	s := startServer(t)
+	resp := s.do(t, http.MethodGet, "/nope", nil, nil)
+	requireErrorContract(t, resp, http.StatusNotFound, "NOT_FOUND")
+	for _, leak := range []string{"goroutine", ".go:", "chi", "runtime", "panic"} {
+		assert.NotContains(t, string(resp.Body), leak)
+	}
+	assert.Empty(t, resp.Header.Get("Server"), "server software must not be advertised")
+}
+
+// TestCredentialsNeverReachLogs is acceptance criterion 4 end to end: credentials sent in
+// headers or the query string do not appear in any log line.
+func TestCredentialsNeverReachLogs(t *testing.T) {
+	s := startServer(t)
+	s.do(t, http.MethodGet, "/health/live?api_key=query-secret-value&token=tok_secret", nil, map[string]string{
+		"Authorization": "Bearer xyz-header-secret",
+		"X-API-Key":     "header-api-key-value",
+		"Cookie":        "session=cookie-secret",
+	})
+	s.do(t, http.MethodGet, "/does-not-exist", nil, map[string]string{"Authorization": "Bearer xyz-header-secret"})
+
+	logs := s.logs.String()
+	require.Contains(t, logs, `"msg":"http request"`, "requests must be logged")
+	for _, secret := range []string{"query-secret-value", "tok_secret", "xyz-header-secret", "header-api-key-value", "cookie-secret"} {
+		assert.NotContains(t, logs, secret)
+	}
+}
+
+func TestRequestIDCannotInjectHeadersOrLogLines(t *testing.T) {
+	s := startServer(t)
+	resp := s.do(t, http.MethodGet, "/health/live", nil, map[string]string{"X-Request-ID": `evil","level":"ERROR","msg":"forged`})
+	assert.Regexp(t, `^req_[0-9a-z]{26}$`, resp.Header.Get("X-Request-ID"))
+	assert.NotContains(t, s.logs.String(), "forged")
+}

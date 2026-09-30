@@ -232,6 +232,13 @@ func (c Config) validate() []error {
 	}
 
 	if c.Env == EnvProduction {
+		if u, err := url.Parse(c.Postgres.URL); err == nil {
+			switch u.Query().Get("sslmode") {
+			case "verify-full", "verify-ca":
+			default:
+				add("RISKOS_POSTGRES_URL: production requires sslmode=verify-full or verify-ca")
+			}
+		}
 		if c.Redis.Password == "" {
 			add("RISKOS_REDIS_PASSWORD: required in production")
 		}

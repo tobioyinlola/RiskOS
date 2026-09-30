@@ -180,7 +180,7 @@ func TestAccessLogOmitsSecrets(t *testing.T) {
 // BenchmarkLiveness measures the full middleware stack and routing for the cheapest endpoint,
 // excluding the network. It is the in-process latency baseline (docs/PERFORMANCE_BASELINE.md).
 func BenchmarkLiveness(b *testing.B) {
-	logger := slog.New(slog.NewJSONHandler(io.Discard, nil))
+	logger := logging.New(io.Discard, slog.LevelInfo, "bench") // production logger, incl. redaction
 	tel, err := telemetry.Setup(context.Background(), config.Telemetry{}, "bench", config.EnvTest)
 	require.NoError(b, err)
 	h := httpapi.New(httpapi.Deps{

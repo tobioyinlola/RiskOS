@@ -120,13 +120,12 @@ func IsSensitiveKey(key string) bool {
 // e.g. an error message that embeds "Authorization: Bearer abc".
 func credentialSchemes() [2]string { return [...]string{"bearer ", "basic "} }
 
-// redactString replaces the token following a credential scheme with Redacted. It allocates only
-// when a scheme is present, keeping the common path cheap.
+// redactString replaces the token following a credential scheme with Redacted. It runs on every
+// logged string, so the common case (no scheme present) neither allocates nor copies.
 func redactString(s string) string {
-	lower := strings.ToLower(s)
 	var found bool
 	for _, scheme := range credentialSchemes() {
-		if strings.Contains(lower, scheme) {
+		if indexFold(s, scheme) >= 0 {
 			found = true
 			break
 		}
@@ -141,7 +140,7 @@ func redactString(s string) string {
 	for i < len(s) {
 		next, schemeLen := -1, 0
 		for _, scheme := range credentialSchemes() {
-			if j := strings.Index(lower[i:], scheme); j >= 0 && (next == -1 || i+j < next) {
+			if j := indexFold(s[i:], scheme); j >= 0 && (next == -1 || i+j < next) {
 				next, schemeLen = i+j, len(scheme)
 			}
 		}
@@ -161,6 +160,26 @@ func redactString(s string) string {
 		i = tokenEnd
 	}
 	return b.String()
+}
+
+// indexFold returns the index of the first ASCII case-insensitive occurrence of the lowercase
+// needle in s, or -1. Unlike strings.ToLower + strings.Index it does not allocate.
+func indexFold(s, needle string) int {
+	n := len(needle)
+outer:
+	for i := 0; i+n <= len(s); i++ {
+		for j := 0; j < n; j++ {
+			c := s[i+j]
+			if c >= 'A' && c <= 'Z' {
+				c += 'a' - 'A'
+			}
+			if c != needle[j] {
+				continue outer
+			}
+		}
+		return i
+	}
+	return -1
 }
 
 func isTokenBoundary(c byte) bool {

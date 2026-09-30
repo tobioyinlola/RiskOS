@@ -75,7 +75,7 @@ linters:
 
     godox:
       # Bare TODOs are forbidden; every TODO names the phase that resolves it: TODO(phase-N).
-      keywords: [FIXME, XXX, HACK]
+      keywords: [TODO, FIXME, XXX, HACK]
 
     forbidigo:
       analyze-types: true
@@ -126,6 +126,7 @@ linters:
             - "!**/internal/*/internal/store/**"
             - "!**/internal/platform/**"
             - "!**/internal/jobs/**"
+            - "!**/internal/dbmigrate/**"
             - "!**/cmd/**"
             - "!**/test/**"
           deny:
@@ -179,6 +180,9 @@ linters:
         text: time\.Sleep
       - path: _test\.go
         linters: [gosec, unparam, gochecknoglobals]
+      # TODOs are allowed only when they name the phase that resolves them.
+      - linters: [godox]
+        text: 'TODO\(phase-[0-9]+\)'
 
 formatters:
   enable:

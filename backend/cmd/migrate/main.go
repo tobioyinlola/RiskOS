@@ -1,35 +1,27 @@
-// Command migrate applies database migrations: the application schema (goose, db/migrations)
-// followed by the job queue's schema.
+// Command migrate applies database migrations.
 //
 // Usage: migrate [up|down|status]
 //
 //	up      apply all pending migrations (default)
 //	down    roll back the most recent application migration
 //	status  print applied/pending application migrations
-//
-// A Postgres advisory lock serializes concurrent runs, so it is safe to start several replicas.
 package main
 
 import (
 	"context"
-	"errors"
 	"fmt"
-	"io/fs"
 	"log/slog"
 	"os"
 	"os/signal"
 	"syscall"
 
-	"github.com/jackc/pgx/v5/stdlib"
-	"github.com/pressly/goose/v3"
-	"github.com/pressly/goose/v3/lock"
-
-	dbmigrations "github.com/tobioyinlola/RiskOS/backend/db"
-	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/dbmigrate"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
 )
+
+const usage = "usage: migrate [up|down|status]"
 
 func main() {
 	if err := run(os.Args[1:]); err != nil {
@@ -38,13 +30,18 @@ func main() {
 	}
 }
 
-func run(args []string) (err error) {
+func run(args []string) error {
 	command := "up"
 	if len(args) > 0 {
 		command = args[0]
 	}
 	if len(args) > 1 {
-		return fmt.Errorf("unexpected arguments %q; usage: migrate [up|down|status]", args[1:])
+		return fmt.Errorf("unexpected arguments %q; %s", args[1:], usage)
+	}
+	switch command {
+	case "up", "down", "status":
+	default:
+		return fmt.Errorf("unknown command %q; %s", command, usage)
 	}
 
 	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
@@ -62,55 +59,17 @@ func run(args []string) (err error) {
 	}
 	defer pool.Close()
 
-	sqlDB := stdlib.OpenDBFromPool(pool)
-	defer func() { err = errors.Join(err, sqlDB.Close()) }()
-
-	migrations, err := fs.Sub(dbmigrations.Migrations, "migrations")
-	if err != nil {
-		return fmt.Errorf("load embedded migrations: %w", err)
-	}
-	locker, err := lock.NewPostgresSessionLocker()
-	if err != nil {
-		return fmt.Errorf("create migration lock: %w", err)
-	}
-	provider, err := goose.NewProvider(goose.DialectPostgres, sqlDB, migrations, goose.WithSessionLocker(locker))
-	if err != nil {
-		return fmt.Errorf("create migration provider: %w", err)
-	}
-
 	switch command {
-	case "up":
-		results, err := provider.Up(ctx)
+	case "down":
+		return dbmigrate.Down(ctx, pool, logger)
+	case "status":
+		return dbmigrate.Status(ctx, pool, logger)
+	default:
+		version, err := dbmigrate.Up(ctx, pool, logger)
 		if err != nil {
-			return fmt.Errorf("apply migrations: %w", err)
-		}
-		for _, r := range results {
-			logger.InfoContext(ctx, "applied migration", slog.String("source", r.Source.Path), slog.Duration("duration", r.Duration))
-		}
-		if err := jobs.Migrate(ctx, pool, logger); err != nil {
 			return err
 		}
-		version, err := provider.GetDBVersion(ctx)
-		if err != nil {
-			return fmt.Errorf("read schema version: %w", err)
-		}
 		logger.InfoContext(ctx, "migrations complete", slog.Int64("version", version))
-	case "down":
-		r, err := provider.Down(ctx)
-		if err != nil {
-			return fmt.Errorf("roll back migration: %w", err)
-		}
-		logger.InfoContext(ctx, "rolled back migration", slog.String("source", r.Source.Path))
-	case "status":
-		statuses, err := provider.Status(ctx)
-		if err != nil {
-			return fmt.Errorf("read migration status: %w", err)
-		}
-		for _, s := range statuses {
-			logger.InfoContext(ctx, "migration", slog.String("source", s.Source.Path), slog.String("state", string(s.State)))
-		}
-	default:
-		return fmt.Errorf("unknown command %q; usage: migrate [up|down|status]", command)
+		return nil
 	}
-	return nil
 }

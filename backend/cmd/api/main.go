@@ -8,9 +8,11 @@ import (
 	"fmt"
 	"log/slog"
 	"net"
+	"net/http"
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
@@ -24,10 +26,42 @@ import (
 )
 
 func main() {
+	run := run
+	if len(os.Args) > 1 && os.Args[1] == "healthcheck" {
+		run = healthcheck
+	}
 	if err := run(); err != nil {
 		fmt.Fprintln(os.Stderr, "api:", err)
 		os.Exit(1)
 	}
+}
+
+// healthcheck probes the local liveness endpoint. Runtime images are distroless (no shell or
+// curl), so container healthchecks invoke the binary itself: `api healthcheck`.
+func healthcheck() error {
+	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	_, port, err := net.SplitHostPort(cfg.HTTP.Addr)
+	if err != nil {
+		return fmt.Errorf("parse RISKOS_HTTP_ADDR: %w", err)
+	}
+	ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+	defer cancel()
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, "http://"+net.JoinHostPort("127.0.0.1", port)+"/health/live", nil)
+	if err != nil {
+		return err
+	}
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil {
+		return fmt.Errorf("liveness probe: %w", err)
+	}
+	defer func() { _ = resp.Body.Close() }()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("liveness probe: status %d", resp.StatusCode)
+	}
+	return nil
 }
 
 func run() (err error) {

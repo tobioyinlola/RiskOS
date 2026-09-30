@@ -75,6 +75,7 @@ func TestLoadRejectsInvalid(t *testing.T) {
 		{"bad log level", func(e map[string]string) { e["RISKOS_LOG_LEVEL"] = "loud" }, "RISKOS_LOG_LEVEL"},
 		{"sample ratio out of range", func(e map[string]string) { e["RISKOS_OTEL_SAMPLE_RATIO"] = "1.5" }, "RISKOS_OTEL_SAMPLE_RATIO"},
 		{"production requires redis password", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "RISKOS_REDIS_PASSWORD"},
+		{"production requires verified postgres TLS", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "sslmode=verify-full"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
