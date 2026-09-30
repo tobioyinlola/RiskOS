@@ -549,7 +549,7 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
 2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
 3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
-4. Risk engine: rules, velocity, scoring, decision policy.
+4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval, auto-block and hard-block deferred (Appendix B).
 5. Alerts, cases, notes, resolution.
 6. Webhooks with signing and delivery logs.
 7. Dashboard on the generated client.
@@ -647,6 +647,18 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
+### A.6 Risk engine (build step 4)
+
+| Area | What is built |
+|---|---|
+| Signals | Ten built-in signals: the spec's five at its weights plus failed-login bursts, shared devices, recent credential changes, beneficiary fan-in and a cold-start `new_user` signal ([RISK_ENGINE.md](RISK_ENGINE.md)) |
+| Feature store | Redis, one pipelined round trip per evaluation within `RISKOS_FEATURE_TIMEOUT`; identifiers HMAC-keyed per tenant (`RISKOS_FEATURE_HASH_KEY`); seen sets, velocity buckets, HyperLogLogs, amount baselines that high-risk events never update |
+| Policy | Score capped at 100, levels, STEP_UP for MEDIUM with strengthenable signals, REVIEW for HIGH where step-up is impossible; per-event-type fail-open/closed; REVIEW floor for high-value events while degraded; BLOCK never produced |
+| Rules | Typed JSON conditions (no code, no regex), bounded (depth 6, 50 nodes, 200 rules per environment), versioned insert-only with rollback, shadow mode, test endpoint, audited; cached per environment for 5 s |
+| Settings | Per-environment signal weights (0-50), high-value thresholds (default 1,000,000 minor units, per-currency overrides), fail policies; audited (`risk:configure`) |
+| Reproducibility | Evaluations store rule versions, facts, shadow signals and policy reasons |
+| Measured | 100 events/s: p95 12.5-13.2 ms; 500 events/s: p95 58-77 ms in two runs, saturated in a third (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md) section 4) |
+
 ## Appendix B. Recorded deviations
 
 | Design says | Implementation | Record |
@@ -659,4 +671,9 @@ password.
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
+| Rules: four-eyes promotion to production (sections 10, 16) | Rules can be created, tested, versioned and rolled back; a `rules:write` key changes production rules directly (audited). Approval before a production change applies comes with the other four-eyes controls | TODO(phase-8) |
+| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Not built: the engine never returns BLOCK. Auto-block needs shadow evidence and a kill switch; hard-block needs deny-lists | TODO(phase-8) |
+| Degradation raised as a Security Center event (section 16.8) | Degraded evaluations are logged as warnings and recorded; the Security Center arrives with alerts and the console | TODO(phase-8) |
+| Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |
+| Rule pattern matching with RE2 (section 10) | No pattern matching at all in rule conditions: equality, comparison and set membership only | This appendix |
 | CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), govulncheck, Trivy, gitleaks and SBOMs are in CI. Static analysis with CodeQL and image signing arrive with the deployment pipeline | TODO(phase-7) |

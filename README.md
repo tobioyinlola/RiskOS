@@ -9,10 +9,11 @@ analysts investigate as cases, and every material action is audited.
 Product specification (source of truth): [`docs/spec/`](docs/spec/RiskOS_Complete_Implementation_Specification.md).
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> **Status:** build steps 1-3 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
-> Built: the platform, tenants, environments, API keys, the hash-chained audit log, RBAC, and event
-> ingest with idempotency, strict validation, rate limits and a synchronous decision from a **stub**
-> engine (every event is LOW/ALLOW until the risk engine lands in step 4).
+> **Status:** build steps 1-4 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
+> Built: the platform, tenants, environments, API keys, the hash-chained audit log, RBAC, event
+> ingest with idempotency, strict validation and rate limits, and the risk engine: ten behavioral
+> signals, tenant rules (versioned, shadow mode, testable), tunable weights and a decision policy
+> that fails safe ([docs/RISK_ENGINE.md](docs/RISK_ENGINE.md)). Next: alerts and cases (step 5).
 
 ## Prerequisites
 
@@ -56,7 +57,9 @@ make audit-verify TENANT=ten_...
 ```
 
 If your local database predates build step 2, run `make clean && make up` once (the application
-database role is created when the volume is first initialized).
+database role is created when the volume is first initialized). If your `.env` predates build
+step 4, copy `RISKOS_FEATURE_HASH_KEY` from `.env.example` into it (`make up` stops with a message
+naming the missing variable otherwise).
 
 ## Everyday workflows
 

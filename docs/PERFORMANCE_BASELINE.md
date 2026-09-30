@@ -83,6 +83,48 @@ laptop, where k6, the API, PostgreSQL and Redis share four cores; the median bar
 the dominant cost. Re-measure on separated, production-like hosts before treating the tail as a
 product number, and before build step 4 adds real signal generators.
 
+## 4. Decision path with the real engine (build step 4, `risk-engine-1.0.0`)
+
+Same path as §3 plus the feature-store round trip (one Redis pipeline: seen sets, velocity script,
+HyperLogLogs), rule evaluation, the policy, and the amount-baseline write for low-risk debits. The
+load uses one user, account and device per k6 VU (100 pre-allocated, up to 1,000) paying one
+beneficiary, so velocity and fan-in signals fire during the run. Same laptop; `RISKOS_FEATURE_TIMEOUT` at its 50 ms default.
+
+| Run | Offered | Achieved | Failed | Dropped | Median | p90 | p95 | p99 | Max |
+|---|---|---|---|---|---|---|---|---|---|
+| 1 | 100 events/s | 100/s | 0 | 0 | 8.1 ms | 10.7 ms | **12.5 ms** | 21.0 ms | 86 ms |
+| 2 | 100 events/s | 100/s | 0 | 0 | 8.1 ms | 10.5 ms | **13.2 ms** | 106 ms | 239 ms |
+| 1 | 500 events/s | 500/s | 0 | 0 | 15.2 ms | 58.2 ms | **76.6 ms** | 106 ms | 157 ms |
+| 2 | 500 events/s | 500/s | 0 | 12 | 15.8 ms | 39.0 ms | **58.0 ms** | 112 ms | 246 ms |
+| 3 | 500 events/s | 463/s | 0 | 708 | 38.2 ms | 719 ms | **856 ms** | 1,033 ms | 1,114 ms |
+
+CPU at 500/s: API ≈190%, PostgreSQL ≈160%, Redis ≈60% of a 4-core / 8-thread laptop that also
+runs k6. Five evaluations across the 500/s runs exceeded the 50 ms feature timeout at the tail and
+were degraded (fail-closed to REVIEW, logged), which is the designed behavior under overload.
+
+Against the targets: at 100 events/s the p95 is unchanged from the stub engine (13.5 → 12.5–13.2
+ms). At the 500 events/s design peak, two of three runs are within the spec ceiling (p95 < 200 ms)
+and better than the stub-engine run in §3; the third saturated the machine (dropped iterations,
+queueing) and did not. The design peak is therefore **not demonstrated on this laptop**; it must
+be re-measured on separated hosts (TODO(phase-8)).
+
+What the measurements changed:
+
+1. **`EVAL` → `EVALSHA`.** Redis commandstats showed each pipelined script call sending its whole
+   body at ≈100 µs per call. Scripts are now loaded once and called by SHA: ≈20 µs per call.
+   go-redis v9.22's `Script.Load` on a pipeline overwrites the script's SHA with an empty string, so
+   the store loads script sources with `SCRIPT LOAD` directly; the first measurement after the
+   change was invalid (every script call failed with `NOSCRIPT` and fell back to degraded) until
+   this was found.
+2. **Evaluations of ingested events no longer duplicate the event** in their `features` column (it
+   is in `events`); dry runs keep it. Less JSON to encode and less WAL per event.
+3. **A larger database pool made it worse** (40 connections: p95 3.2 s), so the tail is contention
+   in a saturated machine, not pool starvation.
+
+A CPU profile of the API at 500/s (pprof, taken with a temporary local build) put ≈29% of API CPU
+in system calls (network I/O through Docker Desktop's VM), ≈30% under PostgreSQL round trips
+and ≈10% in the feature store.
+
 ## Findings
 
 1. **Latency is far inside budget.** At 2,000 req/s the p99 of the full network path is below
