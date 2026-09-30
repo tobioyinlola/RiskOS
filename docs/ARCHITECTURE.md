@@ -547,7 +547,7 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 **Build order**
 
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
-2. Tenants, environments, API keys, audit log, RBAC.
+2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
 3. Event ingest with idempotency, then a stub evaluation.
 4. Risk engine: rules, velocity, scoring, decision policy.
 5. Alerts, cases, notes, resolution.
@@ -561,8 +561,8 @@ The first milestone is the thin vertical slice: tenant, API key, event, validati
 
 ## Appendix A. Implementation status
 
-What exists in the repository today (build step 1). Everything above that is not listed here is
-designed but not yet built.
+What exists in the repository today (build steps 1 and 2). Everything above that is not listed
+here is designed but not yet built.
 
 ### A.1 Repository layout
 
@@ -600,7 +600,10 @@ Each domain module has the shape `internal/<module>/` (public interface only) pl
 | River only inside `internal/jobs` | depguard `queue-implementation-confined` |
 | Composition only in `cmd/*`; configuration read only there; no OpenTelemetry or slog globals | forbidigo |
 | No `init()`, no mutable package-level state | gochecknoinits, gochecknoglobals |
-| Tenant-scoped query parameters (section 8, layer 1) | Not yet: arrives with the first tenant tables (build step 2) |
+| Tenant-scoped query parameters (section 8, layer 1) | Every sqlc query on a tenant table takes `tenant_id` and `environment_id`; stores read them from the scope and only run inside a scoped transaction (`db.TxFrom`) |
+| Row-level security (section 8, layer 2) | Policies on every tenant table; api, worker and riskosctl connect as `riskos_app` (no BYPASSRLS, owns nothing) |
+| Cross-tenant test matrix (section 8, layer 3) | `backend/test/integration/tenancy_test.go`, required in CI |
+| Tenant scope created only by auth, tenant bootstrap and operator tooling | forbidigo rule on `tenancy.WithScope` |
 
 ### A.3 Request lifecycle (in place)
 
@@ -619,6 +622,18 @@ Configuration is environment-only (`RISKOS_*`), loaded once in `cmd/*`, validate
 passed down explicitly. Production additionally requires verified Postgres TLS and a Redis
 password.
 
+### A.4 Tenancy, API keys, audit and RBAC (build step 2)
+
+| Area | What is built |
+|---|---|
+| Tenants | `tenants` + `environments` (test, production), region pinned at creation, status (active, suspended, disabled). Created by `riskosctl tenant create` in one audited transaction together with the first key |
+| Tenant context | `platform/tenancy.Scope` (tenant, environment, principal) in the request context; `platform/txn.Runner` opens a transaction and sets `app.tenant_id` / `app.environment_id` transaction-locally for RLS |
+| API keys | `rsk_test_`/`rsk_live_` + 12-char lookup + 32-char secret; HMAC-SHA256 with a pepper (`RISKOS_API_KEY_PEPPER`) stored, constant-time compare; scopes; create, list, rotate (overlap 0-7 days), revoke; a key cannot grant or rotate scopes it lacks |
+| Authentication | Middleware on `/api/v1/` before routing; lookup through the `auth_lookup_api_key` SECURITY DEFINER function (the only cross-tenant query); lookup cache TTL 5 s = revocation staleness bound; uniform 401; 403 `TENANT_SUSPENDED` only after the key verifies |
+| RBAC | `platform/authz`: permission catalog, customer roles (customer_admin, developer, risk_manager, analyst), internal roles with no tenant access; `authz.Require` in services; deny by default |
+| Audit log | `audit_log` + `audit_chain_heads`; append-only (grants + trigger); per-tenant SHA-256 chain over a canonical encoding, written in the action's transaction; `riskosctl audit verify` recomputes the chain as the owner |
+| API | `GET /api/v1/whoami`, `GET/POST /api/v1/api-keys`, `POST …/{id}/rotate`, `POST …/{id}/revoke`, `GET /api/v1/audit-logs`; cursor pagination |
+
 ## Appendix B. Recorded deviations
 
 | Design says | Implementation | Record |
@@ -626,4 +641,8 @@ password.
 | OpenAPI 3.1 | OpenAPI 3.0.3 until oapi-codegen fully supports 3.1 | [ADR-0004](adr/ADR-0004-openapi-3-0.md) |
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
+| Build step 2 includes dashboard authentication (password, MFA, sessions) | Only the API realm is built. The dashboard realm is built with the dashboard (build step 7) on the same `authz` roles and permissions | TODO(phase-6) |
+| Per-key rate limits (section 9) | Deferred to build step 3, with event ingest, where they protect the hot path | TODO(phase-2) |
+| Strict schema validation at the edge | oapi-codegen does not enforce schema constraints or reject unknown fields; step 2 services validate explicitly. Contract-driven request validation arrives with event ingest | TODO(phase-2) |
+| Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
 | CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), govulncheck, Trivy, gitleaks and SBOMs are in CI. Static analysis with CodeQL and image signing arrive with the deployment pipeline | TODO(phase-7) |

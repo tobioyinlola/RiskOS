@@ -2,7 +2,7 @@
 
 **Purpose:** how tenant isolation is guaranteed across the API, services, storage, cache, jobs
 and logs. Design: [ARCHITECTURE.md §8](ARCHITECTURE.md#8-tenancy-and-isolation). Status:
-**designed; implementation in build step 2.**
+**built (build step 2)** for the API realm; tests in `backend/test/integration/tenancy_test.go`.
 
 ## Model
 
@@ -32,12 +32,29 @@ for authorization and rejected if it disagrees with the credential.
 
 | Layer | Mechanism | Proof |
 |---|---|---|
-| Application | Every sqlc query on a tenant table takes `tenant_id` and `environment_id` parameters; a lint check and review reject queries without them | Lint check in CI |
+| Application | Every sqlc query on a tenant table takes `tenant_id` and `environment_id` parameters, filled from the scope by the store; stores only run inside a scoped transaction | Code review (an automated SQL check is a TODO(phase-7) hardening item); RLS catches any miss |
 | Database | Row-level security policies compare each row to `current_setting('app.tenant_id')` and `app.environment_id`, set with `SET LOCAL` inside each transaction. The application role has no `BYPASSRLS` and does not own the tables | Integration test: a query without the setting returns no rows |
-| Test | A matrix calls every endpoint with every ID type belonging to a second tenant and expects a uniform 404 | `backend/test/security`, required in CI |
+| Test | A matrix calls every ID-taking operation with IDs of another tenant and of the other environment, and expects the same 404 as a nonexistent ID | `backend/test/integration/tenancy_test.go`, required in CI |
 
 `SET LOCAL` is transaction-scoped, so it cannot leak through a pooled connection, including under
 PgBouncer transaction pooling.
+
+## Implementation
+
+| Piece | Where |
+|---|---|
+| Scope type and context helpers | `backend/internal/platform/tenancy` |
+| Scoped transaction (`SET LOCAL` semantics via `set_config(..., true)`) | `backend/internal/platform/db/tx.go` |
+| RLS policies, `riskos_app` grants, `auth_lookup_api_key` | `backend/db/migrations/00002_tenancy_auth_audit.sql` |
+| Application role login (local) | `infra/postgres/init/10-app-role.sh`; migrations use `RISKOS_POSTGRES_MIGRATION_URL` (owner) |
+| Who may create a scope | forbidigo rule on `tenancy.WithScope`: auth middleware, tenant bootstrap, `cmd/*`, tests |
+
+Operator tooling (`riskosctl`) acts through the same application role and RLS as customers,
+with its operator's name as the audit actor. Only audit-chain verification reads as the owner,
+because it must see every environment's entries.
+
+Existing local databases created before build step 2 lack the `riskos_app` login: run
+`make clean && make up` once.
 
 ## Internal support access
 

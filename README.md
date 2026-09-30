@@ -9,9 +9,10 @@ analysts investigate as cases, and every material action is audited.
 Product specification (source of truth): [`docs/spec/`](docs/spec/RiskOS_Complete_Implementation_Specification.md).
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> **Status:** foundation only. The platform (HTTP stack, configuration, logging, telemetry,
-> database, Redis, job queue, CI and quality gates) is in place. The domain (tenants, API keys,
-> events, risk engine, alerts, cases, …) is designed next, in phase-0.
+> **Status:** build steps 1-2 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
+> The platform (HTTP, configuration, logging, telemetry, database, Redis, jobs, CI) plus tenants,
+> environments, API keys, the hash-chained audit log and RBAC are built. Event ingest and the
+> risk engine come next.
 
 ## Prerequisites
 
@@ -40,6 +41,18 @@ open http://localhost:3000             # console shell
 `make up` builds the images, starts PostgreSQL, Redis and the OpenTelemetry Collector, runs
 migrations, then starts the API, worker and frontend, and waits until everything is healthy.
 `make down` stops the stack (keeping data); `make clean` also deletes the volumes.
+
+### Create a tenant and call the API
+
+```bash
+make tenant NAME="Acme" REGION=eu-west-1 OPERATOR=you@example.com   # prints a test key once
+curl -s -H "Authorization: Bearer rsk_test_..." localhost:8080/api/v1/whoami
+make apikey TENANT=ten_... ENV=production NAME=ci OPERATOR=you@example.com
+make audit-verify TENANT=ten_...
+```
+
+If your local database predates build step 2, run `make clean && make up` once (the application
+database role is created when the volume is first initialized).
 
 ## Everyday workflows
 
