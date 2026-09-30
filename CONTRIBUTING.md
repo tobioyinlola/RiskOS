@@ -5,12 +5,24 @@ the compiler and linters enforce.
 
 ## Workflow
 
-1. Branch from `main`: `feat/<topic>`, `fix/<topic>`, …
+Branches:
+
+- **`main`** is the reviewed, releasable line. It changes **only** through a pull request from
+  `staging` on GitHub. The pre-push hook rejects direct pushes to `main`.
+- **`staging`** is where work lands and CI runs. Dependabot also targets `staging`.
+- Larger changes may use short-lived branches (`feat/<topic>`, `fix/<topic>`) merged into
+  `staging` first.
+
+Steps:
+
+1. Work on `staging` (or a topic branch cut from it).
 2. API change? Edit `backend/api/openapi.yaml` **first**, run `make generate`, then implement.
 3. Keep commits small and logical, using [Conventional Commits](https://www.conventionalcommits.org):
    `feat(events): validate event timestamps`. The `commit-msg` hook checks this.
-4. Run `make check` (what CI runs) before opening a PR. At minimum, run `make lint test-race`.
-5. Open a PR and complete the **security checklist** in the template.
+4. Run `make check` (what CI runs) before pushing. At minimum, run `make lint test-race`.
+5. `git push origin staging` and wait for CI to pass on `staging`.
+6. On GitHub, open a pull request **staging → main** and complete the **security checklist** in
+   the template.
 
 Significant or hard-to-reverse decisions get an ADR in `docs/adr/` (copy `TEMPLATE.md`).
 
