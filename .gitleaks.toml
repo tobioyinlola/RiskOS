@@ -11,4 +11,7 @@ paths = [
   '''(^|/)bin/''',
   '''(^|/)playwright-report/''',
   '''(^|/)test-results/''',
+  # Generated from backend/api/openapi.yaml (which is scanned); contains the spec as a
+  # gzip+base64 blob whose chunks match generic key patterns.
+  '''^backend/internal/apigen/apigen\.gen\.go$''',
 ]

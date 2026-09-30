@@ -5,6 +5,7 @@
 package sqlcgen
 
 import (
+	"net/netip"
 	"time"
 
 	"github.com/google/uuid"
@@ -54,6 +55,60 @@ type Environment struct {
 	TenantID  uuid.UUID
 	Kind      string
 	CreatedAt time.Time
+}
+
+type Evaluation struct {
+	TenantID        uuid.UUID
+	EnvironmentID   uuid.UUID
+	ID              uuid.UUID
+	CreatedAt       time.Time
+	EventID         *uuid.UUID
+	EventKey        string
+	DryRun          bool
+	EngineVersion   string
+	RuleVersions    []string
+	Features        []byte
+	RiskScore       int16
+	RiskLevel       string
+	Decision        string
+	Signals         []byte
+	DegradedSignals []string
+	RequestID       string
+	DurationUs      int32
+}
+
+type Event struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	ReceivedAt    time.Time
+	EventKey      string
+	Type          string
+	OccurredAt    time.Time
+	UserRef       string
+	AccountRef    *string
+	DeviceRef     *string
+	SessionRef    *string
+	Ip            *netip.Addr
+	Country       *string
+	RawPayload    string
+	Normalized    []byte
+	PayloadHash   []byte
+	EvaluationID  uuid.UUID
+	RiskScore     int16
+	RiskLevel     string
+	Decision      string
+	RequestID     string
+}
+
+type EventIdempotency struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	EventKey      string
+	PayloadHash   []byte
+	EventID       uuid.UUID
+	Response      *string
+	CreatedAt     time.Time
 }
 
 type Tenant struct {

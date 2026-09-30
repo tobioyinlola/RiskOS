@@ -45,11 +45,21 @@ func NewQueue(pool *pgxpool.Pool, registry *Registry, cfg QueueConfig, logger *s
 			return nil, fmt.Errorf("register job handler: %w", err)
 		}
 	}
+	periodic := make([]*river.PeriodicJob, 0, len(registry.periodic))
+	for _, p := range registry.periodic {
+		args := p.args
+		periodic = append(periodic, river.NewPeriodicJob(
+			river.PeriodicInterval(p.interval),
+			func() (river.JobArgs, *river.InsertOpts) { return args, nil },
+			&river.PeriodicJobOpts{RunOnStart: true},
+		))
+	}
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Logger:     logger,
-		JobTimeout: cfg.JobTimeout,
-		Workers:    workers,
-		Queues:     map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.Concurrency}},
+		Logger:       logger,
+		JobTimeout:   cfg.JobTimeout,
+		Workers:      workers,
+		PeriodicJobs: periodic,
+		Queues:       map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.Concurrency}},
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create river client: %w", err)

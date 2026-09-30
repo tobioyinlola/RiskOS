@@ -21,6 +21,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
@@ -28,8 +29,10 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 )
 
@@ -44,18 +47,35 @@ type stack struct {
 
 func newStack(t *testing.T, cacheTTL time.Duration) stack {
 	t.Helper()
+	return newStackWithLimits(t, cacheTTL, generousLimits())
+}
+
+// generousLimits keep rate limiting out of the way of tests that are not about it.
+func generousLimits() httpapi.RateLimits {
+	return httpapi.RateLimits{
+		PerKey:    ratelimit.Limit{PerSecond: 10000, Burst: 10000},
+		PerTenant: ratelimit.Limit{PerSecond: 10000, Burst: 10000},
+	}
+}
+
+func newStackWithLimits(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits) stack {
+	t.Helper()
 	tel, err := telemetry.Setup(t.Context(), config.Telemetry{}, "integration", config.EnvTest)
 	require.NoError(t, err)
 	clk := clock.System{}
 	runner := db.NewTxRunner(shared.pool)
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{Pepper: []byte(testPepper), CacheTTL: cacheTTL})
+	h, err := httpapi.New(httpapi.Deps{
+		Logger: shared.logger, Clock: clk, Telemetry: tel,
+		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
+		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
+		Events:  events.New(runner, risk.New(runner, clk).Evaluator(), clk),
+		Limiter: ratelimit.New(shared.rdb), RateLimits: limits,
+	})
+	require.NoError(t, err)
 	return stack{
-		handler: httpapi.New(httpapi.Deps{
-			Logger: shared.logger, Clock: clk, Telemetry: tel,
-			HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
-			Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		}),
+		handler: h,
 		tenants: tenants.New(runner, auditModule.Recorder()),
 		auth:    authModule,
 	}
@@ -115,24 +135,35 @@ func (r response) errorCode(t *testing.T) string {
 
 func (s stack) call(t *testing.T, method, path, key string, body any) response {
 	t.Helper()
-	var reader *bytes.Reader
+	rec := s.rawCall(t, method, path, key, body)
+	return response{status: rec.Code, raw: rec.Body.Bytes()}
+}
+
+// rawCall sends body as JSON and returns the recorder, for tests that inspect headers.
+func (s stack) rawCall(t *testing.T, method, path, key string, body any) *httptest.ResponseRecorder {
+	t.Helper()
+	var payload string
 	if body != nil {
 		b, err := json.Marshal(body)
 		require.NoError(t, err)
-		reader = bytes.NewReader(b)
-	} else {
-		reader = bytes.NewReader(nil)
+		payload = string(b)
 	}
-	req := httptest.NewRequestWithContext(t.Context(), method, path, reader)
+	return s.rawBody(t, method, path, key, payload)
+}
+
+// rawBody sends payload verbatim (possibly malformed).
+func (s stack) rawBody(t *testing.T, method, path, key, payload string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(t.Context(), method, path, strings.NewReader(payload))
 	if key != "" {
 		req.Header.Set("Authorization", "Bearer "+key)
 	}
-	if body != nil {
+	if payload != "" {
 		req.Header.Set("Content-Type", "application/json")
 	}
 	rec := httptest.NewRecorder()
 	s.handler.ServeHTTP(rec, req)
-	return response{status: rec.Code, raw: rec.Body.Bytes()}
+	return rec
 }
 
 func (s stack) createKey(t *testing.T, key, name string, scopes ...string) (id, secret string) {
@@ -171,7 +202,7 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	who := decode[apigen.Whoami](t, r)
 	assert.Equal(t, ids.Format(ids.PrefixTenant, a.id), who.TenantId)
 	assert.Equal(t, apigen.Environment("test"), who.Environment)
-	assert.ElementsMatch(t, []apigen.Scope{"api_keys:read", "api_keys:write", "audit_logs:read"}, who.Scopes)
+	assert.ElementsMatch(t, []apigen.Scope{"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate"}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.
 	logs := s.call(t, http.MethodGet, "/api/v1/audit-logs", a.testKey, nil)

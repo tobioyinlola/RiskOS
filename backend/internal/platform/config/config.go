@@ -37,6 +37,15 @@ type Config struct {
 	Redis     Redis
 	Telemetry Telemetry
 	Auth      Auth
+	RateLimit RateLimit
+}
+
+// RateLimit configures per-API-key and per-tenant request limits (sustained rate and burst).
+type RateLimit struct {
+	KeyPerSecond    float64
+	KeyBurst        int
+	TenantPerSecond float64
+	TenantBurst     int
 }
 
 // Auth configures API key authentication. It is validated only by the binaries that
@@ -135,6 +144,12 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	r := reader{lookup: lookup}
 
 	cfg := Config{
+		RateLimit: RateLimit{
+			KeyPerSecond:    r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),
+			KeyBurst:        r.integer("RISKOS_RATE_LIMIT_KEY_BURST", 200),
+			TenantPerSecond: r.float("RISKOS_RATE_LIMIT_TENANT_PER_SECOND", 500),
+			TenantBurst:     r.integer("RISKOS_RATE_LIMIT_TENANT_BURST", 1000),
+		},
 		Auth: Auth{
 			APIKeyPepper:   r.str("RISKOS_API_KEY_PEPPER", ""),
 			APIKeyCacheTTL: r.duration("RISKOS_API_KEY_CACHE_TTL", MaxAPIKeyCacheTTL),
@@ -240,6 +255,13 @@ func (c Config) validate() []error {
 	}
 	if c.HTTP.MaxBodyBytes < 1 {
 		add("RISKOS_HTTP_MAX_BODY_BYTES: must be positive")
+	}
+
+	if c.RateLimit.KeyPerSecond <= 0 || c.RateLimit.TenantPerSecond <= 0 {
+		add("RISKOS_RATE_LIMIT_*_PER_SECOND: must be positive")
+	}
+	if c.RateLimit.KeyBurst < 1 || c.RateLimit.TenantBurst < 1 {
+		add("RISKOS_RATE_LIMIT_*_BURST: must be at least 1")
 	}
 
 	if c.Worker.Concurrency < 1 {

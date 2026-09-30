@@ -19,6 +19,7 @@ const (
 	CodeForbidden          = "FORBIDDEN"
 	CodeTenantSuspended    = "TENANT_SUSPENDED"
 	CodeConflict           = "CONFLICT"
+	CodeRateLimited        = "RATE_LIMITED"
 	CodeNotFound           = "NOT_FOUND"
 	CodeMethodNotAllowed   = "METHOD_NOT_ALLOWED"
 	CodePayloadTooLarge    = "PAYLOAD_TOO_LARGE"

@@ -16,6 +16,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
@@ -28,6 +29,7 @@ type server struct {
 	*health.Handlers
 	auth.CredentialHandlers
 	audit.LogHandlers
+	events.IngestHandlers
 }
 
 var _ apigen.StrictServerInterface = server{}
@@ -41,16 +43,25 @@ type Deps struct {
 	Health    *health.Service
 	Auth      *auth.Module
 	Audit     *audit.Module
+	Events    *events.Module
+	// Limiter enforces RateLimits on authenticated requests.
+	Limiter    Allower
+	RateLimits RateLimits
 }
 
 // New returns the root handler.
 //
 // Middleware order (outermost first): tracing, request ID, access log, panic recovery, route
-// telemetry, security headers, request timeout, body limit, authentication, then routing.
-// Tracing wraps everything so the span covers the whole request; recovery sits inside the access
-// log so panics are logged with a 500 status; authentication runs before routing so unknown
-// /api/v1 paths cannot be probed without a key.
-func New(d Deps) http.Handler {
+// telemetry, security headers, request timeout, body limit, authentication, rate limiting, then
+// routing and, per operation, contract validation. Tracing wraps everything so the span covers
+// the whole request; recovery sits inside the access log so panics are logged with a 500 status;
+// authentication runs before routing so unknown /api/v1 paths cannot be probed without a key;
+// rate limits apply to authenticated callers only; contract validation needs the matched route.
+func New(d Deps) (http.Handler, error) {
+	validator, err := newContractValidator(d.Logger)
+	if err != nil {
+		return nil, err
+	}
 	r := chi.NewRouter()
 	r.Use(
 		httpx.RequestID,
@@ -61,6 +72,7 @@ func New(d Deps) http.Handler {
 		httpx.Timeout(d.HTTP.RequestTimeout),
 		httpx.BodyLimit(d.HTTP.MaxBodyBytes, d.Logger),
 		d.Auth.Middleware(d.Logger),
+		rateLimit(d.Limiter, d.RateLimits, d.Logger),
 	)
 	r.NotFound(httpx.NotFoundHandler(d.Logger))
 	r.MethodNotAllowed(httpx.MethodNotAllowedHandler(d.Logger))
@@ -70,6 +82,7 @@ func New(d Deps) http.Handler {
 		Handlers:           health.NewHandlers(d.Health),
 		CredentialHandlers: d.Auth.HTTPHandlers(),
 		LogHandlers:        d.Audit.HTTPHandlers(),
+		IngestHandlers:     d.Events.HTTPHandlers(),
 	}
 	strict := apigen.NewStrictHandlerWithOptions(impl, nil, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {
@@ -78,7 +91,8 @@ func New(d Deps) http.Handler {
 		ResponseErrorHandlerFunc: writeErr,
 	})
 	apigen.HandlerWithOptions(strict, apigen.ChiServerOptions{
-		BaseRouter: r,
+		BaseRouter:  r,
+		Middlewares: []apigen.MiddlewareFunc{validator.middleware},
 		ErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {
 			writeErr(w, req, httpx.InvalidRequest("The request parameters are invalid.", err))
 		},
@@ -88,5 +102,5 @@ func New(d Deps) http.Handler {
 		otelhttp.WithTracerProvider(d.Telemetry.TracerProvider),
 		otelhttp.WithMeterProvider(d.Telemetry.MeterProvider),
 		otelhttp.WithPropagators(d.Telemetry.Propagator),
-	)
+	), nil
 }

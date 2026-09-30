@@ -20,12 +20,15 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 type fixture struct {
@@ -47,7 +50,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 	authModule, auditModule := testModules()
 	return fixture{
 		logs: logs,
-		handler: httpapi.New(httpapi.Deps{
+		handler: must(t)(httpapi.New(httpapi.Deps{
 			Logger:    logger,
 			Clock:     clock.System{},
 			HTTP:      config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 1024},
@@ -55,7 +58,9 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 			Health:    health.NewService(logger, checks...),
 			Auth:      authModule,
 			Audit:     auditModule,
-		}),
+			Events:    eventsModule(),
+			Limiter:   allowAll{},
+		})),
 	}
 }
 
@@ -193,7 +198,7 @@ func BenchmarkLiveness(b *testing.B) {
 	tel, err := telemetry.Setup(context.Background(), config.Telemetry{}, "bench", config.EnvTest)
 	require.NoError(b, err)
 	authModule, auditModule := testModules()
-	h := httpapi.New(httpapi.Deps{
+	h := must(b)(httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clock.System{},
 		HTTP:      config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 1 << 20},
@@ -201,7 +206,9 @@ func BenchmarkLiveness(b *testing.B) {
 		Health:    health.NewService(logger),
 		Auth:      authModule,
 		Audit:     auditModule,
-	})
+		Events:    eventsModule(),
+		Limiter:   allowAll{},
+	}))
 	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/health/live", nil)
 	b.ReportAllocs()
 	for b.Loop() {
@@ -235,4 +242,23 @@ func testModules() (*auth.Module, *audit.Module) {
 	return auth.New(noKeys{}, noDB{}, auditModule.Recorder(), clock.System{}, auth.Config{
 		Pepper: []byte(strings.Repeat("p", 32)),
 	}), auditModule
+}
+
+// allowAll is a rate limiter that never limits.
+type allowAll struct{}
+
+func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, error) {
+	return ratelimit.Decision{Allowed: true}, nil
+}
+
+func eventsModule() *events.Module {
+	return events.New(noDB{}, risk.New(noDB{}, clock.System{}).Evaluator(), clock.System{})
+}
+
+func must(t testing.TB) func(http.Handler, error) http.Handler {
+	return func(h http.Handler, err error) http.Handler {
+		t.Helper()
+		require.NoError(t, err)
+		return h
+	}
 }

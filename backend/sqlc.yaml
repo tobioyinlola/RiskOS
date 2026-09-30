@@ -29,6 +29,9 @@ sql:
           - db_type: timestamptz
             nullable: true
             go_type: { import: time, type: Time, pointer: true }
+          - db_type: inet
+            nullable: true
+            go_type: { import: net/netip, type: Addr, pointer: true }
 
   - engine: postgresql
     schema: db/migrations
@@ -53,3 +56,19 @@ sql:
       go:
         <<: *go
         out: internal/audit/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/events
+    gen:
+      go:
+        <<: *go
+        out: internal/events/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/risk
+    gen:
+      go:
+        <<: *go
+        out: internal/risk/internal/store/sqlcgen

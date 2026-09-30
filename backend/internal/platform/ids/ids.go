@@ -11,6 +11,7 @@ import (
 	"encoding/base32"
 	"errors"
 	"strings"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -44,6 +45,8 @@ const (
 	PrefixEnvironment = "env"
 	PrefixAPIKey      = "key"
 	PrefixAudit       = "aud"
+	PrefixEvent       = "evt"
+	PrefixEvaluation  = "evl"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.
@@ -53,6 +56,13 @@ var ErrInvalid = errors.New("invalid identifier")
 func NewV7() uuid.UUID {
 	// uuid.NewV7 only fails if the system random source fails, which crypto/rand treats as fatal.
 	return uuid.Must(uuid.NewV7())
+}
+
+// Time returns the creation time embedded in a UUIDv7 (millisecond precision, UTC). Tables that
+// are partitioned by time use it as the partition key, so a lookup by id selects one partition.
+func Time(id uuid.UUID) time.Time {
+	sec, nsec := id.Time().UnixTime()
+	return time.Unix(sec, nsec).UTC()
 }
 
 // Format renders id as "<prefix>_<base32>". Lexicographic order matches UUIDv7 time order.

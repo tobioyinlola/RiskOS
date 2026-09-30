@@ -63,6 +63,17 @@ func TestFormatPreservesTimeOrder(t *testing.T) {
 	assert.Less(t, a, b)
 }
 
+func TestTimeMatchesCreation(t *testing.T) {
+	before := time.Now().Truncate(time.Millisecond)
+	id := ids.NewV7()
+	after := time.Now()
+	got := ids.Time(id)
+	assert.False(t, got.Before(before), "%s before %s", got, before)
+	assert.False(t, got.After(after))
+	assert.Equal(t, time.UTC, got.Location())
+	assert.Equal(t, got, got.Truncate(time.Millisecond), "millisecond precision")
+}
+
 func TestParseRejects(t *testing.T) {
 	valid := ids.Format(ids.PrefixAPIKey, ids.NewV7())
 	nonCanonical := valid[:len(valid)-1] + "z" // sets the zero padding bits

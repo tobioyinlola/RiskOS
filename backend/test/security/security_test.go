@@ -23,13 +23,16 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpserver"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 // syncBuffer is a goroutine-safe log sink.
@@ -78,10 +81,12 @@ func startServer(t *testing.T) server {
 	tel, err := telemetry.Setup(t.Context(), cfg.Telemetry, "security-test", cfg.Env)
 	require.NoError(t, err)
 	authModule, auditModule := testModules()
-	h := httpapi.New(httpapi.Deps{
+	h, err := httpapi.New(httpapi.Deps{
 		Logger: logger, Clock: clock.System{}, HTTP: cfg.HTTP, Telemetry: tel,
 		Health: health.NewService(logger), Auth: authModule, Audit: auditModule,
+		Events: eventsModule(), Limiter: allowAll{},
 	})
+	require.NoError(t, err)
 
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
 	require.NoError(t, err)
@@ -234,4 +239,15 @@ func testModules() (*auth.Module, *audit.Module) {
 	return auth.New(noKeys{}, noDB{}, auditModule.Recorder(), clock.System{}, auth.Config{
 		Pepper: []byte(strings.Repeat("p", 32)),
 	}), auditModule
+}
+
+// allowAll is a rate limiter that never limits.
+type allowAll struct{}
+
+func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, error) {
+	return ratelimit.Decision{Allowed: true}, nil
+}
+
+func eventsModule() *events.Module {
+	return events.New(noDB{}, risk.New(noDB{}, clock.System{}).Evaluator(), clock.System{})
 }

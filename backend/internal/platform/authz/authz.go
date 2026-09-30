@@ -25,11 +25,14 @@ const (
 	APIKeysRead   Permission = "api_keys:read"
 	APIKeysWrite  Permission = "api_keys:write"
 	AuditLogsRead Permission = "audit_logs:read"
+	EventsWrite   Permission = "events:write"
+	EventsRead    Permission = "events:read"
+	RiskEvaluate  Permission = "risk:evaluate"
 )
 
 // CustomerPermissions returns every permission that can be granted to a customer credential.
 func CustomerPermissions() []Permission {
-	return []Permission{APIKeysRead, APIKeysWrite, AuditLogsRead}
+	return []Permission{APIKeysRead, APIKeysWrite, AuditLogsRead, EventsWrite, EventsRead, RiskEvaluate}
 }
 
 // IsCustomerPermission reports whether p exists and may be granted to a customer credential.
@@ -58,10 +61,12 @@ const (
 func RolePermissions(r Role) []Permission {
 	switch r {
 	case RoleCustomerAdmin:
-		return []Permission{APIKeysRead, APIKeysWrite, AuditLogsRead}
+		return CustomerPermissions()
 	case RoleDeveloper:
-		return []Permission{APIKeysRead, APIKeysWrite}
-	case RoleRiskManager, RoleAnalyst, RoleOperationsAdmin, RoleSecurityAdmin:
+		return []Permission{APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate}
+	case RoleRiskManager, RoleAnalyst:
+		return []Permission{EventsRead}
+	case RoleOperationsAdmin, RoleSecurityAdmin:
 		return nil
 	default:
 		return nil

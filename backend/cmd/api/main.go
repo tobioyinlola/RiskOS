@@ -16,6 +16,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -23,8 +24,10 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpserver"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 func main() {
@@ -110,7 +113,10 @@ func run() (err error) {
 		CacheTTL: cfg.Auth.APIKeyCacheTTL,
 	})
 
-	handler := httpapi.New(httpapi.Deps{
+	riskModule := risk.New(runner, clk)
+	eventsModule := events.New(runner, riskModule.Evaluator(), clk)
+
+	handler, err := httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clk,
 		HTTP:      cfg.HTTP,
@@ -118,7 +124,16 @@ func run() (err error) {
 		Health:    healthSvc,
 		Auth:      authModule,
 		Audit:     auditModule,
+		Events:    eventsModule,
+		Limiter:   ratelimit.New(rdb),
+		RateLimits: httpapi.RateLimits{
+			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
+			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},
+		},
 	})
+	if err != nil {
+		return err
+	}
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.HTTP.Addr)
 	if err != nil {
