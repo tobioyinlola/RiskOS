@@ -18,7 +18,7 @@ COPY . .
 # ---- build --------------------------------------------------------------------------------
 FROM source AS build
 RUN --mount=type=cache,target=/go/pkg/mod --mount=type=cache,target=/root/.cache/go-build \
-    for cmd in api worker migrate; do \
+    for cmd in api worker migrate riskosctl; do \
       go build -ldflags="-s -w" -o /out/$cmd ./cmd/$cmd || exit 1; \
     done
 
@@ -46,3 +46,8 @@ COPY --from=build /out/migrate /app/migrate
 USER nonroot:nonroot
 ENTRYPOINT ["/app/migrate"]
 CMD ["up"]
+
+FROM ${RUNTIME_IMAGE} AS riskosctl
+COPY --from=build /out/riskosctl /app/riskosctl
+USER nonroot:nonroot
+ENTRYPOINT ["/app/riskosctl"]

@@ -29,6 +29,12 @@ updates:
         patterns: ["vitest", "@vitest/*", "@testing-library/*", "@playwright/test", "jsdom"]
       lint:
         patterns: ["eslint", "eslint-*", "prettier", "prettier-*"]
+    ignore:
+      # ESLint 10 breaks eslint-plugin-react as bundled by eslint-config-next 16
+      # ("contextOrFilename.getFilename is not a function"). Remove when eslint-config-next
+      # supports ESLint 10.
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
     open-pull-requests-limit: 10
 
   - package-ecosystem: docker

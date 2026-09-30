@@ -1,25 +1,51 @@
 openapi: 3.0.3
 info:
   title: RiskOS API
-  version: 0.1.0
+  version: 0.3.0
   description: |
     RiskOS public HTTP contract. This file is the single source of truth: Go server stubs and the
     TypeScript client are generated from it (`make generate`), and CI fails if generated code drifts.
 
-    Only operational endpoints exist at this stage. Product endpoints (spec §7) are added here
-    first, during system design (TODO(phase-0)), and only then implemented.
+    **Authentication.** Every `/api/v1` operation requires an API key sent as
+    `Authorization: Bearer rsk_test_…` (test environment) or `rsk_live_…` (production). The key
+    determines the tenant and environment; no request field can change them. A key can only act
+    within its own environment and only with the scopes it holds.
+
+    **Errors** use one contract: `{"error":{"code","message","request_id"}}`.
+
+    **Idempotency.** `POST /api/v1/events` is idempotent on the event's `event_id` within the
+    key's environment. Retrying with the same payload returns the original response with the
+    header `Idempotent-Replay: true`; the same `event_id` with a different payload is rejected with
+    `409 IDEMPOTENCY_CONFLICT`.
+
+    **Rate limits.** Requests are limited per API key and per tenant. Excess requests get
+    `429 RATE_LIMITED` with `Retry-After` (seconds).
+
+    **Pagination.** List operations return `data` and `next_cursor`. Pass `next_cursor` back as
+    `cursor` to get the next page; `next_cursor` is null on the last page. Results are newest first.
 servers:
   - url: http://localhost:8080
     description: Local development
 tags:
   - name: health
     description: Liveness and readiness probes for orchestrators and load balancers.
+  - name: auth
+    description: The calling credential and API key management.
+  - name: audit
+    description: The tenant's tamper-evident audit trail.
+  - name: events
+    description: Event ingestion with a synchronous risk decision, and the event explorer.
+  - name: risk
+    description: Risk evaluation without ingestion.
+security:
+  - apiKey: []
 paths:
   /health/live:
     get:
       operationId: getLiveness
       tags: [health]
       summary: Liveness probe
+      security: []
       description: Returns 200 while the process is running and able to serve HTTP. Performs no dependency checks.
       responses:
         "200":
@@ -38,6 +64,7 @@ paths:
       operationId: getReadiness
       tags: [health]
       summary: Readiness probe
+      security: []
       description: |
         Returns 200 when every required dependency (PostgreSQL, Redis) answered within its check
         timeout, and 503 otherwise, including while the server is draining during shutdown.
@@ -63,7 +90,309 @@ paths:
                 $ref: "#/components/schemas/ReadinessResponse"
         default:
           $ref: "#/components/responses/DefaultError"
+
+  /api/v1/whoami:
+    get:
+      operationId: getWhoami
+      tags: [auth]
+      summary: Describe the calling credential
+      description: Returns the tenant, environment and scopes the presented API key resolves to. Requires no scope.
+      responses:
+        "200":
+          description: The authenticated credential.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Whoami"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/api-keys:
+    get:
+      operationId: listAPIKeys
+      tags: [auth]
+      summary: List API keys of the caller's environment
+      description: Requires scope `api_keys:read`. Secrets are never returned.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of API keys.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createAPIKey
+      tags: [auth]
+      summary: Create an API key in the caller's environment
+      description: |
+        Requires scope `api_keys:write`. The new key can only receive scopes the caller holds.
+        The secret is returned **once**, in this response; store it immediately.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateApiKeyRequest"
+      responses:
+        "201":
+          description: Created. Contains the only copy of the secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyWithSecret"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/api-keys/{key_id}/rotate:
+    post:
+      operationId: rotateAPIKey
+      tags: [auth]
+      summary: Rotate an API key
+      description: |
+        Requires scope `api_keys:write` and every scope of the rotated key. Creates a replacement
+        with the same name and scopes and returns its secret once. The old key keeps working for
+        the overlap window, then expires. A revoked or already-rotated key cannot be rotated.
+      parameters:
+        - $ref: "#/components/parameters/KeyId"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotateApiKeyRequest"
+      responses:
+        "201":
+          description: The replacement key. Contains the only copy of its secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKeyWithSecret"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/api-keys/{key_id}/revoke:
+    post:
+      operationId: revokeAPIKey
+      tags: [auth]
+      summary: Revoke an API key
+      description: |
+        Requires scope `api_keys:write`. Takes effect within seconds on every instance. Revoking an
+        already revoked key returns it unchanged.
+      parameters:
+        - $ref: "#/components/parameters/KeyId"
+      responses:
+        "200":
+          description: The revoked key.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ApiKey"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/audit-logs:
+    get:
+      operationId: listAuditLogs
+      tags: [audit]
+      summary: List audit entries
+      description: |
+        Requires scope `audit_logs:read`. Returns tenant-level entries and entries of the caller's
+        environment. Each entry carries its position in the tenant's hash chain.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of audit entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuditLogList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/events:
+    post:
+      operationId: ingestEvent
+      tags: [events]
+      summary: Ingest an event and get its risk decision
+      description: |
+        Requires scope `events:write`. Validates, normalizes and stores the event, evaluates it
+        and returns the decision in the same response. Idempotent on `event_id` (see above).
+        Timestamps must be at most 5 minutes in the future and 24 hours in the past.
+        Card numbers, CVVs, PINs and passwords must never be sent; payloads containing
+        card-number-like values are rejected.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Event"
+      responses:
+        "200":
+          description: "The risk decision. Replays carry `Idempotent-Replay: true`."
+          headers:
+            Idempotent-Replay:
+              schema:
+                type: string
+                enum: ["true"]
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskDecision"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    get:
+      operationId: listEvents
+      tags: [events]
+      summary: List events of the caller's environment
+      description: Requires scope `events:read`. Newest first.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+      responses:
+        "200":
+          description: A page of events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/events/{event_id}:
+    get:
+      operationId: getEvent
+      tags: [events]
+      summary: Get an event with its payloads and evaluation
+      description: Requires scope `events:read`.
+      parameters:
+        - name: event_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: evt_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The event.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EventDetail"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/risk/evaluate:
+    post:
+      operationId: evaluateRisk
+      tags: [risk]
+      summary: Evaluate an event without ingesting it (dry run)
+      description: |
+        Requires scope `risk:evaluate`. Runs the same validation and evaluation as ingestion but
+        stores no event; the evaluation is recorded as a dry run and never raises alerts or
+        webhooks. Not idempotent: every call is evaluated.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Event"
+      responses:
+        "200":
+          description: The risk decision (event_id is null).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskDecision"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "422":
+          $ref: "#/components/responses/Unprocessable"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
 components:
+  securitySchemes:
+    apiKey:
+      type: http
+      scheme: bearer
+      description: "API key: `rsk_test_…` or `rsk_live_…`."
   headers:
     XRequestID:
       description: |
@@ -71,12 +400,88 @@ components:
         characters of `[A-Za-z0-9._-]`; otherwise a server-generated `req_…` ID.
       schema:
         type: string
+  parameters:
+    Limit:
+      name: limit
+      in: query
+      required: false
+      description: Page size.
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+    Cursor:
+      name: cursor
+      in: query
+      required: false
+      description: The `next_cursor` of the previous page.
+      schema:
+        type: string
+        maxLength: 64
+    KeyId:
+      name: key_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: key_01j9x2k7m3q4r5s6t7v8w9x0yz
   responses:
     DefaultError:
       description: Error in the standard RiskOS error contract (spec §7).
       headers:
         X-Request-ID:
           $ref: "#/components/headers/XRequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    InvalidRequest:
+      description: "`INVALID_REQUEST`: the request is malformed or fails validation."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unauthenticated:
+      description: "`UNAUTHENTICATED`: the API key is missing, malformed, unknown, revoked or expired. The response never says which."
+      headers:
+        WWW-Authenticate:
+          schema:
+            type: string
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Forbidden:
+      description: "`FORBIDDEN`: the key lacks a required scope. `TENANT_SUSPENDED`: the tenant is not active."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    NotFound:
+      description: "`NOT_FOUND`: the resource does not exist in the caller's environment. Resources of other tenants or environments are indistinguishable from nonexistent ones."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Conflict:
+      description: "`CONFLICT`: the resource is not in a state that allows the operation. `IDEMPOTENCY_CONFLICT`: the event_id was already used with a different payload."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    Unprocessable:
+      description: "`STALE_EVENT`: occurred_at is outside the accepted window. `INVALID_EVENT`: the event is well-formed but semantically invalid. `SENSITIVE_DATA`: the payload contains data that must never be sent (e.g. a card number)."
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+    RateLimited:
+      description: "`RATE_LIMITED`: too many requests for this API key or tenant."
+      headers:
+        Retry-After:
+          schema:
+            type: integer
       content:
         application/json:
           schema:
@@ -127,3 +532,571 @@ components:
           additionalProperties:
             type: string
             enum: [ok, unavailable]
+
+    Environment:
+      type: string
+      enum: [test, production]
+    Scope:
+      type: string
+      description: A permission an API key holds.
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate]
+    Whoami:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, environment_id, environment, api_key_id, scopes]
+      properties:
+        tenant_id:
+          type: string
+          example: ten_01j9x2k7m3q4r5s6t7v8w9x0yz
+        environment_id:
+          type: string
+          example: env_01j9x2k7m3q4r5s6t7v8w9x0yz
+        environment:
+          $ref: "#/components/schemas/Environment"
+        api_key_id:
+          type: string
+          example: key_01j9x2k7m3q4r5s6t7v8w9x0yz
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scope"
+    ApiKey:
+      type: object
+      additionalProperties: false
+      required: [id, name, prefix, environment, scopes, status, created_at]
+      properties:
+        id:
+          type: string
+          example: key_01j9x2k7m3q4r5s6t7v8w9x0yz
+        name:
+          type: string
+        prefix:
+          type: string
+          description: The non-secret start of the key, for recognizing it (e.g. in logs of the caller's own systems).
+          example: rsk_test_a1b2c3d4e5f6
+        environment:
+          $ref: "#/components/schemas/Environment"
+        scopes:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scope"
+        status:
+          type: string
+          enum: [active, expired, revoked]
+        created_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        revoked_at:
+          type: string
+          format: date-time
+          nullable: true
+        replaced_by:
+          type: string
+          nullable: true
+          description: The key that replaced this one through rotation.
+    ApiKeyWithSecret:
+      type: object
+      additionalProperties: false
+      required: [api_key, secret]
+      properties:
+        api_key:
+          $ref: "#/components/schemas/ApiKey"
+        secret:
+          type: string
+          description: The full API key. Shown only in this response and never retrievable again.
+          example: rsk_test_a1b2c3d4e5f6_0123456789abcdefghjkmnpqrstvwxyz
+    ApiKeyList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ApiKey"
+        next_cursor:
+          type: string
+          nullable: true
+    CreateApiKeyRequest:
+      type: object
+      additionalProperties: false
+      required: [name, scopes]
+      properties:
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        scopes:
+          type: array
+          minItems: 1
+          maxItems: 20
+          uniqueItems: true
+          items:
+            $ref: "#/components/schemas/Scope"
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: Optional expiry; must be in the future.
+    RotateApiKeyRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        overlap_seconds:
+          type: integer
+          minimum: 0
+          maximum: 604800
+          default: 86400
+          description: How long the old key keeps working after rotation (default 24 hours, maximum 7 days).
+    AuditLogEntry:
+      type: object
+      additionalProperties: false
+      required: [id, sequence, occurred_at, actor, action, resource, outcome, request_id, metadata, hash, prev_hash]
+      properties:
+        id:
+          type: string
+          example: aud_01j9x2k7m3q4r5s6t7v8w9x0yz
+        sequence:
+          type: integer
+          format: int64
+          description: Position in the tenant's hash chain (1-based, gap-free across all environments).
+        occurred_at:
+          type: string
+          format: date-time
+        environment:
+          allOf:
+            - $ref: "#/components/schemas/Environment"
+          nullable: true
+          description: Null for tenant-level actions.
+        actor:
+          type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type:
+              type: string
+              enum: [api_key, system]
+            id:
+              type: string
+        action:
+          type: string
+          example: api_key.created
+        resource:
+          type: object
+          additionalProperties: false
+          required: [type, id]
+          properties:
+            type:
+              type: string
+            id:
+              type: string
+        outcome:
+          type: string
+          enum: [success, failure, denied]
+        request_id:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+        hash:
+          type: string
+          description: Hex SHA-256 of this entry chained to prev_hash.
+        prev_hash:
+          type: string
+    AuditLogList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AuditLogEntry"
+        next_cursor:
+          type: string
+          nullable: true
+
+    Event:
+      description: |
+        An event, discriminated by `type`. Each type has its own `data` shape; unknown fields are
+        rejected everywhere. Identifiers are the customer's own opaque references: do not send
+        names, emails or other personal data as identifiers.
+      oneOf:
+        - $ref: "#/components/schemas/LoginEvent"
+        - $ref: "#/components/schemas/TransactionEvent"
+        - $ref: "#/components/schemas/BeneficiaryAddedEvent"
+        - $ref: "#/components/schemas/DeviceChangeEvent"
+        - $ref: "#/components/schemas/SessionChangeEvent"
+        - $ref: "#/components/schemas/ProfileChangeEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          login: "#/components/schemas/LoginEvent"
+          transaction: "#/components/schemas/TransactionEvent"
+          beneficiary_added: "#/components/schemas/BeneficiaryAddedEvent"
+          device_change: "#/components/schemas/DeviceChangeEvent"
+          session_change: "#/components/schemas/SessionChangeEvent"
+          profile_change: "#/components/schemas/ProfileChangeEvent"
+    LoginEvent:
+      type: object
+      description: A sign-in attempt.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, data]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        type:
+          type: string
+          enum: [login]
+        data:
+          $ref: "#/components/schemas/LoginData"
+    TransactionEvent:
+      type: object
+      description: A money movement.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, data]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        type:
+          type: string
+          enum: [transaction]
+        data:
+          $ref: "#/components/schemas/TransactionData"
+    BeneficiaryAddedEvent:
+      type: object
+      description: A new payee.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, data]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        type:
+          type: string
+          enum: [beneficiary_added]
+        data:
+          $ref: "#/components/schemas/BeneficiaryAddedData"
+    DeviceChangeEvent:
+      type: object
+      description: A user's device changed.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, data]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        type:
+          type: string
+          enum: [device_change]
+        data:
+          $ref: "#/components/schemas/DeviceChangeData"
+    SessionChangeEvent:
+      type: object
+      description: A session was created, refreshed or ended.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, data]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        type:
+          type: string
+          enum: [session_change]
+        data:
+          $ref: "#/components/schemas/SessionChangeData"
+    ProfileChangeEvent:
+      type: object
+      description: Account profile fields changed.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, data]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        type:
+          type: string
+          enum: [profile_change]
+        data:
+          $ref: "#/components/schemas/ProfileChangeData"
+    EventType:
+      type: string
+      enum: [login, transaction, beneficiary_added, device_change, session_change, profile_change]
+    EventKey:
+      type: string
+      description: The customer's unique ID for the event; the idempotency key.
+      pattern: "^[A-Za-z0-9._:-]{1,128}$"
+      example: txn_2026_000123
+    Reference:
+      type: string
+      description: An opaque customer-side identifier.
+      pattern: "^[A-Za-z0-9._:-]{1,128}$"
+    Actor:
+      type: object
+      additionalProperties: false
+      required: [user_id]
+      properties:
+        user_id:
+          $ref: "#/components/schemas/Reference"
+        account_id:
+          $ref: "#/components/schemas/Reference"
+        device_id:
+          $ref: "#/components/schemas/Reference"
+        session_id:
+          $ref: "#/components/schemas/Reference"
+    EventContext:
+      type: object
+      additionalProperties: false
+      properties:
+        ip:
+          type: string
+          maxLength: 45
+          description: IPv4 or IPv6 address of the end user.
+        user_agent:
+          type: string
+          maxLength: 512
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+          description: ISO 3166-1 alpha-2.
+    LoginData:
+      type: object
+      additionalProperties: false
+      required: [outcome, method]
+      properties:
+        outcome:
+          type: string
+          enum: [success, failure]
+        method:
+          type: string
+          enum: [password, passkey, otp, sso, biometric]
+    TransactionData:
+      type: object
+      additionalProperties: false
+      required: [transaction_id, amount, currency, direction]
+      properties:
+        transaction_id:
+          $ref: "#/components/schemas/Reference"
+        amount:
+          type: integer
+          format: int64
+          minimum: 0
+          maximum: 1000000000000000
+          description: Amount in minor units of the currency (e.g. cents).
+        currency:
+          type: string
+          pattern: "^[A-Z]{3}$"
+          description: ISO 4217 code.
+        direction:
+          type: string
+          enum: [debit, credit]
+        beneficiary_id:
+          $ref: "#/components/schemas/Reference"
+        channel:
+          type: string
+          enum: [card, bank_transfer, instant_payment, wallet, other]
+    BeneficiaryAddedData:
+      type: object
+      additionalProperties: false
+      required: [beneficiary_id]
+      properties:
+        beneficiary_id:
+          $ref: "#/components/schemas/Reference"
+        country:
+          type: string
+          pattern: "^[A-Z]{2}$"
+    DeviceChangeData:
+      type: object
+      additionalProperties: false
+      required: [new_device_id]
+      properties:
+        new_device_id:
+          $ref: "#/components/schemas/Reference"
+        previous_device_id:
+          $ref: "#/components/schemas/Reference"
+    SessionChangeData:
+      type: object
+      additionalProperties: false
+      required: [change]
+      properties:
+        change:
+          type: string
+          enum: [created, refreshed, terminated]
+    ProfileChangeData:
+      type: object
+      additionalProperties: false
+      required: [fields]
+      properties:
+        fields:
+          type: array
+          minItems: 1
+          maxItems: 5
+          uniqueItems: true
+          items:
+            type: string
+            enum: [email, phone, address, name, password]
+    RiskLevel:
+      type: string
+      enum: [low, medium, high, critical]
+    Decision:
+      type: string
+      enum: [allow, review, step_up, block]
+    Signal:
+      type: object
+      additionalProperties: false
+      required: [code, label, weight]
+      properties:
+        code:
+          type: string
+          example: new_device
+        label:
+          type: string
+          example: New device
+        weight:
+          type: integer
+          minimum: 0
+          maximum: 100
+    RiskDecision:
+      type: object
+      additionalProperties: false
+      description: |
+        The risk response (spec §7). risk_score is the sum of the listed signal weights, capped at
+        100. degraded_signals lists sources that could not be evaluated for this event.
+      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals]
+      properties:
+        request_id:
+          type: string
+          description: The request that produced this decision (for replays, the original request).
+        event_id:
+          type: string
+          nullable: true
+          description: RiskOS ID of the stored event; null for dry runs.
+          example: evt_01j9x2k7m3q4r5s6t7v8w9x0yz
+        evaluation_id:
+          type: string
+          example: evl_01j9x2k7m3q4r5s6t7v8w9x0yz
+        risk_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        risk_level:
+          $ref: "#/components/schemas/RiskLevel"
+        decision:
+          $ref: "#/components/schemas/Decision"
+        engine_version:
+          type: string
+          example: risk-engine-stub-0.1
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signal"
+        degraded_signals:
+          type: array
+          items:
+            type: string
+    EventSummary:
+      type: object
+      additionalProperties: false
+      required: [id, event_key, type, occurred_at, received_at, risk_score, risk_level, decision]
+      properties:
+        id:
+          type: string
+        event_key:
+          type: string
+        type:
+          $ref: "#/components/schemas/EventType"
+        occurred_at:
+          type: string
+          format: date-time
+        received_at:
+          type: string
+          format: date-time
+        risk_score:
+          type: integer
+        risk_level:
+          $ref: "#/components/schemas/RiskLevel"
+        decision:
+          $ref: "#/components/schemas/Decision"
+    EventList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/EventSummary"
+        next_cursor:
+          type: string
+          nullable: true
+    EventDetail:
+      type: object
+      additionalProperties: false
+      required: [id, event_key, type, environment, occurred_at, received_at, raw_payload, normalized_payload, evaluation]
+      properties:
+        id:
+          type: string
+        event_key:
+          type: string
+        type:
+          $ref: "#/components/schemas/EventType"
+        environment:
+          $ref: "#/components/schemas/Environment"
+        occurred_at:
+          type: string
+          format: date-time
+        received_at:
+          type: string
+          format: date-time
+        raw_payload:
+          type: object
+          additionalProperties: true
+          description: The request body as received.
+        normalized_payload:
+          type: object
+          additionalProperties: true
+          description: The canonical form the risk engine evaluated.
+        evaluation:
+          $ref: "#/components/schemas/RiskDecision"

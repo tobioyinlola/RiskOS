@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"io"
 	"log/slog"
+	"net/url"
 	"os"
 	"testing"
 	"time"
@@ -38,10 +39,17 @@ type env struct {
 	redis    *tcredis.RedisContainer
 	pgCfg    config.Postgres
 	redisCfg config.Redis
-	pool     *pgxpool.Pool
-	rdb      *redis.Client
-	logger   *slog.Logger
+	// pool connects as riskos_app, the application role: row-level security applies, exactly as
+	// for the api and worker.
+	pool *pgxpool.Pool
+	// owner connects as the schema owner, for migrations and for tests that must bypass RLS on
+	// purpose (tampering, suspending a tenant).
+	owner  *pgxpool.Pool
+	rdb    *redis.Client
+	logger *slog.Logger
 }
+
+const appRolePassword = "integration-app-only"
 
 // shared is initialized once by TestMain and read-only afterwards.
 var shared env //nolint:gochecknoglobals // test fixture shared across the package's tests
@@ -76,16 +84,39 @@ func setup(m *testing.M) (int, error) {
 	}
 	defer func() { _ = testcontainers.TerminateContainer(rc) }()
 
+	// Migrate as the owner, then give the application role a login, as the platform does in
+	// deployed environments (TENANCY.md).
+	ownerDSN, err := pg.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		return 0, err
+	}
+	owner, err := db.NewPool(ctx, poolConfig(ownerDSN))
+	if err != nil {
+		return 0, err
+	}
+	if _, err := dbmigrate.Up(ctx, owner, logger); err != nil {
+		owner.Close()
+		return 0, err
+	}
+	_, err = owner.Exec(ctx, "ALTER ROLE "+dbmigrate.AppRole+" LOGIN PASSWORD '"+appRolePassword+"'")
+	owner.Close()
+	if err != nil {
+		return 0, fmt.Errorf("enable application role login: %w", err)
+	}
+
 	shared = env{postgres: pg, redis: rc, logger: logger}
 	if err := shared.connect(ctx); err != nil {
 		return 0, err
 	}
 	defer shared.close()
-
-	if _, err := dbmigrate.Up(ctx, shared.pool, logger); err != nil {
-		return 0, err
-	}
 	return m.Run(), nil
+}
+
+func poolConfig(dsn string) config.Postgres {
+	return config.Postgres{
+		URL: dsn, MaxConns: 10, MinConns: 0, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute,
+		ConnectTimeout: 5 * time.Second, CheckTimeout: time.Second,
+	}
 }
 
 // connect (re)creates the pool and Redis client from the containers' current endpoints. Docker
@@ -93,23 +124,28 @@ func setup(m *testing.M) (int, error) {
 // after starting it again.
 func (e *env) connect(ctx context.Context) error {
 	e.close()
-	dsn, err := e.postgres.ConnectionString(ctx, "sslmode=disable")
+	ownerDSN, err := e.postgres.ConnectionString(ctx, "sslmode=disable")
 	if err != nil {
 		return err
 	}
+	u, err := url.Parse(ownerDSN)
+	if err != nil {
+		return err
+	}
+	u.User = url.UserPassword(dbmigrate.AppRole, appRolePassword)
 	redisEndpoint, err := e.redis.Endpoint(ctx, "")
 	if err != nil {
 		return err
 	}
-	e.pgCfg = config.Postgres{
-		URL: dsn, MaxConns: 10, MinConns: 0, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute,
-		ConnectTimeout: 5 * time.Second, CheckTimeout: time.Second,
-	}
+	e.pgCfg = poolConfig(u.String())
 	e.redisCfg = config.Redis{
 		Addr: redisEndpoint, PoolSize: 5, DialTimeout: time.Second,
 		ReadTimeout: 500 * time.Millisecond, WriteTimeout: 500 * time.Millisecond, CheckTimeout: time.Second,
 	}
 	if e.pool, err = db.NewPool(ctx, e.pgCfg); err != nil {
+		return err
+	}
+	if e.owner, err = db.NewPool(ctx, poolConfig(ownerDSN)); err != nil {
 		return err
 	}
 	if e.rdb, err = redisx.New(ctx, e.redisCfg); err != nil {
@@ -119,9 +155,11 @@ func (e *env) connect(ctx context.Context) error {
 }
 
 func (e *env) close() {
-	if e.pool != nil {
-		e.pool.Close()
-		e.pool = nil
+	for _, p := range []**pgxpool.Pool{&e.pool, &e.owner} {
+		if *p != nil {
+			(*p).Close()
+			*p = nil
+		}
 	}
 	if e.rdb != nil {
 		_ = e.rdb.Close()

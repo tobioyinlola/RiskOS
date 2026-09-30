@@ -7,6 +7,7 @@ import (
 	"net/http"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/requestctx"
 )
 
@@ -14,6 +15,11 @@ import (
 // rename one once released.
 const (
 	CodeInvalidRequest     = "INVALID_REQUEST"
+	CodeUnauthenticated    = "UNAUTHENTICATED"
+	CodeForbidden          = "FORBIDDEN"
+	CodeTenantSuspended    = "TENANT_SUSPENDED"
+	CodeConflict           = "CONFLICT"
+	CodeRateLimited        = "RATE_LIMITED"
 	CodeNotFound           = "NOT_FOUND"
 	CodeMethodNotAllowed   = "METHOD_NOT_ALLOWED"
 	CodePayloadTooLarge    = "PAYLOAD_TOO_LARGE"
@@ -50,6 +56,17 @@ func InvalidRequest(message string, cause error) *Error {
 	return NewError(http.StatusBadRequest, CodeInvalidRequest, message, cause)
 }
 
+// NotFound is the uniform 404. Resources of other tenants or environments use it too, so their
+// existence is never revealed.
+func NotFound(cause error) *Error {
+	return NewError(http.StatusNotFound, CodeNotFound, "The requested resource does not exist.", cause)
+}
+
+// Conflict is a 409 with a client-safe message.
+func Conflict(message string, cause error) *Error {
+	return NewError(http.StatusConflict, CodeConflict, message, cause)
+}
+
 // toError maps any error to a client-safe Error. Unknown errors become 500 INTERNAL_ERROR so
 // that no internal detail can leak through the error contract.
 func toError(err error) *Error {
@@ -59,6 +76,8 @@ func toError(err error) *Error {
 	}
 	var tooLarge *http.MaxBytesError
 	switch {
+	case errors.Is(err, authz.ErrForbidden):
+		return NewError(http.StatusForbidden, CodeForbidden, "The credential lacks the permission required for this operation.", err)
 	case errors.As(err, &tooLarge):
 		return NewError(http.StatusRequestEntityTooLarge, CodePayloadTooLarge, "The request body is too large.", err)
 	case errors.Is(err, context.DeadlineExceeded):

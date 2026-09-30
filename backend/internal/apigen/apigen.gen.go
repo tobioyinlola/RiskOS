@@ -5,13 +5,185 @@ package apigen
 
 import (
 	"bytes"
+	"compress/flate"
 	"context"
+	"encoding/base64"
 	"encoding/json"
+	"errors"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
+	"path"
+	"strings"
+	"time"
 
+	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
+	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for ApiKeyStatus.
+const (
+	Active  ApiKeyStatus = "active"
+	Expired ApiKeyStatus = "expired"
+	Revoked ApiKeyStatus = "revoked"
+)
+
+// Valid indicates whether the value is a known member of the ApiKeyStatus enum.
+func (e ApiKeyStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Expired:
+		return true
+	case Revoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditLogEntryActorType.
+const (
+	AuditLogEntryActorTypeApiKey AuditLogEntryActorType = "api_key"
+	AuditLogEntryActorTypeSystem AuditLogEntryActorType = "system"
+)
+
+// Valid indicates whether the value is a known member of the AuditLogEntryActorType enum.
+func (e AuditLogEntryActorType) Valid() bool {
+	switch e {
+	case AuditLogEntryActorTypeApiKey:
+		return true
+	case AuditLogEntryActorTypeSystem:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AuditLogEntryOutcome.
+const (
+	AuditLogEntryOutcomeDenied  AuditLogEntryOutcome = "denied"
+	AuditLogEntryOutcomeFailure AuditLogEntryOutcome = "failure"
+	AuditLogEntryOutcomeSuccess AuditLogEntryOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the AuditLogEntryOutcome enum.
+func (e AuditLogEntryOutcome) Valid() bool {
+	switch e {
+	case AuditLogEntryOutcomeDenied:
+		return true
+	case AuditLogEntryOutcomeFailure:
+		return true
+	case AuditLogEntryOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for BeneficiaryAddedEventType.
+const (
+	BeneficiaryAddedEventTypeBeneficiaryAdded BeneficiaryAddedEventType = "beneficiary_added"
+)
+
+// Valid indicates whether the value is a known member of the BeneficiaryAddedEventType enum.
+func (e BeneficiaryAddedEventType) Valid() bool {
+	switch e {
+	case BeneficiaryAddedEventTypeBeneficiaryAdded:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Decision.
+const (
+	Allow  Decision = "allow"
+	Block  Decision = "block"
+	Review Decision = "review"
+	StepUp Decision = "step_up"
+)
+
+// Valid indicates whether the value is a known member of the Decision enum.
+func (e Decision) Valid() bool {
+	switch e {
+	case Allow:
+		return true
+	case Block:
+		return true
+	case Review:
+		return true
+	case StepUp:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for DeviceChangeEventType.
+const (
+	DeviceChangeEventTypeDeviceChange DeviceChangeEventType = "device_change"
+)
+
+// Valid indicates whether the value is a known member of the DeviceChangeEventType enum.
+func (e DeviceChangeEventType) Valid() bool {
+	switch e {
+	case DeviceChangeEventTypeDeviceChange:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Environment.
+const (
+	Production Environment = "production"
+	Test       Environment = "test"
+)
+
+// Valid indicates whether the value is a known member of the Environment enum.
+func (e Environment) Valid() bool {
+	switch e {
+	case Production:
+		return true
+	case Test:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for EventType.
+const (
+	EventTypeBeneficiaryAdded EventType = "beneficiary_added"
+	EventTypeDeviceChange     EventType = "device_change"
+	EventTypeLogin            EventType = "login"
+	EventTypeProfileChange    EventType = "profile_change"
+	EventTypeSessionChange    EventType = "session_change"
+	EventTypeTransaction      EventType = "transaction"
+)
+
+// Valid indicates whether the value is a known member of the EventType enum.
+func (e EventType) Valid() bool {
+	switch e {
+	case EventTypeBeneficiaryAdded:
+		return true
+	case EventTypeDeviceChange:
+		return true
+	case EventTypeLogin:
+		return true
+	case EventTypeProfileChange:
+		return true
+	case EventTypeSessionChange:
+		return true
+	case EventTypeTransaction:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for LivenessResponseStatus.
 const (
@@ -22,6 +194,108 @@ const (
 func (e LivenessResponseStatus) Valid() bool {
 	switch e {
 	case LivenessResponseStatusOk:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LoginDataMethod.
+const (
+	LoginDataMethodBiometric LoginDataMethod = "biometric"
+	LoginDataMethodOtp       LoginDataMethod = "otp"
+	LoginDataMethodPasskey   LoginDataMethod = "passkey"
+	LoginDataMethodPassword  LoginDataMethod = "password"
+	LoginDataMethodSso       LoginDataMethod = "sso"
+)
+
+// Valid indicates whether the value is a known member of the LoginDataMethod enum.
+func (e LoginDataMethod) Valid() bool {
+	switch e {
+	case LoginDataMethodBiometric:
+		return true
+	case LoginDataMethodOtp:
+		return true
+	case LoginDataMethodPasskey:
+		return true
+	case LoginDataMethodPassword:
+		return true
+	case LoginDataMethodSso:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LoginDataOutcome.
+const (
+	LoginDataOutcomeFailure LoginDataOutcome = "failure"
+	LoginDataOutcomeSuccess LoginDataOutcome = "success"
+)
+
+// Valid indicates whether the value is a known member of the LoginDataOutcome enum.
+func (e LoginDataOutcome) Valid() bool {
+	switch e {
+	case LoginDataOutcomeFailure:
+		return true
+	case LoginDataOutcomeSuccess:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for LoginEventType.
+const (
+	LoginEventTypeLogin LoginEventType = "login"
+)
+
+// Valid indicates whether the value is a known member of the LoginEventType enum.
+func (e LoginEventType) Valid() bool {
+	switch e {
+	case LoginEventTypeLogin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileChangeDataFields.
+const (
+	ProfileChangeDataFieldsAddress  ProfileChangeDataFields = "address"
+	ProfileChangeDataFieldsEmail    ProfileChangeDataFields = "email"
+	ProfileChangeDataFieldsName     ProfileChangeDataFields = "name"
+	ProfileChangeDataFieldsPassword ProfileChangeDataFields = "password"
+	ProfileChangeDataFieldsPhone    ProfileChangeDataFields = "phone"
+)
+
+// Valid indicates whether the value is a known member of the ProfileChangeDataFields enum.
+func (e ProfileChangeDataFields) Valid() bool {
+	switch e {
+	case ProfileChangeDataFieldsAddress:
+		return true
+	case ProfileChangeDataFieldsEmail:
+		return true
+	case ProfileChangeDataFieldsName:
+		return true
+	case ProfileChangeDataFieldsPassword:
+		return true
+	case ProfileChangeDataFieldsPhone:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ProfileChangeEventType.
+const (
+	ProfileChangeEventTypeProfileChange ProfileChangeEventType = "profile_change"
+)
+
+// Valid indicates whether the value is a known member of the ProfileChangeEventType enum.
+func (e ProfileChangeEventType) Valid() bool {
+	switch e {
+	case ProfileChangeEventTypeProfileChange:
 		return true
 	default:
 		return false
@@ -64,6 +338,319 @@ func (e ReadinessResponseStatus) Valid() bool {
 	}
 }
 
+// Defines values for RiskLevel.
+const (
+	Critical RiskLevel = "critical"
+	High     RiskLevel = "high"
+	Low      RiskLevel = "low"
+	Medium   RiskLevel = "medium"
+)
+
+// Valid indicates whether the value is a known member of the RiskLevel enum.
+func (e RiskLevel) Valid() bool {
+	switch e {
+	case Critical:
+		return true
+	case High:
+		return true
+	case Low:
+		return true
+	case Medium:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for Scope.
+const (
+	ApiKeysRead   Scope = "api_keys:read"
+	ApiKeysWrite  Scope = "api_keys:write"
+	AuditLogsRead Scope = "audit_logs:read"
+	EventsRead    Scope = "events:read"
+	EventsWrite   Scope = "events:write"
+	RiskEvaluate  Scope = "risk:evaluate"
+)
+
+// Valid indicates whether the value is a known member of the Scope enum.
+func (e Scope) Valid() bool {
+	switch e {
+	case ApiKeysRead:
+		return true
+	case ApiKeysWrite:
+		return true
+	case AuditLogsRead:
+		return true
+	case EventsRead:
+		return true
+	case EventsWrite:
+		return true
+	case RiskEvaluate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionChangeDataChange.
+const (
+	Created    SessionChangeDataChange = "created"
+	Refreshed  SessionChangeDataChange = "refreshed"
+	Terminated SessionChangeDataChange = "terminated"
+)
+
+// Valid indicates whether the value is a known member of the SessionChangeDataChange enum.
+func (e SessionChangeDataChange) Valid() bool {
+	switch e {
+	case Created:
+		return true
+	case Refreshed:
+		return true
+	case Terminated:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SessionChangeEventType.
+const (
+	SessionChangeEventTypeSessionChange SessionChangeEventType = "session_change"
+)
+
+// Valid indicates whether the value is a known member of the SessionChangeEventType enum.
+func (e SessionChangeEventType) Valid() bool {
+	switch e {
+	case SessionChangeEventTypeSessionChange:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TransactionDataChannel.
+const (
+	BankTransfer   TransactionDataChannel = "bank_transfer"
+	Card           TransactionDataChannel = "card"
+	InstantPayment TransactionDataChannel = "instant_payment"
+	Other          TransactionDataChannel = "other"
+	Wallet         TransactionDataChannel = "wallet"
+)
+
+// Valid indicates whether the value is a known member of the TransactionDataChannel enum.
+func (e TransactionDataChannel) Valid() bool {
+	switch e {
+	case BankTransfer:
+		return true
+	case Card:
+		return true
+	case InstantPayment:
+		return true
+	case Other:
+		return true
+	case Wallet:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TransactionDataDirection.
+const (
+	Credit TransactionDataDirection = "credit"
+	Debit  TransactionDataDirection = "debit"
+)
+
+// Valid indicates whether the value is a known member of the TransactionDataDirection enum.
+func (e TransactionDataDirection) Valid() bool {
+	switch e {
+	case Credit:
+		return true
+	case Debit:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TransactionEventType.
+const (
+	TransactionEventTypeTransaction TransactionEventType = "transaction"
+)
+
+// Valid indicates whether the value is a known member of the TransactionEventType enum.
+func (e TransactionEventType) Valid() bool {
+	switch e {
+	case TransactionEventTypeTransaction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Actor defines model for Actor.
+type Actor struct {
+	// AccountId An opaque customer-side identifier.
+	AccountId *Reference `json:"account_id,omitempty"`
+
+	// DeviceId An opaque customer-side identifier.
+	DeviceId *Reference `json:"device_id,omitempty"`
+
+	// SessionId An opaque customer-side identifier.
+	SessionId *Reference `json:"session_id,omitempty"`
+
+	// UserId An opaque customer-side identifier.
+	UserId Reference `json:"user_id"`
+}
+
+// ApiKey defines model for ApiKey.
+type ApiKey struct {
+	CreatedAt   time.Time   `json:"created_at"`
+	Environment Environment `json:"environment"`
+	ExpiresAt   *time.Time  `json:"expires_at,omitempty"`
+
+	// Id Example: key_01j9x2k7m3q4r5s6t7v8w9x0yz
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	// Prefix The non-secret start of the key, for recognizing it (e.g. in logs of the caller's own systems).
+	//
+	// Example: rsk_test_a1b2c3d4e5f6
+	Prefix string `json:"prefix"`
+
+	// ReplacedBy The key that replaced this one through rotation.
+	ReplacedBy *string      `json:"replaced_by,omitempty"`
+	RevokedAt  *time.Time   `json:"revoked_at,omitempty"`
+	Scopes     []Scope      `json:"scopes"`
+	Status     ApiKeyStatus `json:"status"`
+}
+
+// ApiKeyStatus defines model for ApiKey.Status.
+type ApiKeyStatus string
+
+// ApiKeyList defines model for ApiKeyList.
+type ApiKeyList struct {
+	Data       []ApiKey `json:"data"`
+	NextCursor *string  `json:"next_cursor"`
+}
+
+// ApiKeyWithSecret defines model for ApiKeyWithSecret.
+type ApiKeyWithSecret struct {
+	ApiKey ApiKey `json:"api_key"`
+
+	// Secret The full API key. Shown only in this response and never retrievable again.
+	//
+	// Example: rsk_test_a1b2c3d4e5f6_0123456789abcdefghjkmnpqrstvwxyz
+	Secret string `json:"secret"`
+}
+
+// AuditLogEntry defines model for AuditLogEntry.
+type AuditLogEntry struct {
+	// Action Example: api_key.created
+	Action string `json:"action"`
+	Actor  struct {
+		Id   string                 `json:"id"`
+		Type AuditLogEntryActorType `json:"type"`
+	} `json:"actor"`
+
+	// Environment Null for tenant-level actions.
+	Environment *Environment `json:"environment,omitempty"`
+
+	// Hash Hex SHA-256 of this entry chained to prev_hash.
+	Hash string `json:"hash"`
+
+	// Id Example: aud_01j9x2k7m3q4r5s6t7v8w9x0yz
+	Id         string                 `json:"id"`
+	Metadata   map[string]interface{} `json:"metadata"`
+	OccurredAt time.Time              `json:"occurred_at"`
+	Outcome    AuditLogEntryOutcome   `json:"outcome"`
+	PrevHash   string                 `json:"prev_hash"`
+	RequestId  string                 `json:"request_id"`
+	Resource   struct {
+		Id   string `json:"id"`
+		Type string `json:"type"`
+	} `json:"resource"`
+
+	// Sequence Position in the tenant's hash chain (1-based, gap-free across all environments).
+	Sequence int64 `json:"sequence"`
+}
+
+// AuditLogEntryActorType defines model for AuditLogEntry.Actor.Type.
+type AuditLogEntryActorType string
+
+// AuditLogEntryOutcome defines model for AuditLogEntry.Outcome.
+type AuditLogEntryOutcome string
+
+// AuditLogList defines model for AuditLogList.
+type AuditLogList struct {
+	Data       []AuditLogEntry `json:"data"`
+	NextCursor *string         `json:"next_cursor"`
+}
+
+// BeneficiaryAddedData defines model for BeneficiaryAddedData.
+type BeneficiaryAddedData struct {
+	// BeneficiaryId An opaque customer-side identifier.
+	BeneficiaryId Reference `json:"beneficiary_id"`
+	Country       *string   `json:"country,omitempty"`
+}
+
+// BeneficiaryAddedEvent A new payee.
+type BeneficiaryAddedEvent struct {
+	Actor   Actor                `json:"actor"`
+	Context *EventContext        `json:"context,omitempty"`
+	Data    BeneficiaryAddedData `json:"data"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey                  `json:"event_id"`
+	OccurredAt time.Time                 `json:"occurred_at"`
+	Type       BeneficiaryAddedEventType `json:"type"`
+}
+
+// BeneficiaryAddedEventType defines model for BeneficiaryAddedEvent.Type.
+type BeneficiaryAddedEventType string
+
+// CreateApiKeyRequest defines model for CreateApiKeyRequest.
+type CreateApiKeyRequest struct {
+	// ExpiresAt Optional expiry; must be in the future.
+	ExpiresAt *time.Time `json:"expires_at,omitempty"`
+	Name      string     `json:"name"`
+	Scopes    []Scope    `json:"scopes"`
+}
+
+// Decision defines model for Decision.
+type Decision string
+
+// DeviceChangeData defines model for DeviceChangeData.
+type DeviceChangeData struct {
+	// NewDeviceId An opaque customer-side identifier.
+	NewDeviceId Reference `json:"new_device_id"`
+
+	// PreviousDeviceId An opaque customer-side identifier.
+	PreviousDeviceId *Reference `json:"previous_device_id,omitempty"`
+}
+
+// DeviceChangeEvent A user's device changed.
+type DeviceChangeEvent struct {
+	Actor   Actor            `json:"actor"`
+	Context *EventContext    `json:"context,omitempty"`
+	Data    DeviceChangeData `json:"data"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey              `json:"event_id"`
+	OccurredAt time.Time             `json:"occurred_at"`
+	Type       DeviceChangeEventType `json:"type"`
+}
+
+// DeviceChangeEventType defines model for DeviceChangeEvent.Type.
+type DeviceChangeEventType string
+
+// Environment defines model for Environment.
+type Environment string
+
 // ErrorDetail defines model for ErrorDetail.
 type ErrorDetail struct {
 	// Code Stable, machine-readable error code (UPPER_SNAKE_CASE).
@@ -85,6 +672,69 @@ type ErrorResponse struct {
 	Error ErrorDetail `json:"error"`
 }
 
+// Event An event, discriminated by `type`. Each type has its own `data` shape; unknown fields are
+// rejected everywhere. Identifiers are the customer's own opaque references: do not send
+// names, emails or other personal data as identifiers.
+type Event struct {
+	union json.RawMessage
+}
+
+// EventContext defines model for EventContext.
+type EventContext struct {
+	// Country ISO 3166-1 alpha-2.
+	Country *string `json:"country,omitempty"`
+
+	// Ip IPv4 or IPv6 address of the end user.
+	Ip        *string `json:"ip,omitempty"`
+	UserAgent *string `json:"user_agent,omitempty"`
+}
+
+// EventDetail defines model for EventDetail.
+type EventDetail struct {
+	Environment Environment `json:"environment"`
+
+	// Evaluation The risk response (spec §7). risk_score is the sum of the listed signal weights, capped at
+	// 100. degraded_signals lists sources that could not be evaluated for this event.
+	Evaluation RiskDecision `json:"evaluation"`
+	EventKey   string       `json:"event_key"`
+	Id         string       `json:"id"`
+
+	// NormalizedPayload The canonical form the risk engine evaluated.
+	NormalizedPayload map[string]interface{} `json:"normalized_payload"`
+	OccurredAt        time.Time              `json:"occurred_at"`
+
+	// RawPayload The request body as received.
+	RawPayload map[string]interface{} `json:"raw_payload"`
+	ReceivedAt time.Time              `json:"received_at"`
+	Type       EventType              `json:"type"`
+}
+
+// EventKey The customer's unique ID for the event; the idempotency key.
+//
+// Example: txn_2026_000123
+type EventKey = string
+
+// EventList defines model for EventList.
+type EventList struct {
+	Data       []EventSummary `json:"data"`
+	NextCursor *string        `json:"next_cursor"`
+}
+
+// EventSummary defines model for EventSummary.
+type EventSummary struct {
+	Decision   Decision  `json:"decision"`
+	EventKey   string    `json:"event_key"`
+	Id         string    `json:"id"`
+	OccurredAt time.Time `json:"occurred_at"`
+	ReceivedAt time.Time `json:"received_at"`
+	RiskLevel  RiskLevel `json:"risk_level"`
+	RiskScore  int       `json:"risk_score"`
+	Type       EventType `json:"type"`
+}
+
+// EventType defines model for EventType.
+type EventType string
+
 // LivenessResponse defines model for LivenessResponse.
 type LivenessResponse struct {
 	Status LivenessResponseStatus `json:"status"`
@@ -92,6 +742,60 @@ type LivenessResponse struct {
 
 // LivenessResponseStatus defines model for LivenessResponse.Status.
 type LivenessResponseStatus string
+
+// LoginData defines model for LoginData.
+type LoginData struct {
+	Method  LoginDataMethod  `json:"method"`
+	Outcome LoginDataOutcome `json:"outcome"`
+}
+
+// LoginDataMethod defines model for LoginData.Method.
+type LoginDataMethod string
+
+// LoginDataOutcome defines model for LoginData.Outcome.
+type LoginDataOutcome string
+
+// LoginEvent A sign-in attempt.
+type LoginEvent struct {
+	Actor   Actor         `json:"actor"`
+	Context *EventContext `json:"context,omitempty"`
+	Data    LoginData     `json:"data"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey       `json:"event_id"`
+	OccurredAt time.Time      `json:"occurred_at"`
+	Type       LoginEventType `json:"type"`
+}
+
+// LoginEventType defines model for LoginEvent.Type.
+type LoginEventType string
+
+// ProfileChangeData defines model for ProfileChangeData.
+type ProfileChangeData struct {
+	Fields []ProfileChangeDataFields `json:"fields"`
+}
+
+// ProfileChangeDataFields defines model for ProfileChangeData.Fields.
+type ProfileChangeDataFields string
+
+// ProfileChangeEvent Account profile fields changed.
+type ProfileChangeEvent struct {
+	Actor   Actor             `json:"actor"`
+	Context *EventContext     `json:"context,omitempty"`
+	Data    ProfileChangeData `json:"data"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey               `json:"event_id"`
+	OccurredAt time.Time              `json:"occurred_at"`
+	Type       ProfileChangeEventType `json:"type"`
+}
+
+// ProfileChangeEventType defines model for ProfileChangeEvent.Type.
+type ProfileChangeEventType string
 
 // ReadinessResponse defines model for ReadinessResponse.
 type ReadinessResponse struct {
@@ -106,11 +810,483 @@ type ReadinessResponseChecks string
 // ReadinessResponseStatus defines model for ReadinessResponse.Status.
 type ReadinessResponseStatus string
 
+// Reference An opaque customer-side identifier.
+type Reference = string
+
+// RiskDecision The risk response (spec §7). risk_score is the sum of the listed signal weights, capped at
+// 100. degraded_signals lists sources that could not be evaluated for this event.
+type RiskDecision struct {
+	Decision        Decision `json:"decision"`
+	DegradedSignals []string `json:"degraded_signals"`
+
+	// EngineVersion Example: risk-engine-stub-0.1
+	EngineVersion string `json:"engine_version"`
+
+	// EvaluationId Example: evl_01j9x2k7m3q4r5s6t7v8w9x0yz
+	EvaluationId string `json:"evaluation_id"`
+
+	// EventId RiskOS ID of the stored event; null for dry runs.
+	//
+	// Example: evt_01j9x2k7m3q4r5s6t7v8w9x0yz
+	EventId *string `json:"event_id"`
+
+	// RequestId The request that produced this decision (for replays, the original request).
+	RequestId string    `json:"request_id"`
+	RiskLevel RiskLevel `json:"risk_level"`
+	RiskScore int       `json:"risk_score"`
+	Signals   []Signal  `json:"signals"`
+}
+
+// RiskLevel defines model for RiskLevel.
+type RiskLevel string
+
+// RotateApiKeyRequest defines model for RotateApiKeyRequest.
+type RotateApiKeyRequest struct {
+	// OverlapSeconds How long the old key keeps working after rotation (default 24 hours, maximum 7 days).
+	OverlapSeconds *int `json:"overlap_seconds,omitempty"`
+}
+
+// Scope A permission an API key holds.
+type Scope string
+
+// SessionChangeData defines model for SessionChangeData.
+type SessionChangeData struct {
+	Change SessionChangeDataChange `json:"change"`
+}
+
+// SessionChangeDataChange defines model for SessionChangeData.Change.
+type SessionChangeDataChange string
+
+// SessionChangeEvent A session was created, refreshed or ended.
+type SessionChangeEvent struct {
+	Actor   Actor             `json:"actor"`
+	Context *EventContext     `json:"context,omitempty"`
+	Data    SessionChangeData `json:"data"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey               `json:"event_id"`
+	OccurredAt time.Time              `json:"occurred_at"`
+	Type       SessionChangeEventType `json:"type"`
+}
+
+// SessionChangeEventType defines model for SessionChangeEvent.Type.
+type SessionChangeEventType string
+
+// Signal defines model for Signal.
+type Signal struct {
+	// Code Example: new_device
+	Code string `json:"code"`
+
+	// Label Example: New device
+	Label  string `json:"label"`
+	Weight int    `json:"weight"`
+}
+
+// TransactionData defines model for TransactionData.
+type TransactionData struct {
+	// Amount Amount in minor units of the currency (e.g. cents).
+	Amount int64 `json:"amount"`
+
+	// BeneficiaryId An opaque customer-side identifier.
+	BeneficiaryId *Reference              `json:"beneficiary_id,omitempty"`
+	Channel       *TransactionDataChannel `json:"channel,omitempty"`
+
+	// Currency ISO 4217 code.
+	Currency  string                   `json:"currency"`
+	Direction TransactionDataDirection `json:"direction"`
+
+	// TransactionId An opaque customer-side identifier.
+	TransactionId Reference `json:"transaction_id"`
+}
+
+// TransactionDataChannel defines model for TransactionData.Channel.
+type TransactionDataChannel string
+
+// TransactionDataDirection defines model for TransactionData.Direction.
+type TransactionDataDirection string
+
+// TransactionEvent A money movement.
+type TransactionEvent struct {
+	Actor   Actor           `json:"actor"`
+	Context *EventContext   `json:"context,omitempty"`
+	Data    TransactionData `json:"data"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey             `json:"event_id"`
+	OccurredAt time.Time            `json:"occurred_at"`
+	Type       TransactionEventType `json:"type"`
+}
+
+// TransactionEventType defines model for TransactionEvent.Type.
+type TransactionEventType string
+
+// Whoami defines model for Whoami.
+type Whoami struct {
+	// ApiKeyId Example: key_01j9x2k7m3q4r5s6t7v8w9x0yz
+	ApiKeyId    string      `json:"api_key_id"`
+	Environment Environment `json:"environment"`
+
+	// EnvironmentId Example: env_01j9x2k7m3q4r5s6t7v8w9x0yz
+	EnvironmentId string  `json:"environment_id"`
+	Scopes        []Scope `json:"scopes"`
+
+	// TenantId Example: ten_01j9x2k7m3q4r5s6t7v8w9x0yz
+	TenantId string `json:"tenant_id"`
+}
+
+// Cursor defines model for Cursor.
+type Cursor = string
+
+// KeyId Example: key_01j9x2k7m3q4r5s6t7v8w9x0yz
+type KeyId = string
+
+// Limit defines model for Limit.
+type Limit = int
+
+// Conflict defines model for Conflict.
+type Conflict = ErrorResponse
+
 // DefaultError defines model for DefaultError.
 type DefaultError = ErrorResponse
 
+// Forbidden defines model for Forbidden.
+type Forbidden = ErrorResponse
+
+// InvalidRequest defines model for InvalidRequest.
+type InvalidRequest = ErrorResponse
+
+// NotFound defines model for NotFound.
+type NotFound = ErrorResponse
+
+// RateLimited defines model for RateLimited.
+type RateLimited = ErrorResponse
+
+// Unauthenticated defines model for Unauthenticated.
+type Unauthenticated = ErrorResponse
+
+// Unprocessable defines model for Unprocessable.
+type Unprocessable = ErrorResponse
+
+// ListAPIKeysParams defines parameters for ListAPIKeys.
+type ListAPIKeysParams struct {
+	// Limit Page size.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor The `next_cursor` of the previous page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListAuditLogsParams defines parameters for ListAuditLogs.
+type ListAuditLogsParams struct {
+	// Limit Page size.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor The `next_cursor` of the previous page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
+	// Limit Page size.
+	Limit *Limit `form:"limit,omitempty" json:"limit,omitempty"`
+
+	// Cursor The `next_cursor` of the previous page.
+	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
+}
+
+// CreateAPIKeyJSONRequestBody defines body for CreateAPIKey for application/json ContentType.
+type CreateAPIKeyJSONRequestBody = CreateApiKeyRequest
+
+// RotateAPIKeyJSONRequestBody defines body for RotateAPIKey for application/json ContentType.
+type RotateAPIKeyJSONRequestBody = RotateApiKeyRequest
+
+// IngestEventJSONRequestBody defines body for IngestEvent for application/json ContentType.
+type IngestEventJSONRequestBody = Event
+
+// EvaluateRiskJSONRequestBody defines body for EvaluateRisk for application/json ContentType.
+type EvaluateRiskJSONRequestBody = Event
+
+// AsLoginEvent returns the union data inside the Event as a LoginEvent
+func (t Event) AsLoginEvent() (LoginEvent, error) {
+	var body LoginEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromLoginEvent overwrites any union data inside the Event as the provided LoginEvent
+func (t *Event) FromLoginEvent(v LoginEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"login"}`))
+	t.union = b
+	return err
+}
+
+// MergeLoginEvent performs a merge with any union data inside the Event, using the provided LoginEvent
+func (t *Event) MergeLoginEvent(v LoginEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"login"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsTransactionEvent returns the union data inside the Event as a TransactionEvent
+func (t Event) AsTransactionEvent() (TransactionEvent, error) {
+	var body TransactionEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromTransactionEvent overwrites any union data inside the Event as the provided TransactionEvent
+func (t *Event) FromTransactionEvent(v TransactionEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"transaction"}`))
+	t.union = b
+	return err
+}
+
+// MergeTransactionEvent performs a merge with any union data inside the Event, using the provided TransactionEvent
+func (t *Event) MergeTransactionEvent(v TransactionEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"transaction"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsBeneficiaryAddedEvent returns the union data inside the Event as a BeneficiaryAddedEvent
+func (t Event) AsBeneficiaryAddedEvent() (BeneficiaryAddedEvent, error) {
+	var body BeneficiaryAddedEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromBeneficiaryAddedEvent overwrites any union data inside the Event as the provided BeneficiaryAddedEvent
+func (t *Event) FromBeneficiaryAddedEvent(v BeneficiaryAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"beneficiary_added"}`))
+	t.union = b
+	return err
+}
+
+// MergeBeneficiaryAddedEvent performs a merge with any union data inside the Event, using the provided BeneficiaryAddedEvent
+func (t *Event) MergeBeneficiaryAddedEvent(v BeneficiaryAddedEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"beneficiary_added"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsDeviceChangeEvent returns the union data inside the Event as a DeviceChangeEvent
+func (t Event) AsDeviceChangeEvent() (DeviceChangeEvent, error) {
+	var body DeviceChangeEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromDeviceChangeEvent overwrites any union data inside the Event as the provided DeviceChangeEvent
+func (t *Event) FromDeviceChangeEvent(v DeviceChangeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"device_change"}`))
+	t.union = b
+	return err
+}
+
+// MergeDeviceChangeEvent performs a merge with any union data inside the Event, using the provided DeviceChangeEvent
+func (t *Event) MergeDeviceChangeEvent(v DeviceChangeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"device_change"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsSessionChangeEvent returns the union data inside the Event as a SessionChangeEvent
+func (t Event) AsSessionChangeEvent() (SessionChangeEvent, error) {
+	var body SessionChangeEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromSessionChangeEvent overwrites any union data inside the Event as the provided SessionChangeEvent
+func (t *Event) FromSessionChangeEvent(v SessionChangeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"session_change"}`))
+	t.union = b
+	return err
+}
+
+// MergeSessionChangeEvent performs a merge with any union data inside the Event, using the provided SessionChangeEvent
+func (t *Event) MergeSessionChangeEvent(v SessionChangeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"session_change"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+// AsProfileChangeEvent returns the union data inside the Event as a ProfileChangeEvent
+func (t Event) AsProfileChangeEvent() (ProfileChangeEvent, error) {
+	var body ProfileChangeEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromProfileChangeEvent overwrites any union data inside the Event as the provided ProfileChangeEvent
+func (t *Event) FromProfileChangeEvent(v ProfileChangeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"profile_change"}`))
+	t.union = b
+	return err
+}
+
+// MergeProfileChangeEvent performs a merge with any union data inside the Event, using the provided ProfileChangeEvent
+func (t *Event) MergeProfileChangeEvent(v ProfileChangeEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"profile_change"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
+func (t Event) Discriminator() (string, error) {
+	var discriminator struct {
+		Discriminator string `json:"type"`
+	}
+	err := json.Unmarshal(t.union, &discriminator)
+	return discriminator.Discriminator, err
+}
+
+func (t Event) ValueByDiscriminator() (interface{}, error) {
+	discriminator, err := t.Discriminator()
+	if err != nil {
+		return nil, err
+	}
+	switch discriminator {
+	case "beneficiary_added":
+		return t.AsBeneficiaryAddedEvent()
+	case "device_change":
+		return t.AsDeviceChangeEvent()
+	case "login":
+		return t.AsLoginEvent()
+	case "profile_change":
+		return t.AsProfileChangeEvent()
+	case "session_change":
+		return t.AsSessionChangeEvent()
+	case "transaction":
+		return t.AsTransactionEvent()
+	default:
+		return nil, errors.New("unknown discriminator value: " + discriminator)
+	}
+}
+
+func (t Event) MarshalJSON() ([]byte, error) {
+	b, err := t.union.MarshalJSON()
+	return b, err
+}
+
+func (t *Event) UnmarshalJSON(b []byte) error {
+	err := t.union.UnmarshalJSON(b)
+	return err
+}
+
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
+	// ListAPIKeys List API keys of the caller's environment
+	// (GET /api/v1/api-keys)
+	ListAPIKeys(w http.ResponseWriter, r *http.Request, params ListAPIKeysParams)
+	// CreateAPIKey Create an API key in the caller's environment
+	// (POST /api/v1/api-keys)
+	CreateAPIKey(w http.ResponseWriter, r *http.Request)
+	// RevokeAPIKey Revoke an API key
+	// (POST /api/v1/api-keys/{key_id}/revoke)
+	RevokeAPIKey(w http.ResponseWriter, r *http.Request, keyId KeyId)
+	// RotateAPIKey Rotate an API key
+	// (POST /api/v1/api-keys/{key_id}/rotate)
+	RotateAPIKey(w http.ResponseWriter, r *http.Request, keyId KeyId)
+	// ListAuditLogs List audit entries
+	// (GET /api/v1/audit-logs)
+	ListAuditLogs(w http.ResponseWriter, r *http.Request, params ListAuditLogsParams)
+	// ListEvents List events of the caller's environment
+	// (GET /api/v1/events)
+	ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams)
+	// IngestEvent Ingest an event and get its risk decision
+	// (POST /api/v1/events)
+	IngestEvent(w http.ResponseWriter, r *http.Request)
+	// GetEvent Get an event with its payloads and evaluation
+	// (GET /api/v1/events/{event_id})
+	GetEvent(w http.ResponseWriter, r *http.Request, eventId string)
+	// EvaluateRisk Evaluate an event without ingesting it (dry run)
+	// (POST /api/v1/risk/evaluate)
+	EvaluateRisk(w http.ResponseWriter, r *http.Request)
+	// GetWhoami Describe the calling credential
+	// (GET /api/v1/whoami)
+	GetWhoami(w http.ResponseWriter, r *http.Request)
 	// GetLiveness Liveness probe
 	// (GET /health/live)
 	GetLiveness(w http.ResponseWriter, r *http.Request)
@@ -122,6 +1298,66 @@ type ServerInterface interface {
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
 
 type Unimplemented struct{}
+
+// ListAPIKeys List API keys of the caller's environment
+// (GET /api/v1/api-keys)
+func (_ Unimplemented) ListAPIKeys(w http.ResponseWriter, r *http.Request, params ListAPIKeysParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateAPIKey Create an API key in the caller's environment
+// (POST /api/v1/api-keys)
+func (_ Unimplemented) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RevokeAPIKey Revoke an API key
+// (POST /api/v1/api-keys/{key_id}/revoke)
+func (_ Unimplemented) RevokeAPIKey(w http.ResponseWriter, r *http.Request, keyId KeyId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RotateAPIKey Rotate an API key
+// (POST /api/v1/api-keys/{key_id}/rotate)
+func (_ Unimplemented) RotateAPIKey(w http.ResponseWriter, r *http.Request, keyId KeyId) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAuditLogs List audit entries
+// (GET /api/v1/audit-logs)
+func (_ Unimplemented) ListAuditLogs(w http.ResponseWriter, r *http.Request, params ListAuditLogsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListEvents List events of the caller's environment
+// (GET /api/v1/events)
+func (_ Unimplemented) ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// IngestEvent Ingest an event and get its risk decision
+// (POST /api/v1/events)
+func (_ Unimplemented) IngestEvent(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetEvent Get an event with its payloads and evaluation
+// (GET /api/v1/events/{event_id})
+func (_ Unimplemented) GetEvent(w http.ResponseWriter, r *http.Request, eventId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EvaluateRisk Evaluate an event without ingesting it (dry run)
+// (POST /api/v1/risk/evaluate)
+func (_ Unimplemented) EvaluateRisk(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetWhoami Describe the calling credential
+// (GET /api/v1/whoami)
+func (_ Unimplemented) GetWhoami(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
 
 // GetLiveness Liveness probe
 // (GET /health/live)
@@ -143,6 +1379,278 @@ type ServerInterfaceWrapper struct {
 }
 
 type MiddlewareFunc func(http.Handler) http.Handler
+
+// ListAPIKeys operation middleware
+func (siw *ServerInterfaceWrapper) ListAPIKeys(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAPIKeysParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAPIKeys(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateAPIKey(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RevokeAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) RevokeAPIKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key_id" -------------
+	var keyId KeyId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key_id", chi.URLParam(r, "key_id"), &keyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RevokeAPIKey(w, r, keyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RotateAPIKey operation middleware
+func (siw *ServerInterfaceWrapper) RotateAPIKey(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "key_id" -------------
+	var keyId KeyId
+
+	err = runtime.BindStyledParameterWithOptions("simple", "key_id", chi.URLParam(r, "key_id"), &keyId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "key_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RotateAPIKey(w, r, keyId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListAuditLogs operation middleware
+func (siw *ServerInterfaceWrapper) ListAuditLogs(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListAuditLogsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListAuditLogs(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListEvents operation middleware
+func (siw *ServerInterfaceWrapper) ListEvents(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListEventsParams
+
+	// ------------- Optional query parameter "limit" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "limit", r.URL.Query(), &params.Limit, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "limit"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "limit", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "cursor" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "cursor", r.URL.Query(), &params.Cursor, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "cursor"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "cursor", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListEvents(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// IngestEvent operation middleware
+func (siw *ServerInterfaceWrapper) IngestEvent(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.IngestEvent(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetEvent operation middleware
+func (siw *ServerInterfaceWrapper) GetEvent(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "event_id" -------------
+	var eventId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "event_id", chi.URLParam(r, "event_id"), &eventId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "event_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetEvent(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EvaluateRisk operation middleware
+func (siw *ServerInterfaceWrapper) EvaluateRisk(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EvaluateRisk(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetWhoami operation middleware
+func (siw *ServerInterfaceWrapper) GetWhoami(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetWhoami(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
 
 // GetLiveness operation middleware
 func (siw *ServerInterfaceWrapper) GetLiveness(w http.ResponseWriter, r *http.Request) {
@@ -291,9 +1799,41 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/health/ready", wrapper.GetReadiness)
 	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/whoami", wrapper.GetWhoami)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/api-keys", wrapper.ListAPIKeys)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/api-keys", wrapper.CreateAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/api-keys/{key_id}/rotate", wrapper.RotateAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/api-keys/{key_id}/revoke", wrapper.RevokeAPIKey)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/audit-logs", wrapper.ListAuditLogs)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/events", wrapper.ListEvents)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/events", wrapper.IngestEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/events/{event_id}", wrapper.GetEvent)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/risk/evaluate", wrapper.EvaluateRisk)
+	})
 
 	return r
 }
+
+type ConflictJSONResponse ErrorResponse
 
 type DefaultErrorResponseHeaders struct {
 	XRequestID *string
@@ -302,6 +1842,1032 @@ type DefaultErrorJSONResponse struct {
 	Body ErrorResponse
 
 	Headers DefaultErrorResponseHeaders
+}
+
+type ForbiddenJSONResponse ErrorResponse
+
+type InvalidRequestJSONResponse ErrorResponse
+
+type NotFoundJSONResponse ErrorResponse
+
+type RateLimitedResponseHeaders struct {
+	RetryAfter *int
+}
+type RateLimitedJSONResponse struct {
+	Body ErrorResponse
+
+	Headers RateLimitedResponseHeaders
+}
+
+type UnauthenticatedResponseHeaders struct {
+	WWWAuthenticate *string
+}
+type UnauthenticatedJSONResponse struct {
+	Body ErrorResponse
+
+	Headers UnauthenticatedResponseHeaders
+}
+
+type UnprocessableJSONResponse ErrorResponse
+
+type ListAPIKeysRequestObject struct {
+	Params ListAPIKeysParams
+}
+
+type ListAPIKeysResponseObject interface {
+	VisitListAPIKeysResponse(w http.ResponseWriter) error
+}
+
+type ListAPIKeys200JSONResponse ApiKeyList
+
+func (response ListAPIKeys200JSONResponse) VisitListAPIKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAPIKeys400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ListAPIKeys400JSONResponse) VisitListAPIKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAPIKeys401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListAPIKeys401JSONResponse) VisitListAPIKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAPIKeys403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAPIKeys403JSONResponse) VisitListAPIKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAPIKeysdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListAPIKeysdefaultJSONResponse) VisitListAPIKeysResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAPIKeyRequestObject struct {
+	Body *CreateAPIKeyJSONRequestBody
+}
+
+type CreateAPIKeyResponseObject interface {
+	VisitCreateAPIKeyResponse(w http.ResponseWriter) error
+}
+
+type CreateAPIKey201JSONResponse ApiKeyWithSecret
+
+func (response CreateAPIKey201JSONResponse) VisitCreateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAPIKey400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response CreateAPIKey400JSONResponse) VisitCreateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAPIKey401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response CreateAPIKey401JSONResponse) VisitCreateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateAPIKey403JSONResponse) VisitCreateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateAPIKeydefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response CreateAPIKeydefaultJSONResponse) VisitCreateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeAPIKeyRequestObject struct {
+	KeyId KeyId `json:"key_id"`
+}
+
+type RevokeAPIKeyResponseObject interface {
+	VisitRevokeAPIKeyResponse(w http.ResponseWriter) error
+}
+
+type RevokeAPIKey200JSONResponse ApiKey
+
+func (response RevokeAPIKey200JSONResponse) VisitRevokeAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeAPIKey401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RevokeAPIKey401JSONResponse) VisitRevokeAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RevokeAPIKey403JSONResponse) VisitRevokeAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeAPIKey404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RevokeAPIKey404JSONResponse) VisitRevokeAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RevokeAPIKeydefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response RevokeAPIKeydefaultJSONResponse) VisitRevokeAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKeyRequestObject struct {
+	KeyId KeyId `json:"key_id"`
+	Body  *RotateAPIKeyJSONRequestBody
+}
+
+type RotateAPIKeyResponseObject interface {
+	VisitRotateAPIKeyResponse(w http.ResponseWriter) error
+}
+
+type RotateAPIKey201JSONResponse ApiKeyWithSecret
+
+func (response RotateAPIKey201JSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKey400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RotateAPIKey400JSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKey401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RotateAPIKey401JSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKey403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RotateAPIKey403JSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKey404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RotateAPIKey404JSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKey409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RotateAPIKey409JSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RotateAPIKeydefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response RotateAPIKeydefaultJSONResponse) VisitRotateAPIKeyResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogsRequestObject struct {
+	Params ListAuditLogsParams
+}
+
+type ListAuditLogsResponseObject interface {
+	VisitListAuditLogsResponse(w http.ResponseWriter) error
+}
+
+type ListAuditLogs200JSONResponse AuditLogList
+
+func (response ListAuditLogs200JSONResponse) VisitListAuditLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogs400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ListAuditLogs400JSONResponse) VisitListAuditLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogs401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListAuditLogs401JSONResponse) VisitListAuditLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogs403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListAuditLogs403JSONResponse) VisitListAuditLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListAuditLogsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListAuditLogsdefaultJSONResponse) VisitListAuditLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEventsRequestObject struct {
+	Params ListEventsParams
+}
+
+type ListEventsResponseObject interface {
+	VisitListEventsResponse(w http.ResponseWriter) error
+}
+
+type ListEvents200JSONResponse EventList
+
+func (response ListEvents200JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ListEvents400JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListEvents401JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListEvents403JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEvents429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response ListEvents429JSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListEventsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListEventsdefaultJSONResponse) VisitListEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEventRequestObject struct {
+	Body *IngestEventJSONRequestBody
+}
+
+type IngestEventResponseObject interface {
+	VisitIngestEventResponse(w http.ResponseWriter) error
+}
+
+type IngestEvent200ResponseHeaders struct {
+	IdempotentReplay *string
+}
+
+type IngestEvent200JSONResponse struct {
+	Body    RiskDecision
+	Headers IngestEvent200ResponseHeaders
+}
+
+func (response IngestEvent200JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.IdempotentReplay != nil {
+		w.Header().Set("Idempotent-Replay", fmt.Sprint(*response.Headers.IdempotentReplay))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEvent400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response IngestEvent400JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEvent401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response IngestEvent401JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEvent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response IngestEvent403JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEvent409JSONResponse struct{ ConflictJSONResponse }
+
+func (response IngestEvent409JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEvent422JSONResponse struct{ UnprocessableJSONResponse }
+
+func (response IngestEvent422JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEvent429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response IngestEvent429JSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type IngestEventdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response IngestEventdefaultJSONResponse) VisitIngestEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEventRequestObject struct {
+	EventId string `json:"event_id"`
+}
+
+type GetEventResponseObject interface {
+	VisitGetEventResponse(w http.ResponseWriter) error
+}
+
+type GetEvent200JSONResponse EventDetail
+
+func (response GetEvent200JSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEvent401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetEvent401JSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEvent403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetEvent403JSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEvent404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetEvent404JSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEvent429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response GetEvent429JSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetEventdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetEventdefaultJSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRiskRequestObject struct {
+	Body *EvaluateRiskJSONRequestBody
+}
+
+type EvaluateRiskResponseObject interface {
+	VisitEvaluateRiskResponse(w http.ResponseWriter) error
+}
+
+type EvaluateRisk200JSONResponse RiskDecision
+
+func (response EvaluateRisk200JSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRisk400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response EvaluateRisk400JSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRisk401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response EvaluateRisk401JSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRisk403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EvaluateRisk403JSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRisk422JSONResponse struct{ UnprocessableJSONResponse }
+
+func (response EvaluateRisk422JSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(422)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRisk429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response EvaluateRisk429JSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EvaluateRiskdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response EvaluateRiskdefaultJSONResponse) VisitEvaluateRiskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWhoamiRequestObject struct {
+}
+
+type GetWhoamiResponseObject interface {
+	VisitGetWhoamiResponse(w http.ResponseWriter) error
+}
+
+type GetWhoami200JSONResponse Whoami
+
+func (response GetWhoami200JSONResponse) VisitGetWhoamiResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWhoami401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetWhoami401JSONResponse) VisitGetWhoamiResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetWhoamidefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetWhoamidefaultJSONResponse) VisitGetWhoamiResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
 }
 
 type GetLivenessRequestObject struct {
@@ -434,6 +3000,36 @@ func (response GetReadinessdefaultJSONResponse) VisitGetReadinessResponse(w http
 
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
+	// ListAPIKeys List API keys of the caller's environment
+	// (GET /api/v1/api-keys)
+	ListAPIKeys(ctx context.Context, request ListAPIKeysRequestObject) (ListAPIKeysResponseObject, error)
+	// CreateAPIKey Create an API key in the caller's environment
+	// (POST /api/v1/api-keys)
+	CreateAPIKey(ctx context.Context, request CreateAPIKeyRequestObject) (CreateAPIKeyResponseObject, error)
+	// RevokeAPIKey Revoke an API key
+	// (POST /api/v1/api-keys/{key_id}/revoke)
+	RevokeAPIKey(ctx context.Context, request RevokeAPIKeyRequestObject) (RevokeAPIKeyResponseObject, error)
+	// RotateAPIKey Rotate an API key
+	// (POST /api/v1/api-keys/{key_id}/rotate)
+	RotateAPIKey(ctx context.Context, request RotateAPIKeyRequestObject) (RotateAPIKeyResponseObject, error)
+	// ListAuditLogs List audit entries
+	// (GET /api/v1/audit-logs)
+	ListAuditLogs(ctx context.Context, request ListAuditLogsRequestObject) (ListAuditLogsResponseObject, error)
+	// ListEvents List events of the caller's environment
+	// (GET /api/v1/events)
+	ListEvents(ctx context.Context, request ListEventsRequestObject) (ListEventsResponseObject, error)
+	// IngestEvent Ingest an event and get its risk decision
+	// (POST /api/v1/events)
+	IngestEvent(ctx context.Context, request IngestEventRequestObject) (IngestEventResponseObject, error)
+	// GetEvent Get an event with its payloads and evaluation
+	// (GET /api/v1/events/{event_id})
+	GetEvent(ctx context.Context, request GetEventRequestObject) (GetEventResponseObject, error)
+	// EvaluateRisk Evaluate an event without ingesting it (dry run)
+	// (POST /api/v1/risk/evaluate)
+	EvaluateRisk(ctx context.Context, request EvaluateRiskRequestObject) (EvaluateRiskResponseObject, error)
+	// GetWhoami Describe the calling credential
+	// (GET /api/v1/whoami)
+	GetWhoami(ctx context.Context, request GetWhoamiRequestObject) (GetWhoamiResponseObject, error)
 	// GetLiveness Liveness probe
 	// (GET /health/live)
 	GetLiveness(ctx context.Context, request GetLivenessRequestObject) (GetLivenessResponseObject, error)
@@ -479,6 +3075,289 @@ type strictHandler struct {
 	ssi         StrictServerInterface
 	middlewares []StrictMiddlewareFunc
 	options     StrictHTTPServerOptions
+}
+
+// ListAPIKeys operation middleware
+func (sh *strictHandler) ListAPIKeys(w http.ResponseWriter, r *http.Request, params ListAPIKeysParams) {
+	var request ListAPIKeysRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAPIKeys(ctx, request.(ListAPIKeysRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAPIKeys")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAPIKeysResponseObject); ok {
+		if err := validResponse.VisitListAPIKeysResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateAPIKey operation middleware
+func (sh *strictHandler) CreateAPIKey(w http.ResponseWriter, r *http.Request) {
+	var request CreateAPIKeyRequestObject
+
+	var body CreateAPIKeyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateAPIKey(ctx, request.(CreateAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateAPIKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateAPIKeyResponseObject); ok {
+		if err := validResponse.VisitCreateAPIKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RevokeAPIKey operation middleware
+func (sh *strictHandler) RevokeAPIKey(w http.ResponseWriter, r *http.Request, keyId KeyId) {
+	var request RevokeAPIKeyRequestObject
+
+	request.KeyId = keyId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RevokeAPIKey(ctx, request.(RevokeAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RevokeAPIKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RevokeAPIKeyResponseObject); ok {
+		if err := validResponse.VisitRevokeAPIKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RotateAPIKey operation middleware
+func (sh *strictHandler) RotateAPIKey(w http.ResponseWriter, r *http.Request, keyId KeyId) {
+	var request RotateAPIKeyRequestObject
+
+	request.KeyId = keyId
+
+	var body RotateAPIKeyJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RotateAPIKey(ctx, request.(RotateAPIKeyRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RotateAPIKey")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RotateAPIKeyResponseObject); ok {
+		if err := validResponse.VisitRotateAPIKeyResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListAuditLogs operation middleware
+func (sh *strictHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request, params ListAuditLogsParams) {
+	var request ListAuditLogsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListAuditLogs(ctx, request.(ListAuditLogsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListAuditLogs")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListAuditLogsResponseObject); ok {
+		if err := validResponse.VisitListAuditLogsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListEvents operation middleware
+func (sh *strictHandler) ListEvents(w http.ResponseWriter, r *http.Request, params ListEventsParams) {
+	var request ListEventsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListEvents(ctx, request.(ListEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListEventsResponseObject); ok {
+		if err := validResponse.VisitListEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// IngestEvent operation middleware
+func (sh *strictHandler) IngestEvent(w http.ResponseWriter, r *http.Request) {
+	var request IngestEventRequestObject
+
+	var body IngestEventJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.IngestEvent(ctx, request.(IngestEventRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "IngestEvent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(IngestEventResponseObject); ok {
+		if err := validResponse.VisitIngestEventResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetEvent operation middleware
+func (sh *strictHandler) GetEvent(w http.ResponseWriter, r *http.Request, eventId string) {
+	var request GetEventRequestObject
+
+	request.EventId = eventId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetEvent(ctx, request.(GetEventRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetEvent")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetEventResponseObject); ok {
+		if err := validResponse.VisitGetEventResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EvaluateRisk operation middleware
+func (sh *strictHandler) EvaluateRisk(w http.ResponseWriter, r *http.Request) {
+	var request EvaluateRiskRequestObject
+
+	var body EvaluateRiskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EvaluateRisk(ctx, request.(EvaluateRiskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EvaluateRisk")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EvaluateRiskResponseObject); ok {
+		if err := validResponse.VisitEvaluateRiskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetWhoami operation middleware
+func (sh *strictHandler) GetWhoami(w http.ResponseWriter, r *http.Request) {
+	var request GetWhoamiRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetWhoami(ctx, request.(GetWhoamiRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetWhoami")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetWhoamiResponseObject); ok {
+		if err := validResponse.VisitGetWhoamiResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
 }
 
 // GetLiveness operation middleware
@@ -527,4 +3406,207 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 	} else if response != nil {
 		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
 	}
+}
+
+// Base64 encoded, compressed with deflate, json marshaled OpenAPI spec.
+// Stored as a slice of fixed-width chunks rather than one concatenated
+// const string: with thousands of chunks the chained `+` fold is several
+// times slower for the Go compiler than parsing a slice literal.
+var swaggerSpec = []string{
+	"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",
+	"ryyCm2Lbt/8dAA==",
+}
+
+// decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,
+// after base64-decoding and flate-decompressing the embedded blob.
+func decodeSpec() ([]byte, error) {
+	encoded := strings.Join(swaggerSpec, "")
+	compressed, err := base64.StdEncoding.DecodeString(encoded)
+	if err != nil {
+		return nil, fmt.Errorf("error base64 decoding spec: %w", err)
+	}
+	zr := flate.NewReader(bytes.NewReader(compressed))
+	var buf bytes.Buffer
+	if _, err := buf.ReadFrom(zr); err != nil {
+		return nil, fmt.Errorf("read flate: %w", err)
+	}
+	if err := zr.Close(); err != nil {
+		return nil, fmt.Errorf("close flate reader: %w", err)
+	}
+
+	return buf.Bytes(), nil
+}
+
+var rawSpec = decodeSpecCached()
+
+// a naive cache of the decoded OpenAPI spec
+func decodeSpecCached() func() ([]byte, error) {
+	data, err := decodeSpec()
+	return func() ([]byte, error) {
+		return data, err
+	}
+}
+
+// Constructs a synthetic filesystem for resolving external references when loading openapi specifications.
+func PathToRawSpec(pathToFile string) map[string]func() ([]byte, error) {
+	res := make(map[string]func() ([]byte, error))
+	if len(pathToFile) > 0 {
+		res[pathToFile] = rawSpec
+	}
+
+	return res
+}
+
+// GetSpec returns the OpenAPI specification corresponding to the generated
+// code in this file. External references in the spec are resolved through
+// PathToRawSpec; externally-referenced files must be embedded in their
+// corresponding Go packages (via the import-mapping feature). URL-based
+// external refs are not supported.
+func GetSpec() (swagger *openapi3.T, err error) {
+	resolvePath := PathToRawSpec("")
+
+	loader := openapi3.NewLoader()
+	loader.IsExternalRefsAllowed = true
+	loader.ReadFromURIFunc = func(loader *openapi3.Loader, url *url.URL) ([]byte, error) {
+		pathToFile := url.String()
+		pathToFile = path.Clean(pathToFile)
+		getSpec, ok := resolvePath[pathToFile]
+		if !ok {
+			err1 := fmt.Errorf("path not found: %s", pathToFile)
+			return nil, err1
+		}
+		return getSpec()
+	}
+	var specData []byte
+	specData, err = rawSpec()
+	if err != nil {
+		return
+	}
+	swagger, err = loader.LoadFromData(specData)
+	if err != nil {
+		return
+	}
+	return
+}
+
+// GetSpecJSON returns the raw JSON bytes of the embedded OpenAPI
+// specification: decompressed but not unmarshaled. External references
+// are not resolved here; the bytes are the spec exactly as embedded by
+// codegen. The result is cached at package init time, so repeated calls
+// are cheap.
+func GetSpecJSON() ([]byte, error) {
+	return rawSpec()
+}
+
+// GetSwagger returns the OpenAPI specification corresponding to the
+// generated code in this file.
+//
+// Deprecated: GetSwagger predates kin-openapi renaming openapi3.Swagger
+// to openapi3.T. Use [GetSpec] instead. This wrapper is retained for
+// backwards compatibility.
+func GetSwagger() (*openapi3.T, error) {
+	return GetSpec()
 }

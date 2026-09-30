@@ -2,6 +2,7 @@ package config_test
 
 import (
 	"log/slog"
+	"strings"
 	"testing"
 	"time"
 
@@ -33,7 +34,7 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, slog.LevelInfo, cfg.LogLevel)
 	assert.Equal(t, ":8080", cfg.HTTP.Addr)
 	assert.Equal(t, 5*time.Second, cfg.HTTP.ReadHeaderTimeout)
-	assert.Equal(t, int64(1<<20), cfg.HTTP.MaxBodyBytes)
+	assert.Equal(t, int64(64<<10), cfg.HTTP.MaxBodyBytes)
 	assert.Equal(t, int32(20), cfg.Postgres.MaxConns)
 	assert.False(t, cfg.Telemetry.Enabled)
 }
@@ -76,6 +77,7 @@ func TestLoadRejectsInvalid(t *testing.T) {
 		{"sample ratio out of range", func(e map[string]string) { e["RISKOS_OTEL_SAMPLE_RATIO"] = "1.5" }, "RISKOS_OTEL_SAMPLE_RATIO"},
 		{"production requires redis password", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "RISKOS_REDIS_PASSWORD"},
 		{"production requires verified postgres TLS", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "sslmode=verify-full"},
+		{"bad migration url", func(e map[string]string) { e["RISKOS_POSTGRES_MIGRATION_URL"] = "not-a-url" }, "RISKOS_POSTGRES_MIGRATION_URL"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -101,4 +103,39 @@ func TestLoadNeverEchoesSecrets(t *testing.T) {
 	_, err := config.Load(lookupFrom(env))
 	require.Error(t, err)
 	assert.NotContains(t, err.Error(), "secret-pw")
+}
+
+func TestAuthValidate(t *testing.T) {
+	tests := []struct {
+		name    string
+		auth    config.Auth
+		wantErr string
+	}{
+		{"valid", config.Auth{APIKeyPepper: strings.Repeat("p", 32), APIKeyCacheTTL: 5 * time.Second}, ""},
+		{"cache disabled", config.Auth{APIKeyPepper: strings.Repeat("p", 32)}, ""},
+		{"missing pepper", config.Auth{APIKeyCacheTTL: time.Second}, "RISKOS_API_KEY_PEPPER"},
+		{"short pepper", config.Auth{APIKeyPepper: "short"}, "RISKOS_API_KEY_PEPPER"},
+		{"cache ttl above revocation bound", config.Auth{APIKeyPepper: strings.Repeat("p", 32), APIKeyCacheTTL: 6 * time.Second}, "RISKOS_API_KEY_CACHE_TTL"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.auth.Validate()
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+			assert.NotContains(t, err.Error(), "short", "the pepper must never be echoed")
+		})
+	}
+}
+
+func TestLoadAuthDefaults(t *testing.T) {
+	env := minimalEnv()
+	env["RISKOS_API_KEY_PEPPER"] = strings.Repeat("x", 40)
+	cfg, err := config.Load(lookupFrom(env))
+	require.NoError(t, err)
+	assert.Equal(t, 5*time.Second, cfg.Auth.APIKeyCacheTTL)
+	require.NoError(t, cfg.Auth.Validate())
 }

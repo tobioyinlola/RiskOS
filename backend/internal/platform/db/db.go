@@ -46,6 +46,22 @@ func NewPool(ctx context.Context, cfg config.Postgres) (*pgxpool.Pool, error) {
 	return pool, nil
 }
 
+// PartitionMonthsAhead is how many months of events/evaluations partitions are kept ready
+// beyond the current one. A daily job maintains it, so inserts never hit a missing partition
+// even if the worker is down for weeks.
+const PartitionMonthsAhead = 3
+
+// EnsureTimePartitions creates missing monthly partitions of the time-partitioned tables through
+// the ensure_time_partitions function (which runs with the owner's rights, so the application
+// role can call it). It returns how many partitions were created.
+func EnsureTimePartitions(ctx context.Context, pool *pgxpool.Pool, monthsAhead int) (int, error) {
+	var created int
+	if err := pool.QueryRow(ctx, `SELECT ensure_time_partitions($1)`, monthsAhead).Scan(&created); err != nil {
+		return 0, fmt.Errorf("ensure time partitions: %w", err)
+	}
+	return created, nil
+}
+
 // Ping executes a trivial statement on a pooled connection.
 func Ping(ctx context.Context, pool *pgxpool.Pool) error {
 	if _, err := sqlcgen.New(pool).Ping(ctx); err != nil {

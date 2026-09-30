@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -49,6 +50,14 @@ func run() (err error) {
 
 	registry := jobs.NewRegistry()
 	jobs.Register(registry, jobs.NoopHandler(logger))
+	jobs.RegisterPeriodic(registry, 24*time.Hour, jobs.EnsurePartitionsArgs{}, func(ctx context.Context, _ jobs.EnsurePartitionsArgs) error {
+		created, err := db.EnsureTimePartitions(ctx, pool, db.PartitionMonthsAhead)
+		if err != nil {
+			return err
+		}
+		logger.InfoContext(ctx, "time partitions ensured", slog.Int("created", created), slog.Int("months_ahead", db.PartitionMonthsAhead))
+		return nil
+	})
 
 	queue, err := jobs.NewQueue(pool, registry, jobs.QueueConfig{
 		Concurrency: cfg.Worker.Concurrency,

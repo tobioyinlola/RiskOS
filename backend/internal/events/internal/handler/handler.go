@@ -1,0 +1,208 @@
+// Package handler adapts HTTP requests for the events module to its service.
+package handler
+
+import (
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"strings"
+	"time"
+
+	"github.com/google/uuid"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/service"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
+)
+
+// Error codes specific to events (EVENTS.md).
+const (
+	CodeIdempotencyConflict = "IDEMPOTENCY_CONFLICT"
+	CodeStaleEvent          = "STALE_EVENT"
+	CodeInvalidEvent        = "INVALID_EVENT"
+	CodeSensitiveData       = "SENSITIVE_DATA"
+)
+
+// Handlers implements the event operations of apigen.StrictServerInterface.
+type Handlers struct {
+	svc *service.Service
+}
+
+// New returns the events HTTP handlers.
+func New(svc *service.Service) *Handlers { return &Handlers{svc: svc} }
+
+// IngestEvent implements POST /api/v1/events.
+func (h *Handlers) IngestEvent(ctx context.Context, req apigen.IngestEventRequestObject) (apigen.IngestEventResponseObject, error) {
+	e, raw, err := decode(ctx, req.Body)
+	if err != nil {
+		return nil, err
+	}
+	outcome, replay, err := h.svc.Ingest(ctx, raw, e)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	resp := apigen.IngestEvent200JSONResponse{Body: toAPI(outcome)}
+	if replay {
+		resp.Headers.IdempotentReplay = new("true")
+	}
+	return resp, nil
+}
+
+// EvaluateRisk implements POST /api/v1/risk/evaluate (dry run).
+func (h *Handlers) EvaluateRisk(ctx context.Context, req apigen.EvaluateRiskRequestObject) (apigen.EvaluateRiskResponseObject, error) {
+	e, raw, err := decode(ctx, req.Body)
+	if err != nil {
+		return nil, err
+	}
+	outcome, err := h.svc.Evaluate(ctx, raw, e)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return apigen.EvaluateRisk200JSONResponse(toAPI(outcome)), nil
+}
+
+// ListEvents implements GET /api/v1/events.
+func (h *Handlers) ListEvents(ctx context.Context, req apigen.ListEventsRequestObject) (apigen.ListEventsResponseObject, error) {
+	page, err := httpx.ParsePage(req.Params.Limit, req.Params.Cursor, ids.PrefixEvent)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := h.svc.List(ctx, domain.Page{Limit: page.Limit + 1, Before: page.Before})
+	if err != nil {
+		return nil, mapError(err)
+	}
+	rows, next := httpx.NextCursor(rows, page.Limit, ids.PrefixEvent, func(s domain.Summary) uuid.UUID { return s.ID })
+	data := make([]apigen.EventSummary, len(rows))
+	for i, s := range rows {
+		data[i] = apigen.EventSummary{
+			Id: ids.Format(ids.PrefixEvent, s.ID), EventKey: s.Key, Type: apigen.EventType(s.Type),
+			OccurredAt: s.OccurredAt, ReceivedAt: s.ReceivedAt, RiskScore: s.Score,
+			RiskLevel: apigen.RiskLevel(s.Level), Decision: apigen.Decision(s.Decision),
+		}
+	}
+	return apigen.ListEvents200JSONResponse{Data: data, NextCursor: next}, nil
+}
+
+// GetEvent implements GET /api/v1/events/{event_id}.
+func (h *Handlers) GetEvent(ctx context.Context, req apigen.GetEventRequestObject) (apigen.GetEventResponseObject, error) {
+	id, err := ids.Parse(ids.PrefixEvent, req.EventId)
+	if err != nil {
+		return nil, httpx.NotFound(err)
+	}
+	d, err := h.svc.Get(ctx, id)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var raw, normalized map[string]any
+	if err := json.Unmarshal(d.RawPayload, &raw); err != nil {
+		return nil, fmt.Errorf("decode raw payload: %w", err)
+	}
+	if err := json.Unmarshal(d.Normalized, &normalized); err != nil {
+		return nil, fmt.Errorf("decode normalized payload: %w", err)
+	}
+	return apigen.GetEvent200JSONResponse{
+		Id: ids.Format(ids.PrefixEvent, d.ID), EventKey: d.Key, Type: apigen.EventType(d.Type),
+		Environment: apigen.Environment(scope.EnvironmentKind), OccurredAt: d.OccurredAt, ReceivedAt: d.ReceivedAt,
+		RawPayload: raw, NormalizedPayload: normalized, Evaluation: toAPI(d.Evaluation),
+	}, nil
+}
+
+// decode converts the contract-validated body into a domain event and returns the raw bytes the
+// validation middleware captured.
+func decode(ctx context.Context, body *apigen.Event) (domain.Event, []byte, error) {
+	raw, ok := httpx.RawBody(ctx)
+	if body == nil || !ok {
+		return domain.Event{}, nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	v, err := body.ValueByDiscriminator()
+	if err != nil {
+		return domain.Event{}, nil, httpx.InvalidRequest("Unknown event type.", err)
+	}
+	var e domain.Event
+	var data any
+	switch ev := v.(type) {
+	case apigen.LoginEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	case apigen.TransactionEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	case apigen.BeneficiaryAddedEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	case apigen.DeviceChangeEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	case apigen.SessionChangeEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	case apigen.ProfileChangeEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	default:
+		return domain.Event{}, nil, httpx.InvalidRequest("Unknown event type.", fmt.Errorf("unexpected %T", v))
+	}
+	if e.Data, err = json.Marshal(data); err != nil {
+		return domain.Event{}, nil, fmt.Errorf("encode event data: %w", err)
+	}
+	return e, raw, nil
+}
+
+func common(key, typ string, occurredAt time.Time, a apigen.Actor, c *apigen.EventContext) domain.Event {
+	e := domain.Event{
+		Key: key, Type: typ, OccurredAt: occurredAt,
+		Actor: domain.Actor{UserID: a.UserId, AccountID: deref(a.AccountId), DeviceID: deref(a.DeviceId), SessionID: deref(a.SessionId)},
+	}
+	if c != nil {
+		e.Context = domain.Context{IP: deref(c.Ip), UserAgent: deref(c.UserAgent), Country: deref(c.Country)}
+	}
+	return e
+}
+
+func deref(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
+func mapError(err error) error {
+	detail := func(sentinel error) string {
+		return strings.TrimPrefix(strings.TrimPrefix(err.Error(), sentinel.Error()), ": ")
+	}
+	switch {
+	case errors.Is(err, domain.ErrIdempotencyConflict):
+		return httpx.NewError(http.StatusConflict, CodeIdempotencyConflict,
+			"This event_id was already used with a different payload.", err)
+	case errors.Is(err, domain.ErrStaleEvent):
+		return httpx.NewError(http.StatusUnprocessableEntity, CodeStaleEvent, detail(domain.ErrStaleEvent)+".", err)
+	case errors.Is(err, domain.ErrInvalidEvent):
+		return httpx.NewError(http.StatusUnprocessableEntity, CodeInvalidEvent, detail(domain.ErrInvalidEvent)+".", err)
+	case errors.Is(err, domain.ErrSensitiveData):
+		return httpx.NewError(http.StatusUnprocessableEntity, CodeSensitiveData,
+			"The event contains a value that looks like a card number. Never send card numbers, CVVs, PINs or passwords; use opaque references.", err)
+	case errors.Is(err, domain.ErrNotFound):
+		return httpx.NotFound(err)
+	default:
+		return err
+	}
+}
+
+func toAPI(o domain.Outcome) apigen.RiskDecision {
+	signals := make([]apigen.Signal, len(o.Signals))
+	for i, s := range o.Signals {
+		signals[i] = apigen.Signal{Code: s.Code, Label: s.Label, Weight: s.Weight}
+	}
+	d := apigen.RiskDecision{
+		RequestId: o.RequestID, EvaluationId: ids.Format(ids.PrefixEvaluation, o.EvaluationID),
+		RiskScore: o.Score, RiskLevel: apigen.RiskLevel(o.Level), Decision: apigen.Decision(o.Decision),
+		EngineVersion: o.EngineVersion, Signals: signals, DegradedSignals: o.DegradedSignals,
+	}
+	if o.EventID != nil {
+		d.EventId = new(ids.Format(ids.PrefixEvent, *o.EventID))
+	}
+	return d
+}

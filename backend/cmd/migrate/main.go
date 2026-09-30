@@ -9,6 +9,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"os"
@@ -53,7 +54,12 @@ func run(args []string) error {
 	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-migrate")
 
-	pool, err := db.NewPool(ctx, cfg.Postgres)
+	if cfg.Postgres.MigrationURL == "" {
+		return errors.New("RISKOS_POSTGRES_MIGRATION_URL is required: migrations run as the schema owner")
+	}
+	ownerCfg := cfg.Postgres
+	ownerCfg.URL = cfg.Postgres.MigrationURL
+	pool, err := db.NewPool(ctx, ownerCfg)
 	if err != nil {
 		return err
 	}

@@ -13,16 +13,22 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 type fixture struct {
@@ -41,15 +47,20 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 	for name, perr := range probes {
 		checks = append(checks, health.Check{Name: name, Timeout: time.Second, Probe: func(context.Context) error { return perr }})
 	}
+	authModule, auditModule := testModules()
 	return fixture{
 		logs: logs,
-		handler: httpapi.New(httpapi.Deps{
+		handler: must(t)(httpapi.New(httpapi.Deps{
 			Logger:    logger,
 			Clock:     clock.System{},
 			HTTP:      config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 1024},
 			Telemetry: tel,
 			Health:    health.NewService(logger, checks...),
-		}),
+			Auth:      authModule,
+			Audit:     auditModule,
+			Events:    eventsModule(),
+			Limiter:   allowAll{},
+		})),
 	}
 }
 
@@ -114,9 +125,12 @@ func TestErrorContract(t *testing.T) {
 		wantCode   string
 	}{
 		{"unknown route", func() *http.Request { return httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/nope", nil) }, http.StatusNotFound, "NOT_FOUND"},
-		{"unknown versioned route", func() *http.Request {
-			return httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/events", nil)
-		}, http.StatusNotFound, "NOT_FOUND"},
+		{"versioned route without a key", func() *http.Request {
+			return httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/api-keys", nil)
+		}, http.StatusUnauthorized, "UNAUTHENTICATED"},
+		{"unknown versioned route without a key", func() *http.Request {
+			return httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/nope", nil)
+		}, http.StatusUnauthorized, "UNAUTHENTICATED"},
 		{"wrong method", func() *http.Request {
 			return httptest.NewRequestWithContext(t.Context(), http.MethodPost, "/health/live", strings.NewReader(`{"malformed":`))
 		}, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED"},
@@ -183,13 +197,18 @@ func BenchmarkLiveness(b *testing.B) {
 	logger := logging.New(io.Discard, slog.LevelInfo, "bench") // production logger, incl. redaction
 	tel, err := telemetry.Setup(context.Background(), config.Telemetry{}, "bench", config.EnvTest)
 	require.NoError(b, err)
-	h := httpapi.New(httpapi.Deps{
+	authModule, auditModule := testModules()
+	h := must(b)(httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clock.System{},
 		HTTP:      config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 1 << 20},
 		Telemetry: tel,
 		Health:    health.NewService(logger),
-	})
+		Auth:      authModule,
+		Audit:     auditModule,
+		Events:    eventsModule(),
+		Limiter:   allowAll{},
+	}))
 	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/health/live", nil)
 	b.ReportAllocs()
 	for b.Loop() {
@@ -198,5 +217,48 @@ func BenchmarkLiveness(b *testing.B) {
 		if rec.Code != http.StatusOK {
 			b.Fatalf("status %d", rec.Code)
 		}
+	}
+}
+
+// noKeys is a key store that knows no keys: every /api/v1 request is unauthenticated. Tests of
+// authenticated behavior run against PostgreSQL in test/integration.
+type noKeys struct{}
+
+func (noKeys) QueryRow(context.Context, string, ...any) pgx.Row { return noRow{} }
+
+type noRow struct{}
+
+func (noRow) Scan(...any) error { return pgx.ErrNoRows }
+
+// noDB fails any transaction; these tests never reach one.
+type noDB struct{}
+
+func (noDB) Run(context.Context, func(context.Context) error) error {
+	return errors.New("no database in this test")
+}
+
+func testModules() (*auth.Module, *audit.Module) {
+	auditModule := audit.New(noDB{}, clock.System{})
+	return auth.New(noKeys{}, noDB{}, auditModule.Recorder(), clock.System{}, auth.Config{
+		Pepper: []byte(strings.Repeat("p", 32)),
+	}), auditModule
+}
+
+// allowAll is a rate limiter that never limits.
+type allowAll struct{}
+
+func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, error) {
+	return ratelimit.Decision{Allowed: true}, nil
+}
+
+func eventsModule() *events.Module {
+	return events.New(noDB{}, risk.New(noDB{}, clock.System{}).Evaluator(), clock.System{})
+}
+
+func must(t testing.TB) func(http.Handler, error) http.Handler {
+	return func(h http.Handler, err error) http.Handler {
+		t.Helper()
+		require.NoError(t, err)
+		return h
 	}
 }

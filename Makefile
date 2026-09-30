@@ -31,7 +31,7 @@ down: ## Stop all services (data volumes are kept; use `make clean` to remove th
 
 .PHONY: clean
 clean: ## Stop all services and delete local data volumes
-	$(COMPOSE) --profile app --profile dev down --remove-orphans --volumes
+	$(COMPOSE) --profile app --profile dev --profile tools down --remove-orphans --volumes
 
 .PHONY: logs
 logs: ## Follow logs of all services
@@ -44,6 +44,22 @@ ps: ## Show service status
 .PHONY: migrate
 migrate: .env ## Apply database migrations
 	$(COMPOSE) --profile app run --rm --build migrate up
+
+##@ Operations (riskosctl; the stack must be running)
+
+RISKOSCTL := $(COMPOSE) --profile tools run --rm --build riskosctl
+
+.PHONY: tenant
+tenant: .env ## Create a tenant: make tenant NAME="Acme" REGION=eu-west-1 OPERATOR=you@example.com
+	$(RISKOSCTL) tenant create --operator "$(OPERATOR)" --name "$(NAME)" --region "$(REGION)"
+
+.PHONY: apikey
+apikey: .env ## Issue a key: make apikey TENANT=ten_... ENV=production NAME=ci OPERATOR=you@example.com
+	$(RISKOSCTL) apikey create --operator "$(OPERATOR)" --tenant "$(TENANT)" --env "$(ENV)" --name "$(NAME)"
+
+.PHONY: audit-verify
+audit-verify: .env ## Verify a tenant's audit hash chain: make audit-verify TENANT=ten_...
+	$(RISKOSCTL) audit verify --tenant "$(TENANT)"
 
 .env:
 	@echo "No .env found. Run: cp .env.example .env" >&2; exit 1
@@ -135,6 +151,15 @@ load: ## Load test the running API (make up first; RATE=req/s DURATION=30s); res
 	  grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34 \
 	  run --summary-export=/scripts/results/health-summary.json /scripts/health.js
 
+.PHONY: load-events
+load-events: ## Load test event ingest (make up first): make load-events API_KEY=rsk_test_... [RATE=500]
+	@test -n "$(API_KEY)" || { echo "API_KEY is required (a key with events:write)" >&2; exit 1; }
+	mkdir -p backend/test/load/results
+	docker run --rm --network host --user "$$(id -u):$$(id -g)" -v "$(CURDIR)/backend/test/load:/scripts" \
+	  -e API_URL=$${API_URL:-http://127.0.0.1:8080} -e API_KEY -e RATE -e DURATION \
+	  grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34 \
+	  run --summary-export=/scripts/results/events-summary.json /scripts/events.js
+
 ##@ CI
 
 .PHONY: check
@@ -145,6 +170,7 @@ docker-build: ## Build all runtime images
 	docker build --target api -t riskos/api:local backend
 	docker build --target worker -t riskos/worker:local backend
 	docker build --target migrate -t riskos/migrate:local backend
+	docker build --target riskosctl -t riskos/riskosctl:local backend
 	docker build --target runtime -t riskos/frontend:local frontend
 
 ##@ Setup
