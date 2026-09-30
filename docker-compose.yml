@@ -1,0 +1,158 @@
+# RiskOS local environment.
+#
+#   make up    production-like images (profile "app")
+#   make dev   hot reload from bind-mounted source (profile "dev")
+#
+# PostgreSQL and Redis are reachable by services on the compose network. Their ports are published
+# on 127.0.0.1 only, for local tools (psql, redis-cli); nothing is exposed to other hosts.
+# Local credentials come from .env (copied from .env.example) and are for development only.
+
+name: riskos
+
+x-backend-env: &backend-env
+  RISKOS_ENV: development
+  RISKOS_LOG_LEVEL: ${RISKOS_LOG_LEVEL:-info}
+  RISKOS_POSTGRES_URL: postgres://riskos:${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}@postgres:5432/riskos?sslmode=disable
+  RISKOS_REDIS_ADDR: redis:6379
+  RISKOS_REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+  RISKOS_OTEL_ENABLED: ${RISKOS_OTEL_ENABLED:-true}
+  RISKOS_OTEL_EXPORTER_OTLP_ENDPOINT: otel-collector:4318
+  RISKOS_OTEL_EXPORTER_OTLP_INSECURE: "true"
+
+x-hardening: &hardening
+  read_only: true
+  cap_drop: [ALL]
+  security_opt: [no-new-privileges:true]
+
+x-backend-deps: &backend-deps
+  postgres:
+    condition: service_healthy
+  redis:
+    condition: service_healthy
+  otel-collector:
+    condition: service_started
+  migrate:
+    condition: service_completed_successfully
+
+services:
+  postgres:
+    image: postgres:16.15-alpine@sha256:721873c34ceb9f8d8fc265984940dc982404c105f19ad51be9fdc5970a6080ea
+    environment:
+      POSTGRES_USER: riskos
+      POSTGRES_DB: riskos
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD in .env}
+    ports: ["127.0.0.1:${POSTGRES_PORT:-5432}:5432"]
+    volumes: [postgres-data:/var/lib/postgresql/data]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U riskos -d riskos"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    security_opt: [no-new-privileges:true]
+
+  redis:
+    image: redis:7.4.11-alpine@sha256:858f009f9709ce576febc734aa78b8f6d624b82571f9ddb6bda4377c833b3499
+    command: ["sh", "-c", 'exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"']
+    environment:
+      REDIS_PASSWORD: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+      REDISCLI_AUTH: ${REDIS_PASSWORD:?set REDIS_PASSWORD in .env}
+    ports: ["127.0.0.1:${REDIS_PORT:-6379}:6379"]
+    volumes: [redis-data:/data]
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+    security_opt: [no-new-privileges:true]
+
+  otel-collector:
+    image: otel/opentelemetry-collector-contrib:0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1
+    command: ["--config=/etc/otelcol/config.yaml"]
+    volumes: ["./infra/otel/collector.yaml:/etc/otelcol/config.yaml:ro"]
+    <<: *hardening
+
+  # ---- profile "app": images as they ship -------------------------------------------------
+  migrate:
+    profiles: [app, dev]
+    build: { context: ./backend, target: migrate }
+    image: riskos/migrate:local
+    environment: *backend-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+    <<: *hardening
+
+  api:
+    profiles: [app]
+    build: { context: ./backend, target: api }
+    image: riskos/api:local
+    environment:
+      <<: *backend-env
+      RISKOS_HTTP_SHUTDOWN_DRAIN_DELAY: 2s
+    ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
+    depends_on: *backend-deps
+    healthcheck:
+      test: ["CMD", "/app/api", "healthcheck"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+    stop_grace_period: 30s
+    <<: *hardening
+
+  worker:
+    profiles: [app]
+    build: { context: ./backend, target: worker }
+    image: riskos/worker:local
+    environment: *backend-env
+    depends_on: *backend-deps
+    stop_grace_period: 40s
+    <<: *hardening
+
+  frontend:
+    profiles: [app]
+    build: { context: ./frontend, target: runtime }
+    image: riskos/frontend:local
+    ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:3000"]
+    tmpfs: ["/app/.next/cache"]
+    healthcheck:
+      test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/robots.txt').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+    <<: *hardening
+
+  # ---- profile "dev": hot reload -----------------------------------------------------------
+  api-dev:
+    profiles: [dev]
+    build: { context: ./backend, target: dev }
+    image: riskos/backend-dev:local
+    command: ["air", "--build.cmd", "go build -o ./tmp/api ./cmd/api", "--build.bin", "./tmp/api", "--build.exclude_dir", "tmp,test"]
+    environment: *backend-env
+    ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
+    volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
+    depends_on: *backend-deps
+
+  worker-dev:
+    profiles: [dev]
+    build: { context: ./backend, target: dev }
+    image: riskos/backend-dev:local
+    command: ["air", "--build.cmd", "go build -o ./tmp/worker ./cmd/worker", "--build.bin", "./tmp/worker", "--build.exclude_dir", "tmp,test"]
+    environment: *backend-env
+    volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
+    depends_on: *backend-deps
+
+  frontend-dev:
+    profiles: [dev]
+    build: { context: ./frontend, target: dev }
+    image: riskos/frontend-dev:local
+    ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:3000"]
+    volumes: ["./frontend:/app", "frontend-node-modules:/app/node_modules"]
+
+volumes:
+  postgres-data:
+  redis-data:
+  go-mod-cache:
+  go-build-cache:
+  frontend-node-modules:
