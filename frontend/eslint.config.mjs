@@ -22,6 +22,11 @@ const eslintConfig = defineConfig([
         },
       ],
       "no-console": ["error", { allow: ["warn", "error"] }],
+      // Bare TODOs are rejected by scripts/check-todos.sh; these markers are never allowed.
+      "no-warning-comments": [
+        "error",
+        { terms: ["fixme", "xxx", "hack"], location: "anywhere" },
+      ],
     },
   },
   {

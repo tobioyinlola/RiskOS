@@ -9,6 +9,7 @@
 # Go
 /backend/coverage.out
 /backend/coverage.html
+/backend/bench.txt
 /backend/tmp/
 *.test
 *.prof

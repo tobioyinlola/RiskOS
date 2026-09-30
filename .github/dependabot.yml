@@ -1,0 +1,41 @@
+# Keeps dependencies, base images and pinned actions current. Updates arrive as PRs and pass the
+# same CI as any change.
+version: 2
+updates:
+  - package-ecosystem: gomod
+    directory: /backend
+    schedule: { interval: weekly }
+    groups:
+      opentelemetry:
+        patterns: ["go.opentelemetry.io/*"]
+      testcontainers:
+        patterns: ["github.com/testcontainers/*"]
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: gomod
+    directory: /backend/tools
+    schedule: { interval: weekly }
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule: { interval: weekly }
+    groups:
+      react:
+        patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
+      testing:
+        patterns: ["vitest", "@vitest/*", "@testing-library/*", "@playwright/test", "jsdom"]
+      lint:
+        patterns: ["eslint", "eslint-*", "prettier", "prettier-*"]
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: docker
+    directories: [/backend, /frontend]
+    schedule: { interval: weekly }
+
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule: { interval: weekly }
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule: { interval: weekly }

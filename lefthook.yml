@@ -1,0 +1,30 @@
+# Git hooks. Install once with `make hooks`. The same checks run in CI, so hooks are a fast
+# local preview, not the enforcement point.
+pre-commit:
+  parallel: true
+  commands:
+    secrets:
+      run: gitleaks git --pre-commit --staged --redact --no-banner .
+    large-files:
+      run: ./scripts/check-large-files.sh {staged_files}
+    go-format:
+      glob: "backend/**/*.go"
+      root: backend/
+      run: golangci-lint fmt --diff {staged_files}
+    go-lint:
+      glob: "backend/**/*.go"
+      root: backend/
+      run: golangci-lint run --new-from-rev=HEAD ./...
+    frontend-lint:
+      glob: "frontend/**/*.{ts,tsx,js,mjs}"
+      root: frontend/
+      run: pnpm exec eslint --max-warnings=0 {staged_files}
+    frontend-format:
+      glob: "frontend/**/*.{ts,tsx,js,mjs,json,css,md}"
+      root: frontend/
+      run: pnpm exec prettier --check --ignore-unknown {staged_files}
+
+commit-msg:
+  commands:
+    conventional-commit:
+      run: ./scripts/check-commit-msg.sh {1}

@@ -1,0 +1,14 @@
+# gitleaks configuration: the default ruleset plus exclusions for build output and dependencies
+# that are git-ignored and never committed. Never allowlist a real secret; rotate it instead.
+[extend]
+useDefault = true
+
+[allowlist]
+description = "git-ignored build output and dependencies"
+paths = [
+  '''(^|/)node_modules/''',
+  '''(^|/)\.next/''',
+  '''(^|/)bin/''',
+  '''(^|/)playwright-report/''',
+  '''(^|/)test-results/''',
+]

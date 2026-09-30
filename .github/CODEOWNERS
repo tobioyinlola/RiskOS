@@ -1,0 +1,13 @@
+# Default owner for everything until teams exist. Security-sensitive paths are listed explicitly
+# so that adding a security reviewer later is a one-line change per path.
+*                                   @tobioyinlola
+
+/backend/api/openapi.yaml           @tobioyinlola
+/backend/db/migrations/             @tobioyinlola
+/backend/internal/auth/             @tobioyinlola
+/backend/internal/tenants/          @tobioyinlola
+/backend/internal/platform/         @tobioyinlola
+/backend/.golangci.yml              @tobioyinlola
+/.github/                           @tobioyinlola
+/docs/SECURITY.md                   @tobioyinlola
+/docs/THREAT_MODEL.md               @tobioyinlola
