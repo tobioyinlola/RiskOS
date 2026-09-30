@@ -18,7 +18,7 @@ pre-commit:
     frontend-lint:
       glob: "frontend/**/*.{ts,tsx,js,mjs}"
       root: frontend/
-      run: pnpm exec eslint --max-warnings=0 {staged_files}
+      run: pnpm exec eslint --max-warnings=0 --no-warn-ignored {staged_files}
     frontend-format:
       glob: "frontend/**/*.{ts,tsx,js,mjs,json,css,md}"
       root: frontend/

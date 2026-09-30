@@ -15,6 +15,8 @@ import (
 	"github.com/testcontainers/testcontainers-go"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -28,11 +30,16 @@ func newAPI(t *testing.T) http.Handler {
 	t.Helper()
 	tel, err := telemetry.Setup(t.Context(), config.Telemetry{}, "integration", config.EnvTest)
 	require.NoError(t, err)
+	runner := db.NewTxRunner(shared.pool)
+	auditModule := audit.New(runner, clock.System{})
+	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clock.System{}, auth.Config{Pepper: []byte(testPepper)})
 	return httpapi.New(httpapi.Deps{
 		Logger:    shared.logger,
 		Clock:     clock.System{},
 		HTTP:      config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 1 << 20},
 		Telemetry: tel,
+		Auth:      authModule,
+		Audit:     auditModule,
 		Health: health.NewService(shared.logger,
 			health.Check{Name: "postgres", Timeout: time.Second, Probe: func(ctx context.Context) error { return db.Ping(ctx, shared.pool) }},
 			health.Check{Name: "redis", Timeout: time.Second, Probe: func(ctx context.Context) error { return redisx.Ping(ctx, shared.rdb) }},

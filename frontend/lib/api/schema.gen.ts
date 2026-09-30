@@ -46,6 +46,115 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/whoami": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Describe the calling credential
+         * @description Returns the tenant, environment and scopes the presented API key resolves to. Requires no scope.
+         */
+        get: operations["getWhoami"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List API keys of the caller's environment
+         * @description Requires scope `api_keys:read`. Secrets are never returned.
+         */
+        get: operations["listAPIKeys"];
+        put?: never;
+        /**
+         * Create an API key in the caller's environment
+         * @description Requires scope `api_keys:write`. The new key can only receive scopes the caller holds.
+         *     The secret is returned **once**, in this response; store it immediately.
+         */
+        post: operations["createAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-keys/{key_id}/rotate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate an API key
+         * @description Requires scope `api_keys:write` and every scope of the rotated key. Creates a replacement
+         *     with the same name and scopes and returns its secret once. The old key keeps working for
+         *     the overlap window, then expires. A revoked or already-rotated key cannot be rotated.
+         */
+        post: operations["rotateAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/api-keys/{key_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke an API key
+         * @description Requires scope `api_keys:write`. Takes effect within seconds on every instance. Revoking an
+         *     already revoked key returns it unchanged.
+         */
+        post: operations["revokeAPIKey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/audit-logs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List audit entries
+         * @description Requires scope `audit_logs:read`. Returns tenant-level entries and entries of the caller's
+         *     environment. Each entry carries its position in the tenant's hash chain.
+         */
+        get: operations["listAuditLogs"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -79,6 +188,110 @@ export interface components {
                 [key: string]: "ok" | "unavailable";
             };
         };
+        /** @enum {string} */
+        Environment: "test" | "production";
+        /**
+         * @description A permission an API key holds.
+         * @enum {string}
+         */
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read";
+        Whoami: {
+            /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            tenant_id: string;
+            /** @example env_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            environment_id: string;
+            environment: components["schemas"]["Environment"];
+            /** @example key_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            api_key_id: string;
+            scopes: components["schemas"]["Scope"][];
+        };
+        ApiKey: {
+            /** @example key_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            name: string;
+            /**
+             * @description The non-secret start of the key, for recognizing it (e.g. in logs of the caller's own systems).
+             * @example rsk_test_a1b2c3d4e5f6
+             */
+            prefix: string;
+            environment: components["schemas"]["Environment"];
+            scopes: components["schemas"]["Scope"][];
+            /** @enum {string} */
+            status: "active" | "expired" | "revoked";
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+            /** Format: date-time */
+            revoked_at?: string | null;
+            /** @description The key that replaced this one through rotation. */
+            replaced_by?: string | null;
+        };
+        ApiKeyWithSecret: {
+            api_key: components["schemas"]["ApiKey"];
+            /**
+             * @description The full API key. Shown only in this response and never retrievable again.
+             * @example rsk_test_a1b2c3d4e5f6_0123456789abcdefghjkmnpqrstvwxyz
+             */
+            secret: string;
+        };
+        ApiKeyList: {
+            data: components["schemas"]["ApiKey"][];
+            next_cursor: string | null;
+        };
+        CreateApiKeyRequest: {
+            name: string;
+            scopes: components["schemas"]["Scope"][];
+            /**
+             * Format: date-time
+             * @description Optional expiry; must be in the future.
+             */
+            expires_at?: string | null;
+        };
+        RotateApiKeyRequest: {
+            /**
+             * @description How long the old key keeps working after rotation (default 24 hours, maximum 7 days).
+             * @default 86400
+             */
+            overlap_seconds: number;
+        };
+        AuditLogEntry: {
+            /** @example aud_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            /**
+             * Format: int64
+             * @description Position in the tenant's hash chain (1-based, gap-free across all environments).
+             */
+            sequence: number;
+            /** Format: date-time */
+            occurred_at: string;
+            /** @description Null for tenant-level actions. */
+            environment?: components["schemas"]["Environment"] | null;
+            actor: {
+                /** @enum {string} */
+                type: "api_key" | "system";
+                id: string;
+            };
+            /** @example api_key.created */
+            action: string;
+            resource: {
+                type: string;
+                id: string;
+            };
+            /** @enum {string} */
+            outcome: "success" | "failure" | "denied";
+            request_id: string;
+            metadata: {
+                [key: string]: unknown;
+            };
+            /** @description Hex SHA-256 of this entry chained to prev_hash. */
+            hash: string;
+            prev_hash: string;
+        };
+        AuditLogList: {
+            data: components["schemas"]["AuditLogEntry"][];
+            next_cursor: string | null;
+        };
     };
     responses: {
         /** @description Error in the standard RiskOS error contract (spec §7). */
@@ -91,8 +304,60 @@ export interface components {
                 "application/json": components["schemas"]["ErrorResponse"];
             };
         };
+        /** @description `INVALID_REQUEST`: the request is malformed or fails validation. */
+        InvalidRequest: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description `UNAUTHENTICATED`: the API key is missing, malformed, unknown, revoked or expired. The response never says which. */
+        Unauthenticated: {
+            headers: {
+                "WWW-Authenticate"?: string;
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description `FORBIDDEN`: the key lacks a required scope. `TENANT_SUSPENDED`: the tenant is not active. */
+        Forbidden: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description `NOT_FOUND`: the resource does not exist in the caller's environment. Resources of other tenants or environments are indistinguishable from nonexistent ones. */
+        NotFound: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
+        /** @description `CONFLICT`: the resource is not in a state that allows the operation. */
+        Conflict: {
+            headers: {
+                [name: string]: unknown;
+            };
+            content: {
+                "application/json": components["schemas"]["ErrorResponse"];
+            };
+        };
     };
-    parameters: never;
+    parameters: {
+        /** @description Page size. */
+        Limit: number;
+        /** @description The `next_cursor` of the previous page. */
+        Cursor: string;
+        KeyId: string;
+    };
     requestBodies: never;
     headers: {
         /**
@@ -156,6 +421,172 @@ export interface operations {
                     "application/json": components["schemas"]["ReadinessResponse"];
                 };
             };
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getWhoami: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The authenticated credential. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Whoami"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listAPIKeys: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of API keys. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateApiKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description Created. Contains the only copy of the secret. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyWithSecret"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rotateAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: components["parameters"]["KeyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RotateApiKeyRequest"];
+            };
+        };
+        responses: {
+            /** @description The replacement key. Contains the only copy of its secret. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKeyWithSecret"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    revokeAPIKey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                key_id: components["parameters"]["KeyId"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The revoked key. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ApiKey"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listAuditLogs: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of audit entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuditLogList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["DefaultError"];
         };
     };

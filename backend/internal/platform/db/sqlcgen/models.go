@@ -3,3 +3,63 @@
 //   sqlc v1.31.1
 
 package sqlcgen
+
+import (
+	"time"
+
+	"github.com/google/uuid"
+)
+
+type ApiKey struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Name          string
+	Lookup        string
+	SecretHash    []byte
+	Scopes        []string
+	CreatedBy     string
+	CreatedAt     time.Time
+	ExpiresAt     *time.Time
+	RevokedAt     *time.Time
+	ReplacedBy    *uuid.UUID
+}
+
+type AuditChainHead struct {
+	TenantID uuid.UUID
+	Seq      int64
+	Hash     []byte
+}
+
+type AuditLog struct {
+	TenantID      uuid.UUID
+	Seq           int64
+	ID            uuid.UUID
+	EnvironmentID *uuid.UUID
+	OccurredAt    time.Time
+	ActorType     string
+	ActorID       string
+	Action        string
+	ResourceType  string
+	ResourceID    string
+	Outcome       string
+	RequestID     string
+	Metadata      string
+	PrevHash      []byte
+	Hash          []byte
+}
+
+type Environment struct {
+	ID        uuid.UUID
+	TenantID  uuid.UUID
+	Kind      string
+	CreatedAt time.Time
+}
+
+type Tenant struct {
+	ID        uuid.UUID
+	Name      string
+	Region    string
+	Status    string
+	CreatedAt time.Time
+}

@@ -92,6 +92,8 @@ linters:
           msg: use the injected *slog.Logger, not the global default logger
         - pattern: ^time\.Sleep$
           msg: time.Sleep ignores cancellation; use a timer with select on ctx.Done()
+        - pattern: ^tenancy\.WithScope$
+          msg: tenant scope comes only from authentication (auth), tenant bootstrap (tenants) and operator tooling (TENANCY.md)
 
     depguard:
       rules:
@@ -153,6 +155,7 @@ linters:
             - "!**/internal/dbmigrate/**"
             - "!**/cmd/**"
             - "!**/test/**"
+            - "!$test"
           deny:
             - { pkg: github.com/jackc/pgx, desc: only module stores may use the database driver }
             - { pkg: github.com/redis/go-redis, desc: only module stores may use Redis }
@@ -198,6 +201,10 @@ linters:
       - path: cmd/
         linters: [forbidigo]
         text: "os\\.(Getenv|LookupEnv|Environ)"
+      # Where a tenant scope may be created: authentication, tenant bootstrap, operator tooling, tests.
+      - path: (internal/auth/internal/handler/|internal/tenants/internal/service/|cmd/|_test\.go)
+        linters: [forbidigo]
+        text: tenancy\.WithScope
       # Tests may use simulated delays and unchecked test-helper errors.
       - path: _test\.go
         linters: [forbidigo]

@@ -81,9 +81,10 @@ func (q *Queue) Stop(ctx context.Context) error {
 	return nil
 }
 
-// Migrate applies the queue's own schema migrations. It is run by cmd/migrate after the
-// application migrations.
-func Migrate(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
+// Migrate applies the queue's own schema migrations and grants appRole (the application role
+// the api and worker connect as) the access River needs to its tables. It is run by cmd/migrate,
+// as the schema owner, after the application migrations.
+func Migrate(ctx context.Context, pool *pgxpool.Pool, appRole string, logger *slog.Logger) error {
 	m, err := rivermigrate.New(riverpgxv5.New(pool), &rivermigrate.Config{Logger: logger})
 	if err != nil {
 		return fmt.Errorf("create river migrator: %w", err)
@@ -94,6 +95,34 @@ func Migrate(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error
 	}
 	for _, v := range res.Versions {
 		logger.InfoContext(ctx, "applied job queue migration", slog.Int("version", v.Version))
+	}
+	// Grants are idempotent and re-applied on every run, so they also cover tables added by River
+	// upgrades. A DO block cannot take parameters, so the role name travels in a
+	// transaction-local setting, and every identifier is quoted with format(%I).
+	err = pgx.BeginFunc(ctx, pool, func(tx pgx.Tx) error {
+		if _, err := tx.Exec(ctx, `SELECT set_config('riskos.app_role', $1, true)`, appRole); err != nil {
+			return err
+		}
+		_, err := tx.Exec(ctx, `
+			DO $grant$
+			DECLARE
+			  role_name text := current_setting('riskos.app_role');
+			  obj text;
+			BEGIN
+			  FOR obj IN SELECT tablename FROM pg_tables
+			             WHERE schemaname = 'public' AND tablename LIKE 'river\_%' LOOP
+			    EXECUTE format('GRANT SELECT, INSERT, UPDATE, DELETE ON public.%I TO %I', obj, role_name);
+			  END LOOP;
+			  FOR obj IN SELECT sequence_name FROM information_schema.sequences
+			             WHERE sequence_schema = 'public' AND sequence_name LIKE 'river\_%' LOOP
+			    EXECUTE format('GRANT USAGE, SELECT ON SEQUENCE public.%I TO %I', obj, role_name);
+			  END LOOP;
+			END
+			$grant$`)
+		return err
+	})
+	if err != nil {
+		return fmt.Errorf("grant job queue access: %w", err)
 	}
 	return nil
 }

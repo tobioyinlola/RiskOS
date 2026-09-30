@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -72,6 +74,9 @@ func run() (err error) {
 	if err != nil {
 		return err
 	}
+	if err := cfg.Auth.Validate(); err != nil {
+		return err
+	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
 
 	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
@@ -97,12 +102,22 @@ func run() (err error) {
 		health.Check{Name: "redis", Timeout: cfg.Redis.CheckTimeout, Probe: func(ctx context.Context) error { return redisx.Ping(ctx, rdb) }},
 	)
 
+	clk := clock.System{}
+	runner := db.NewTxRunner(pool)
+	auditModule := audit.New(runner, clk)
+	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
+		Pepper:   []byte(cfg.Auth.APIKeyPepper),
+		CacheTTL: cfg.Auth.APIKeyCacheTTL,
+	})
+
 	handler := httpapi.New(httpapi.Deps{
 		Logger:    logger,
-		Clock:     clock.System{},
+		Clock:     clk,
 		HTTP:      cfg.HTTP,
 		Telemetry: tel,
 		Health:    healthSvc,
+		Auth:      authModule,
+		Audit:     auditModule,
 	})
 
 	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.HTTP.Addr)

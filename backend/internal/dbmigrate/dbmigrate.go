@@ -21,7 +21,14 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 )
 
-// Up applies all pending migrations and returns the resulting application schema version.
+// AppRole is the database role the api and worker connect as. It owns nothing and has no
+// BYPASSRLS, so row-level security always applies to it (TENANCY.md). Migrations create it
+// (NOLOGIN) if missing and grant it the privileges it needs; login and password are provisioned
+// by the platform.
+const AppRole = "riskos_app"
+
+// Up applies all pending migrations and returns the resulting application schema version. pool
+// must connect as the schema owner.
 func Up(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) (version int64, err error) {
 	err = withProvider(pool, func(p *goose.Provider) error {
 		results, err := p.Up(ctx)
@@ -31,7 +38,7 @@ func Up(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) (version i
 		for _, r := range results {
 			logger.InfoContext(ctx, "applied migration", slog.String("source", r.Source.Path), slog.Duration("duration", r.Duration))
 		}
-		if err := jobs.Migrate(ctx, pool, logger); err != nil {
+		if err := jobs.Migrate(ctx, pool, AppRole, logger); err != nil {
 			return err
 		}
 		version, err = p.GetDBVersion(ctx)

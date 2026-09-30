@@ -36,6 +36,39 @@ type Config struct {
 	Postgres  Postgres
 	Redis     Redis
 	Telemetry Telemetry
+	Auth      Auth
+}
+
+// Auth configures API key authentication. It is validated only by the binaries that
+// authenticate (Auth.Validate), so processes that do not need the pepper never receive it.
+type Auth struct {
+	// APIKeyPepper keys the HMAC of stored API key secrets. It comes from the secrets manager,
+	// must be at least 32 bytes, and must never change without a rotation plan (every key would
+	// stop verifying).
+	APIKeyPepper string
+	// APIKeyCacheTTL bounds revocation staleness per instance (ARCHITECTURE.md §9: 5 s maximum).
+	APIKeyCacheTTL time.Duration
+}
+
+// MinPepperBytes is the minimum API key pepper length.
+const MinPepperBytes = 32
+
+// MaxAPIKeyCacheTTL is the longest a revoked key may keep working on an instance.
+const MaxAPIKeyCacheTTL = 5 * time.Second
+
+// Validate checks the auth settings; call it in binaries that authenticate API keys.
+func (a Auth) Validate() error {
+	var errs []error
+	if len(a.APIKeyPepper) < MinPepperBytes {
+		errs = append(errs, fmt.Errorf("RISKOS_API_KEY_PEPPER: required, at least %d bytes", MinPepperBytes))
+	}
+	if a.APIKeyCacheTTL < 0 || a.APIKeyCacheTTL > MaxAPIKeyCacheTTL {
+		errs = append(errs, fmt.Errorf("RISKOS_API_KEY_CACHE_TTL: must be between 0s and %s", MaxAPIKeyCacheTTL))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
+	}
+	return nil
 }
 
 // Worker configures the background job worker.
@@ -63,7 +96,12 @@ type HTTP struct {
 
 // Postgres configures the pgx connection pool.
 type Postgres struct {
-	URL             string
+	// URL connects as the application role (riskos_app): subject to row-level security, owns
+	// nothing. Used by api, worker and riskosctl.
+	URL string
+	// MigrationURL connects as the schema owner. Only cmd/migrate and operator verification
+	// (riskosctl audit verify) use it; it is never given to the api or worker.
+	MigrationURL    string
 	MaxConns        int32
 	MinConns        int32
 	MaxConnLifetime time.Duration
@@ -97,6 +135,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	r := reader{lookup: lookup}
 
 	cfg := Config{
+		Auth: Auth{
+			APIKeyPepper:   r.str("RISKOS_API_KEY_PEPPER", ""),
+			APIKeyCacheTTL: r.duration("RISKOS_API_KEY_CACHE_TTL", MaxAPIKeyCacheTTL),
+		},
 		Env:         Environment(r.str("RISKOS_ENV", string(EnvDevelopment))),
 		ServiceName: r.str("RISKOS_SERVICE_NAME", "riskos"),
 		LogLevel:    r.logLevel("RISKOS_LOG_LEVEL", slog.LevelInfo),
@@ -119,6 +161,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		},
 		Postgres: Postgres{
 			URL:             r.required("RISKOS_POSTGRES_URL"),
+			MigrationURL:    r.str("RISKOS_POSTGRES_MIGRATION_URL", ""),
 			MaxConns:        r.int32("RISKOS_POSTGRES_MAX_CONNS", 20),
 			MinConns:        r.int32("RISKOS_POSTGRES_MIN_CONNS", 2),
 			MaxConnLifetime: r.duration("RISKOS_POSTGRES_MAX_CONN_LIFETIME", time.Hour),
@@ -203,12 +246,12 @@ func (c Config) validate() []error {
 		add("RISKOS_WORKER_CONCURRENCY: must be at least 1")
 	}
 
-	if c.Postgres.URL != "" {
-		u, err := url.Parse(c.Postgres.URL)
-		if err != nil || (u.Scheme != "postgres" && u.Scheme != "postgresql") || u.Host == "" {
-			// The URL may contain a password, so it is never echoed back.
-			add("RISKOS_POSTGRES_URL: must be a postgres:// URL with a host")
-		}
+	// URLs may contain passwords, so they are never echoed back in errors.
+	if c.Postgres.URL != "" && !isPostgresURL(c.Postgres.URL) {
+		add("RISKOS_POSTGRES_URL: must be a postgres:// URL with a host")
+	}
+	if c.Postgres.MigrationURL != "" && !isPostgresURL(c.Postgres.MigrationURL) {
+		add("RISKOS_POSTGRES_MIGRATION_URL: must be a postgres:// URL with a host")
 	}
 	if c.Postgres.MaxConns < 1 {
 		add("RISKOS_POSTGRES_MAX_CONNS: must be at least 1")
@@ -232,11 +275,16 @@ func (c Config) validate() []error {
 	}
 
 	if c.Env == EnvProduction {
-		if u, err := url.Parse(c.Postgres.URL); err == nil {
-			switch u.Query().Get("sslmode") {
-			case "verify-full", "verify-ca":
-			default:
-				add("RISKOS_POSTGRES_URL: production requires sslmode=verify-full or verify-ca")
+		for name, raw := range map[string]string{"RISKOS_POSTGRES_URL": c.Postgres.URL, "RISKOS_POSTGRES_MIGRATION_URL": c.Postgres.MigrationURL} {
+			if raw == "" {
+				continue
+			}
+			if u, err := url.Parse(raw); err == nil {
+				switch u.Query().Get("sslmode") {
+				case "verify-full", "verify-ca":
+				default:
+					add("%s: production requires sslmode=verify-full or verify-ca", name)
+				}
 			}
 		}
 		if c.Redis.Password == "" {
@@ -247,6 +295,11 @@ func (c Config) validate() []error {
 		}
 	}
 	return errs
+}
+
+func isPostgresURL(raw string) bool {
+	u, err := url.Parse(raw)
+	return err == nil && (u.Scheme == "postgres" || u.Scheme == "postgresql") && u.Host != ""
 }
 
 // reader accumulates parse errors so that all problems are reported at once.

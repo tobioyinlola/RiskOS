@@ -1,0 +1,49 @@
+package authz_test
+
+import (
+	"context"
+	"testing"
+
+	"github.com/google/uuid"
+	"github.com/stretchr/testify/assert"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
+)
+
+func TestRolePermissions(t *testing.T) {
+	assert.ElementsMatch(t, authz.CustomerPermissions(), authz.RolePermissions(authz.RoleCustomerAdmin))
+	assert.NotContains(t, authz.RolePermissions(authz.RoleDeveloper), authz.AuditLogsRead)
+
+	// Internal roles never grant tenant data access; unknown roles grant nothing (deny by default).
+	for _, r := range []authz.Role{authz.RoleOperationsAdmin, authz.RoleSecurityAdmin, "root", ""} {
+		assert.Empty(t, authz.RolePermissions(r), "role %q", r)
+	}
+	// Every role grants only customer permissions.
+	for _, r := range []authz.Role{authz.RoleCustomerAdmin, authz.RoleDeveloper, authz.RoleRiskManager, authz.RoleAnalyst} {
+		for _, p := range authz.RolePermissions(r) {
+			assert.True(t, authz.IsCustomerPermission(p), "%s grants unknown %s", r, p)
+		}
+	}
+}
+
+func TestRequire(t *testing.T) {
+	ctx := tenancy.WithScope(context.Background(), tenancy.Scope{
+		TenantID:  uuid.New(),
+		Principal: tenancy.Principal{Permissions: []string{authz.APIKeysRead}},
+	})
+	assert.NoError(t, authz.Require(ctx, authz.APIKeysRead))
+	assert.ErrorIs(t, authz.Require(ctx, authz.APIKeysWrite), authz.ErrForbidden)
+	assert.ErrorIs(t, authz.Require(context.Background(), authz.APIKeysRead), authz.ErrForbidden, "no scope is a denial")
+}
+
+func TestScopeIsImmutable(t *testing.T) {
+	perms := []string{authz.APIKeysRead}
+	ctx := tenancy.WithScope(context.Background(), tenancy.Scope{TenantID: uuid.New(), Principal: tenancy.Principal{Permissions: perms}})
+	perms[0] = authz.APIKeysWrite // the caller mutates its slice afterwards
+
+	assert.ErrorIs(t, authz.Require(ctx, authz.APIKeysWrite), authz.ErrForbidden)
+	s, _ := tenancy.FromContext(ctx)
+	s.Principal.Permissions[0] = authz.AuditLogsRead // a reader mutates its copy
+	assert.ErrorIs(t, authz.Require(ctx, authz.AuditLogsRead), authz.ErrForbidden)
+}

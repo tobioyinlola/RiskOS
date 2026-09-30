@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"io"
 	"log/slog"
 	"net"
@@ -15,10 +16,13 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -73,9 +77,10 @@ func startServer(t *testing.T) server {
 	logger := logging.New(logs, slog.LevelDebug, "security-test")
 	tel, err := telemetry.Setup(t.Context(), cfg.Telemetry, "security-test", cfg.Env)
 	require.NoError(t, err)
+	authModule, auditModule := testModules()
 	h := httpapi.New(httpapi.Deps{
 		Logger: logger, Clock: clock.System{}, HTTP: cfg.HTTP, Telemetry: tel,
-		Health: health.NewService(logger),
+		Health: health.NewService(logger), Auth: authModule, Audit: auditModule,
 	})
 
 	ln, err := (&net.ListenConfig{}).Listen(t.Context(), "tcp", "127.0.0.1:0")
@@ -137,8 +142,9 @@ func TestHostileRequestsGetTheErrorContract(t *testing.T) {
 		code   string
 	}{
 		{"path traversal", http.MethodGet, "/health/../../etc/passwd", nil, http.StatusNotFound, "NOT_FOUND"},
-		{"encoded traversal", http.MethodGet, "/api/v1/%2e%2e/%2e%2e/etc/passwd", nil, http.StatusNotFound, "NOT_FOUND"},
-		{"sql injection in path", http.MethodGet, "/api/v1/events/1%27%20OR%20%271%27=%271", nil, http.StatusNotFound, "NOT_FOUND"},
+		{"encoded traversal", http.MethodGet, "/api/v1/%2e%2e/%2e%2e/etc/passwd", nil, http.StatusUnauthorized, "UNAUTHENTICATED"},
+		{"sql injection in path", http.MethodGet, "/api/v1/api-keys/1%27%20OR%20%271%27=%271/revoke", nil, http.StatusUnauthorized, "UNAUTHENTICATED"},
+		{"whoami without a key", http.MethodGet, "/api/v1/whoami", nil, http.StatusUnauthorized, "UNAUTHENTICATED"},
 		{"script in path", http.MethodGet, "/%3Cscript%3Ealert(1)%3C%2Fscript%3E", nil, http.StatusNotFound, "NOT_FOUND"},
 		{"unsupported method", http.MethodDelete, "/health/ready", nil, http.StatusMethodNotAllowed, "METHOD_NOT_ALLOWED"},
 		{"oversized body", http.MethodPost, "/api/v1/events", strings.NewReader(strings.Repeat("a", 4096)), http.StatusRequestEntityTooLarge, "PAYLOAD_TOO_LARGE"},
@@ -184,9 +190,16 @@ func TestCredentialsNeverReachLogs(t *testing.T) {
 		"Cookie":        "session=cookie-secret",
 	})
 	s.do(t, http.MethodGet, "/does-not-exist", nil, map[string]string{"Authorization": "Bearer xyz-header-secret"})
+	// A well-formed but unknown API key on an authenticated route: the failure is logged as a
+	// security signal, but the key itself never is.
+	forged := "rsk_test_aaaaaaaaaaaa_" + strings.Repeat("b", 32)
+	s.do(t, http.MethodGet, "/api/v1/whoami", nil, map[string]string{"Authorization": "Bearer " + forged})
 
-	logs := s.logs.String()
+	logs := s.logs.String() // drains the buffer: read once
 	require.Contains(t, logs, `"msg":"http request"`, "requests must be logged")
+	require.Contains(t, logs, "authentication failed")
+	assert.NotContains(t, logs, forged)
+	assert.NotContains(t, logs, strings.Repeat("b", 32))
 	for _, secret := range []string{"query-secret-value", "tok_secret", "xyz-header-secret", "header-api-key-value", "cookie-secret"} {
 		assert.NotContains(t, logs, secret)
 	}
@@ -197,4 +210,28 @@ func TestRequestIDCannotInjectHeadersOrLogLines(t *testing.T) {
 	resp := s.do(t, http.MethodGet, "/health/live", nil, map[string]string{"X-Request-ID": `evil","level":"ERROR","msg":"forged`})
 	assert.Regexp(t, `^req_[0-9a-z]{26}$`, resp.Header.Get("X-Request-ID"))
 	assert.NotContains(t, s.logs.String(), "forged")
+}
+
+// noKeys is a key store that knows no keys: every /api/v1 request is unauthenticated. Tests of
+// authenticated behavior run against PostgreSQL in test/integration.
+type noKeys struct{}
+
+func (noKeys) QueryRow(context.Context, string, ...any) pgx.Row { return noRow{} }
+
+type noRow struct{}
+
+func (noRow) Scan(...any) error { return pgx.ErrNoRows }
+
+// noDB fails any transaction; these tests never reach one.
+type noDB struct{}
+
+func (noDB) Run(context.Context, func(context.Context) error) error {
+	return errors.New("no database in this test")
+}
+
+func testModules() (*auth.Module, *audit.Module) {
+	auditModule := audit.New(noDB{}, clock.System{})
+	return auth.New(noKeys{}, noDB{}, auditModule.Recorder(), clock.System{}, auth.Config{
+		Pepper: []byte(strings.Repeat("p", 32)),
+	}), auditModule
 }

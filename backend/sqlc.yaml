@@ -3,16 +3,53 @@
 #
 # Convention (docs/ARCHITECTURE.md): each module that owns tables gets its own entry here, with
 # queries in db/queries/<module>/ and output in internal/<module>/internal/store/sqlcgen, so only
-# that module's store can call them.
+# that module's store can call them. The first entry defines the shared Go settings (&go); the
+# others merge them and set their own output directory.
 version: "2"
 sql:
   - engine: postgresql
     schema: db/migrations
     queries: db/queries/platform
     gen:
-      go:
+      go: &go
         package: sqlcgen
         out: internal/platform/db/sqlcgen
         sql_package: pgx/v5
         emit_interface: false
         emit_exact_table_names: false
+        emit_pointers_for_null_types: true
+        overrides:
+          - db_type: uuid
+            go_type: github.com/google/uuid.UUID
+          - db_type: uuid
+            nullable: true
+            go_type: { import: github.com/google/uuid, type: UUID, pointer: true }
+          - db_type: timestamptz
+            go_type: time.Time
+          - db_type: timestamptz
+            nullable: true
+            go_type: { import: time, type: Time, pointer: true }
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/tenants
+    gen:
+      go:
+        <<: *go
+        out: internal/tenants/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/auth
+    gen:
+      go:
+        <<: *go
+        out: internal/auth/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/audit
+    gen:
+      go:
+        <<: *go
+        out: internal/audit/internal/store/sqlcgen
