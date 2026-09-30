@@ -24,6 +24,12 @@ pre-commit:
       root: frontend/
       run: pnpm exec prettier --check --ignore-unknown {staged_files}
 
+pre-push:
+  commands:
+    no-direct-push-to-main:
+      use_stdin: true
+      run: ./scripts/check-push-target.sh
+
 commit-msg:
   commands:
     conventional-commit:

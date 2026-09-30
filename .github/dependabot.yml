@@ -1,10 +1,11 @@
-# Keeps dependencies, base images and pinned actions current. Updates arrive as PRs and pass the
-# same CI as any change.
+# Keeps dependencies, base images and pinned actions current. Updates arrive as PRs against
+# `staging` (like every change) and reach `main` through the staging -> main pull request.
 version: 2
 updates:
   - package-ecosystem: gomod
     directory: /backend
     schedule: { interval: weekly }
+    target-branch: staging
     groups:
       opentelemetry:
         patterns: ["go.opentelemetry.io/*"]
@@ -15,10 +16,12 @@ updates:
   - package-ecosystem: gomod
     directory: /backend/tools
     schedule: { interval: weekly }
+    target-branch: staging
 
   - package-ecosystem: npm
     directory: /frontend
     schedule: { interval: weekly }
+    target-branch: staging
     groups:
       react:
         patterns: ["react", "react-dom", "@types/react", "@types/react-dom"]
@@ -31,11 +34,14 @@ updates:
   - package-ecosystem: docker
     directories: [/backend, /frontend]
     schedule: { interval: weekly }
+    target-branch: staging
 
   - package-ecosystem: docker-compose
     directory: /
     schedule: { interval: weekly }
+    target-branch: staging
 
   - package-ecosystem: github-actions
     directory: /
     schedule: { interval: weekly }
+    target-branch: staging
