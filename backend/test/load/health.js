@@ -15,8 +15,8 @@ export const options = {
       rate: Number(__ENV.RATE || 2000),
       timeUnit: "1s",
       duration: __ENV.DURATION || "30s",
-      preAllocatedVUs: 50,
-      maxVUs: 200,
+      preAllocatedVUs: 200,
+      maxVUs: 1000,
     },
   },
   thresholds: {
