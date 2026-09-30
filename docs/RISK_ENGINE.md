@@ -2,8 +2,20 @@
 
 **Purpose:** how signals are produced and combined into an explainable score, mapped to a risk
 level and a decision, and how evaluations stay reproducible. Design:
-[ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **designed;
-implementation in build step 4** (a stub evaluation arrives with event ingest in build step 3).
+[ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **the evaluation
+path is built (build step 3) with a stub engine; signal generators arrive in build step 4.**
+
+## What exists today
+
+- `risk.Evaluator` (public interface of `backend/internal/risk`): evaluates within the caller's
+  transaction and stores every evaluation with engine version, rule versions, features (the
+  normalized event), score, level, decision, signals, degraded signals and duration.
+- The score formula, level bands and default decision table below are implemented and tested
+  (`internal/risk/internal/domain`).
+- The engine is `risk-engine-stub-0.1`: it produces no signals, so every event is 0 / LOW /
+  ALLOW. Its version is recorded in every evaluation, so stub decisions can always be told apart.
+- Mean engine time with the stub: about 7 µs; see [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)
+  for the whole decision path.
 
 ## Pipeline
 

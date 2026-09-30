@@ -19,6 +19,10 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | POST | `/api/v1/api-keys/{key_id}/rotate` | Replace a key, old one valid for an overlap window (`api_keys:write`) |
 | POST | `/api/v1/api-keys/{key_id}/revoke` | Revoke a key (`api_keys:write`) |
 | GET | `/api/v1/audit-logs` | Tenant-level and own-environment audit entries (`audit_logs:read`) |
+| POST | `/api/v1/events` | Ingest an event, get the risk decision; idempotent on `event_id` (`events:write`) |
+| GET | `/api/v1/events` | List events (`events:read`) |
+| GET | `/api/v1/events/{event_id}` | Event with raw and normalized payloads and its evaluation (`events:read`) |
+| POST | `/api/v1/risk/evaluate` | Dry-run evaluation; stores no event (`risk:evaluate`) |
 
 ## Conventions (in force)
 
@@ -28,15 +32,19 @@ generated code is stale. An operation that is not in the contract cannot be rout
 - Product endpoints live under `/api/v1` and require `Authorization: Bearer rsk_…`. The key
   determines tenant and environment; no request field can change them.
 - Status codes: 400 `INVALID_REQUEST`, 401 `UNAUTHENTICATED` (never says why), 403 `FORBIDDEN`
-  or `TENANT_SUSPENDED`, 404 `NOT_FOUND` (also for other tenants' resources), 409 `CONFLICT`.
-- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`); an ID of the wrong type is not found.
+  or `TENANT_SUSPENDED`, 404 `NOT_FOUND` (also for other tenants' resources), 409 `CONFLICT` or
+  `IDEMPOTENCY_CONFLICT`, 413 `PAYLOAD_TOO_LARGE`, 422 `INVALID_EVENT`, `STALE_EVENT` or
+  `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`).
+- Every request is validated against this contract before it reaches a handler; unknown fields
+  are rejected.
+- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`); an ID of the wrong
+  type is not found.
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.
 
 ## To be designed (TODO(phase-0))
 
-- Remaining operations of spec §7 (events, risk evaluation, entities, alerts, cases, rules,
-  webhooks, analytics).
+- Remaining operations of spec §7 (entities, alerts, cases, rules, webhooks, analytics).
 - Console session authentication (build step 7).
-- Filtering and sorting conventions; idempotency-key header; rate-limit headers (build step 3).
+- Filtering and sorting conventions for lists (event type, decision, time range).
 - Versioning and deprecation policy.

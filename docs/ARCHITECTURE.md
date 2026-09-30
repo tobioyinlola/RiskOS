@@ -548,7 +548,7 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
 2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
-3. Event ingest with idempotency, then a stub evaluation.
+3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
 4. Risk engine: rules, velocity, scoring, decision policy.
 5. Alerts, cases, notes, resolution.
 6. Webhooks with signing and delivery logs.
@@ -561,7 +561,7 @@ The first milestone is the thin vertical slice: tenant, API key, event, validati
 
 ## Appendix A. Implementation status
 
-What exists in the repository today (build steps 1 and 2). Everything above that is not listed
+What exists in the repository today (build steps 1-3). Everything above that is not listed
 here is designed but not yet built.
 
 ### A.1 Repository layout
@@ -634,6 +634,19 @@ password.
 | Audit log | `audit_log` + `audit_chain_heads`; append-only (grants + trigger); per-tenant SHA-256 chain over a canonical encoding, written in the action's transaction; `riskosctl audit verify` recomputes the chain as the owner |
 | API | `GET /api/v1/whoami`, `GET/POST /api/v1/api-keys`, `POST …/{id}/rotate`, `POST …/{id}/revoke`, `GET /api/v1/audit-logs`; cursor pagination |
 
+### A.5 Events and evaluation (build step 3)
+
+| Area | What is built |
+|---|---|
+| Ingest | `POST /api/v1/events`: contract validation, semantic checks (time window, IP, card numbers), normalization, and one transaction writing idempotency record, evaluation and event ([EVENTS.md](EVENTS.md)) |
+| Idempotency | `event_idempotency` primary key is the source of truth; replay returns the stored response with `Idempotent-Replay: true`; different payload is `409 IDEMPOTENCY_CONFLICT` |
+| Evaluation | `risk.Evaluator` with the stub engine `risk-engine-stub-0.1`; score formula, levels and default decisions implemented; every evaluation stored reproducibly ([RISK_ENGINE.md](RISK_ENGINE.md)) |
+| Dry run | `POST /api/v1/risk/evaluate`: evaluation flagged `dry_run`, no event |
+| Explorer | `GET /api/v1/events`, `GET /api/v1/events/{id}` (raw and normalized payloads, evaluation) |
+| Storage | `events`, `evaluations` monthly-partitioned on UUIDv7 time, insert-only; partitions kept 3 months ahead by a daily worker job |
+| Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
+| Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
+
 ## Appendix B. Recorded deviations
 
 | Design says | Implementation | Record |
@@ -642,7 +655,8 @@ password.
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
 | Build step 2 includes dashboard authentication (password, MFA, sessions) | Only the API realm is built. The dashboard realm is built with the dashboard (build step 7) on the same `authz` roles and permissions | TODO(phase-6) |
-| Per-key rate limits (section 9) | Deferred to build step 3, with event ingest, where they protect the hot path | TODO(phase-2) |
-| Strict schema validation at the edge | oapi-codegen does not enforce schema constraints or reject unknown fields; step 2 services validate explicitly. Contract-driven request validation arrives with event ingest | TODO(phase-2) |
+| Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
+| Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
+| Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
 | CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), govulncheck, Trivy, gitleaks and SBOMs are in CI. Static analysis with CodeQL and image signing arrive with the deployment pipeline | TODO(phase-7) |

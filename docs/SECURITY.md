@@ -30,6 +30,10 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Authorization | Deny-by-default permission catalog and roles; a key cannot grant or rotate scopes it lacks | `platform/authz`, `internal/auth` |
 | Tenant isolation | Credential-derived scope, tenant-scoped queries, Postgres RLS under the non-owner `riskos_app` role, uniform 404, cross-tenant test matrix | [TENANCY.md](TENANCY.md) |
 | Audit log | Append-only (grants and trigger), per-tenant hash chain written in the action's transaction, verification detects tampering | `internal/audit`, `riskosctl audit verify` |
+| Strict input validation | Every request validated against the OpenAPI contract before any handler runs; unknown fields rejected | `internal/httpapi/contract.go` |
+| Rate limiting | Per API key and per tenant (GCRA in Redis, atomic across both limits); fails open if Redis is down | `platform/ratelimit` |
+| Data minimization | Card-number-like values are rejected anywhere in an event and never echoed; identifiers are opaque references; profile changes carry field names, not values | `internal/events` |
+| Replay and idempotency | Unique event key per tenant and environment, stored-response replay, payload-hash conflicts, time window | `internal/events` |
 
 ## Designed, not yet built
 
@@ -40,9 +44,8 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Authentication realms | Dashboard sessions with MFA (passkeys preferred); internal admin with SSO, hardware keys and a private access path | 7 (dashboard), 8 (admin) |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
-| Replay and idempotency | Unique event key, skew limits, stored-response replay | 3 |
-| Data minimization | Card numbers, CVV, PINs and passwords rejected; identifiers keyed-hashed before Redis; field classification drives masking, encryption, logging and retention | 3 |
-| Rate limiting | Redis token buckets per tenant, key, IP and endpoint; concurrency caps; load shedding with 429 | 2–3 |
+| Data minimization (remaining) | Identifiers keyed-hashed before Redis (with velocity counters); field classification driving masking, encryption, logging and retention | 4, 8 |
+| Rate limiting (remaining) | Per IP and per endpoint at the gateway; concurrency caps; load shedding | 8 |
 | Decision integrity | REVIEW floor for high-value events when degraded; capped, poison-resistant baselines; shadow mode for rules | 4 |
 | Webhooks | HMAC-SHA256 signing, timestamp tolerance, SSRF-safe dialer and egress proxy ([WEBHOOKS.md](WEBHOOKS.md)) | 6 |
 | Dashboard hardening | HttpOnly/Secure/SameSite=Strict cookies, CSRF tokens, nonce-based CSP, HSTS, session timeouts, SSO, step-up for exports, key creation and rule promotion | 7 |

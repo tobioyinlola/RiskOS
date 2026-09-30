@@ -2,65 +2,82 @@
 
 **Purpose:** the event contract and the ingestion pipeline: authentication, validation,
 normalization, idempotency, persistence and hand-off to risk evaluation. Design:
-[ARCHITECTURE.md §11](ARCHITECTURE.md#11-events-and-idempotency). Status: **designed;
-implementation in build step 3.**
+[ARCHITECTURE.md §11](ARCHITECTURE.md#11-events-and-idempotency). Status: **built (build step
+3)**; tests in `backend/test/integration/events_test.go`.
 
 ## Endpoints
 
-| Endpoint | Persists | Use |
-|---|---|---|
-| `POST /api/v1/events` | Event, evaluation and outbox rows, in one transaction | Primary path: ingest an event and return the risk decision in the same response |
-| `POST /api/v1/risk/evaluate` | An evaluation flagged as a dry run; no event record | What-if checks and integration testing; never triggers alerts or webhooks |
+| Endpoint | Scope | Persists | Use |
+|---|---|---|---|
+| `POST /api/v1/events` | `events:write` | Event, evaluation and idempotency record, in one transaction | Ingest an event and return the risk decision in the same response |
+| `POST /api/v1/risk/evaluate` | `risk:evaluate` | An evaluation flagged `dry_run`; no event | What-if checks and integration testing; never alerts; not idempotent |
+| `GET /api/v1/events` | `events:read` | - | Newest-first list with each event's score, level and decision |
+| `GET /api/v1/events/{event_id}` | `events:read` | - | Raw payload, normalized payload and the stored evaluation |
+
+## Pipeline (`POST /api/v1/events`)
+
+1. **Authenticate** the API key; tenant and environment come from it (TENANCY.md).
+2. **Rate limit** per key and per tenant (Redis GCRA; `429 RATE_LIMITED` with `Retry-After`).
+3. **Contract validation** against `api/openapi.yaml` (kin-openapi): types, formats, patterns,
+   enums, ranges, required fields, and **unknown fields rejected everywhere**. `400 INVALID_REQUEST`
+   names the offending field.
+4. **Semantic checks:** `occurred_at` window, IP syntax, card-number detection.
+5. **Normalize:** UTC timestamps at microsecond precision, canonical IP (IPv4-mapped IPv6
+   unmapped), compact data; the canonical bytes are hashed for idempotency.
+6. **One transaction:** claim the idempotency key, evaluate (risk module), store the event with a
+   copy of its decision, store the response. Nothing is visible until it commits.
 
 ## Envelope
 
-| Field | Meaning |
+Every event has `event_id`, `type`, `occurred_at`, `actor` (`user_id` required; `account_id`,
+`device_id`, `session_id` optional), optional `context` (`ip`, `user_agent`, `country`) and a
+`data` object whose shape depends on `type`:
+
+| type | data |
 |---|---|
-| `event_id` | Customer-supplied, unique per tenant and environment; the default idempotency key |
-| `type` | `login`, `transaction`, `beneficiary_added`, `device_change`, `session_change`, `profile_change` (initial set) |
-| `occurred_at` | When it happened on the customer side (RFC 3339) |
-| `actor` | References: user, account, device, session |
-| `context` | IP, user agent, location |
-| `data` | Typed object per event type |
+| `login` | `outcome` (success, failure), `method` (password, passkey, otp, sso, biometric) |
+| `transaction` | `transaction_id`, `amount` (integer minor units), `currency` (ISO 4217), `direction` (debit, credit), optional `beneficiary_id`, `channel` |
+| `beneficiary_added` | `beneficiary_id`, optional `country` |
+| `device_change` | `new_device_id`, optional `previous_device_id` |
+| `session_change` | `change` (created, refreshed, terminated) |
+| `profile_change` | `fields` (email, phone, address, name, password), which fields changed, never their values |
 
-Schemas are versioned in `backend/api/openapi.yaml`. Unknown fields are rejected in strict mode;
-additive changes are backward compatible.
+Identifiers are opaque customer references (`[A-Za-z0-9._:-]{1,128}`); never names or emails.
 
-## Validation limits
+## Validation limits and errors
 
-| Limit | Default |
+| Check | Response |
 |---|---|
-| Body size | 64 KB (assumption; in force via `RISKOS_HTTP_MAX_BODY_BYTES`) |
-| Nesting depth | bounded (value set with the schema) |
-| Timestamp skew | up to 5 minutes ahead and 24 hours behind server time (assumption) |
-| Money | integer minor units plus ISO 4217 currency |
-| Forbidden content | full card numbers, CVV, PINs, passwords, authentication secrets: rejected. Bank account numbers only as tokens or masked values |
+| Body over 64 KB | `413 PAYLOAD_TOO_LARGE` |
+| Contract violation, unknown field, malformed JSON | `400 INVALID_REQUEST` |
+| `occurred_at` more than 5 minutes ahead, or invalid IP | `422 INVALID_EVENT` |
+| `occurred_at` more than 24 hours old | `422 STALE_EVENT` |
+| A string contains a card-number-like value (13-19 digits, Luhn-valid, network prefix 2-6) | `422 SENSITIVE_DATA` (the value is never echoed) |
+| Same `event_id`, different payload | `409 IDEMPOTENCY_CONFLICT` |
+
+Numeric customer identifiers that look like card numbers are rejected too: use prefixed or opaque
+identifiers.
 
 ## Idempotency
 
-1. Key: `event_id`, or an `Idempotency-Key` header, scoped to `(tenant, environment, key)`.
-2. Fast path: Redis `SET NX` with a short TTL marks the key in flight.
-3. Source of truth: unique index on `(tenant_id, environment_id, event_key)`; insert with
-   `ON CONFLICT DO NOTHING`, and the loser reads the winner's stored response.
-4. Same key, same payload hash: replay the stored response with `Idempotent-Replay: true`.
-5. Same key, different payload hash: `409 IDEMPOTENCY_CONFLICT`; nothing is evaluated.
-6. Idempotency records are retained for the event retention window.
-
-If Redis is down, the Postgres unique index alone guarantees correctness.
-
-## Replay protection
-
-Skew limits plus the unique key stop old requests being reprocessed. Stale events: `422
-STALE_EVENT` on real-time endpoints; accept-without-alerting for batch backfills.
+- Key: `event_id`, scoped to (tenant, environment). The same key in another environment or tenant
+  is a different event.
+- The `event_idempotency` primary key is the source of truth: a concurrent duplicate blocks on it
+  until the first transaction commits, then reads the stored response. Tested with 20
+  simultaneous duplicates: one event, one evaluation, 20 identical answers.
+- Same key and same normalized payload (key order and whitespace do not matter): the stored
+  response is returned verbatim, including the original `request_id`, with
+  `Idempotent-Replay: true`.
+- Same key, different payload: `409 IDEMPOTENCY_CONFLICT`; nothing is evaluated.
+- The Redis `SET NX` fast path in the design is not built: the database already guarantees
+  correctness, and the fast path only saves a query on retries (TODO(phase-7) if measurements
+  show a need).
 
 ## Storage
 
-`events` and `evaluations` are time-partitioned; retention drops whole partitions (90 days hot by
-default, per-tenant configurable). Raw and normalized payloads are stored separately, and the raw
-payload can be dropped earlier.
-
-## Contracts
-
-Risk response: `request_id`, `event_id`, `risk_score`, `risk_level`, `decision`,
-`engine_version`, `signals`, plus `degraded_signals` when optional sources failed. Errors:
-`{"error":{"code","message","request_id"}}`.
+- `events` and `evaluations` are range-partitioned by month on the time embedded in their UUIDv7
+  ids, so a lookup by id reads one partition. The worker's daily `ensure_time_partitions` job
+  keeps partitions `db.PartitionMonthsAhead` (3) months ahead; there is no default partition.
+- Both tables are insert-only (grants and trigger). Raw and normalized payloads are stored
+  separately. Partitions are reachable only through the RLS-protected parent tables.
+- Retention (dropping old partitions per tenant policy) is not built yet (TODO(phase-7)).

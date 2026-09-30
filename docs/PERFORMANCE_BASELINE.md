@@ -61,6 +61,28 @@ API memory stays at ≈ 22 MiB. **Saturation on this machine: ≈ 4,800 req/s**,
 | Telemetry off | 5,000/s | 0.91 ms (4,853/s achieved) | 19.1 ms | 81.2 ms | 199% |
 | Access logs off (`RISKOS_LOG_LEVEL=warn`) | 2,000/s | 0.54 ms | 1.11 ms | 6.0 ms | 121% |
 
+## 3. Decision path (`make load-events`, build step 3)
+
+`POST /api/v1/events` with a new transaction event per request: authentication (cached key
+lookup), rate limiting (Redis), contract validation, card-number scan, normalization, then one
+PostgreSQL transaction (idempotency claim, evaluation insert, event insert, response update). The
+engine is still the stub (mean 7 µs), so this measures the fixed cost of the path that every real
+evaluation will add to. Same laptop and stack as above; rate limits raised for the run.
+
+| Offered | Achieved | Failed | Median | p90 | p95 | p99 | Max | CPU (api / postgres / redis) |
+|---|---|---|---|---|---|---|---|---|
+| 100 events/s | 99/s | 0 | 10.8 ms | - | **13.5 ms** | 40.0 ms | - | 54% / 39% / 14% |
+| 500 events/s (design peak) | 499/s | 0 | 11.5 ms | 34.3 ms | **87.3 ms** | 187.4 ms | 316 ms | - |
+
+Every accepted request was stored: 17,987 events and 17,987 non-dry-run evaluations.
+
+Against the targets (ARCHITECTURE.md §1, §5): the spec ceiling (p95 < 200 ms) holds at the design
+peak. The internal target (p95 < 60 ms) holds at 100 events/s but not at 500 events/s on this
+laptop, where k6, the API, PostgreSQL and Redis share four cores; the median barely moves (10.8 →
+11.5 ms), so the tail is contention, not per-request cost. The persist step (planned at 12 ms) is
+the dominant cost. Re-measure on separated, production-like hosts before treating the tail as a
+product number, and before build step 4 adds real signal generators.
+
 ## Findings
 
 1. **Latency is far inside budget.** At 2,000 req/s the p99 of the full network path is below
@@ -88,7 +110,8 @@ make bench                        # micro-benchmarks → backend/bench.txt
 make load                         # 2,000 req/s for 30 s (defaults)
 RATE=5000 DURATION=60s make load  # custom rate and duration
 # results: backend/test/load/results/health-summary.json
+make load-events API_KEY=rsk_test_... RATE=500   # decision path; raise RISKOS_RATE_LIMIT_* first
 ```
 
-Re-baseline whenever the middleware chain, logging or server configuration changes, and record
-the new numbers here with the commit.
+Re-baseline whenever the middleware chain, logging, server configuration or the decision path
+changes, and record the new numbers here with the commit.

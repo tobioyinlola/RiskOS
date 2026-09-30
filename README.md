@@ -9,10 +9,10 @@ analysts investigate as cases, and every material action is audited.
 Product specification (source of truth): [`docs/spec/`](docs/spec/RiskOS_Complete_Implementation_Specification.md).
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> **Status:** build steps 1-2 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
-> The platform (HTTP, configuration, logging, telemetry, database, Redis, jobs, CI) plus tenants,
-> environments, API keys, the hash-chained audit log and RBAC are built. Event ingest and the
-> risk engine come next.
+> **Status:** build steps 1-3 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
+> Built: the platform, tenants, environments, API keys, the hash-chained audit log, RBAC, and event
+> ingest with idempotency, strict validation, rate limits and a synchronous decision from a **stub**
+> engine (every event is LOW/ALLOW until the risk engine lands in step 4).
 
 ## Prerequisites
 
@@ -47,6 +47,10 @@ migrations, then starts the API, worker and frontend, and waits until everything
 ```bash
 make tenant NAME="Acme" REGION=eu-west-1 OPERATOR=you@example.com   # prints a test key once
 curl -s -H "Authorization: Bearer rsk_test_..." localhost:8080/api/v1/whoami
+curl -s -H "Authorization: Bearer rsk_test_..." -H "Content-Type: application/json" \
+  localhost:8080/api/v1/events -d '{"event_id":"txn-1","type":"transaction",
+  "occurred_at":"'"$(date -u +%Y-%m-%dT%H:%M:%SZ)"'","actor":{"user_id":"u-1"},
+  "data":{"transaction_id":"t-1","amount":250000,"currency":"NGN","direction":"debit"}}'
 make apikey TENANT=ten_... ENV=production NAME=ci OPERATOR=you@example.com
 make audit-verify TENANT=ten_...
 ```
@@ -94,7 +98,7 @@ make help         # all targets
 | Frontend unit/component | `frontend/tests/unit` | `make test-frontend` |
 | Frontend end-to-end | `frontend/tests/e2e` | `make test-e2e` |
 | Micro-benchmarks | `Benchmark*` in backend | `make bench` |
-| Load (k6) | `backend/test/load` | `make up && make load` |
+| Load (k6) | `backend/test/load` | `make up && make load` (HTTP baseline), `make load-events API_KEY=...` (decision path) |
 
 Baseline numbers: [`docs/PERFORMANCE_BASELINE.md`](docs/PERFORMANCE_BASELINE.md).
 
