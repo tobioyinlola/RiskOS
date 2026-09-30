@@ -108,7 +108,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			IdleTimeout:        r.duration("RISKOS_HTTP_IDLE_TIMEOUT", 60*time.Second),
 			RequestTimeout:     r.duration("RISKOS_HTTP_REQUEST_TIMEOUT", 10*time.Second),
 			MaxHeaderBytes:     r.integer("RISKOS_HTTP_MAX_HEADER_BYTES", 16<<10),
-			MaxBodyBytes:       r.int64("RISKOS_HTTP_MAX_BODY_BYTES", 1<<20),
+			MaxBodyBytes:       r.int64("RISKOS_HTTP_MAX_BODY_BYTES", 64<<10), // ARCHITECTURE.md §11
 			ShutdownDrainDelay: r.duration("RISKOS_HTTP_SHUTDOWN_DRAIN_DELAY", 0),
 			ShutdownTimeout:    r.duration("RISKOS_HTTP_SHUTDOWN_TIMEOUT", 20*time.Second),
 		},

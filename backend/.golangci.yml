@@ -118,6 +118,30 @@ linters:
             - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/jobs, desc: platform must not import the jobs module }
             - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/httpapi, desc: platform must not import the API composition layer }
 
+        # The audit log is a foundation every module writes to, so it may depend only on
+        # platform (ARCHITECTURE.md §4, rule 1). Anything else would create cycles and let other
+        # modules influence what gets recorded.
+        audit-is-foundation:
+          files: ["**/internal/audit/**"]
+          deny:
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/auth, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/tenants, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/events, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/transactions, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/users, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/accounts, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/devices, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/risk, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/rules, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/alerts, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/cases, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/webhooks, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/admin, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/observability, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/jobs, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/httpapi, desc: audit may depend only on platform }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/dbmigrate, desc: audit may depend only on platform }
+
         # Only stores touch the database or Redis. Handlers and services go through their
         # module's store; other modules go through public interfaces.
         data-access-only-in-stores:
@@ -146,7 +170,7 @@ linters:
             - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/apigen, desc: generated API types belong in handlers only }
             - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx, desc: HTTP helpers belong in handlers only }
 
-        # The job queue implementation is provisional and confined to the jobs module (ADR).
+        # The job queue implementation is confined to the jobs module (ADR-0003).
         queue-implementation-confined:
           files: ["$all", "!**/internal/jobs/**"]
           deny:

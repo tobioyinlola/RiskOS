@@ -33,7 +33,7 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, slog.LevelInfo, cfg.LogLevel)
 	assert.Equal(t, ":8080", cfg.HTTP.Addr)
 	assert.Equal(t, 5*time.Second, cfg.HTTP.ReadHeaderTimeout)
-	assert.Equal(t, int64(1<<20), cfg.HTTP.MaxBodyBytes)
+	assert.Equal(t, int64(64<<10), cfg.HTTP.MaxBodyBytes)
 	assert.Equal(t, int32(20), cfg.Postgres.MaxConns)
 	assert.False(t, cfg.Telemetry.Enabled)
 }

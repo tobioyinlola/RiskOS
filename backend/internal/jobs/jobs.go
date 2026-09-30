@@ -1,5 +1,5 @@
 // Package jobs is the background-job boundary. Modules depend only on the types in this file;
-// the queue implementation (River, provisional; see docs/adr) is confined to this package so it
+// the queue implementation (River; see docs/adr/ADR-0003) is confined to this package so it
 // can be replaced without touching callers. depguard forbids importing River anywhere else.
 //
 // Jobs must be idempotent: every queue in this class delivers at least once.
