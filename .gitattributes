@@ -1,0 +1,7 @@
+# Normalize line endings: the repository is developed on Linux/WSL and built in Linux containers.
+* text=auto eol=lf
+
+# Generated code: collapsed in diffs, excluded from language stats.
+backend/internal/apigen/*.gen.go linguist-generated=true
+backend/internal/**/sqlcgen/*.go linguist-generated=true
+frontend/src/lib/api/schema.gen.ts linguist-generated=true

@@ -1,0 +1,18 @@
+# sqlc configuration. Queries are plain SQL in db/queries, compiled to type-safe Go against the
+# schema defined by the goose migrations. Run via `make generate`; never edit the output by hand.
+#
+# Convention (docs/ARCHITECTURE.md): each module that owns tables gets its own entry here, with
+# queries in db/queries/<module>/ and output in internal/<module>/internal/store/sqlcgen, so only
+# that module's store can call them.
+version: "2"
+sql:
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/platform
+    gen:
+      go:
+        package: sqlcgen
+        out: internal/platform/db/sqlcgen
+        sql_package: pgx/v5
+        emit_interface: false
+        emit_exact_table_names: false

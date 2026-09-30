@@ -1,0 +1,7 @@
+# oapi-codegen configuration. Run via `make generate`; never edit the output by hand.
+package: apigen
+output: internal/apigen/apigen.gen.go
+generate:
+  models: true
+  chi-server: true
+  strict-server: true

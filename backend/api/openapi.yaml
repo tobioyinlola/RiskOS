@@ -1,0 +1,129 @@
+openapi: 3.0.3
+info:
+  title: RiskOS API
+  version: 0.1.0
+  description: |
+    RiskOS public HTTP contract. This file is the single source of truth: Go server stubs and the
+    TypeScript client are generated from it (`make generate`), and CI fails if generated code drifts.
+
+    Only operational endpoints exist at this stage. Product endpoints (spec §7) are added here
+    first, during system design (TODO(phase-0)), and only then implemented.
+servers:
+  - url: http://localhost:8080
+    description: Local development
+tags:
+  - name: health
+    description: Liveness and readiness probes for orchestrators and load balancers.
+paths:
+  /health/live:
+    get:
+      operationId: getLiveness
+      tags: [health]
+      summary: Liveness probe
+      description: Returns 200 while the process is running and able to serve HTTP. Performs no dependency checks.
+      responses:
+        "200":
+          description: Process is alive.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LivenessResponse"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /health/ready:
+    get:
+      operationId: getReadiness
+      tags: [health]
+      summary: Readiness probe
+      description: |
+        Returns 200 when every required dependency (PostgreSQL, Redis) answered within its check
+        timeout, and 503 otherwise, including while the server is draining during shutdown.
+        Per-dependency status is reported without internal error details.
+      responses:
+        "200":
+          description: Ready to receive traffic.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        "503":
+          description: Not ready; at least one dependency is unavailable or the server is draining.
+          headers:
+            X-Request-ID:
+              $ref: "#/components/headers/XRequestID"
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReadinessResponse"
+        default:
+          $ref: "#/components/responses/DefaultError"
+components:
+  headers:
+    XRequestID:
+      description: |
+        Correlation ID for this request. Echoes a caller-supplied `X-Request-ID` when it is 1-64
+        characters of `[A-Za-z0-9._-]`; otherwise a server-generated `req_…` ID.
+      schema:
+        type: string
+  responses:
+    DefaultError:
+      description: Error in the standard RiskOS error contract (spec §7).
+      headers:
+        X-Request-ID:
+          $ref: "#/components/headers/XRequestID"
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/ErrorResponse"
+  schemas:
+    ErrorResponse:
+      type: object
+      additionalProperties: false
+      required: [error]
+      properties:
+        error:
+          $ref: "#/components/schemas/ErrorDetail"
+    ErrorDetail:
+      type: object
+      additionalProperties: false
+      required: [code, message, request_id]
+      properties:
+        code:
+          type: string
+          description: Stable, machine-readable error code (UPPER_SNAKE_CASE).
+          example: INVALID_REQUEST
+        message:
+          type: string
+          description: Human-readable, safe-to-display description. Never contains internals.
+          example: The request is invalid.
+        request_id:
+          type: string
+          example: req_01j9x2k7m3q4r5s6t7v8w9x0yz
+    LivenessResponse:
+      type: object
+      additionalProperties: false
+      required: [status]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+    ReadinessResponse:
+      type: object
+      additionalProperties: false
+      required: [status, checks]
+      properties:
+        status:
+          type: string
+          enum: [ok, unavailable]
+        checks:
+          type: object
+          description: Status per dependency, keyed by dependency name.
+          additionalProperties:
+            type: string
+            enum: [ok, unavailable]

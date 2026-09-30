@@ -1,0 +1,84 @@
+// Command api runs the RiskOS HTTP API. This file is the composition root: every dependency is
+// constructed here and injected; no package holds mutable global state.
+package main
+
+import (
+	"context"
+	"errors"
+	"fmt"
+	"log/slog"
+	"net"
+	"os"
+	"os/signal"
+	"syscall"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpserver"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+)
+
+func main() {
+	if err := run(); err != nil {
+		fmt.Fprintln(os.Stderr, "api:", err)
+		os.Exit(1)
+	}
+}
+
+func run() (err error) {
+	ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+	defer stop()
+
+	cfg, err := config.Load(os.LookupEnv)
+	if err != nil {
+		return err
+	}
+	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
+
+	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, tel.Shutdown(context.WithoutCancel(ctx))) }()
+
+	pool, err := db.NewPool(ctx, cfg.Postgres)
+	if err != nil {
+		return err
+	}
+	defer pool.Close()
+
+	rdb, err := redisx.New(ctx, cfg.Redis)
+	if err != nil {
+		return err
+	}
+	defer func() { err = errors.Join(err, rdb.Close()) }()
+
+	healthSvc := health.NewService(logger,
+		health.Check{Name: "postgres", Timeout: cfg.Postgres.CheckTimeout, Probe: func(ctx context.Context) error { return db.Ping(ctx, pool) }},
+		health.Check{Name: "redis", Timeout: cfg.Redis.CheckTimeout, Probe: func(ctx context.Context) error { return redisx.Ping(ctx, rdb) }},
+	)
+
+	handler := httpapi.New(httpapi.Deps{
+		Logger:    logger,
+		Clock:     clock.System{},
+		HTTP:      cfg.HTTP,
+		Telemetry: tel,
+		Health:    healthSvc,
+	})
+
+	ln, err := (&net.ListenConfig{}).Listen(ctx, "tcp", cfg.HTTP.Addr)
+	if err != nil {
+		return fmt.Errorf("listen on %s: %w", cfg.HTTP.Addr, err)
+	}
+	logger.InfoContext(ctx, "api starting", slog.String("env", string(cfg.Env)))
+	return httpserver.Run(ctx, httpserver.New(cfg.HTTP, handler, logger), ln, httpserver.Lifecycle{
+		OnDrain:         healthSvc.StartDraining,
+		DrainDelay:      cfg.HTTP.ShutdownDrainDelay,
+		ShutdownTimeout: cfg.HTTP.ShutdownTimeout,
+	}, logger)
+}

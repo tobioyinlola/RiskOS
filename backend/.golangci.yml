@@ -1,0 +1,196 @@
+# golangci-lint v2 configuration. Run with `make lint`; CI runs the same version (see Makefile).
+#
+# Architecture rules (docs/ARCHITECTURE.md) are enforced in two layers:
+#   1. The Go compiler: a module's implementation lives under internal/<module>/internal/, which no
+#      other module can import.
+#   2. depguard (below): dependency direction and data-access rules the compiler cannot express.
+version: "2"
+
+run:
+  timeout: 5m
+  tests: true
+
+linters:
+  default: none
+  enable:
+    # correctness
+    - govet
+    - errcheck
+    - staticcheck
+    - ineffassign
+    - unused
+    - errorlint
+    - nilerr
+    - bodyclose
+    - sqlclosecheck
+    - rowserrcheck
+    - contextcheck
+    - noctx
+    - copyloopvar
+    # security
+    - gosec
+    # architecture and conventions
+    - depguard
+    - forbidigo
+    - gochecknoinits
+    - gochecknoglobals
+    # hygiene
+    - misspell
+    - unconvert
+    - unparam
+    - revive
+    - godox
+
+  settings:
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment # readability over struct packing; revisit only for measured hot structs
+        - shadow
+
+    errcheck:
+      check-type-assertions: true
+      check-blank: false
+
+    gosec:
+      excludes:
+        - G104 # duplicate of errcheck
+
+    revive:
+      rules:
+        - name: context-as-argument
+        - name: context-keys-type
+        - name: error-return
+        - name: error-strings
+        - name: error-naming
+        - name: exported
+        - name: package-comments
+        - name: receiver-naming
+        - name: unexported-return
+        - name: indent-error-flow
+        - name: errorf
+        - name: var-naming
+        - name: unreachable-code
+        - name: redefines-builtin-id
+
+    godox:
+      # Bare TODOs are forbidden; every TODO names the phase that resolves it: TODO(phase-N).
+      keywords: [FIXME, XXX, HACK]
+
+    forbidigo:
+      analyze-types: true
+      forbid:
+        - pattern: ^print(ln)?$
+          msg: use the injected *slog.Logger
+        - pattern: ^fmt\.Print.*$
+          msg: use the injected *slog.Logger
+        - pattern: ^os\.(Getenv|LookupEnv|Environ)$
+          msg: read configuration only via internal/platform/config in cmd/* (composition root)
+        - pattern: ^otel\.(SetTracerProvider|SetMeterProvider|SetTextMapPropagator|Tracer|Meter|GetTracerProvider|GetMeterProvider)$
+          msg: inject providers from internal/platform/telemetry; never use OpenTelemetry globals
+        - pattern: ^slog\.(Default|SetDefault|Info|Warn|Error|Debug|Log)(Context)?$
+          msg: use the injected *slog.Logger, not the global default logger
+        - pattern: ^time\.Sleep$
+          msg: time.Sleep ignores cancellation; use a timer with select on ctx.Done()
+
+    depguard:
+      rules:
+        # Platform is the foundation layer: it must never depend on domain modules or on the
+        # composition packages above it.
+        platform-is-foundation:
+          files: ["**/internal/platform/**"]
+          deny:
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/auth, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/tenants, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/events, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/transactions, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/users, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/accounts, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/devices, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/risk, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/rules, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/alerts, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/cases, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/webhooks, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/admin, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/audit, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/observability, desc: platform must not import domain modules }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/jobs, desc: platform must not import the jobs module }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/httpapi, desc: platform must not import the API composition layer }
+
+        # Only stores touch the database or Redis. Handlers and services go through their
+        # module's store; other modules go through public interfaces.
+        data-access-only-in-stores:
+          files:
+            - "$all"
+            - "!**/internal/*/internal/store/**"
+            - "!**/internal/platform/**"
+            - "!**/internal/jobs/**"
+            - "!**/cmd/**"
+            - "!**/test/**"
+          deny:
+            - { pkg: github.com/jackc/pgx, desc: only module stores may use the database driver }
+            - { pkg: github.com/redis/go-redis, desc: only module stores may use Redis }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/platform/db, desc: only module stores may use the connection pool }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx, desc: only module stores may use Redis }
+
+        # Business logic is transport-agnostic: services and stores never see HTTP or the
+        # generated API types; handlers translate at the edge.
+        services-are-transport-agnostic:
+          files:
+            - "**/internal/*/internal/service/**"
+            - "**/internal/*/internal/store/**"
+          deny:
+            - { pkg: net/http, desc: services and stores must not depend on HTTP; map in the handler }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/apigen, desc: generated API types belong in handlers only }
+            - { pkg: github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx, desc: HTTP helpers belong in handlers only }
+
+        # The job queue implementation is provisional and confined to the jobs module (ADR).
+        queue-implementation-confined:
+          files: ["$all", "!**/internal/jobs/**"]
+          deny:
+            - { pkg: github.com/riverqueue/river, desc: use the internal/jobs interfaces; River is an implementation detail }
+
+        # Library hygiene across the codebase.
+        banned-libraries:
+          files: ["$all"]
+          deny:
+            - { pkg: log$, desc: use log/slog via the injected logger }
+            - { pkg: math/rand, desc: use crypto/rand }
+            - { pkg: io/ioutil, desc: deprecated; use io and os }
+            - { pkg: github.com/pkg/errors, desc: use fmt.Errorf with %w and errors.Join }
+            - { pkg: github.com/sirupsen/logrus, desc: use log/slog }
+            - { pkg: go.uber.org/zap, desc: use log/slog }
+            - { pkg: github.com/gofiber/fiber, desc: fasthttp breaks net/http compatibility (see ADR-0002) }
+            - { pkg: github.com/valyala/fasthttp, desc: fasthttp breaks net/http compatibility (see ADR-0002) }
+
+  exclusions:
+    generated: strict
+    presets:
+      - std-error-handling
+    rules:
+      # The composition root is where configuration is read from the environment.
+      - path: cmd/
+        linters: [forbidigo]
+        text: "os\\.(Getenv|LookupEnv|Environ)"
+      # Tests may use simulated delays and unchecked test-helper errors.
+      - path: _test\.go
+        linters: [forbidigo]
+        text: time\.Sleep
+      - path: _test\.go
+        linters: [gosec, unparam, gochecknoglobals]
+
+formatters:
+  enable:
+    - gofmt
+    - goimports
+  settings:
+    goimports:
+      local-prefixes:
+        - github.com/tobioyinlola/RiskOS/backend
+  exclusions:
+    generated: strict
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

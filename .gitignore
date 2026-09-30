@@ -1,0 +1,41 @@
+# Local tool binaries (scripts/install-tools.sh)
+/bin/
+
+# Environment files hold local secrets; only the example is committed.
+.env
+.env.*
+!.env.example
+
+# Go
+/backend/coverage.out
+/backend/coverage.html
+/backend/tmp/
+*.test
+*.prof
+
+# Frontend
+/frontend/node_modules/
+/frontend/.next/
+/frontend/out/
+/frontend/coverage/
+/frontend/test-results/
+/frontend/playwright-report/
+/frontend/blob-report/
+/frontend/next-env.d.ts
+*.tsbuildinfo
+
+# Build and supply-chain artifacts
+/dist/
+/sbom/
+*.sbom.json
+
+# Load-test output
+/backend/test/load/results/
+
+# Editors and OS
+.idea/
+.vscode/*
+!.vscode/extensions.json
+*.swp
+.DS_Store
+Thumbs.db
