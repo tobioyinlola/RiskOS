@@ -40,6 +40,15 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | GET | `/api/v1/cases/{case_id}` | Case with its alerts, notes and timeline (`cases:read`) |
 | PATCH | `/api/v1/cases/{case_id}` | Update or resolve a case; audited (`cases:write`) |
 | POST | `/api/v1/cases/{case_id}/notes` | Add an append-only note; audited (`cases:write`) |
+| GET | `/api/v1/webhooks` | List webhook endpoints (`webhooks:read`) |
+| POST | `/api/v1/webhooks` | Register an endpoint; secret returned once; audited (`webhooks:write`) |
+| GET | `/api/v1/webhooks/{webhook_id}` | An endpoint (never its secret) (`webhooks:read`) |
+| PATCH | `/api/v1/webhooks/{webhook_id}` | Change, disable or re-enable an endpoint; audited (`webhooks:write`) |
+| POST | `/api/v1/webhooks/{webhook_id}/rotate-secret` | New secret, shown once, with an overlap; audited (`webhooks:write`) |
+| POST | `/api/v1/webhooks/{webhook_id}/test` | Queue a `webhook.test` event (`webhooks:write`) |
+| GET | `/api/v1/webhooks/{webhook_id}/deliveries` | Delivery log; filter by `status` (`webhooks:read`) |
+| GET | `/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}` | A delivery with its payload and attempts (`webhooks:read`) |
+| POST | `/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/redeliver` | Retry a failed delivery; audited (`webhooks:write`) |
 | POST | `/api/v1/rules/{rule_id}/test` | Test the rule, or a draft condition, against an event; stores nothing (`rules:read`) |
 
 ## Conventions (in force)
@@ -55,14 +64,14 @@ generated code is stale. An operation that is not in the contract cannot be rout
   `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`).
 - Every request is validated against this contract before it reaches a handler; unknown fields
   are rejected.
-- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`); an ID of the wrong
+- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`); an ID of the wrong
   type is not found.
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.
 
 ## To be designed (TODO(phase-0))
 
-- Remaining operations of spec §7 (entities, webhooks, analytics).
+- Remaining operations of spec §7 (entities, analytics).
 - Console session authentication (build step 7).
 - Filtering and sorting conventions for lists (event type, decision, time range).
 - Versioning and deprecation policy.

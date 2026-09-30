@@ -2,8 +2,8 @@
 
 **Purpose:** how risk decisions become alerts, how alerts are grouped and triaged, and how cases
 investigate and resolve them. Design: [ARCHITECTURE.md §6 and §7](ARCHITECTURE.md). Status:
-**built (build step 5).** Delivery of alerts to customer systems (webhooks) is build step 6; the
-console is build step 7.
+**built (build step 5).** Alert and case events reach customer systems as webhooks
+([WEBHOOKS.md](WEBHOOKS.md), build step 6); the console is build step 7.
 
 ## Flow
 
