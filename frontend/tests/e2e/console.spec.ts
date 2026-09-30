@@ -1,0 +1,170 @@
+import { expect, test, type Page } from "@playwright/test";
+
+import { navSections } from "../../lib/navigation";
+import { mockApi } from "./mock-api";
+
+const PASSWORD = "correct horse battery staple";
+
+/** A platform passkey authenticator that approves every prompt (Chromium only). */
+async function virtualAuthenticator(page: Page) {
+  const cdp = await page.context().newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      protocol: "ctap2",
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+}
+
+/** Fails the test on any Content-Security-Policy violation the page reports. */
+function watchCsp(page: Page): string[] {
+  const violations: string[] = [];
+  page.on("console", (msg) => {
+    if (/Content Security Policy/i.test(msg.text()))
+      violations.push(msg.text());
+  });
+  return violations;
+}
+
+async function signIn(page: Page) {
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Continue" }).click();
+}
+
+test("sign-in with a new passkey, every section, sign-out and back in", async ({
+  page,
+  isMobile,
+}) => {
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  await virtualAuthenticator(page);
+
+  // Without a session the console sends you to sign in and back afterwards.
+  await page.goto("/alerts");
+  await expect(page).toHaveURL(/\/login\?next=%2Falerts$/);
+
+  await page.getByLabel("Email").fill("ada@example.com");
+  await page.getByLabel("Password").fill("wrong password");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByText("The email or password is incorrect."),
+  ).toBeVisible();
+
+  // First sign-in: a second factor is mandatory; the passkey is created by the browser.
+  await page.getByLabel("Password").fill(PASSWORD);
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(
+    page.getByRole("heading", { name: "Add a second factor" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Create a passkey" }).click();
+
+  await expect(
+    page.getByRole("heading", { name: "Save your recovery codes" }),
+  ).toBeVisible();
+  const cont = page.getByRole("button", { name: "Continue to RiskOS" });
+  await expect(cont).toBeDisabled();
+  await page.getByLabel("I have saved these codes somewhere safe").check();
+  await cont.click();
+
+  await expect(page).toHaveURL(/\/alerts$/);
+  await expect(page).toHaveTitle("Alerts · RiskOS");
+  await expect(
+    page.getByText("High-risk transfer to a new beneficiary"),
+  ).toBeVisible();
+  await expect(page.getByLabel("High, score 81").first()).toBeVisible();
+
+  // Every section is reachable from the navigation.
+  for (const section of navSections) {
+    if (isMobile) {
+      await page.getByRole("button", { name: "Open navigation" }).click();
+    }
+    await page
+      .getByRole("navigation", { name: "Primary" })
+      .getByRole("link", { name: section.label, exact: true })
+      .click();
+    await expect(page).toHaveURL(section.href);
+    await expect(
+      page.getByRole("heading", { level: 1, name: section.label }),
+    ).toBeVisible();
+  }
+
+  // Production is marked unmistakably.
+  await page.getByRole("radio", { name: "Production" }).click();
+  await expect(page.getByText(/production/i).first()).toBeVisible();
+  await page.getByRole("radio", { name: "Test" }).click();
+
+  await page.getByRole("button", { name: "Ada Lovelace" }).click();
+  await page.getByRole("menuitem", { name: "Sign out" }).click();
+  await expect(page).toHaveURL(/\/login$/);
+
+  // Signing in again uses the passkey just created.
+  await signIn(page);
+  await expect(
+    page.getByRole("heading", { name: "Verify it's you" }),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Use your passkey" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Overview" }),
+  ).toBeVisible();
+
+  expect(api.problems).toEqual([]);
+  expect(api.calls).toContain("POST /auth/mfa/passkeys/register");
+  expect(api.calls).toContain("POST /auth/mfa/passkeys/login");
+  expect(csp).toEqual([]);
+});
+
+test("the alert queue works from the keyboard", async ({ page, isMobile }) => {
+  test.skip(isMobile, "keyboard shortcuts are for desktop");
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/alerts");
+  await expect(
+    page.getByText("High-risk transfer to a new beneficiary"),
+  ).toBeVisible();
+
+  await page.keyboard.press("j");
+  await page.keyboard.press("Enter");
+  await expect(page.getByRole("dialog")).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toBeHidden();
+
+  await page.keyboard.press("?");
+  await expect(
+    page.getByRole("dialog", { name: "Keyboard shortcuts" }),
+  ).toBeVisible();
+  expect(api.problems).toEqual([]);
+});
+
+test("pages carry security headers and a nonce-based CSP", async ({
+  request,
+}) => {
+  const res = await request.get("/login");
+  expect(res.status()).toBe(200);
+  const h = res.headers();
+  expect(h["x-content-type-options"]).toBe("nosniff");
+  expect(h["x-frame-options"]).toBe("DENY");
+  expect(h["x-powered-by"]).toBeUndefined();
+  const csp = h["content-security-policy"] ?? "";
+  const nonce = /'nonce-([^']+)'/.exec(csp)?.[1];
+  expect(nonce).toBeTruthy();
+  expect(csp).toContain("frame-ancestors 'none'");
+  expect(csp).not.toContain("unsafe-eval");
+
+  // Every script on the page carries this response's nonce.
+  const html = await res.text();
+  const scripts = html.match(/<script\b[^>]*>/g) ?? [];
+  expect(scripts.length).toBeGreaterThan(0);
+  for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`);
+
+  // A second request gets a different nonce.
+  const again = await request.get("/login");
+  expect(again.headers()["content-security-policy"]).not.toContain(
+    `'nonce-${nonce}'`,
+  );
+});

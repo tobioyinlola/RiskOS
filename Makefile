@@ -57,6 +57,10 @@ tenant: .env ## Create a tenant: make tenant NAME="Acme" REGION=eu-west-1 OPERAT
 apikey: .env ## Issue a key: make apikey TENANT=ten_... ENV=production NAME=ci OPERATOR=you@example.com
 	$(RISKOSCTL) apikey create --operator "$(OPERATOR)" --tenant "$(TENANT)" --env "$(ENV)" --name "$(NAME)"
 
+.PHONY: invite
+invite: .env ## Invite a console user: make invite TENANT=ten_... EMAIL=ada@example.com OPERATOR=you@example.com [ROLE=customer_admin]
+	$(RISKOSCTL) user invite --operator "$(OPERATOR)" --tenant "$(TENANT)" --email "$(EMAIL)" --role "$(or $(ROLE),customer_admin)"
+
 .PHONY: audit-verify
 audit-verify: .env ## Verify a tenant's audit hash chain: make audit-verify TENANT=ten_...
 	$(RISKOSCTL) audit verify --tenant "$(TENANT)"
@@ -138,6 +142,10 @@ test-frontend:
 test-e2e: ## Frontend end-to-end tests against the production build
 	$(FRONTEND) pnpm --silent build
 	$(FRONTEND) pnpm --silent test:e2e
+
+.PHONY: test-e2e-stack
+test-e2e-stack: .env ## Browser test against the running stack (make up): invite, passkey, every section
+	./scripts/e2e-stack.sh
 
 .PHONY: bench
 bench: ## Backend micro-benchmarks

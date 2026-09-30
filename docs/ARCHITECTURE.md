@@ -561,7 +561,7 @@ The first milestone is the thin vertical slice: tenant, API key, event, validati
 
 ## Appendix A. Implementation status
 
-What exists in the repository today (build steps 1-3). Everything above that is not listed
+What exists in the repository today (build steps 1-7). Everything above that is not listed
 here is designed but not yet built.
 
 ### A.1 Repository layout
@@ -647,6 +647,16 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
+### A.10 Console (build step 7)
+
+| Area | What is built |
+|---|---|
+| Screens | Overview, events, alerts queue, cases, rules, risk settings, developer center (keys, webhooks, delivery logs), team, audit log, account security ([CONSOLE.md](CONSOLE.md)) |
+| Design | The Instrument design system: tokens for both themes, risk bands from the environment's policy, keyboard-first triage ([design-system.md](design-system.md)) |
+| Environments | One sign-in for test and production, a switch, a PRODUCTION banner; every request and cached query carries the environment |
+| Browser security | Same-origin API proxy, nonce-based CSP, HSTS, frame denial; re-authentication prompts for high-impact actions |
+| Tests | Component tests; browser tests with a mocked API (desktop and mobile, virtual passkey authenticator, CSP); a browser test against the running stack with no mocks |
+
 ### A.9 Console sign-in (build step 7)
 
 | Area | What is built |
@@ -696,6 +706,7 @@ password.
 | OpenAPI 3.1 | OpenAPI 3.0.3 until oapi-codegen fully supports 3.1 | [ADR-0004](adr/ADR-0004-openapi-3-0.md) |
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
+| Console screens for the live risk monitor, entity pages (users, accounts, devices, transactions) and analytics beyond counts | Not built; the console covers triage, investigation, configuration and administration ([CONSOLE.md](CONSOLE.md)) | TODO(phase-8) |
 | Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no breached-password check, SSO or email delivery yet | TODO(phase-8) |
 | Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |

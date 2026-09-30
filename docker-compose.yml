@@ -154,6 +154,12 @@ services:
     build: { context: ./frontend, target: runtime }
     image: riskos/frontend:local
     ports: ["127.0.0.1:${FRONTEND_PORT:-3000}:3000"]
+    environment:
+      # The console proxies /api/v1 to the API over the compose network.
+      RISKOS_API_URL: http://api:8080
+    depends_on:
+      api:
+        condition: service_started
     tmpfs: ["/app/.next/cache"]
     healthcheck:
       test: ["CMD", "/nodejs/bin/node", "-e", "fetch('http://127.0.0.1:3000/robots.txt').then(r=>process.exit(r.ok?0:1)).catch(()=>process.exit(1))"]

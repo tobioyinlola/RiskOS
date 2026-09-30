@@ -13,6 +13,7 @@ import (
 	"encoding/base32"
 	"encoding/base64"
 	"encoding/binary"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"net/url"
@@ -112,13 +113,14 @@ func VerifyDummy(password string) {
 	_, _ = VerifyPassword(password, dummyHash)
 }
 
-// NewToken returns a 256-bit random token (URL-safe) and its SHA-256 hash for storage.
+// NewToken returns a 256-bit random token and its SHA-256 hash for storage. The token is hex:
+// invite links travel through chat, email and Markdown, which mangle `_` and `-`.
 func NewToken() (token string, hash []byte, err error) {
 	b := make([]byte, 32)
 	if _, err := rand.Read(b); err != nil {
 		return "", nil, fmt.Errorf("generate token: %w", err)
 	}
-	token = base64.RawURLEncoding.EncodeToString(b)
+	token = hex.EncodeToString(b)
 	return token, HashToken(token), nil
 }
 

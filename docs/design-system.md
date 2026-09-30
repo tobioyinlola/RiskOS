@@ -180,9 +180,9 @@ The implementation lives in the frontend:
 - Tokens: `frontend/app/globals.css` (CSS variables for both themes, mapped into Tailwind v4 with `@theme inline`, so components never need `dark:` variants).
 - Risk bands: `frontend/lib/risk.ts` (bands, default thresholds, `bandFor`, `readout`), reading the environment's thresholds from `GET /api/v1/risk/policy`.
 - Logo files: `frontend/public/brand/` (`riskos-symbol-on-dark.svg`, `riskos-symbol-on-light.svg`, `riskos-app-icon.svg`).
-- Components: `frontend/components/instrument/` (`RiskScore`, `RiskBadge`, `ReasonList`, `TraceLine`, `AlertRow`, `Button` and the console primitives), on Radix primitives.
+- Components: `frontend/components/instrument/` (`RiskScore`, `RiskBadge`, `ReasonList`, `TraceLine`, `Button` and the console primitives: panels, fields, tables with the selected-row needle, drawer, modal, states), on Radix primitives. The alert queue row lives in `frontend/features/alerts/`.
 
-The reference token values, Tailwind mapping, `lib/risk.ts` and SVG sources from the original specification are reproduced in those files verbatim; where the two differ, this document's tables win.
+The token values in `globals.css` and the logo SVGs follow this document's tables and sources. `lib/risk.ts` implements the risk scale with the environment's thresholds instead of fixed ones. Where code and this document differ, this document wins.
 
 ## Logo files
 
