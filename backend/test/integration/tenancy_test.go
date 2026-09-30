@@ -18,11 +18,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -43,6 +46,7 @@ type stack struct {
 	handler http.Handler
 	tenants *tenants.Module
 	auth    *auth.Module
+	alerts  *alerts.Module
 }
 
 func newStack(t *testing.T, cacheTTL time.Duration) stack {
@@ -74,12 +78,17 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{Pepper: []byte(testPepper), CacheTTL: cacheTTL})
 	riskModule := newRisk(featureRedis, runner, auditModule, clk)
+	queue, err := jobs.NewInserter(shared.pool, shared.logger)
+	require.NoError(t, err)
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, shared.logger)
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		Events:  events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), clk),
+		Events:  events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
 		Risk:    riskModule,
+		Alerts:  alertsModule,
+		Cases:   cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk),
 		Limiter: ratelimit.New(shared.rdb), RateLimits: limits,
 	})
 	require.NoError(t, err)
@@ -87,6 +96,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		handler: h,
 		tenants: tenants.New(runner, auditModule.Recorder()),
 		auth:    authModule,
+		alerts:  alertsModule,
 	}
 }
 
@@ -223,7 +233,7 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	assert.Equal(t, apigen.Environment("test"), who.Environment)
 	assert.ElementsMatch(t, []apigen.Scope{
 		"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate",
-		"rules:read", "rules:write", "risk:configure",
+		"rules:read", "rules:write", "risk:configure", "alerts:read", "alerts:write", "cases:read", "cases:write",
 	}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.

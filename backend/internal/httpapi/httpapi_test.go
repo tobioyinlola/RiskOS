@@ -18,11 +18,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
@@ -49,7 +52,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 		checks = append(checks, health.Check{Name: name, Timeout: time.Second, Probe: func(context.Context) error { return perr }})
 	}
 	authModule, auditModule := testModules()
-	eventsMod, riskMod := appModules()
+	eventsMod, riskMod, alertsMod, casesMod := appModules()
 	return fixture{
 		logs: logs,
 		handler: must(t)(httpapi.New(httpapi.Deps{
@@ -60,7 +63,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 			Health:    health.NewService(logger, checks...),
 			Auth:      authModule,
 			Audit:     auditModule,
-			Events:    eventsMod, Risk: riskMod,
+			Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod,
 			Limiter: allowAll{},
 		})),
 	}
@@ -200,7 +203,7 @@ func BenchmarkLiveness(b *testing.B) {
 	tel, err := telemetry.Setup(context.Background(), config.Telemetry{}, "bench", config.EnvTest)
 	require.NoError(b, err)
 	authModule, auditModule := testModules()
-	eventsMod, riskMod := appModules()
+	eventsMod, riskMod, alertsMod, casesMod := appModules()
 	h := must(b)(httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clock.System{},
@@ -209,7 +212,7 @@ func BenchmarkLiveness(b *testing.B) {
 		Health:    health.NewService(logger),
 		Auth:      authModule,
 		Audit:     auditModule,
-		Events:    eventsMod, Risk: riskMod,
+		Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod,
 		Limiter: allowAll{},
 	}))
 	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/health/live", nil)
@@ -256,11 +259,18 @@ func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, e
 
 // appModules returns the events and risk modules over a database that is never reached and a
 // Redis that does not exist; these tests never evaluate an event.
-func appModules() (*events.Module, *risk.Module) {
+// noJobs discards enqueued jobs.
+type noJobs struct{}
+
+func (noJobs) Enqueue(context.Context, jobs.Args) error { return nil }
+
+func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module) {
 	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	riskModule := risk.New(rdb, noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{},
 		slog.New(slog.DiscardHandler), risk.Config{FeatureHashKey: []byte(strings.Repeat("f", 32)), FeatureTimeout: 10 * time.Millisecond})
-	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), clock.System{}), riskModule
+	alertsModule := alerts.New(noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{}, slog.New(slog.DiscardHandler))
+	casesModule := cases.New(noDB{}, alertsModule.Linker(), audit.New(noDB{}, clock.System{}).Recorder(), clock.System{})
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule
 }
 
 func must(t testing.TB) func(http.Handler, error) http.Handler {

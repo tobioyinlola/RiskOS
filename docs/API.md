@@ -32,6 +32,14 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | PATCH | `/api/v1/rules/{rule_id}` | Change a rule, creating a new version; audited (`rules:write`) |
 | GET | `/api/v1/rules/{rule_id}/versions` | Version history (`rules:read`) |
 | POST | `/api/v1/rules/{rule_id}/rollback` | Restore an earlier version as a new version; audited (`rules:write`) |
+| GET | `/api/v1/alerts` | List alerts; filter by `status`, `kind` (`alerts:read`) |
+| GET | `/api/v1/alerts/{alert_id}` | Alert with its evaluations and timeline (`alerts:read`) |
+| PATCH | `/api/v1/alerts/{alert_id}` | Triage: status, assignee, note; audited (`alerts:write`) |
+| GET | `/api/v1/cases` | List cases; filter by `status` (`cases:read`) |
+| POST | `/api/v1/cases` | Open a case, optionally escalating alerts; audited (`cases:write`, plus `alerts:write` with alerts) |
+| GET | `/api/v1/cases/{case_id}` | Case with its alerts, notes and timeline (`cases:read`) |
+| PATCH | `/api/v1/cases/{case_id}` | Update or resolve a case; audited (`cases:write`) |
+| POST | `/api/v1/cases/{case_id}/notes` | Add an append-only note; audited (`cases:write`) |
 | POST | `/api/v1/rules/{rule_id}/test` | Test the rule, or a draft condition, against an event; stores nothing (`rules:read`) |
 
 ## Conventions (in force)
@@ -47,14 +55,14 @@ generated code is stale. An operation that is not in the contract cannot be rout
   `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`).
 - Every request is validated against this contract before it reaches a handler; unknown fields
   are rejected.
-- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`); an ID of the wrong
+- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`); an ID of the wrong
   type is not found.
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.
 
 ## To be designed (TODO(phase-0))
 
-- Remaining operations of spec §7 (entities, alerts, cases, webhooks, analytics).
+- Remaining operations of spec §7 (entities, webhooks, analytics).
 - Console session authentication (build step 7).
 - Filtering and sorting conventions for lists (event type, decision, time range).
 - Versioning and deprecation policy.

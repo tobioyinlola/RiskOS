@@ -13,9 +13,11 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
@@ -32,6 +34,8 @@ type server struct {
 	audit.LogHandlers
 	events.IngestHandlers
 	risk.RuleHandlers
+	alerts.AlertHandlers
+	cases.CaseHandlers
 }
 
 var _ apigen.StrictServerInterface = server{}
@@ -47,6 +51,8 @@ type Deps struct {
 	Audit     *audit.Module
 	Events    *events.Module
 	Risk      *risk.Module
+	Alerts    *alerts.Module
+	Cases     *cases.Module
 	// Limiter enforces RateLimits on authenticated requests.
 	Limiter    Allower
 	RateLimits RateLimits
@@ -87,6 +93,8 @@ func New(d Deps) (http.Handler, error) {
 		LogHandlers:        d.Audit.HTTPHandlers(),
 		IngestHandlers:     d.Events.HTTPHandlers(),
 		RuleHandlers:       d.Risk.HTTPHandlers(),
+		AlertHandlers:      d.Alerts.HTTPHandlers(),
+		CaseHandlers:       d.Cases.HTTPHandlers(),
 	}
 	strict := apigen.NewStrictHandlerWithOptions(impl, nil, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {

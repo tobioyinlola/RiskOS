@@ -21,11 +21,14 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
@@ -82,11 +85,11 @@ func startServer(t *testing.T) server {
 	tel, err := telemetry.Setup(t.Context(), cfg.Telemetry, "security-test", cfg.Env)
 	require.NoError(t, err)
 	authModule, auditModule := testModules()
-	eventsMod, riskMod := appModules()
+	eventsMod, riskMod, alertsMod, casesMod := appModules()
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: logger, Clock: clock.System{}, HTTP: cfg.HTTP, Telemetry: tel,
 		Health: health.NewService(logger), Auth: authModule, Audit: auditModule,
-		Events: eventsMod, Risk: riskMod, Limiter: allowAll{},
+		Events: eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Limiter: allowAll{},
 	})
 	require.NoError(t, err)
 
@@ -252,9 +255,16 @@ func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, e
 
 // appModules returns the events and risk modules over a database that is never reached and a
 // Redis that does not exist; these tests never evaluate an event.
-func appModules() (*events.Module, *risk.Module) {
+// noJobs discards enqueued jobs.
+type noJobs struct{}
+
+func (noJobs) Enqueue(context.Context, jobs.Args) error { return nil }
+
+func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module) {
 	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	riskModule := risk.New(rdb, noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{},
 		slog.New(slog.DiscardHandler), risk.Config{FeatureHashKey: []byte(strings.Repeat("f", 32)), FeatureTimeout: 10 * time.Millisecond})
-	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), clock.System{}), riskModule
+	alertsModule := alerts.New(noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{}, slog.New(slog.DiscardHandler))
+	casesModule := cases.New(noDB{}, alertsModule.Linker(), audit.New(noDB{}, clock.System{}).Recorder(), clock.System{})
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule
 }

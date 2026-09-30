@@ -387,10 +387,267 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alerts, newest first
+         * @description Requires scope `alerts:read`.
+         */
+        get: operations["listAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an alert with its evaluations and timeline
+         * @description Requires scope `alerts:read`. Returns the newest 100 evaluations the alert groups.
+         */
+        get: operations["getAlert"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Triage an alert (status, assignee, note)
+         * @description Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`
+         *     to any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and
+         *     `resolved` are final. Alerts are escalated by creating a case with them
+         *     (`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty
+         *     `assignee` unassigns. A change that alters nothing is a no-op.
+         */
+        patch: operations["updateAlert"];
+        trace?: never;
+    };
+    "/api/v1/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cases, newest first
+         * @description Requires scope `cases:read`.
+         */
+        get: operations["listCases"];
+        put?: never;
+        /**
+         * Open a case, optionally escalating alerts into it
+         * @description Requires scope `cases:write`, and `alerts:write` when `alert_ids` are given. Audited. Every
+         *     listed alert must be `open` or `investigating`; they become `escalated`. Without a
+         *     `priority`, the case takes the highest severity of its alerts (`medium` without alerts).
+         */
+        post: operations["createCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a case with its alerts, notes and timeline
+         * @description Requires scope `cases:read`.
+         */
+        get: operations["getCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update or resolve a case
+         * @description Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a
+         *     `resolution` and closes the case's alerts: `false_positive` when the resolution is
+         *     `false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.
+         *     An empty `assignee` unassigns.
+         */
+        patch: operations["updateCase"];
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a note to a case
+         * @description Requires scope `cases:write`. Notes are append-only: they cannot be edited or deleted. Do
+         *     not put card numbers, passwords or other secrets in notes.
+         */
+        post: operations["addCaseNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description `risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals.
+         * @enum {string}
+         */
+        AlertKind: "risk" | "security";
+        /** @enum {string} */
+        AlertStatus: "open" | "investigating" | "escalated" | "false_positive" | "resolved";
+        Alert: {
+            /** @example alr_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            kind: components["schemas"]["AlertKind"];
+            /** @description What the alert is about: the customer's user reference, or the environment for security alerts. */
+            subject: {
+                /** @enum {string} */
+                type: "user" | "environment";
+                ref: string;
+            };
+            title: string;
+            severity: components["schemas"]["Severity"];
+            status: components["schemas"]["AlertStatus"];
+            assignee: string | null;
+            case_id: string | null;
+            max_score: number;
+            /** @description Evaluations grouped into this alert (same subject, each within an hour of the previous). */
+            evaluation_count: number;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AlertList: {
+            data: components["schemas"]["Alert"][];
+            next_cursor: string | null;
+        };
+        AlertEvaluation: {
+            evaluation_id: string;
+            event_id: string;
+            event_type: components["schemas"]["EventType"];
+            risk_score: number;
+            risk_level: components["schemas"]["RiskLevel"];
+            decision: components["schemas"]["Decision"];
+            signals: components["schemas"]["Signal"][];
+            degraded_signals: string[];
+            /** Format: date-time */
+            evaluated_at: string;
+        };
+        ActivityEntry: {
+            id: string;
+            /** @example updated */
+            action: string;
+            /** @description The API key or system job that acted. */
+            actor: string;
+            detail: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        AlertDetail: {
+            alert: components["schemas"]["Alert"];
+            evaluations: components["schemas"]["AlertEvaluation"][];
+            activity: components["schemas"]["ActivityEntry"][];
+        };
+        UpdateAlertRequest: {
+            /** @enum {string} */
+            status?: "open" | "investigating" | "false_positive" | "resolved";
+            /** @description Free-text reference to the analyst (for example an email or staff ID); empty to unassign. */
+            assignee?: string;
+            /** @description Recorded in the alert's timeline. */
+            note?: string;
+        };
+        /** @enum {string} */
+        CaseStatus: "open" | "investigating" | "resolved";
+        /** @enum {string} */
+        CaseResolution: "confirmed_fraud" | "false_positive" | "legitimate" | "inconclusive";
+        Case: {
+            /** @example cas_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            title: string;
+            description: string;
+            status: components["schemas"]["CaseStatus"];
+            priority: components["schemas"]["Severity"];
+            assignee: string | null;
+            resolution: components["schemas"]["CaseResolution"] | null;
+            resolution_note: string | null;
+            /** Format: date-time */
+            resolved_at: string | null;
+            resolved_by: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CaseList: {
+            data: components["schemas"]["Case"][];
+            next_cursor: string | null;
+        };
+        CaseNote: {
+            /** @example cnt_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            body: string;
+            author: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CaseDetail: {
+            case: components["schemas"]["Case"];
+            alerts: components["schemas"]["Alert"][];
+            notes: components["schemas"]["CaseNote"][];
+            activity: components["schemas"]["ActivityEntry"][];
+        };
+        CreateCaseRequest: {
+            title: string;
+            description?: string;
+            priority?: components["schemas"]["Severity"];
+            assignee?: string;
+            alert_ids?: string[];
+        };
+        UpdateCaseRequest: {
+            title?: string;
+            description?: string;
+            priority?: components["schemas"]["Severity"];
+            assignee?: string;
+            status?: components["schemas"]["CaseStatus"];
+            resolution?: components["schemas"]["CaseResolution"];
+            resolution_note?: string;
+        };
+        CreateCaseNoteRequest: {
+            body: string;
+        };
         ErrorResponse: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -426,7 +683,7 @@ export interface components {
          * @description A permission an API key holds.
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -888,6 +1145,13 @@ export interface components {
             fail_policies: {
                 [key: string]: "open" | "closed";
             };
+            /**
+             * @description The least severe decision that raises an alert. Always present in responses; when
+             *     omitted from a PUT, `review` is stored.
+             * @default review
+             * @enum {string}
+             */
+            alert_min_decision: "step_up" | "review";
         };
         RiskCatalog: {
             engine_version: string;
@@ -1625,6 +1889,252 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listAlerts: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: components["schemas"]["AlertStatus"];
+                kind?: components["schemas"]["AlertKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of alerts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The alert. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAlertRequest"];
+            };
+        };
+        responses: {
+            /** @description The alert. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Alert"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listCases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: components["schemas"]["CaseStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of cases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description The case. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The case. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description The case. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    addCaseNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The note. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseNote"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

@@ -14,11 +14,14 @@ import (
 	"github.com/stretchr/testify/require"
 	"github.com/testcontainers/testcontainers-go"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
@@ -36,6 +39,9 @@ func newAPI(t *testing.T) http.Handler {
 	auditModule := audit.New(runner, clock.System{})
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clock.System{}, auth.Config{Pepper: []byte(testPepper)})
 	riskModule := newRisk(shared.rdb, runner, auditModule, clock.System{})
+	queue, err := jobs.NewInserter(shared.pool, shared.logger)
+	require.NoError(t, err)
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clock.System{}, shared.logger)
 	h, err := httpapi.New(httpapi.Deps{
 		Logger:     shared.logger,
 		Clock:      clock.System{},
@@ -43,8 +49,10 @@ func newAPI(t *testing.T) http.Handler {
 		Telemetry:  tel,
 		Auth:       authModule,
 		Audit:      auditModule,
-		Events:     events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), clock.System{}),
+		Events:     events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clock.System{}),
 		Risk:       riskModule,
+		Alerts:     alertsModule,
+		Cases:      cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clock.System{}),
 		Limiter:    ratelimit.New(shared.rdb),
 		RateLimits: generousLimits(),
 		Health: health.NewService(shared.logger,

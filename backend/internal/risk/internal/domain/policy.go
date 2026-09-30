@@ -43,6 +43,18 @@ type Settings struct {
 	HighValueByCurrency map[string]int64
 	// FailPolicies by event type; types without an entry use FailClosed.
 	FailPolicies map[string]FailPolicy
+	// AlertMinDecision is the least severe decision that raises an alert: DecisionReview
+	// (default) or DecisionStepUp.
+	AlertMinDecision Decision
+}
+
+// RaisesAlert reports whether decision d reaches the environment's alert threshold.
+func (s Settings) RaisesAlert(d Decision) bool {
+	floor := s.AlertMinDecision
+	if floor == "" {
+		floor = DecisionReview
+	}
+	return decisionRank(d) >= decisionRank(floor)
 }
 
 // DefaultHighValue is the placeholder high-value threshold (minor units) until a tenant sets its
@@ -57,6 +69,7 @@ func DefaultSettings() Settings {
 		HighValueDefault:    DefaultHighValue,
 		HighValueByCurrency: map[string]int64{},
 		FailPolicies:        map[string]FailPolicy{"transaction": FailClosed, "login": FailOpen},
+		AlertMinDecision:    DecisionReview,
 	}
 }
 

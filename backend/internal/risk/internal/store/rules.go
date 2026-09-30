@@ -198,7 +198,7 @@ func (Store) GetSettings(ctx context.Context) (domain.Settings, error) {
 	if err != nil {
 		return domain.Settings{}, fmt.Errorf("get risk settings: %w", err)
 	}
-	s := domain.Settings{HighValueDefault: row.HighValueDefault}
+	s := domain.Settings{HighValueDefault: row.HighValueDefault, AlertMinDecision: domain.Decision(row.AlertMinDecision)}
 	for dst, raw := range map[any][]byte{&s.Weights: row.Weights, &s.HighValueByCurrency: row.HighValueByCurrency, &s.FailPolicies: row.FailPolicies} {
 		if err := json.Unmarshal(raw, dst); err != nil {
 			return domain.Settings{}, fmt.Errorf("decode risk settings: %w", err)
@@ -221,7 +221,7 @@ func (Store) PutSettings(ctx context.Context, s domain.Settings, by string, at t
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID,
 		Weights: enc(s.Weights), HighValueDefault: s.HighValueDefault,
 		HighValueByCurrency: enc(s.HighValueByCurrency), FailPolicies: enc(s.FailPolicies),
-		UpdatedAt: at, UpdatedBy: by,
+		AlertMinDecision: string(s.AlertMinDecision), UpdatedAt: at, UpdatedBy: by,
 	}); err != nil {
 		return fmt.Errorf("store risk settings: %w", err)
 	}

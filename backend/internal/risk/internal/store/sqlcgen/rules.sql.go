@@ -77,7 +77,7 @@ func (q *Queries) GetCurrentRule(ctx context.Context, arg GetCurrentRuleParams) 
 }
 
 const getRiskSettings = `-- name: GetRiskSettings :one
-SELECT weights, high_value_default, high_value_by_currency, fail_policies, updated_at, updated_by
+SELECT weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, updated_at, updated_by
 FROM risk_settings
 WHERE tenant_id = $1 AND environment_id = $2
 `
@@ -92,6 +92,7 @@ type GetRiskSettingsRow struct {
 	HighValueDefault    int64
 	HighValueByCurrency []byte
 	FailPolicies        []byte
+	AlertMinDecision    string
 	UpdatedAt           time.Time
 	UpdatedBy           string
 }
@@ -104,6 +105,7 @@ func (q *Queries) GetRiskSettings(ctx context.Context, arg GetRiskSettingsParams
 		&i.HighValueDefault,
 		&i.HighValueByCurrency,
 		&i.FailPolicies,
+		&i.AlertMinDecision,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
 	)
@@ -387,13 +389,14 @@ func (q *Queries) SetRuleCurrentVersion(ctx context.Context, arg SetRuleCurrentV
 }
 
 const upsertRiskSettings = `-- name: UpsertRiskSettings :exec
-INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, updated_at, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, updated_at, updated_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   weights = EXCLUDED.weights,
   high_value_default = EXCLUDED.high_value_default,
   high_value_by_currency = EXCLUDED.high_value_by_currency,
   fail_policies = EXCLUDED.fail_policies,
+  alert_min_decision = EXCLUDED.alert_min_decision,
   updated_at = EXCLUDED.updated_at,
   updated_by = EXCLUDED.updated_by
 `
@@ -405,6 +408,7 @@ type UpsertRiskSettingsParams struct {
 	HighValueDefault    int64
 	HighValueByCurrency []byte
 	FailPolicies        []byte
+	AlertMinDecision    string
 	UpdatedAt           time.Time
 	UpdatedBy           string
 }
@@ -417,6 +421,7 @@ func (q *Queries) UpsertRiskSettings(ctx context.Context, arg UpsertRiskSettings
 		arg.HighValueDefault,
 		arg.HighValueByCurrency,
 		arg.FailPolicies,
+		arg.AlertMinDecision,
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 	)

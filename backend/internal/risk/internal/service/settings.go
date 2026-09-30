@@ -79,6 +79,7 @@ func (s *Service) PutSettings(ctx context.Context, in domain.Settings) (domain.S
 				"weights_before": before.Weights, "weights_after": in.Weights,
 				"high_value_default_before": before.HighValueDefault, "high_value_default_after": in.HighValueDefault,
 				"high_value_by_currency_after": in.HighValueByCurrency, "fail_policies_after": in.FailPolicies,
+				"alert_min_decision_before": before.AlertMinDecision, "alert_min_decision_after": in.AlertMinDecision,
 			},
 		})
 	})
@@ -111,6 +112,9 @@ func validateSettings(in domain.Settings) error {
 		if v <= 0 {
 			return invalid("high-value threshold for %s must be positive", cur)
 		}
+	}
+	if in.AlertMinDecision != domain.DecisionReview && in.AlertMinDecision != domain.DecisionStepUp {
+		return invalid("alert_min_decision must be step_up or review")
 	}
 	for typ, p := range in.FailPolicies {
 		if !slices.Contains(eventTypes(), typ) {

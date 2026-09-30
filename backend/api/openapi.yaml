@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: RiskOS API
-  version: 0.4.0
+  version: 0.5.0
   description: |
     RiskOS public HTTP contract. This file is the single source of truth: Go server stubs and the
     TypeScript client are generated from it (`make generate`), and CI fails if generated code drifts.
@@ -39,6 +39,10 @@ tags:
     description: Risk evaluation without ingestion, the signal catalog and risk settings.
   - name: rules
     description: Customer rules, versioned, testable and reversible.
+  - name: alerts
+    description: Alerts raised from risk decisions and degraded evaluations, and their triage.
+  - name: cases
+    description: Investigation cases grouping alerts, with notes and a resolution.
 security:
   - apiKey: []
 paths:
@@ -711,6 +715,305 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/alerts:
+    get:
+      operationId: listAlerts
+      tags: [alerts]
+      summary: List alerts, newest first
+      description: Requires scope `alerts:read`.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AlertStatus"
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/AlertKind"
+      responses:
+        "200":
+          description: A page of alerts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/alerts/{alert_id}:
+    get:
+      operationId: getAlert
+      tags: [alerts]
+      summary: Get an alert with its evaluations and timeline
+      description: Requires scope `alerts:read`. Returns the newest 100 evaluations the alert groups.
+      parameters:
+        - name: alert_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: alr_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The alert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AlertDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    patch:
+      operationId: updateAlert
+      tags: [alerts]
+      summary: Triage an alert (status, assignee, note)
+      description: |
+        Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`
+        to any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and
+        `resolved` are final. Alerts are escalated by creating a case with them
+        (`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty
+        `assignee` unassigns. A change that alters nothing is a no-op.
+      parameters:
+        - name: alert_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: alr_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateAlertRequest"
+      responses:
+        "200":
+          description: The alert.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Alert"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/cases:
+    get:
+      operationId: listCases
+      tags: [cases]
+      summary: List cases, newest first
+      description: Requires scope `cases:read`.
+      parameters:
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/CaseStatus"
+      responses:
+        "200":
+          description: A page of cases.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createCase
+      tags: [cases]
+      summary: Open a case, optionally escalating alerts into it
+      description: |
+        Requires scope `cases:write`, and `alerts:write` when `alert_ids` are given. Audited. Every
+        listed alert must be `open` or `investigating`; they become `escalated`. Without a
+        `priority`, the case takes the highest severity of its alerts (`medium` without alerts).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCaseRequest"
+      responses:
+        "201":
+          description: The case.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Case"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/cases/{case_id}:
+    get:
+      operationId: getCase
+      tags: [cases]
+      summary: Get a case with its alerts, notes and timeline
+      description: Requires scope `cases:read`.
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: cas_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The case.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    patch:
+      operationId: updateCase
+      tags: [cases]
+      summary: Update or resolve a case
+      description: |
+        Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a
+        `resolution` and closes the case's alerts: `false_positive` when the resolution is
+        `false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.
+        An empty `assignee` unassigns.
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: cas_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateCaseRequest"
+      responses:
+        "200":
+          description: The case.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Case"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/cases/{case_id}/notes:
+    post:
+      operationId: addCaseNote
+      tags: [cases]
+      summary: Add a note to a case
+      description: |
+        Requires scope `cases:write`. Notes are append-only: they cannot be edited or deleted. Do
+        not put card numbers, passwords or other secrets in notes.
+      parameters:
+        - name: case_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: cas_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateCaseNoteRequest"
+      responses:
+        "201":
+          description: The note.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CaseNote"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
 components:
   securitySchemes:
     apiKey:
@@ -811,6 +1114,306 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    AlertKind:
+      type: string
+      description: "`risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals."
+      enum: [risk, security]
+    AlertStatus:
+      type: string
+      enum: [open, investigating, escalated, false_positive, resolved]
+    Alert:
+      type: object
+      additionalProperties: false
+      required: [id, kind, subject, title, severity, status, assignee, case_id, max_score, evaluation_count, first_seen_at, last_seen_at, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          example: alr_01j9x2k7m3q4r5s6t7v8w9x0yz
+        kind:
+          $ref: "#/components/schemas/AlertKind"
+        subject:
+          type: object
+          additionalProperties: false
+          required: [type, ref]
+          description: "What the alert is about: the customer's user reference, or the environment for security alerts."
+          properties:
+            type:
+              type: string
+              enum: [user, environment]
+              x-enum-varnames: [AlertSubjectUser, AlertSubjectEnvironment]
+            ref:
+              type: string
+        title:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+        status:
+          $ref: "#/components/schemas/AlertStatus"
+        assignee:
+          type: string
+          nullable: true
+        case_id:
+          type: string
+          nullable: true
+        max_score:
+          type: integer
+          minimum: 0
+          maximum: 100
+        evaluation_count:
+          type: integer
+          description: Evaluations grouped into this alert (same subject, each within an hour of the previous).
+        first_seen_at:
+          type: string
+          format: date-time
+        last_seen_at:
+          type: string
+          format: date-time
+        created_at:
+          type: string
+          format: date-time
+        updated_at:
+          type: string
+          format: date-time
+    AlertList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        next_cursor:
+          type: string
+          nullable: true
+    AlertEvaluation:
+      type: object
+      additionalProperties: false
+      required: [evaluation_id, event_id, event_type, risk_score, risk_level, decision, signals, degraded_signals, evaluated_at]
+      properties:
+        evaluation_id:
+          type: string
+        event_id:
+          type: string
+        event_type:
+          $ref: "#/components/schemas/EventType"
+        risk_score:
+          type: integer
+        risk_level:
+          $ref: "#/components/schemas/RiskLevel"
+        decision:
+          $ref: "#/components/schemas/Decision"
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/Signal"
+        degraded_signals:
+          type: array
+          items:
+            type: string
+        evaluated_at:
+          type: string
+          format: date-time
+    ActivityEntry:
+      type: object
+      additionalProperties: false
+      required: [id, action, actor, detail, created_at]
+      properties:
+        id:
+          type: string
+        action:
+          type: string
+          example: updated
+        actor:
+          type: string
+          description: The API key or system job that acted.
+        detail:
+          type: object
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+    AlertDetail:
+      type: object
+      additionalProperties: false
+      required: [alert, evaluations, activity]
+      properties:
+        alert:
+          $ref: "#/components/schemas/Alert"
+        evaluations:
+          type: array
+          items:
+            $ref: "#/components/schemas/AlertEvaluation"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityEntry"
+    UpdateAlertRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        status:
+          type: string
+          enum: [open, investigating, false_positive, resolved]
+        assignee:
+          type: string
+          maxLength: 254
+          description: Free-text reference to the analyst (for example an email or staff ID); empty to unassign.
+        note:
+          type: string
+          maxLength: 2000
+          description: Recorded in the alert's timeline.
+    CaseStatus:
+      type: string
+      enum: [open, investigating, resolved]
+    CaseResolution:
+      type: string
+      enum: [confirmed_fraud, false_positive, legitimate, inconclusive]
+    Case:
+      type: object
+      additionalProperties: false
+      required: [id, title, description, status, priority, assignee, resolution, resolution_note, resolved_at, resolved_by, created_at, created_by, updated_at]
+      properties:
+        id:
+          type: string
+          example: cas_01j9x2k7m3q4r5s6t7v8w9x0yz
+        title:
+          type: string
+        description:
+          type: string
+        status:
+          $ref: "#/components/schemas/CaseStatus"
+        priority:
+          $ref: "#/components/schemas/Severity"
+        assignee:
+          type: string
+          nullable: true
+        resolution:
+          allOf:
+            - $ref: "#/components/schemas/CaseResolution"
+          nullable: true
+        resolution_note:
+          type: string
+          nullable: true
+        resolved_at:
+          type: string
+          format: date-time
+          nullable: true
+        resolved_by:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    CaseList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Case"
+        next_cursor:
+          type: string
+          nullable: true
+    CaseNote:
+      type: object
+      additionalProperties: false
+      required: [id, body, author, created_at]
+      properties:
+        id:
+          type: string
+          example: cnt_01j9x2k7m3q4r5s6t7v8w9x0yz
+        body:
+          type: string
+        author:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    CaseDetail:
+      type: object
+      additionalProperties: false
+      required: [case, alerts, notes, activity]
+      properties:
+        case:
+          $ref: "#/components/schemas/Case"
+        alerts:
+          type: array
+          items:
+            $ref: "#/components/schemas/Alert"
+        notes:
+          type: array
+          items:
+            $ref: "#/components/schemas/CaseNote"
+        activity:
+          type: array
+          items:
+            $ref: "#/components/schemas/ActivityEntry"
+    CreateCaseRequest:
+      type: object
+      additionalProperties: false
+      required: [title]
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        priority:
+          $ref: "#/components/schemas/Severity"
+        assignee:
+          type: string
+          maxLength: 254
+        alert_ids:
+          type: array
+          maxItems: 50
+          uniqueItems: true
+          items:
+            type: string
+            maxLength: 64
+    UpdateCaseRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        title:
+          type: string
+          minLength: 1
+          maxLength: 200
+        description:
+          type: string
+          maxLength: 5000
+        priority:
+          $ref: "#/components/schemas/Severity"
+        assignee:
+          type: string
+          maxLength: 254
+        status:
+          $ref: "#/components/schemas/CaseStatus"
+        resolution:
+          $ref: "#/components/schemas/CaseResolution"
+        resolution_note:
+          type: string
+          maxLength: 5000
+    CreateCaseNoteRequest:
+      type: object
+      additionalProperties: false
+      required: [body]
+      properties:
+        body:
+          type: string
+          minLength: 1
+          maxLength: 10000
     ErrorResponse:
       type: object
       additionalProperties: false
@@ -863,7 +1466,7 @@ components:
     Scope:
       type: string
       description: A permission an API key holds.
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure]
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write]
     Whoami:
       type: object
       additionalProperties: false
@@ -1668,6 +2271,13 @@ components:
           example:
             transaction: closed
             login: open
+        alert_min_decision:
+          type: string
+          enum: [step_up, review]
+          default: review
+          description: |
+            The least severe decision that raises an alert. Always present in responses; when
+            omitted from a PUT, `review` is stored.
     RiskCatalog:
       type: object
       additionalProperties: false

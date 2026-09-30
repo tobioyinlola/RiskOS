@@ -72,3 +72,19 @@ sql:
       go:
         <<: *go
         out: internal/risk/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/alerts
+    gen:
+      go:
+        <<: *go
+        out: internal/alerts/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/cases
+    gen:
+      go:
+        <<: *go
+        out: internal/cases/internal/store/sqlcgen

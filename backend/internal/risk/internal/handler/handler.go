@@ -81,6 +81,10 @@ func (h *Handlers) PutRiskSettings(ctx context.Context, req apigen.PutRiskSettin
 		HighValueDefault:    req.Body.HighValueDefault,
 		HighValueByCurrency: req.Body.HighValueByCurrency,
 		FailPolicies:        map[string]domain.FailPolicy{},
+		AlertMinDecision:    domain.DecisionReview,
+	}
+	if req.Body.AlertMinDecision != nil {
+		in.AlertMinDecision = domain.Decision(*req.Body.AlertMinDecision)
 	}
 	for k, v := range req.Body.FailPolicies {
 		in.FailPolicies[k] = domain.FailPolicy(v)
@@ -268,7 +272,8 @@ func conditionToAPI(raw json.RawMessage) (apigen.RuleCondition, error) {
 func settingsToAPI(s domain.Settings) apigen.RiskSettings {
 	out := apigen.RiskSettings{
 		Weights: s.Weights, HighValueDefault: s.HighValueDefault, HighValueByCurrency: s.HighValueByCurrency,
-		FailPolicies: map[string]apigen.RiskSettingsFailPolicies{},
+		FailPolicies:     map[string]apigen.RiskSettingsFailPolicies{},
+		AlertMinDecision: new(apigen.RiskSettingsAlertMinDecision(s.AlertMinDecision)),
 	}
 	for k, v := range s.FailPolicies {
 		out.FailPolicies[k] = apigen.RiskSettingsFailPolicies(v)

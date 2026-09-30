@@ -47,7 +47,7 @@ PgBouncer transaction pooling.
 | Scoped transaction (`SET LOCAL` semantics via `set_config(..., true)`) | `backend/internal/platform/db/tx.go` |
 | RLS policies, `riskos_app` grants, `auth_lookup_api_key` | `backend/db/migrations/00002_tenancy_auth_audit.sql` |
 | Application role login (local) | `infra/postgres/init/10-app-role.sh`; migrations use `RISKOS_POSTGRES_MIGRATION_URL` (owner) |
-| Who may create a scope | forbidigo rule on `tenancy.WithScope`: auth middleware, tenant bootstrap, `cmd/*`, tests |
+| Who may create a scope | forbidigo rule on `tenancy.WithScope`: auth middleware, the tenants module (bootstrap, operator tooling and `JobScope` for background jobs, which re-checks that the tenant is active and grants only the permissions the job needs), `cmd/*`, tests |
 
 Operator tooling (`riskosctl`) acts through the same application role and RLS as customers,
 with its operator's name as the audit actor. Only audit-chain verification reads as the owner,

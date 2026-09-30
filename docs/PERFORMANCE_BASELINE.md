@@ -125,6 +125,17 @@ A CPU profile of the API at 500/s (pprof, taken with a temporary local build) pu
 in system calls (network I/O through Docker Desktop's VM), ≈30% under PostgreSQL round trips
 and ≈10% in the feature store.
 
+## 5. Build step 5 check (alerts and cases)
+
+The decision path gains one job-row insert, only for decisions that raise an alert (REVIEW by
+default, or degraded); all other work happens in the worker. An A/B run of the step 4 and step 5
+API images, alternating on the same stack, found no difference attributable to the change: in the
+first round step 5 was no slower (100 events/s p95 21.9 ms vs 54.1 ms for step 4; 300/s p95 150 ms
+vs 419 ms), and in the second round **both** builds degraded to multi-second tails as the laptop
+throttled (host load average ≈9 on 8 threads; the untouched health endpoint's p95 was 5.5 ms
+against its 1.5-2.0 ms baseline in section 1). These numbers describe the machine's state, not
+the code, so section 4 remains the reference until the separated-host measurement (TODO(phase-8)).
+
 ## Findings
 
 1. **Latency is far inside budget.** At 2,000 req/s the p99 of the full network path is below

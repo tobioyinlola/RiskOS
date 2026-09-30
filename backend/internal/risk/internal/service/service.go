@@ -90,6 +90,7 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			Signals: nonNil(out.Signals), DegradedSignals: nonNilStrings(out.Degraded), RequestID: in.RequestID,
 			PolicyReasons: nonNilStrings(policy.Reasons), ShadowSignals: nonNil(out.Shadow),
 			RuleVersions: nonNilStrings(out.RuleVersions),
+			RaiseAlert:   write && cfg.settings.RaisesAlert(policy.Decision),
 		}
 		if len(out.Degraded) > 0 {
 			// Degradation is a security event (ARCHITECTURE.md §16.8): it may be induced.

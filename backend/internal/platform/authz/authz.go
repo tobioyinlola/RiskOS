@@ -31,13 +31,24 @@ const (
 	RulesRead     Permission = "rules:read"
 	RulesWrite    Permission = "rules:write"
 	RiskConfigure Permission = "risk:configure"
+	AlertsRead    Permission = "alerts:read"
+	AlertsWrite   Permission = "alerts:write"
+	CasesRead     Permission = "cases:read"
+	CasesWrite    Permission = "cases:write"
+)
+
+// System permissions are held only by RiskOS's own background jobs, never by a customer
+// credential or role.
+const (
+	// AlertsRaise creates and groups alerts from evaluations.
+	AlertsRaise Permission = "system:alerts_raise"
 )
 
 // CustomerPermissions returns every permission that can be granted to a customer credential.
 func CustomerPermissions() []Permission {
 	return []Permission{
 		APIKeysRead, APIKeysWrite, AuditLogsRead, EventsWrite, EventsRead, RiskEvaluate,
-		RulesRead, RulesWrite, RiskConfigure,
+		RulesRead, RulesWrite, RiskConfigure, AlertsRead, AlertsWrite, CasesRead, CasesWrite,
 	}
 }
 
@@ -63,7 +74,7 @@ const (
 )
 
 // RolePermissions returns the permissions of a customer role. Internal roles and unknown roles
-// have none. Permissions for events, alerts, cases and rules are added with those modules.
+// have none.
 func RolePermissions(r Role) []Permission {
 	switch r {
 	case RoleCustomerAdmin:
@@ -71,9 +82,12 @@ func RolePermissions(r Role) []Permission {
 	case RoleDeveloper:
 		return []Permission{APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead}
 	case RoleRiskManager:
-		return []Permission{EventsRead, RiskEvaluate, RulesRead, RulesWrite, RiskConfigure}
+		return []Permission{
+			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RiskConfigure,
+			AlertsRead, AlertsWrite, CasesRead, CasesWrite,
+		}
 	case RoleAnalyst:
-		return []Permission{EventsRead, RulesRead}
+		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite}
 	case RoleOperationsAdmin, RoleSecurityAdmin:
 		return nil
 	default:

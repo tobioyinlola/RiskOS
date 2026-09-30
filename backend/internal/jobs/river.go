@@ -11,6 +11,8 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 )
 
 type riverWorkers = river.Workers
@@ -67,9 +69,25 @@ func NewQueue(pool *pgxpool.Pool, registry *Registry, cfg QueueConfig, logger *s
 	return &Queue{client: client}, nil
 }
 
-// Enqueue inserts a job.
+// NewInserter returns a queue that only inserts jobs (the API process): it runs no workers.
+func NewInserter(pool *pgxpool.Pool, logger *slog.Logger) (*Queue, error) {
+	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{Logger: logger})
+	if err != nil {
+		return nil, fmt.Errorf("create river client: %w", err)
+	}
+	return &Queue{client: client}, nil
+}
+
+// Enqueue inserts a job. Inside a tenant transaction (txn.Runner) the job joins it, so it is
+// created only if the transaction commits: the queue then acts as a transactional outbox.
 func (q *Queue) Enqueue(ctx context.Context, args Args) error {
-	if _, err := q.client.Insert(ctx, args, nil); err != nil {
+	var err error
+	if tx, txErr := db.TxFrom(ctx); txErr == nil {
+		_, err = q.client.InsertTx(ctx, tx, args, nil)
+	} else {
+		_, err = q.client.Insert(ctx, args, nil)
+	}
+	if err != nil {
 		return fmt.Errorf("enqueue %s job: %w", args.Kind(), err)
 	}
 	return nil

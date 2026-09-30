@@ -77,3 +77,15 @@ func TestSpecWeightsAreTheDefaults(t *testing.T) {
 		assert.LessOrEqual(t, s.DefaultWeight, domain.MaxSignalWeight, s.Code)
 	}
 }
+
+func TestRaisesAlert(t *testing.T) {
+	s := domain.DefaultSettings()
+	assert.False(t, s.RaisesAlert(domain.DecisionAllow))
+	assert.False(t, s.RaisesAlert(domain.DecisionStepUp), "default threshold is REVIEW")
+	assert.True(t, s.RaisesAlert(domain.DecisionReview))
+	s.AlertMinDecision = domain.DecisionStepUp
+	assert.True(t, s.RaisesAlert(domain.DecisionStepUp))
+	assert.False(t, s.RaisesAlert(domain.DecisionAllow))
+	assert.True(t, domain.Settings{}.RaisesAlert(domain.DecisionReview), "unset means REVIEW")
+	assert.False(t, domain.Settings{}.RaisesAlert(domain.DecisionStepUp))
+}

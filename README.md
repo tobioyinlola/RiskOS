@@ -9,11 +9,13 @@ analysts investigate as cases, and every material action is audited.
 Product specification (source of truth): [`docs/spec/`](docs/spec/RiskOS_Complete_Implementation_Specification.md).
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> **Status:** build steps 1-4 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
+> **Status:** build steps 1-5 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
 > Built: the platform, tenants, environments, API keys, the hash-chained audit log, RBAC, event
 > ingest with idempotency, strict validation and rate limits, and the risk engine: ten behavioral
 > signals, tenant rules (versioned, shadow mode, testable), tunable weights and a decision policy
-> that fails safe ([docs/RISK_ENGINE.md](docs/RISK_ENGINE.md)). Next: alerts and cases (step 5).
+> that fails safe ([docs/RISK_ENGINE.md](docs/RISK_ENGINE.md)), and alerts and cases: risky and
+> degraded decisions raise grouped alerts off the decision path, which analysts triage and resolve
+> through cases ([docs/ALERTS_AND_CASES.md](docs/ALERTS_AND_CASES.md)). Next: webhooks (step 6).
 
 ## Prerequisites
 

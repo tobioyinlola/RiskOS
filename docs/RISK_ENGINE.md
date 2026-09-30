@@ -99,11 +99,16 @@ event type:
 Regardless of policy, while anything is degraded, events at or above the tenant's high-value
 threshold (default 1,000,000 minor units, placeholder; per-currency overrides) get at least
 REVIEW (`degraded_high_value_floor`). A failure may reduce coverage; it never silently lowers risk.
-Every degraded evaluation is logged as a warning. Raising it as a Security Center event (it may be
-attacker-induced) is part of build step 8.
+Every degraded evaluation is logged as a warning and raises a `security` alert in the tenant's
+queue ([ALERTS_AND_CASES.md](ALERTS_AND_CASES.md)), since degradation may be attacker-induced.
 
 Tested by pointing the engine at an unreachable Redis (`TestDegradedFeatureStore`) and by
 flushing Redis's script cache mid-run (`TestFeatureStoreRecoversFromScriptCacheLoss`).
+
+## Alerts
+
+Ingested decisions at or above the environment's alert threshold (`alert_min_decision`: REVIEW by
+default, or STEP_UP) raise `risk` alerts asynchronously; see [ALERTS_AND_CASES.md](ALERTS_AND_CASES.md).
 
 ## Rules
 

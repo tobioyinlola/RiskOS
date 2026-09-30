@@ -51,6 +51,22 @@ func (Store) InsertEnvironment(ctx context.Context, id, tenantID uuid.UUID, kind
 	return nil
 }
 
+// Environment returns an environment's kind and its tenant's status.
+func (Store) Environment(ctx context.Context, tenantID, id uuid.UUID) (kind, tenantStatus string, err error) {
+	q, err := queries(ctx)
+	if err != nil {
+		return "", "", err
+	}
+	row, err := q.GetEnvironment(ctx, sqlcgen.GetEnvironmentParams{TenantID: tenantID, ID: id})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", "", ErrNotFound
+	}
+	if err != nil {
+		return "", "", fmt.Errorf("get environment: %w", err)
+	}
+	return row.Kind, row.TenantStatus, nil
+}
+
 // EnvironmentByKind returns the environment ID of kind and the tenant's status.
 func (Store) EnvironmentByKind(ctx context.Context, tenantID uuid.UUID, kind string) (uuid.UUID, string, error) {
 	q, err := queries(ctx)

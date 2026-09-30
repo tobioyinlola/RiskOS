@@ -14,10 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
@@ -120,7 +123,14 @@ func run() (err error) {
 		FeatureHashKey: []byte(cfg.Risk.FeatureHashKey),
 		FeatureTimeout: cfg.Risk.FeatureTimeout,
 	})
-	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), clk)
+	// The API only inserts jobs (in the decision transaction); the worker runs them.
+	queue, err := jobs.NewInserter(pool, logger)
+	if err != nil {
+		return err
+	}
+	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk)
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, logger)
+	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk)
 
 	handler, err := httpapi.New(httpapi.Deps{
 		Logger:    logger,
@@ -132,6 +142,8 @@ func run() (err error) {
 		Audit:     auditModule,
 		Events:    eventsModule,
 		Risk:      riskModule,
+		Alerts:    alertsModule,
+		Cases:     casesModule,
 		Limiter:   ratelimit.New(rdb),
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},

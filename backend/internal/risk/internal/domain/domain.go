@@ -114,4 +114,7 @@ type Result struct {
 	PolicyReasons []string
 	ShadowSignals []Signal
 	RuleVersions  []string
+	// RaiseAlert is set when the decision reaches the environment's alert threshold. Not stored:
+	// the caller acts on it in the same transaction (dry runs never raise alerts).
+	RaiseAlert bool
 }

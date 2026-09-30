@@ -11,12 +11,16 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
+
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/requestctx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
@@ -27,12 +31,13 @@ type Service struct {
 	runner txn.Runner
 	risk   risk.Evaluator
 	tester risk.RuleTester
+	jobs   jobs.Enqueuer
 	clock  clock.Clock
 }
 
 // New returns a Service.
-func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, clk clock.Clock) *Service {
-	return &Service{runner: runner, risk: evaluator, tester: tester, clock: clk}
+func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, enq jobs.Enqueuer, clk clock.Clock) *Service {
+	return &Service{runner: runner, risk: evaluator, tester: tester, jobs: enq, clock: clk}
 }
 
 // TestRule normalizes an event and tests a rule against it without storing anything. The time
@@ -119,6 +124,9 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 		if err != nil {
 			return err
 		}
+		if err := s.raiseAlerts(ctx, eventID, p.normalized, res); err != nil {
+			return err
+		}
 		if err := s.store.Insert(ctx, store.InsertParams{
 			ID: eventID, ReceivedAt: ids.Time(eventID), Event: withNormalized(e, p.normalized), Normalized: p.encoded,
 			PayloadHash: p.hash, RawPayload: raw, IP: p.ip, EvaluationID: res.ID,
@@ -137,6 +145,30 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 		return domain.Outcome{}, false, err
 	}
 	return outcome, replay, nil
+}
+
+// raiseAlerts enqueues the alert job for a decision that reached the alert threshold or ran with
+// degraded signals. It runs in the decision transaction, so the job exists exactly when the
+// decision does (transactional outbox, ARCHITECTURE.md §6).
+func (s *Service) raiseAlerts(ctx context.Context, eventID uuid.UUID, n domain.Normalized, res risk.Result) error {
+	security := len(res.DegradedSignals) > 0
+	if !res.RaiseAlert && !security {
+		return nil
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	signals := make([]alerts.RaiseSignal, len(res.Signals))
+	for i, sig := range res.Signals {
+		signals[i] = alerts.RaiseSignal{Code: sig.Code, Label: sig.Label, Weight: sig.Weight}
+	}
+	return s.jobs.Enqueue(ctx, alerts.RaiseArgs{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, EvaluationID: res.ID, EventID: eventID,
+		EventType: n.Type, UserRef: n.Actor.UserID, Score: res.Score, Level: string(res.Level),
+		Decision: string(res.Decision), Signals: signals, Degraded: res.DegradedSignals, EvaluatedAt: res.CreatedAt,
+		Risk: res.RaiseAlert, Security: security,
+	})
 }
 
 // Evaluate runs the same checks and evaluation as Ingest without storing an event (dry run). The

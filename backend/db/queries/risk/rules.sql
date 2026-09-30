@@ -46,18 +46,19 @@ FROM rule_versions
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND rule_id = @rule_id AND version = @version;
 
 -- name: GetRiskSettings :one
-SELECT weights, high_value_default, high_value_by_currency, fail_policies, updated_at, updated_by
+SELECT weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, updated_at, updated_by
 FROM risk_settings
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id;
 
 -- name: UpsertRiskSettings :exec
-INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, updated_at, updated_by)
-VALUES (@tenant_id, @environment_id, @weights, @high_value_default, @high_value_by_currency, @fail_policies, @updated_at, @updated_by)
+INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, updated_at, updated_by)
+VALUES (@tenant_id, @environment_id, @weights, @high_value_default, @high_value_by_currency, @fail_policies, @alert_min_decision, @updated_at, @updated_by)
 ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   weights = EXCLUDED.weights,
   high_value_default = EXCLUDED.high_value_default,
   high_value_by_currency = EXCLUDED.high_value_by_currency,
   fail_policies = EXCLUDED.fail_policies,
+  alert_min_decision = EXCLUDED.alert_min_decision,
   updated_at = EXCLUDED.updated_at,
   updated_by = EXCLUDED.updated_by;
 
