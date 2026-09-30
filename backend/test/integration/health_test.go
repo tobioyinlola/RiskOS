@@ -85,7 +85,14 @@ func stopFor(t *testing.T, c testcontainers.Container, fn func()) {
 	defer func() {
 		ctx := context.WithoutCancel(t.Context())
 		require.NoError(t, c.Start(ctx))
-		require.NoError(t, shared.connect(ctx))
+		// A restarted database can report ready before it accepts connections (57P03, "the
+		// database system is starting up"), so reconnect until it does. Every later test uses
+		// the shared clients.
+		var err error
+		require.Eventually(t, func() bool {
+			err = shared.connect(ctx)
+			return err == nil
+		}, 60*time.Second, 250*time.Millisecond, "reconnect after restart: %v", err)
 	}()
 	fn()
 }
