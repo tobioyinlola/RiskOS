@@ -27,6 +27,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Supply chain | Pinned toolchains, lockfiles, digest-pinned images, SHA-pinned actions, Dependabot, govulncheck, pnpm audit, Trivy, SBOMs | CI |
 | Secrets in code | gitleaks in pre-commit and in CI over the full history | `lefthook.yml`, CI |
 | API keys | `rsk_test_`/`rsk_live_` keys; only an HMAC with a server-side pepper is stored; shown once; scoped; rotation with overlap; revocation effective within 5 s; uniform 401 | `internal/auth` |
+| Console sign-in | Argon2id passwords, mandatory passkey or TOTP second factor, recovery codes, throttling, HttpOnly SameSite=Strict session cookies with hashed tokens, CSRF tokens and Origin checks, re-authentication for high-impact actions | `internal/auth` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
 | Authorization | Deny-by-default permission catalog and roles; a key cannot grant or rotate scopes it lacks | `platform/authz`, `internal/auth` |
 | Tenant isolation | Credential-derived scope, tenant-scoped queries, Postgres RLS under the non-owner `riskos_app` role, uniform 404, cross-tenant test matrix | [TENANCY.md](TENANCY.md) |
 | Audit log | Append-only (grants and trigger), per-tenant hash chain written in the action's transaction, verification detects tampering | `internal/audit`, `riskosctl audit verify` |
@@ -37,6 +38,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Pseudonymized features | Identifiers are HMAC-keyed per tenant and environment (`RISKOS_FEATURE_HASH_KEY`) before they reach Redis | `internal/risk` |
 | Decision integrity | Degraded sources are listed, never guessed; fail-closed default for transactions; REVIEW floor for high-value events while degraded; high-risk events never update baselines; BLOCK never produced | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 | Alerts and cases | Raised off the decision path through a transactional outbox; jobs re-check the tenant and hold one system-only permission; RLS, insert-only notes and timelines, audit without free text | `internal/alerts`, `internal/cases` ([ALERTS_AND_CASES.md](ALERTS_AND_CASES.md)) |
+| Webhooks | Signed (HMAC-SHA256, id + timestamp + body), secrets derived and never stored, rotation with overlap, SSRF-safe dialer on the resolved IP, no redirects, dedicated delivery queue, auto-disable of failing endpoints with a security alert | `internal/webhooks` ([WEBHOOKS.md](WEBHOOKS.md)) |
 | Rules | Typed JSON conditions only (no code, no regex), depth, node, list and count bounds, immutable versions, rollback, shadow mode, every change audited | `internal/risk` |
 
 ## Designed, not yet built
@@ -45,13 +47,13 @@ A dedicated disclosure contact and response targets are defined before any produ
 
 | Area | Design | Build step |
 |---|---|---|
-| Authentication realms | Dashboard sessions with MFA (passkeys preferred); internal admin with SSO, hardware keys and a private access path | 7 (dashboard), 8 (admin) |
+| Authentication realms (remaining) | Breached-password check and SSO for the console; internal admin with SSO, hardware keys and a private access path | 8 |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |
 | Rate limiting (remaining) | Per IP and per endpoint at the gateway; concurrency caps; load shedding | 8 |
 | Decision integrity (remaining) | Four-eyes approval of production rule changes; an operator-wide view of degradation across tenants; baseline drift alerts; auto-block with shadow evidence and a kill switch | 8 |
-| Webhooks | HMAC-SHA256 signing, timestamp tolerance, SSRF-safe dialer and egress proxy ([WEBHOOKS.md](WEBHOOKS.md)) | 6 |
+| Webhooks (remaining) | Egress proxy with an allow policy; per-tenant delivery queues; signing key in the secrets manager | 8 |
 | Dashboard hardening | HttpOnly/Secure/SameSite=Strict cookies, CSRF tokens, nonce-based CSP, HSTS, session timeouts, SSO, step-up for exports, key creation and rule promotion | 7 |
 | Cryptography | Envelope encryption with per-tenant data keys (crypto-shredding), secrets manager/KMS, TLS 1.2+ everywhere | 8 |
 | Supply chain | CodeQL or Semgrep, signed images, build provenance, deploys refuse unsigned images | 8 |

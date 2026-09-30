@@ -30,7 +30,7 @@ func rateLimit(limiter Allower, limits RateLimits, logger *slog.Logger) func(htt
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			scope, err := tenancy.FromContext(r.Context())
-			if err != nil || scope.Principal.Type != tenancy.PrincipalAPIKey {
+			if err != nil || (scope.Principal.Type != tenancy.PrincipalAPIKey && scope.Principal.Type != tenancy.PrincipalUser) {
 				next.ServeHTTP(w, r)
 				return
 			}

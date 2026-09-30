@@ -12,6 +12,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // CaseHandlers are the cases operations of the public API.
@@ -29,8 +30,9 @@ type Module struct {
 }
 
 // New returns the cases module.
-func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock) *Module {
-	return &Module{svc: service.New(runner, linker, rec, clk)}
+// Case events are published to pub in the transaction of each change.
+func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher) *Module {
+	return &Module{svc: service.New(runner, linker, rec, clk, pub)}
 }
 
 // HTTPHandlers returns the module's API handlers.

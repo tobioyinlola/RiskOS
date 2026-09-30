@@ -98,6 +98,7 @@ func (Store) InsertAlert(ctx context.Context, a domain.Alert) error {
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, ID: a.ID, Kind: string(a.Kind),
 		SubjectType: a.SubjectType, SubjectRef: a.SubjectRef, Title: a.Title, Severity: a.Severity,
 		MaxScore: int16(a.MaxScore), SeenAt: a.FirstSeenAt, Now: a.CreatedAt, //nolint:gosec // score is 0-100
+		EvaluationCount: int32(a.EvaluationCount), //nolint:gosec // small counts
 	}); err != nil {
 		return fmt.Errorf("insert alert: %w", err)
 	}

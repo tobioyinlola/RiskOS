@@ -12,7 +12,7 @@ import (
 
 // Version identifies the engine (signal catalog, thresholds, score formula and policy). It is
 // stored with every evaluation; changing any of those is a new version.
-const Version = "risk-engine-1.0.0"
+const Version = "risk-engine-2.0.0"
 
 // FeatureSource reads, and for ingested events updates, behavioral features.
 type FeatureSource interface {

@@ -25,17 +25,20 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // server implements apigen.StrictServerInterface by embedding each module's handlers.
 type server struct {
 	*health.Handlers
 	auth.CredentialHandlers
+	auth.ConsoleHandlers
 	audit.LogHandlers
 	events.IngestHandlers
 	risk.RuleHandlers
 	alerts.AlertHandlers
 	cases.CaseHandlers
+	webhooks.WebhookHandlers
 }
 
 var _ apigen.StrictServerInterface = server{}
@@ -53,6 +56,7 @@ type Deps struct {
 	Risk      *risk.Module
 	Alerts    *alerts.Module
 	Cases     *cases.Module
+	Webhooks  *webhooks.Module
 	// Limiter enforces RateLimits on authenticated requests.
 	Limiter    Allower
 	RateLimits RateLimits
@@ -90,13 +94,15 @@ func New(d Deps) (http.Handler, error) {
 	impl := server{
 		Handlers:           health.NewHandlers(d.Health),
 		CredentialHandlers: d.Auth.HTTPHandlers(),
+		ConsoleHandlers:    d.Auth.ConsoleHTTPHandlers(),
 		LogHandlers:        d.Audit.HTTPHandlers(),
 		IngestHandlers:     d.Events.HTTPHandlers(),
 		RuleHandlers:       d.Risk.HTTPHandlers(),
 		AlertHandlers:      d.Alerts.HTTPHandlers(),
 		CaseHandlers:       d.Cases.HTTPHandlers(),
+		WebhookHandlers:    d.Webhooks.HTTPHandlers(),
 	}
-	strict := apigen.NewStrictHandlerWithOptions(impl, nil, apigen.StrictHTTPServerOptions{
+	strict := apigen.NewStrictHandlerWithOptions(impl, []apigen.StrictMiddlewareFunc{d.Auth.ReauthMiddleware()}, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {
 			writeErr(w, req, httpx.InvalidRequest("The request is invalid.", err))
 		},

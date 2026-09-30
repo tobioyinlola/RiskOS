@@ -266,22 +266,23 @@ INSERT INTO alerts (
   max_score, evaluation_count, first_seen_at, last_seen_at, created_at, updated_at
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7, $8, 'open',
-  $9, 1, $10, $10, $11, $11
+  $9, $10, $11, $11, $12, $12
 )
 `
 
 type InsertAlertParams struct {
-	TenantID      uuid.UUID
-	EnvironmentID uuid.UUID
-	ID            uuid.UUID
-	Kind          string
-	SubjectType   string
-	SubjectRef    string
-	Title         string
-	Severity      string
-	MaxScore      int16
-	SeenAt        time.Time
-	Now           time.Time
+	TenantID        uuid.UUID
+	EnvironmentID   uuid.UUID
+	ID              uuid.UUID
+	Kind            string
+	SubjectType     string
+	SubjectRef      string
+	Title           string
+	Severity        string
+	MaxScore        int16
+	EvaluationCount int32
+	SeenAt          time.Time
+	Now             time.Time
 }
 
 func (q *Queries) InsertAlert(ctx context.Context, arg InsertAlertParams) error {
@@ -295,6 +296,7 @@ func (q *Queries) InsertAlert(ctx context.Context, arg InsertAlertParams) error 
 		arg.Title,
 		arg.Severity,
 		arg.MaxScore,
+		arg.EvaluationCount,
 		arg.SeenAt,
 		arg.Now,
 	)

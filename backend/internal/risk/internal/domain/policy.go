@@ -46,6 +46,8 @@ type Settings struct {
 	// AlertMinDecision is the least severe decision that raises an alert: DecisionReview
 	// (default) or DecisionStepUp.
 	AlertMinDecision Decision
+	// Thresholds are the band boundaries.
+	Thresholds Thresholds
 }
 
 // RaisesAlert reports whether decision d reaches the environment's alert threshold.
@@ -70,6 +72,7 @@ func DefaultSettings() Settings {
 		HighValueByCurrency: map[string]int64{},
 		FailPolicies:        map[string]FailPolicy{"transaction": FailClosed, "login": FailOpen},
 		AlertMinDecision:    DecisionReview,
+		Thresholds:          DefaultThresholds(),
 	}
 }
 
@@ -137,7 +140,9 @@ func Decide(in PolicyInput) PolicyResult {
 	var reasons []string
 
 	switch in.Level {
-	case LevelMedium:
+	case LevelLow:
+		// A low score with a signal step-up directly addresses (a new device, a new country, a
+		// recent credential change) is challenged rather than allowed.
 		for _, s := range in.Signals {
 			if spec, ok := BuiltinSignal(s.Code); ok && spec.Strengthenable {
 				d = DecisionStepUp

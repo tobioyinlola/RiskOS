@@ -202,7 +202,7 @@ linters:
         linters: [forbidigo]
         text: "os\\.(Getenv|LookupEnv|Environ)"
       # Where a tenant scope may be created: authentication, tenant bootstrap, operator tooling, tests.
-      - path: (internal/auth/internal/handler/|internal/tenants/internal/service/|cmd/|_test\.go)
+      - path: (internal/auth/internal/handler/|internal/auth/internal/service/|internal/tenants/internal/service/|cmd/|_test\.go)
         linters: [forbidigo]
         text: tenancy\.WithScope
       # Tests may use simulated delays and unchecked test-helper errors.

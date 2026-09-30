@@ -35,6 +35,10 @@ const (
 	AlertsWrite   Permission = "alerts:write"
 	CasesRead     Permission = "cases:read"
 	CasesWrite    Permission = "cases:write"
+	WebhooksRead  Permission = "webhooks:read"
+	WebhooksWrite Permission = "webhooks:write"
+	TeamRead      Permission = "team:read"
+	TeamWrite     Permission = "team:write"
 )
 
 // System permissions are held only by RiskOS's own background jobs, never by a customer
@@ -42,6 +46,8 @@ const (
 const (
 	// AlertsRaise creates and groups alerts from evaluations.
 	AlertsRaise Permission = "system:alerts_raise"
+	// WebhooksDeliver attempts webhook deliveries.
+	WebhooksDeliver Permission = "system:webhooks_deliver"
 )
 
 // CustomerPermissions returns every permission that can be granted to a customer credential.
@@ -49,6 +55,7 @@ func CustomerPermissions() []Permission {
 	return []Permission{
 		APIKeysRead, APIKeysWrite, AuditLogsRead, EventsWrite, EventsRead, RiskEvaluate,
 		RulesRead, RulesWrite, RiskConfigure, AlertsRead, AlertsWrite, CasesRead, CasesWrite,
+		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite,
 	}
 }
 
@@ -80,7 +87,9 @@ func RolePermissions(r Role) []Permission {
 	case RoleCustomerAdmin:
 		return CustomerPermissions()
 	case RoleDeveloper:
-		return []Permission{APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead}
+		return []Permission{
+			APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead, WebhooksRead, WebhooksWrite,
+		}
 	case RoleRiskManager:
 		return []Permission{
 			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RiskConfigure,
@@ -93,6 +102,20 @@ func RolePermissions(r Role) []Permission {
 	default:
 		return nil
 	}
+}
+
+// RequireAny returns ErrForbidden unless the principal in ctx holds at least one of ps.
+func RequireAny(ctx context.Context, ps ...Permission) error {
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return errors.Join(ErrForbidden, err)
+	}
+	for _, p := range ps {
+		if scope.Principal.Can(p) {
+			return nil
+		}
+	}
+	return ErrForbidden
 }
 
 // ErrForbidden means the caller is authenticated but lacks a permission.

@@ -551,7 +551,7 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
 4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval, auto-block and hard-block deferred (Appendix B).
 5. Alerts, cases, notes, resolution. **Done** (Appendix A.7); alerts reach customers by webhook in step 6.
-6. Webhooks with signing and delivery logs.
+6. Webhooks with signing and delivery logs. **Done** (Appendix A.8); egress proxy and per-tenant delivery queues deferred (Appendix B).
 7. Dashboard on the generated client.
 8. Security hardening, load and failure testing, restore drill.
 
@@ -647,6 +647,25 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
+### A.9 Console sign-in (build step 7)
+
+| Area | What is built |
+|---|---|
+| Accounts | Users per tenant with roles; invites as single-use links (operator CLI for the first administrator, the console for the rest) ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
+| Sign-in | Password (Argon2id) plus a mandatory passkey or authenticator-app code; recovery codes; throttling; uniform failures |
+| Sessions | Hashed tokens in HttpOnly SameSite=Strict cookies, CSRF tokens and Origin checks, 12 h absolute / 30 min idle, environment chosen per request, re-authentication for high-impact actions |
+| Team | Role and status changes (ending sessions), last-administrator and self-change guards, invite management, all audited |
+
+### A.8 Webhooks (build step 6)
+
+| Area | What is built |
+|---|---|
+| Events | `alert.created`, `alert.updated`, `case.created`, `case.resolved`, `webhook.test`, recorded in the transaction of the change ([WEBHOOKS.md](WEBHOOKS.md)) |
+| Signing | HMAC-SHA256 over id, timestamp and body; secrets derived from a server-side key (never stored), shown once, rotation with an overlap during which both signatures are sent |
+| Delivery | Dedicated `webhooks` worker queue; 9 attempts over about an hour with jitter, then dead-letter; manual redelivery; insert-only attempt log without response bodies |
+| Health | Endpoints failing every attempt for 3 days are disabled, audited and raise a security alert |
+| SSRF | https only, private/reserved addresses refused both in the URL and on the resolved IP at connect time, no redirects, no environment proxy; a dev-only flag for test environments, refused in production |
+
 ### A.7 Alerts and cases (build step 5)
 
 | Area | What is built |
@@ -677,7 +696,7 @@ password.
 | OpenAPI 3.1 | OpenAPI 3.0.3 until oapi-codegen fully supports 3.1 | [ADR-0004](adr/ADR-0004-openapi-3-0.md) |
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
-| Build step 2 includes dashboard authentication (password, MFA, sessions) | Only the API realm is built. The dashboard realm is built with the dashboard (build step 7) on the same `authz` roles and permissions | TODO(phase-6) |
+| Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no breached-password check, SSO or email delivery yet | TODO(phase-8) |
 | Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
@@ -685,7 +704,10 @@ password.
 | Rules: four-eyes promotion to production (sections 10, 16) | Rules can be created, tested, versioned and rolled back; a `rules:write` key changes production rules directly (audited). Approval before a production change applies comes with the other four-eyes controls | TODO(phase-8) |
 | BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Not built: the engine never returns BLOCK. Auto-block needs shadow evidence and a kill switch; hard-block needs deny-lists | TODO(phase-8) |
 | Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
-| Analysts are dashboard users (spec section 3) | Alert and case `assignee` is a free-text reference until dashboard user accounts exist (build step 7) | TODO(phase-7) |
+| Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |
 | Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |
 | Rule pattern matching with RE2 (section 10) | No pattern matching at all in rule conditions: equality, comparison and set membership only | This appendix |
+| Webhook egress through a proxy with an allow policy (section 9) | Not built; the resolved-IP dialer check is the SSRF control until deployment infrastructure exists | TODO(phase-8) |
+| Per-tenant webhook queues (section 14) | One `webhooks` queue with global concurrency, separate from other jobs; per-tenant fairness is not built | TODO(phase-8) |
+| Webhook secrets derived from a master secret in the secrets manager (section 16) | Derived from `RISKOS_WEBHOOK_SIGNING_KEY`, an environment variable locally; the secrets manager comes with deployment | TODO(phase-8) |
 | CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), govulncheck, Trivy, gitleaks and SBOMs are in CI. Static analysis with CodeQL and image signing arrive with the deployment pipeline | TODO(phase-7) |

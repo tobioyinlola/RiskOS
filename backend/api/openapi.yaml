@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: RiskOS API
-  version: 0.5.0
+  version: 0.8.0
   description: |
     RiskOS public HTTP contract. This file is the single source of truth: Go server stubs and the
     TypeScript client are generated from it (`make generate`), and CI fails if generated code drifts.
@@ -43,6 +43,12 @@ tags:
     description: Alerts raised from risk decisions and degraded evaluations, and their triage.
   - name: cases
     description: Investigation cases grouping alerts, with notes and a resolution.
+  - name: webhooks
+    description: Signed notifications to customer endpoints, with delivery logs and retries.
+  - name: session
+    description: Console sign-in, second factors and sessions (cookie-based; not for API keys).
+  - name: team
+    description: Console users and invites.
 security:
   - apiKey: []
 paths:
@@ -415,6 +421,29 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/risk/policy:
+    get:
+      operationId: getRiskPolicy
+      tags: [risk]
+      summary: The environment's risk bands, thresholds and default decisions
+      description: |
+        Readable with any of `events:read`, `alerts:read`, `cases:read`, `rules:read`,
+        `risk:evaluate` or `risk:configure`: everyone who sees scores can see how they are banded.
+      responses:
+        "200":
+          description: The policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskPolicy"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/risk/settings:
     get:
       operationId: getRiskSettings
@@ -1014,6 +1043,879 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/webhooks:
+    get:
+      operationId: listWebhooks
+      tags: [webhooks]
+      summary: List webhook endpoints
+      description: |
+        Requires scope `webhooks:read`.
+      responses:
+        "200":
+          description: The environment's endpoints, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createWebhook
+      tags: [webhooks]
+      summary: Register a webhook endpoint
+      description: |
+        Requires scope `webhooks:write`. Audited. The response contains the endpoint's signing secret,
+        shown only this once. URLs must use https and must not point to localhost or private,
+        loopback, link-local or reserved addresses (also checked after DNS resolution on every
+        delivery). At most 20 endpoints per environment (409 beyond).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookRequest"
+      responses:
+        "201":
+          description: The endpoint and its secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookWithSecret"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}:
+    get:
+      operationId: getWebhook
+      tags: [webhooks]
+      summary: Get a webhook endpoint
+      description: |
+        Requires scope `webhooks:read`. Never returns the secret.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    patch:
+      operationId: updateWebhook
+      tags: [webhooks]
+      summary: Change or enable/disable a webhook endpoint
+      description: |
+        Requires scope `webhooks:write`. Audited. Setting `status: active` re-enables an endpoint
+        disabled after failing, and clears its failure state.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWebhookRequest"
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      tags: [webhooks]
+      summary: Rotate a webhook endpoint's signing secret
+      description: |
+        Requires scope `webhooks:write`. Audited. Returns the new secret, shown only this once.
+        Until the overlap ends, deliveries carry signatures from both the new and the previous
+        secret, so receivers can switch without dropping events.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotateWebhookSecretRequest"
+      responses:
+        "200":
+          description: The endpoint and its new secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookWithSecret"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/test:
+    post:
+      operationId: testWebhook
+      tags: [webhooks]
+      summary: Send a test event to an endpoint
+      description: |
+        Requires scope `webhooks:write`. Queues a `webhook.test` event for this endpoint only.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "202":
+          description: The queued delivery.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      tags: [webhooks]
+      summary: List an endpoint's deliveries, newest first
+      description: |
+        Requires scope `webhooks:read`.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WebhookDeliveryStatus"
+      responses:
+        "200":
+          description: A page of deliveries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}:
+    get:
+      operationId: getWebhookDelivery
+      tags: [webhooks]
+      summary: Get a delivery with its payload and every attempt
+      description: |
+        Requires scope `webhooks:read`.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whd_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The delivery.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/redeliver:
+    post:
+      operationId: redeliverWebhook
+      tags: [webhooks]
+      summary: Retry a failed delivery
+      description: |
+        Requires scope `webhooks:write`. Audited. Starts a new delivery cycle for a `failed` delivery
+        to an active endpoint. The event keeps its ID.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whd_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "202":
+          description: The delivery, pending again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/auth/login:
+    post:
+      operationId: login
+      tags: [session]
+      summary: Sign in to the console with email and password
+      security: []
+      description: |
+        Starts a console session. The response says which second factor is needed next
+        (`mfa_required`) or that the user must enroll one (`enrollment_required`); the cookie is set
+        either way. Wrong email, wrong password and disabled accounts get the same 401. Attempts are
+        throttled per email and per IP (429). Not for API keys.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: The session's next step.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/session:
+    get:
+      operationId: getSession
+      tags: [session]
+      summary: The current console session
+      security: []
+      description: |
+        Returns the signed-in user, tenant, role, permissions, second factors, the session's state
+        and the CSRF token the console must send in `X-CSRF-Token` on every unsafe request.
+      responses:
+        "200":
+          description: The session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ConsoleSession"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/logout:
+    post:
+      operationId: logout
+      tags: [session]
+      summary: Sign out
+      security: []
+      description: |
+        Ends the session and clears the cookie.
+      responses:
+        "204":
+          description: Signed out.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/totp/verify:
+    post:
+      operationId: verifyTotp
+      tags: [session]
+      summary: Verify an authenticator-app code
+      security: []
+      description: |
+        Completes sign-in (`mfa_required`) or re-authenticates an active session for high-impact
+        actions. Each code works once. Throttled per user.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: The session's state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/recovery/verify:
+    post:
+      operationId: verifyRecoveryCode
+      tags: [session]
+      summary: Use a recovery code
+      security: []
+      description: |
+        Like `verifyTotp` with one of the single-use recovery codes.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: The session's state and the codes left.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/totp/enroll:
+    post:
+      operationId: enrollTotp
+      tags: [session]
+      summary: Start authenticator-app enrollment
+      security: []
+      description: |
+        For a new user (`enrollment_required`), or an active session re-authenticated within the
+        last 10 minutes. Returns the secret and an `otpauth://` URI for a QR code.
+      responses:
+        "200":
+          description: The pending enrollment.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TotpEnrollment"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/totp/confirm:
+    post:
+      operationId: confirmTotp
+      tags: [session]
+      summary: Confirm authenticator-app enrollment
+      security: []
+      description: |
+        Confirms enrollment with a first code. Returns recovery codes, shown once, if the user had
+        none. A new user's session becomes active.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CodeRequest"
+      responses:
+        "200":
+          description: The session's state (with recovery codes when issued).
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/passkeys/register/options:
+    post:
+      operationId: passkeyRegistrationOptions
+      tags: [session]
+      summary: Start adding a passkey
+      security: []
+      description: |
+        Returns WebAuthn `PublicKeyCredentialCreationOptions` for `navigator.credentials.create`. Same conditions as `enrollTotp`.
+      responses:
+        "200":
+          description: WebAuthn creation options.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnOptions"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/passkeys/register:
+    post:
+      operationId: registerPasskey
+      tags: [session]
+      summary: Finish adding a passkey
+      security: []
+      description: |
+        Verifies the authenticator's response and stores the passkey. Returns recovery codes, shown once, if the user had none.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyRegistrationRequest"
+      responses:
+        "200":
+          description: The session's state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/passkeys/login/options:
+    post:
+      operationId: passkeyLoginOptions
+      tags: [session]
+      summary: Start a passkey verification
+      security: []
+      description: |
+        Returns WebAuthn `PublicKeyCredentialRequestOptions` for `navigator.credentials.get`, to complete sign-in or re-authenticate.
+      responses:
+        "200":
+          description: WebAuthn request options.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebAuthnOptions"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/passkeys/login:
+    post:
+      operationId: verifyPasskey
+      tags: [session]
+      summary: Finish a passkey verification
+      security: []
+      description: |
+        Verifies the assertion. Completes sign-in or re-authenticates.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasskeyAssertionRequest"
+      responses:
+        "200":
+          description: The session's state.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/passkeys/{passkey_id}:
+    delete:
+      operationId: deletePasskey
+      tags: [session]
+      summary: Remove a passkey
+      security: []
+      description: |
+        Requires re-authentication within the last 10 minutes. At least one second factor must remain.
+      parameters:
+        - name: passkey_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 128
+            example: pky_AAECAwQ
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/mfa/recovery-codes:
+    post:
+      operationId: regenerateRecoveryCodes
+      tags: [session]
+      summary: Replace your recovery codes
+      security: []
+      description: |
+        Requires re-authentication within the last 10 minutes. The new codes are shown once; the old ones stop working.
+      responses:
+        "200":
+          description: The new codes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecoveryCodes"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/invites/accept:
+    post:
+      operationId: acceptInvite
+      tags: [session]
+      summary: Accept an invite
+      security: []
+      description: |
+        Creates the invited user with a name and password and starts a session that must enroll a
+        second factor next. Invites are single-use and expire after 72 hours.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/AcceptInviteRequest"
+      responses:
+        "200":
+          description: The new session's state.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/team/members:
+    get:
+      operationId: listTeamMembers
+      tags: [team]
+      summary: List the tenant's console users
+      description: |
+        Requires `team:read`.
+      responses:
+        "200":
+          description: The users.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMemberList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/team/members/{user_id}:
+    patch:
+      operationId: updateTeamMember
+      tags: [team]
+      summary: Change a user's role or status
+      description: |
+        Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+        Audited. You cannot change yourself; the tenant always keeps an active administrator. Any
+        change ends the user's sessions.
+      parameters:
+        - name: user_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 128
+            example: usr_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateTeamMemberRequest"
+      responses:
+        "200":
+          description: The user.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TeamMember"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/team/invites:
+    get:
+      operationId: listInvites
+      tags: [team]
+      summary: List invites
+      description: |
+        Requires `team:read`.
+      responses:
+        "200":
+          description: Invites, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InviteList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createInvite
+      tags: [team]
+      summary: Invite a person
+      description: |
+        Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+        Audited. Returns a single-use link, valid for 72 hours and shown once; share it with the person
+        directly (RiskOS does not send email yet).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateInviteRequest"
+      responses:
+        "201":
+          description: The invite and its link.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CreatedInvite"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/team/invites/{invite_id}/revoke:
+    post:
+      operationId: revokeInvite
+      tags: [team]
+      summary: Revoke a pending invite
+      description: |
+        Requires `team:write`. Audited.
+      parameters:
+        - name: invite_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 128
+            example: inv_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "204":
+          description: Revoked.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
 components:
   securitySchemes:
     apiKey:
@@ -1114,6 +2016,487 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+        password:
+          type: string
+          maxLength: 256
+    CodeRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          minLength: 6
+          maxLength: 32
+    SessionState:
+      type: string
+      enum: [mfa_required, enrollment_required, active]
+    AuthState:
+      type: object
+      additionalProperties: false
+      required: [state]
+      properties:
+        state:
+          $ref: "#/components/schemas/SessionState"
+        mfa_methods:
+          type: array
+          description: Second factors the user can complete sign-in with.
+          items:
+            type: string
+            enum: [totp, passkey, recovery_code]
+        recovery_codes:
+          type: array
+          description: Newly issued recovery codes, shown only in this response.
+          items:
+            type: string
+        recovery_codes_remaining:
+          type: integer
+    TotpEnrollment:
+      type: object
+      additionalProperties: false
+      required: [secret, otpauth_uri]
+      properties:
+        secret:
+          type: string
+          description: Base32 secret for manual entry.
+        otpauth_uri:
+          type: string
+    WebAuthnOptions:
+      type: object
+      additionalProperties: true
+      description: WebAuthn options, passed to the browser's credentials API as returned.
+    PasskeyRegistrationRequest:
+      type: object
+      additionalProperties: false
+      required: [credential]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        credential:
+          type: object
+          additionalProperties: true
+          description: The `PublicKeyCredential` from `navigator.credentials.create`, JSON-encoded.
+    PasskeyAssertionRequest:
+      type: object
+      additionalProperties: false
+      required: [credential]
+      properties:
+        credential:
+          type: object
+          additionalProperties: true
+          description: The `PublicKeyCredential` from `navigator.credentials.get`, JSON-encoded.
+    RecoveryCodes:
+      type: object
+      additionalProperties: false
+      required: [recovery_codes]
+      properties:
+        recovery_codes:
+          type: array
+          items:
+            type: string
+    AcceptInviteRequest:
+      type: object
+      additionalProperties: false
+      required: [token, name, password]
+      properties:
+        token:
+          type: string
+          maxLength: 128
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        password:
+          type: string
+          minLength: 12
+          maxLength: 128
+    Role:
+      type: string
+      enum: [customer_admin, developer, risk_manager, analyst]
+    Passkey:
+      type: object
+      additionalProperties: false
+      required: [id, name, created_at, last_used_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        last_used_at:
+          type: string
+          format: date-time
+          nullable: true
+    ConsoleSession:
+      type: object
+      additionalProperties: false
+      required: [state, user, tenant, permissions, environments, csrf_token, expires_at, reauth_valid_until, mfa]
+      properties:
+        state:
+          $ref: "#/components/schemas/SessionState"
+        user:
+          type: object
+          additionalProperties: false
+          required: [id, email, name, role]
+          properties:
+            id:
+              type: string
+            email:
+              type: string
+            name:
+              type: string
+            role:
+              $ref: "#/components/schemas/Role"
+        tenant:
+          type: object
+          additionalProperties: false
+          required: [id, name]
+          properties:
+            id:
+              type: string
+            name:
+              type: string
+        permissions:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scope"
+        environments:
+          type: array
+          description: Choose one per request with the `RiskOS-Environment` header (default `test`).
+          items:
+            $ref: "#/components/schemas/Environment"
+        csrf_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+        reauth_valid_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: Until when high-impact actions are allowed without verifying again.
+        mfa:
+          type: object
+          additionalProperties: false
+          required: [totp, passkeys, recovery_codes_remaining]
+          properties:
+            totp:
+              type: boolean
+            passkeys:
+              type: array
+              items:
+                $ref: "#/components/schemas/Passkey"
+            recovery_codes_remaining:
+              type: integer
+    TeamMember:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role, status, mfa_enabled, created_at, last_login_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        status:
+          type: string
+          enum: [active, disabled]
+        mfa_enabled:
+          type: boolean
+        created_at:
+          type: string
+          format: date-time
+        last_login_at:
+          type: string
+          format: date-time
+          nullable: true
+    TeamMemberList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TeamMember"
+    UpdateTeamMemberRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        role:
+          $ref: "#/components/schemas/Role"
+        status:
+          type: string
+          enum: [active, disabled]
+    Invite:
+      type: object
+      additionalProperties: false
+      required: [id, email, role, status, created_at, created_by, expires_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        role:
+          $ref: "#/components/schemas/Role"
+        status:
+          type: string
+          enum: [pending, accepted, revoked, expired]
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+    InviteList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Invite"
+    CreateInviteRequest:
+      type: object
+      additionalProperties: false
+      required: [email, role]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+        role:
+          $ref: "#/components/schemas/Role"
+    CreatedInvite:
+      type: object
+      additionalProperties: false
+      required: [invite, invite_url]
+      properties:
+        invite:
+          $ref: "#/components/schemas/Invite"
+        invite_url:
+          type: string
+          description: Single-use link, shown only in this response.
+    WebhookEventType:
+      type: string
+      enum: [alert.created, alert.updated, case.created, case.resolved]
+    Webhook:
+      type: object
+      additionalProperties: false
+      required: [id, url, description, event_types, status, disabled_reason, failing_since, previous_secret_valid_until, created_at, created_by, updated_at]
+      properties:
+        id:
+          type: string
+          example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        url:
+          type: string
+        description:
+          type: string
+        event_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        status:
+          type: string
+          enum: [active, disabled]
+        disabled_reason:
+          type: string
+          nullable: true
+        failing_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current run of failed attempts started. After 3 days the endpoint is disabled.
+        previous_secret_valid_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: End of the current rotation overlap, if any.
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    WebhookList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Webhook"
+    WebhookWithSecret:
+      type: object
+      additionalProperties: false
+      required: [webhook, secret]
+      properties:
+        webhook:
+          $ref: "#/components/schemas/Webhook"
+        secret:
+          type: string
+          description: The signing secret. Shown only in this response; store it in a secrets manager.
+          example: whsec_3q2-7wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    CreateWebhookRequest:
+      type: object
+      additionalProperties: false
+      required: [url, event_types]
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+          example: https://hooks.example.com/riskos
+        description:
+          type: string
+          maxLength: 500
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+    UpdateWebhookRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+        description:
+          type: string
+          maxLength: 500
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        status:
+          type: string
+          enum: [active, disabled]
+    RotateWebhookSecretRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        overlap_hours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          default: 24
+          description: How long the previous secret keeps signing deliveries.
+    WebhookDeliveryStatus:
+      type: string
+      enum: [pending, succeeded, failed]
+    WebhookDelivery:
+      type: object
+      additionalProperties: false
+      required: [id, webhook_id, event_id, event_type, status, attempts, next_attempt_at, last_attempt_at, last_status_code, last_error, created_at, completed_at]
+      properties:
+        id:
+          type: string
+          example: whd_01j9x2k7m3q4r5s6t7v8w9x0yz
+        webhook_id:
+          type: string
+        event_id:
+          type: string
+          description: The event's ID (`RiskOS-Webhook-Id`), the same for every endpoint and every retry.
+          example: wev_01j9x2k7m3q4r5s6t7v8w9x0yz
+        event_type:
+          type: string
+          example: alert.created
+        status:
+          $ref: "#/components/schemas/WebhookDeliveryStatus"
+        attempts:
+          type: integer
+          description: Attempts in the current delivery cycle (at most 9 over about an hour).
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_status_code:
+          type: integer
+          nullable: true
+        last_error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+    WebhookDeliveryList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+        next_cursor:
+          type: string
+          nullable: true
+    WebhookAttempt:
+      type: object
+      additionalProperties: false
+      required: [attempt, started_at, duration_ms, status_code, error]
+      properties:
+        attempt:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+        status_code:
+          type: integer
+          nullable: true
+        error:
+          type: string
+          nullable: true
+          description: A short reason such as `timeout` or `http status 500`. Response bodies are never stored.
+    WebhookDeliveryDetail:
+      type: object
+      additionalProperties: false
+      required: [delivery, payload, attempts]
+      properties:
+        delivery:
+          $ref: "#/components/schemas/WebhookDelivery"
+        payload:
+          type: object
+          additionalProperties: true
+          description: The exact JSON body sent (signatures cover its bytes as sent).
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookAttempt"
     AlertKind:
       type: string
       description: "`risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals."
@@ -1146,7 +2529,7 @@ components:
         title:
           type: string
         severity:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         status:
           $ref: "#/components/schemas/AlertStatus"
         assignee:
@@ -1285,7 +2668,7 @@ components:
         status:
           $ref: "#/components/schemas/CaseStatus"
         priority:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         assignee:
           type: string
           nullable: true
@@ -1370,7 +2753,7 @@ components:
           type: string
           maxLength: 5000
         priority:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         assignee:
           type: string
           maxLength: 254
@@ -1394,7 +2777,7 @@ components:
           type: string
           maxLength: 5000
         priority:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         assignee:
           type: string
           maxLength: 254
@@ -1466,7 +2849,7 @@ components:
     Scope:
       type: string
       description: A permission an API key holds.
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write]
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
     Whoami:
       type: object
       additionalProperties: false
@@ -1906,7 +3289,66 @@ components:
             enum: [email, phone, address, name, password]
     RiskLevel:
       type: string
-      enum: [low, medium, high, critical]
+      description: |
+        The risk band of a score: minimal, low, elevated, high, critical (default thresholds
+        20/50/70/90, adjustable per environment; see `GET /api/v1/risk/policy`).
+      enum: [minimal, low, elevated, high, critical]
+    RiskThresholds:
+      type: object
+      additionalProperties: false
+      required: [low, elevated, high, critical]
+      description: Lowest score of each band above minimal; must increase strictly. Always present in responses; when omitted from a PUT, the defaults are stored.
+      properties:
+        low:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 20
+        elevated:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 50
+        high:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 70
+        critical:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 90
+    RiskPolicy:
+      type: object
+      additionalProperties: false
+      required: [engine_version, thresholds, custom_calibration, alert_min_decision, bands]
+      properties:
+        engine_version:
+          type: string
+        thresholds:
+          $ref: "#/components/schemas/RiskThresholds"
+        custom_calibration:
+          type: boolean
+          description: True when the environment's thresholds differ from the defaults.
+        alert_min_decision:
+          type: string
+          enum: [step_up, review]
+        bands:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [band, min_score, max_score, default_decision]
+            properties:
+              band:
+                $ref: "#/components/schemas/RiskLevel"
+              min_score:
+                type: integer
+              max_score:
+                type: integer
+              default_decision:
+                $ref: "#/components/schemas/Decision"
     Decision:
       type: string
       enum: [allow, review, step_up, block]
@@ -1954,7 +3396,7 @@ components:
           $ref: "#/components/schemas/Decision"
         engine_version:
           type: string
-          example: risk-engine-1.0.0
+          example: risk-engine-2.0.0
         signals:
           type: array
           items:
@@ -2271,6 +3713,8 @@ components:
           example:
             transaction: closed
             login: open
+        thresholds:
+          $ref: "#/components/schemas/RiskThresholds"
         alert_min_decision:
           type: string
           enum: [step_up, review]

@@ -136,6 +136,22 @@ type CaseNote struct {
 	CreatedAt     time.Time
 }
 
+type ConsoleSession struct {
+	ID               uuid.UUID
+	TenantID         uuid.UUID
+	UserID           uuid.UUID
+	TokenHash        []byte
+	State            string
+	CreatedAt        time.Time
+	LastSeenAt       time.Time
+	ExpiresAt        time.Time
+	ReauthAt         *time.Time
+	RevokedAt        *time.Time
+	WebauthnCeremony []byte
+	Ip               *netip.Addr
+	UserAgent        *string
+}
+
 type Environment struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID
@@ -209,6 +225,7 @@ type RiskSetting struct {
 	UpdatedAt           time.Time
 	UpdatedBy           string
 	AlertMinDecision    string
+	Thresholds          []byte
 }
 
 type Rule struct {
@@ -244,4 +261,97 @@ type Tenant struct {
 	Region    string
 	Status    string
 	CreatedAt time.Time
+}
+
+type User struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	Email          string
+	Name           string
+	Role           string
+	Status         string
+	PasswordHash   string
+	TotpSecretEnc  []byte
+	TotpLastStep   *int64
+	RecoveryHashes [][]byte
+	CreatedAt      time.Time
+	CreatedBy      string
+	UpdatedAt      time.Time
+	LastLoginAt    *time.Time
+}
+
+type UserInvite struct {
+	ID         uuid.UUID
+	TenantID   uuid.UUID
+	Email      string
+	Role       string
+	TokenHash  []byte
+	CreatedAt  time.Time
+	CreatedBy  string
+	ExpiresAt  time.Time
+	AcceptedAt *time.Time
+	RevokedAt  *time.Time
+}
+
+type WebauthnCredential struct {
+	ID              []byte
+	TenantID        uuid.UUID
+	UserID          uuid.UUID
+	Name            string
+	PublicKey       []byte
+	AttestationType string
+	Aaguid          []byte
+	SignCount       int64
+	Transports      []string
+	Flags           []byte
+	CreatedAt       time.Time
+	LastUsedAt      *time.Time
+}
+
+type WebhookAttempt struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	DeliveryID    uuid.UUID
+	Attempt       int32
+	StartedAt     time.Time
+	DurationMs    int32
+	StatusCode    *int32
+	Error         *string
+}
+
+type WebhookDelivery struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	EndpointID     uuid.UUID
+	EventID        uuid.UUID
+	EventType      string
+	Payload        []byte
+	Status         string
+	Attempts       int32
+	NextAttemptAt  *time.Time
+	LastAttemptAt  *time.Time
+	LastStatusCode *int32
+	LastError      *string
+	CreatedAt      time.Time
+	CompletedAt    *time.Time
+}
+
+type WebhookEndpoint struct {
+	TenantID                 uuid.UUID
+	EnvironmentID            uuid.UUID
+	ID                       uuid.UUID
+	Url                      string
+	Description              string
+	EventTypes               []string
+	Status                   string
+	DisabledReason           *string
+	SecretVersion            int32
+	PreviousSecretVersion    *int32
+	PreviousSecretValidUntil *time.Time
+	FailingSince             *time.Time
+	CreatedAt                time.Time
+	CreatedBy                string
+	UpdatedAt                time.Time
 }

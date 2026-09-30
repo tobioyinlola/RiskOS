@@ -78,7 +78,7 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		}
 		out := s.engine.Evaluate(ctx, ev, write, cfg.settings, cfg.rules)
 		score := domain.Score(out.Signals)
-		level := domain.LevelForScore(score)
+		level := domain.LevelForScore(score, cfg.settings.Thresholds)
 		policy := domain.Decide(domain.PolicyInput{
 			EventType: ev.Type, Level: level, Signals: out.Signals, Degraded: out.Degraded,
 			HighValue: highValue(ev, cfg.settings), Settings: cfg.settings,

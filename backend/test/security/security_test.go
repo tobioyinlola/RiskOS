@@ -37,6 +37,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // syncBuffer is a goroutine-safe log sink.
@@ -85,11 +86,11 @@ func startServer(t *testing.T) server {
 	tel, err := telemetry.Setup(t.Context(), cfg.Telemetry, "security-test", cfg.Env)
 	require.NoError(t, err)
 	authModule, auditModule := testModules()
-	eventsMod, riskMod, alertsMod, casesMod := appModules()
+	eventsMod, riskMod, alertsMod, casesMod, webhooksMod := appModules()
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: logger, Clock: clock.System{}, HTTP: cfg.HTTP, Telemetry: tel,
 		Health: health.NewService(logger), Auth: authModule, Audit: auditModule,
-		Events: eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Limiter: allowAll{},
+		Events: eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Webhooks: webhooksMod, Limiter: allowAll{},
 	})
 	require.NoError(t, err)
 
@@ -260,11 +261,13 @@ type noJobs struct{}
 
 func (noJobs) Enqueue(context.Context, jobs.Args) error { return nil }
 
-func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module) {
+func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module, *webhooks.Module) {
 	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	riskModule := risk.New(rdb, noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{},
 		slog.New(slog.DiscardHandler), risk.Config{FeatureHashKey: []byte(strings.Repeat("f", 32)), FeatureTimeout: 10 * time.Millisecond})
-	alertsModule := alerts.New(noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{}, slog.New(slog.DiscardHandler))
-	casesModule := cases.New(noDB{}, alertsModule.Linker(), audit.New(noDB{}, clock.System{}).Recorder(), clock.System{})
-	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule
+	rec := audit.New(noDB{}, clock.System{}).Recorder()
+	webhooksModule := webhooks.New(noDB{}, rec, clock.System{}, noJobs{}, webhooks.Config{SigningKey: []byte(strings.Repeat("w", 32)), Timeout: time.Second}, nil, slog.New(slog.DiscardHandler))
+	alertsModule := alerts.New(noDB{}, rec, clock.System{}, webhooksModule.Publisher(), slog.New(slog.DiscardHandler))
+	casesModule := cases.New(noDB{}, alertsModule.Linker(), rec, clock.System{}, webhooksModule.Publisher())
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule, webhooksModule
 }

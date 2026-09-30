@@ -55,6 +55,7 @@ type RuleTester interface {
 // RuleHandlers are the risk module's operations of the public API.
 type RuleHandlers interface {
 	GetRiskCatalog(ctx context.Context, req apigen.GetRiskCatalogRequestObject) (apigen.GetRiskCatalogResponseObject, error)
+	GetRiskPolicy(ctx context.Context, req apigen.GetRiskPolicyRequestObject) (apigen.GetRiskPolicyResponseObject, error)
 	GetRiskSettings(ctx context.Context, req apigen.GetRiskSettingsRequestObject) (apigen.GetRiskSettingsResponseObject, error)
 	PutRiskSettings(ctx context.Context, req apigen.PutRiskSettingsRequestObject) (apigen.PutRiskSettingsResponseObject, error)
 	ListRules(ctx context.Context, req apigen.ListRulesRequestObject) (apigen.ListRulesResponseObject, error)

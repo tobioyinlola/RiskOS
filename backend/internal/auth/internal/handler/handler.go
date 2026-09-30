@@ -25,25 +25,6 @@ import (
 // rejected as unauthenticated before routing, so routes cannot be enumerated without a key.
 const ProtectedPrefix = "/api/v1/"
 
-// Middleware authenticates every request under ProtectedPrefix and places the resulting tenant
-// scope in the request context. It is the only place a request scope is created.
-func Middleware(svc *service.Service, logger *slog.Logger) func(http.Handler) http.Handler {
-	return func(next http.Handler) http.Handler {
-		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if !strings.HasPrefix(r.URL.Path, ProtectedPrefix) {
-				next.ServeHTTP(w, r)
-				return
-			}
-			scope, err := svc.Authenticate(r.Context(), bearerToken(r))
-			if err != nil {
-				writeAuthError(w, r, logger, err)
-				return
-			}
-			next.ServeHTTP(w, r.WithContext(tenancy.WithScope(r.Context(), scope)))
-		})
-	}
-}
-
 func bearerToken(r *http.Request) string {
 	scheme, token, ok := strings.Cut(r.Header.Get("Authorization"), " ")
 	if !ok || !strings.EqualFold(scheme, "Bearer") {

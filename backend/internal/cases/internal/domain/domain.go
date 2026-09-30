@@ -57,10 +57,18 @@ func (r Resolution) Valid() bool {
 	}
 }
 
-// ValidPriority reports whether p is a known priority (the severity scale).
+// ValidPriority reports whether p is a known priority (the risk band scale).
 func ValidPriority(p string) bool {
-	return p == "low" || p == "medium" || p == "high" || p == "critical"
+	switch p {
+	case "minimal", "low", "elevated", "high", "critical":
+		return true
+	default:
+		return false
+	}
 }
+
+// DefaultPriority is a case's priority without alerts or an explicit choice.
+const DefaultPriority = "elevated"
 
 // Case is a case's current state.
 type Case struct {

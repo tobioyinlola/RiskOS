@@ -17,6 +17,15 @@ type Args interface {
 	Kind() string
 }
 
+// Queued is implemented by Args that run in a dedicated queue (worker pool) instead of the
+// default one, so slow work (such as calling customer endpoints) cannot delay other jobs.
+type Queued interface {
+	Queue() string
+}
+
+// QueueWebhooks is the queue of webhook deliveries.
+const QueueWebhooks = "webhooks"
+
 // Enqueuer schedules jobs for asynchronous execution. Called inside a tenant transaction, the job
 // is created atomically with the transaction's writes.
 type Enqueuer interface {

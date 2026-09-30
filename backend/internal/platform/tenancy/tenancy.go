@@ -30,6 +30,7 @@ type PrincipalType string
 const (
 	PrincipalAPIKey PrincipalType = "api_key"
 	PrincipalSystem PrincipalType = "system" // operator tooling and background jobs
+	PrincipalUser   PrincipalType = "user"   // a person signed in to the console
 )
 
 // Principal is the authenticated actor and what it may do.

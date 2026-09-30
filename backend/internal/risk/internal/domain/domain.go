@@ -12,13 +12,31 @@ import (
 // Level is the risk level derived from the score.
 type Level string
 
-// Levels.
+// Levels (risk bands), in ascending order (docs/design-system.md, RISK_ENGINE.md).
 const (
+	LevelMinimal  Level = "minimal"
 	LevelLow      Level = "low"
-	LevelMedium   Level = "medium"
+	LevelElevated Level = "elevated"
 	LevelHigh     Level = "high"
 	LevelCritical Level = "critical"
 )
+
+// Thresholds are the lowest scores of the bands above minimal. They must increase strictly.
+type Thresholds struct {
+	Low      int `json:"low"`
+	Elevated int `json:"elevated"`
+	High     int `json:"high"`
+	Critical int `json:"critical"`
+}
+
+// DefaultThresholds are the product defaults: 0-19 minimal, 20-49 low, 50-69 elevated,
+// 70-89 high, 90-100 critical. Tenants can move them.
+func DefaultThresholds() Thresholds { return Thresholds{Low: 20, Elevated: 50, High: 70, Critical: 90} }
+
+// Valid reports whether the thresholds increase strictly within 1..100.
+func (t Thresholds) Valid() bool {
+	return t.Low >= 1 && t.Low < t.Elevated && t.Elevated < t.High && t.High < t.Critical && t.Critical <= MaxScore
+}
 
 // Decision is the recommended action. Decisions are advisory: the customer's flow enforces them.
 type Decision string
@@ -54,29 +72,31 @@ func Score(signals []Signal) int {
 	return total
 }
 
-// LevelForScore maps a score to its level with the product-default bands: 0-29 low,
-// 30-59 medium, 60-79 high, 80-100 critical. Tenant-specific bands arrive with build step 4.
-func LevelForScore(score int) Level {
+// LevelForScore maps a score to its band with the given thresholds.
+func LevelForScore(score int, t Thresholds) Level {
 	switch {
-	case score >= 80:
+	case score >= t.Critical:
 		return LevelCritical
-	case score >= 60:
+	case score >= t.High:
 		return LevelHigh
-	case score >= 30:
-		return LevelMedium
-	default:
+	case score >= t.Elevated:
+		return LevelElevated
+	case score >= t.Low:
 		return LevelLow
+	default:
+		return LevelMinimal
 	}
 }
 
-// DefaultDecision is the design's default policy without overrides: LOW and MEDIUM allow, HIGH
-// steps up, CRITICAL goes to review. BLOCK is never a default (opt-in only, build step 4).
+// DefaultDecision is the default policy without overrides: MINIMAL and LOW allow, ELEVATED goes
+// to review, HIGH steps up, CRITICAL goes to review. BLOCK is never a default: auto-block is an
+// opt-in with shadow evidence and a kill switch (build step 8).
 func DefaultDecision(l Level) Decision {
 	switch l {
+	case LevelElevated, LevelCritical:
+		return DecisionReview
 	case LevelHigh:
 		return DecisionStepUp
-	case LevelCritical:
-		return DecisionReview
 	default:
 		return DecisionAllow
 	}

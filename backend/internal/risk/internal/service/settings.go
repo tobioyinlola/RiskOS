@@ -50,6 +50,22 @@ func (s *Service) CatalogSettings(ctx context.Context) (domain.Settings, error) 
 	return out, err
 }
 
+// Policy returns the environment's settings for displaying bands and decisions. Readable by
+// anyone who can see scores (events, alerts, cases, rules or evaluations).
+func (s *Service) Policy(ctx context.Context) (domain.Settings, error) {
+	if err := authz.RequireAny(ctx, authz.EventsRead, authz.AlertsRead, authz.CasesRead, authz.RulesRead,
+		authz.RiskEvaluate, authz.RiskConfigure); err != nil {
+		return domain.Settings{}, err
+	}
+	var out domain.Settings
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		cfg, err := s.config.get(ctx, s.load)
+		out = cfg.settings
+		return err
+	})
+	return out, err
+}
+
 // PutSettings replaces the environment's risk settings. Weights are bounded (0 to
 // domain.MaxSignalWeight) so a tenant can tune but never make a single signal decisive.
 // Requires risk:configure; audited.
@@ -80,6 +96,7 @@ func (s *Service) PutSettings(ctx context.Context, in domain.Settings) (domain.S
 				"high_value_default_before": before.HighValueDefault, "high_value_default_after": in.HighValueDefault,
 				"high_value_by_currency_after": in.HighValueByCurrency, "fail_policies_after": in.FailPolicies,
 				"alert_min_decision_before": before.AlertMinDecision, "alert_min_decision_after": in.AlertMinDecision,
+				"thresholds_before": before.Thresholds, "thresholds_after": in.Thresholds,
 			},
 		})
 	})
@@ -112,6 +129,9 @@ func validateSettings(in domain.Settings) error {
 		if v <= 0 {
 			return invalid("high-value threshold for %s must be positive", cur)
 		}
+	}
+	if !in.Thresholds.Valid() {
+		return invalid("thresholds must increase strictly: 1 <= low < elevated < high < critical <= 100")
 	}
 	if in.AlertMinDecision != domain.DecisionReview && in.AlertMinDecision != domain.DecisionStepUp {
 		return invalid("alert_min_decision must be step_up or review")

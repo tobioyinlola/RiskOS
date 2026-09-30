@@ -6,11 +6,13 @@ import (
 	"context"
 	"fmt"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
@@ -18,6 +20,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // Bounds of free-text fields.
@@ -28,15 +31,29 @@ const (
 
 // Service raises and triages alerts.
 type Service struct {
-	store  store.Store
-	runner txn.Runner
-	audit  audit.Recorder
-	clock  clock.Clock
+	store   store.Store
+	runner  txn.Runner
+	audit   audit.Recorder
+	clock   clock.Clock
+	webhook webhooks.Publisher
 }
 
 // New returns a Service.
-func New(runner txn.Runner, rec audit.Recorder, clk clock.Clock) *Service {
-	return &Service{runner: runner, audit: rec, clock: clk}
+func New(runner txn.Runner, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher) *Service {
+	return &Service{runner: runner, audit: rec, clock: clk, webhook: pub}
+}
+
+// publish sends an alert event to subscribed webhook endpoints, in the caller's transaction.
+func (s *Service) publish(ctx context.Context, eventType webhooks.EventType, id uuid.UUID, previous *domain.Status) error {
+	a, err := s.store.Get(ctx, id, false)
+	if err != nil {
+		return err
+	}
+	data := map[string]any{"alert": present.ToAPI(a)}
+	if previous != nil {
+		data["previous_status"] = string(*previous)
+	}
+	return s.webhook.Publish(ctx, eventType, data)
 }
 
 // Raise creates or extends the alerts an evaluation triggers. It is idempotent per evaluation
@@ -83,6 +100,7 @@ func (s *Service) raise(ctx context.Context, kind domain.Kind, subjectType, subj
 		return err
 	}
 	var alertID uuid.UUID
+	created := group == nil
 	if group != nil {
 		alertID = group.ID
 		sev := domain.MaxSeverity(group.Severity, severity)
@@ -98,7 +116,7 @@ func (s *Service) raise(ctx context.Context, kind domain.Kind, subjectType, subj
 		alertID = ids.NewV7()
 		a := domain.Alert{
 			ID: alertID, Kind: kind, SubjectType: subjectType, SubjectRef: subjectRef,
-			Title: domain.Title(kind, severity), Severity: severity, MaxScore: t.Score,
+			Title: domain.Title(kind, severity), Severity: severity, MaxScore: t.Score, EvaluationCount: 1,
 			FirstSeenAt: t.EvaluatedAt, CreatedAt: now,
 		}
 		if err := s.store.InsertAlert(ctx, a); err != nil {
@@ -119,10 +137,58 @@ func (s *Service) raise(ctx context.Context, kind domain.Kind, subjectType, subj
 			return err
 		}
 	}
-	return s.store.LinkEvaluation(ctx, alertID, kind, domain.Evaluation{
+	if err := s.store.LinkEvaluation(ctx, alertID, kind, domain.Evaluation{
 		EvaluationID: t.EvaluationID, EventID: t.EventID, EventType: t.EventType, Score: t.Score,
 		Level: t.Level, Decision: t.Decision, Signals: nonNil(t.Signals), Degraded: nonNilStrings(t.Degraded),
 		EvaluatedAt: t.EvaluatedAt,
+	}); err != nil {
+		return err
+	}
+	if created {
+		return s.publish(ctx, webhooks.EventAlertCreated, alertID, nil)
+	}
+	return nil
+}
+
+// RaiseWebhookDisabled raises a security alert for a webhook endpoint that was disabled after
+// failing, unless one is already open for it. Runs in the caller's transaction; requires
+// authz.AlertsRaise.
+func (s *Service) RaiseWebhookDisabled(ctx context.Context, endpointID uuid.UUID) error {
+	if err := authz.Require(ctx, authz.AlertsRaise); err != nil {
+		return err
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	ref := ids.Format(ids.PrefixWebhook, endpointID)
+	return s.runner.Run(ctx, func(ctx context.Context) error {
+		if err := s.store.LockSubject(ctx, domain.KindSecurity, ref); err != nil {
+			return err
+		}
+		now := s.clock.Now()
+		open, err := s.store.FindGrouping(ctx, domain.KindSecurity, ref, time.Time{})
+		if err != nil || open != nil {
+			return err
+		}
+		id := ids.NewV7()
+		if err := s.store.InsertAlert(ctx, domain.Alert{
+			ID: id, Kind: domain.KindSecurity, SubjectType: domain.SubjectWebhook, SubjectRef: ref,
+			Title: "Webhook endpoint disabled after repeated failed deliveries", Severity: "elevated",
+			FirstSeenAt: now, CreatedAt: now,
+		}); err != nil {
+			return err
+		}
+		if err := s.store.AddActivity(ctx, id, "created", scope.Principal.ID, map[string]any{"webhook_id": ref}, now); err != nil {
+			return err
+		}
+		if err := s.audit.Record(ctx, audit.Entry{
+			Action: "alert.created", ResourceType: "alert", ResourceID: ids.Format(ids.PrefixAlert, id),
+			Outcome: audit.OutcomeSuccess, Metadata: map[string]any{"kind": "security", "webhook_id": ref},
+		}); err != nil {
+			return err
+		}
+		return s.publish(ctx, webhooks.EventAlertCreated, id, nil)
 	})
 }
 
@@ -240,6 +306,11 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, p domain.Patch) (dom
 		}); err != nil {
 			return err
 		}
+		if statusChanged {
+			if err := s.publish(ctx, webhooks.EventAlertUpdated, id, &cur.Status); err != nil {
+				return err
+			}
+		}
 		out, err = s.store.Get(ctx, id, false)
 		return err
 	})
@@ -276,6 +347,9 @@ func (s *Service) Escalate(ctx context.Context, alertIDs []uuid.UUID, caseID uui
 			}, now); err != nil {
 				return err
 			}
+			if err := s.publish(ctx, webhooks.EventAlertUpdated, id, &cur.Status); err != nil {
+				return err
+			}
 			cur.Status, cur.CaseID = domain.StatusEscalated, &caseID
 			out = append(out, cur)
 		}
@@ -301,10 +375,14 @@ func (s *Service) CloseForCase(ctx context.Context, caseID uuid.UUID, falsePosit
 		if err != nil {
 			return err
 		}
+		escalated := domain.StatusEscalated
 		for _, id := range closed {
 			if err := s.store.AddActivity(ctx, id, "closed_with_case", scope.Principal.ID, map[string]any{
 				"case_id": ids.Format(ids.PrefixCase, caseID), "status_after": string(status),
 			}, now); err != nil {
+				return err
+			}
+			if err := s.publish(ctx, webhooks.EventAlertUpdated, id, &escalated); err != nil {
 				return err
 			}
 		}

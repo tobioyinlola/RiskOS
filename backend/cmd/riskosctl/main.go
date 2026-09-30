@@ -7,6 +7,7 @@
 //	riskosctl tenant create --operator NAME --name NAME --region REGION
 //	riskosctl apikey create --operator NAME --tenant ten_… --env test|production --name NAME [--scopes a,b]
 //	riskosctl audit verify --tenant ten_…
+//	riskosctl user invite --operator NAME --tenant ten_… --email EMAIL [--role customer_admin]
 //
 // Secrets are printed to stdout exactly once; logs go to stderr.
 package main
@@ -36,7 +37,8 @@ import (
 const usage = `usage:
   riskosctl tenant create --operator NAME --name NAME --region REGION
   riskosctl apikey create --operator NAME --tenant ten_... --env test|production --name NAME [--scopes a,b]
-  riskosctl audit verify --tenant ten_...`
+  riskosctl audit verify --tenant ten_...
+  riskosctl user invite --operator NAME --tenant ten_... --email EMAIL [--role customer_admin]`
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -72,6 +74,8 @@ func run(args []string, out io.Writer) error {
 		return apikeyCreate(ctx, cfg, args[2:], out)
 	case "audit verify":
 		return auditVerify(ctx, cfg, args[2:], out)
+	case "user invite":
+		return userInvite(ctx, cfg, args[2:], out)
 	default:
 		return usageError()
 	}
@@ -100,6 +104,7 @@ func newApp(ctx context.Context, cfg config.Config) (*app, error) {
 		tenants: tenants.New(runner, auditModule.Recorder()),
 		auth: auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
 			Pepper: []byte(cfg.Auth.APIKeyPepper), CacheTTL: 0,
+			Cookie: auth.CookieConfig{ConsoleURL: cfg.Console.URL},
 		}),
 		close: pool.Close,
 	}, nil
@@ -192,6 +197,44 @@ func apikeyCreate(ctx context.Context, cfg config.Config, args []string, out io.
 	}
 	_, err = fmt.Fprintf(out, "API key %s created in %s. Shown once; store it in a secrets manager now:\n  %s\n",
 		ids.Format(ids.PrefixAPIKey, key.Key.ID), *env, key.Secret)
+	return err
+}
+
+// userInvite invites a person to a tenant's console, usually its first administrator. The
+// link is printed once; the person sets a password and enrolls a second factor.
+func userInvite(ctx context.Context, cfg config.Config, args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("user invite", flag.ContinueOnError)
+	operator := fs.String("operator", "", "who is running this command (recorded in the audit log)")
+	tenant := fs.String("tenant", "", "tenant ID (ten_…)")
+	email := fs.String("email", "", "the person's email address")
+	role := fs.String("role", string(authz.RoleCustomerAdmin), "customer_admin, developer, risk_manager or analyst")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	actor, err := operatorActor(*operator)
+	if err != nil {
+		return err
+	}
+	tenantID, err := ids.Parse(ids.PrefixTenant, *tenant)
+	if err != nil {
+		return fmt.Errorf("--tenant: %w", err)
+	}
+	a, err := newApp(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer a.close()
+	// Users belong to the tenant; the operator scope needs an environment only to exist.
+	scoped, err := a.tenants.OperatorScope(ctx, tenantID, tenancy.EnvironmentTest, actor)
+	if err != nil {
+		return err
+	}
+	link, err := a.auth.Invite(scoped, *email, authz.Role(*role))
+	if err != nil {
+		return err
+	}
+	_, err = fmt.Fprintf(out, "Invite created for %s (%s). Valid for 72 hours, usable once. Share it directly:\n  %s\n",
+		strings.ToLower(strings.TrimSpace(*email)), *role, link)
 	return err
 }
 

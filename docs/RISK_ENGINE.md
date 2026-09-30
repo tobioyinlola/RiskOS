@@ -3,7 +3,7 @@
 **Purpose:** how signals are produced and combined into an explainable score, mapped to a risk
 level and a decision, and how evaluations stay reproducible. Design:
 [ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **built (build step 4),
-engine `risk-engine-1.0.0`.** The production approval workflow for rules, auto-block and
+engine `risk-engine-2.0.0` (five bands since build step 7).** The production approval workflow for rules, auto-block and
 hard-block rules are deferred to build step 8 (Appendix B); the engine never returns BLOCK.
 
 ## Pipeline
@@ -50,7 +50,7 @@ signals still apply.
 
 **Worked example (spec §8):** a user with a history of 200,000 NGN transfers from one device sends
 5,000,000 NGN to a new beneficiary, from a new device, from a new country, in a burst:
-20 + 15 + 24 + 15 + 10 = **84, CRITICAL, REVIEW** (integration test `TestSpecScenarioScoresCritical`).
+20 + 15 + 24 + 15 + 10 = **84, High, Step-up** (integration test `TestSpecScenarioScoresHigh`).
 
 ## Score
 
@@ -62,23 +62,35 @@ Every point in the score appears in the response as a listed signal, so any resp
 recomputed from its own signals. (The spec's example of 87 from signals summing to 59 is an
 illustration error.)
 
-## Levels (product defaults)
+## Bands
 
-| Score | Level |
-|---|---|
-| 0–29 | LOW |
-| 30–59 | MEDIUM |
-| 60–79 | HIGH |
-| 80–100 | CRITICAL |
+Five bands, shared with the console's design system ([design-system.md](design-system.md)):
 
-These are not industry standards and are never presented as such.
+| Band | Default scores | Glyph | Default decision |
+|---|---|---|---|
+| Minimal | 0–19 | 1 bar | Allow |
+| Low | 20–49 | 2 bars | Allow (Step-up with a strengthenable signal) |
+| Elevated | 50–69 | 3 bars | Review |
+| High | 70–89 | 4 bars | Step-up (Review where step-up is impossible) |
+| Critical | 90–100 | 5 bars | Review |
+
+The thresholds (20/50/70/90) are per environment (`thresholds` in `PUT /api/v1/risk/settings`,
+strictly increasing). `GET /api/v1/risk/policy` returns the environment's bands, thresholds and
+default decisions so the console can draw its ruler, and whether they are a custom calibration.
+These bands are product defaults, not industry standards, and are never presented as such.
+
+Engine 2.0.0 replaced the four levels of 1.0.0 (low 0–29, medium 30–59, high 60–79, critical
+80–100). Migration 00007 recomputed the band of the rows stored before (pre-production data only)
+from their stored scores; stored decisions were not changed. Alert severities and case priorities
+use the same five bands.
 
 ## Decision policy
 
 | Level | Decision | Override (recorded in the evaluation's `policy_reasons`) |
 |---|---|---|
-| LOW | ALLOW | |
-| MEDIUM | ALLOW | STEP_UP when a strengthenable signal fired (`new_device`, `geo_anomaly`, `recent_credential_change`): `strengthenable_signal` |
+| MINIMAL | ALLOW | |
+| LOW | ALLOW | STEP_UP when a strengthenable signal fired (`new_device`, `geo_anomaly`, `recent_credential_change`): `strengthenable_signal` |
+| ELEVATED | REVIEW | |
 | HIGH | STEP_UP | REVIEW for event types that cannot be stepped up (only logins and transactions can): `step_up_not_available` |
 | CRITICAL | REVIEW | |
 

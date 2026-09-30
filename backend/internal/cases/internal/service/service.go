@@ -12,26 +12,29 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // Service manages cases.
 type Service struct {
-	store  store.Store
-	runner txn.Runner
-	alerts alerts.Linker
-	audit  audit.Recorder
-	clock  clock.Clock
+	store   store.Store
+	runner  txn.Runner
+	alerts  alerts.Linker
+	audit   audit.Recorder
+	clock   clock.Clock
+	webhook webhooks.Publisher
 }
 
 // New returns a Service.
-func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock) *Service {
-	return &Service{runner: runner, alerts: linker, audit: rec, clock: clk}
+func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher) *Service {
+	return &Service{runner: runner, alerts: linker, audit: rec, clock: clk, webhook: pub}
 }
 
 // Detail is a case with its alerts, notes and timeline.
@@ -76,7 +79,7 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 		}
 	}
 	if in.Priority != "" && !domain.ValidPriority(in.Priority) {
-		return domain.Case{}, invalid("priority must be low, medium, high or critical")
+		return domain.Case{}, invalid("priority must be minimal, low, elevated, high or critical")
 	}
 	if len(in.AlertIDs) > domain.MaxAlertsOnCreate {
 		return domain.Case{}, invalid("at most %d alerts can be added at once", domain.MaxAlertsOnCreate)
@@ -92,7 +95,7 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
 		derive := c.Priority == ""
 		if derive {
-			c.Priority = "medium"
+			c.Priority = domain.DefaultPriority
 		}
 		// The case row must exist before alerts reference it.
 		if err := s.store.Insert(ctx, c); err != nil {
@@ -125,10 +128,13 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 		}, now); err != nil {
 			return err
 		}
-		return s.audit.Record(ctx, audit.Entry{
+		if err := s.audit.Record(ctx, audit.Entry{
 			Action: "case.created", ResourceType: "case", ResourceID: ids.Format(ids.PrefixCase, c.ID),
 			Outcome: audit.OutcomeSuccess, Metadata: map[string]any{"priority": c.Priority, "alert_ids": alertIDs},
-		})
+		}); err != nil {
+			return err
+		}
+		return s.webhook.Publish(ctx, webhooks.EventCaseCreated, map[string]any{"case": present.ToAPI(c), "alert_ids": alertIDs})
 	})
 	if err != nil {
 		return domain.Case{}, err
@@ -229,6 +235,9 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, p domain.Patch) (dom
 			return err
 		}
 		out = next
+		if resolving {
+			return s.webhook.Publish(ctx, webhooks.EventCaseResolved, map[string]any{"case": present.ToAPI(next)})
+		}
 		return nil
 	})
 	return out, err
@@ -294,7 +303,7 @@ func validatePatch(p *domain.Patch) error {
 		}
 	}
 	if p.Priority != nil && !domain.ValidPriority(*p.Priority) {
-		return invalid("priority must be low, medium, high or critical")
+		return invalid("priority must be minimal, low, elevated, high or critical")
 	}
 	if p.ResolutionNote != nil {
 		if err := checkLen("resolution_note", *p.ResolutionNote, domain.MaxResolutionNote); err != nil {
@@ -377,10 +386,12 @@ func auditSafe(changes map[string]any) map[string]any {
 func severityRank(s string) int {
 	switch s {
 	case "critical":
-		return 3
+		return 4
 	case "high":
+		return 3
+	case "elevated":
 		return 2
-	case "medium":
+	case "low":
 		return 1
 	default:
 		return 0

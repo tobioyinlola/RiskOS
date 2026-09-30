@@ -245,6 +245,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/risk/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The environment's risk bands, thresholds and default decisions
+         * @description Readable with any of `events:read`, `alerts:read`, `cases:read`, `rules:read`,
+         *     `risk:evaluate` or `risk:configure`: everyone who sees scores can see how they are banded.
+         */
+        get: operations["getRiskPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/risk/settings": {
         parameters: {
             query?: never;
@@ -509,10 +530,778 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhook endpoints
+         * @description Requires scope `webhooks:read`.
+         */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Register a webhook endpoint
+         * @description Requires scope `webhooks:write`. Audited. The response contains the endpoint's signing secret,
+         *     shown only this once. URLs must use https and must not point to localhost or private,
+         *     loopback, link-local or reserved addresses (also checked after DNS resolution on every
+         *     delivery). At most 20 endpoints per environment (409 beyond).
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a webhook endpoint
+         * @description Requires scope `webhooks:read`. Never returns the secret.
+         */
+        get: operations["getWebhook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change or enable/disable a webhook endpoint
+         * @description Requires scope `webhooks:write`. Audited. Setting `status: active` re-enables an endpoint
+         *     disabled after failing, and clears its failure state.
+         */
+        patch: operations["updateWebhook"];
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate a webhook endpoint's signing secret
+         * @description Requires scope `webhooks:write`. Audited. Returns the new secret, shown only this once.
+         *     Until the overlap ends, deliveries carry signatures from both the new and the previous
+         *     secret, so receivers can switch without dropping events.
+         */
+        post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test event to an endpoint
+         * @description Requires scope `webhooks:write`. Queues a `webhook.test` event for this endpoint only.
+         */
+        post: operations["testWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an endpoint's deliveries, newest first
+         * @description Requires scope `webhooks:read`.
+         */
+        get: operations["listWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a delivery with its payload and every attempt
+         * @description Requires scope `webhooks:read`.
+         */
+        get: operations["getWebhookDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/redeliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed delivery
+         * @description Requires scope `webhooks:write`. Audited. Starts a new delivery cycle for a `failed` delivery
+         *     to an active endpoint. The event keeps its ID.
+         */
+        post: operations["redeliverWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign in to the console with email and password
+         * @description Starts a console session. The response says which second factor is needed next
+         *     (`mfa_required`) or that the user must enroll one (`enrollment_required`); the cookie is set
+         *     either way. Wrong email, wrong password and disabled accounts get the same 401. Attempts are
+         *     throttled per email and per IP (429). Not for API keys.
+         */
+        post: operations["login"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/session": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The current console session
+         * @description Returns the signed-in user, tenant, role, permissions, second factors, the session's state
+         *     and the CSRF token the console must send in `X-CSRF-Token` on every unsafe request.
+         */
+        get: operations["getSession"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/logout": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Sign out
+         * @description Ends the session and clears the cookie.
+         */
+        post: operations["logout"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/totp/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify an authenticator-app code
+         * @description Completes sign-in (`mfa_required`) or re-authenticates an active session for high-impact
+         *     actions. Each code works once. Throttled per user.
+         */
+        post: operations["verifyTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/recovery/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Use a recovery code
+         * @description Like `verifyTotp` with one of the single-use recovery codes.
+         */
+        post: operations["verifyRecoveryCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/totp/enroll": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start authenticator-app enrollment
+         * @description For a new user (`enrollment_required`), or an active session re-authenticated within the
+         *     last 10 minutes. Returns the secret and an `otpauth://` URI for a QR code.
+         */
+        post: operations["enrollTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/totp/confirm": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm authenticator-app enrollment
+         * @description Confirms enrollment with a first code. Returns recovery codes, shown once, if the user had
+         *     none. A new user's session becomes active.
+         */
+        post: operations["confirmTotp"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/passkeys/register/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start adding a passkey
+         * @description Returns WebAuthn `PublicKeyCredentialCreationOptions` for `navigator.credentials.create`. Same conditions as `enrollTotp`.
+         */
+        post: operations["passkeyRegistrationOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/passkeys/register": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish adding a passkey
+         * @description Verifies the authenticator's response and stores the passkey. Returns recovery codes, shown once, if the user had none.
+         */
+        post: operations["registerPasskey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/passkeys/login/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start a passkey verification
+         * @description Returns WebAuthn `PublicKeyCredentialRequestOptions` for `navigator.credentials.get`, to complete sign-in or re-authenticate.
+         */
+        post: operations["passkeyLoginOptions"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/passkeys/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish a passkey verification
+         * @description Verifies the assertion. Completes sign-in or re-authenticates.
+         */
+        post: operations["verifyPasskey"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/passkeys/{passkey_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a passkey
+         * @description Requires re-authentication within the last 10 minutes. At least one second factor must remain.
+         */
+        delete: operations["deletePasskey"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/mfa/recovery-codes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Replace your recovery codes
+         * @description Requires re-authentication within the last 10 minutes. The new codes are shown once; the old ones stop working.
+         */
+        post: operations["regenerateRecoveryCodes"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/invites/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Accept an invite
+         * @description Creates the invited user with a name and password and starts a session that must enroll a
+         *     second factor next. Invites are single-use and expire after 72 hours.
+         */
+        post: operations["acceptInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team/members": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the tenant's console users
+         * @description Requires `team:read`.
+         */
+        get: operations["listTeamMembers"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team/members/{user_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a user's role or status
+         * @description Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+         *     Audited. You cannot change yourself; the tenant always keeps an active administrator. Any
+         *     change ends the user's sessions.
+         */
+        patch: operations["updateTeamMember"];
+        trace?: never;
+    };
+    "/api/v1/team/invites": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List invites
+         * @description Requires `team:read`.
+         */
+        get: operations["listInvites"];
+        put?: never;
+        /**
+         * Invite a person
+         * @description Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+         *     Audited. Returns a single-use link, valid for 72 hours and shown once; share it with the person
+         *     directly (RiskOS does not send email yet).
+         */
+        post: operations["createInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/team/invites/{invite_id}/revoke": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Revoke a pending invite
+         * @description Requires `team:write`. Audited.
+         */
+        post: operations["revokeInvite"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        LoginRequest: {
+            email: string;
+            password: string;
+        };
+        CodeRequest: {
+            code: string;
+        };
+        /** @enum {string} */
+        SessionState: "mfa_required" | "enrollment_required" | "active";
+        AuthState: {
+            state: components["schemas"]["SessionState"];
+            /** @description Second factors the user can complete sign-in with. */
+            mfa_methods?: ("totp" | "passkey" | "recovery_code")[];
+            /** @description Newly issued recovery codes, shown only in this response. */
+            recovery_codes?: string[];
+            recovery_codes_remaining?: number;
+        };
+        TotpEnrollment: {
+            /** @description Base32 secret for manual entry. */
+            secret: string;
+            otpauth_uri: string;
+        };
+        /** @description WebAuthn options, passed to the browser's credentials API as returned. */
+        WebAuthnOptions: {
+            [key: string]: unknown;
+        };
+        PasskeyRegistrationRequest: {
+            name?: string;
+            /** @description The `PublicKeyCredential` from `navigator.credentials.create`, JSON-encoded. */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
+        PasskeyAssertionRequest: {
+            /** @description The `PublicKeyCredential` from `navigator.credentials.get`, JSON-encoded. */
+            credential: {
+                [key: string]: unknown;
+            };
+        };
+        RecoveryCodes: {
+            recovery_codes: string[];
+        };
+        AcceptInviteRequest: {
+            token: string;
+            name: string;
+            password: string;
+        };
+        /** @enum {string} */
+        Role: "customer_admin" | "developer" | "risk_manager" | "analyst";
+        Passkey: {
+            id: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_used_at: string | null;
+        };
+        ConsoleSession: {
+            state: components["schemas"]["SessionState"];
+            user: {
+                id: string;
+                email: string;
+                name: string;
+                role: components["schemas"]["Role"];
+            };
+            tenant: {
+                id: string;
+                name: string;
+            };
+            permissions: components["schemas"]["Scope"][];
+            /** @description Choose one per request with the `RiskOS-Environment` header (default `test`). */
+            environments: components["schemas"]["Environment"][];
+            csrf_token: string;
+            /** Format: date-time */
+            expires_at: string;
+            /**
+             * Format: date-time
+             * @description Until when high-impact actions are allowed without verifying again.
+             */
+            reauth_valid_until: string | null;
+            mfa: {
+                totp: boolean;
+                passkeys: components["schemas"]["Passkey"][];
+                recovery_codes_remaining: number;
+            };
+        };
+        TeamMember: {
+            id: string;
+            email: string;
+            name: string;
+            role: components["schemas"]["Role"];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            mfa_enabled: boolean;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            last_login_at: string | null;
+        };
+        TeamMemberList: {
+            data: components["schemas"]["TeamMember"][];
+        };
+        UpdateTeamMemberRequest: {
+            role?: components["schemas"]["Role"];
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        Invite: {
+            id: string;
+            email: string;
+            role: components["schemas"]["Role"];
+            /** @enum {string} */
+            status: "pending" | "accepted" | "revoked" | "expired";
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            expires_at: string;
+        };
+        InviteList: {
+            data: components["schemas"]["Invite"][];
+        };
+        CreateInviteRequest: {
+            email: string;
+            role: components["schemas"]["Role"];
+        };
+        CreatedInvite: {
+            invite: components["schemas"]["Invite"];
+            /** @description Single-use link, shown only in this response. */
+            invite_url: string;
+        };
+        /** @enum {string} */
+        WebhookEventType: "alert.created" | "alert.updated" | "case.created" | "case.resolved";
+        Webhook: {
+            /** @example whk_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            url: string;
+            description: string;
+            event_types: components["schemas"]["WebhookEventType"][];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            disabled_reason: string | null;
+            /**
+             * Format: date-time
+             * @description When the current run of failed attempts started. After 3 days the endpoint is disabled.
+             */
+            failing_since: string | null;
+            /**
+             * Format: date-time
+             * @description End of the current rotation overlap, if any.
+             */
+            previous_secret_valid_until: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        WebhookList: {
+            data: components["schemas"]["Webhook"][];
+        };
+        WebhookWithSecret: {
+            webhook: components["schemas"]["Webhook"];
+            /**
+             * @description The signing secret. Shown only in this response; store it in a secrets manager.
+             * @example whsec_3q2-7wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+             */
+            secret: string;
+        };
+        CreateWebhookRequest: {
+            /** @example https://hooks.example.com/riskos */
+            url: string;
+            description?: string;
+            event_types: components["schemas"]["WebhookEventType"][];
+        };
+        UpdateWebhookRequest: {
+            url?: string;
+            description?: string;
+            event_types?: components["schemas"]["WebhookEventType"][];
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        RotateWebhookSecretRequest: {
+            /**
+             * @description How long the previous secret keeps signing deliveries.
+             * @default 24
+             */
+            overlap_hours: number;
+        };
+        /** @enum {string} */
+        WebhookDeliveryStatus: "pending" | "succeeded" | "failed";
+        WebhookDelivery: {
+            /** @example whd_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            webhook_id: string;
+            /**
+             * @description The event's ID (`RiskOS-Webhook-Id`), the same for every endpoint and every retry.
+             * @example wev_01j9x2k7m3q4r5s6t7v8w9x0yz
+             */
+            event_id: string;
+            /** @example alert.created */
+            event_type: string;
+            status: components["schemas"]["WebhookDeliveryStatus"];
+            /** @description Attempts in the current delivery cycle (at most 9 over about an hour). */
+            attempts: number;
+            /** Format: date-time */
+            next_attempt_at: string | null;
+            /** Format: date-time */
+            last_attempt_at: string | null;
+            last_status_code: number | null;
+            last_error: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        WebhookDeliveryList: {
+            data: components["schemas"]["WebhookDelivery"][];
+            next_cursor: string | null;
+        };
+        WebhookAttempt: {
+            attempt: number;
+            /** Format: date-time */
+            started_at: string;
+            duration_ms: number;
+            status_code: number | null;
+            /** @description A short reason such as `timeout` or `http status 500`. Response bodies are never stored. */
+            error: string | null;
+        };
+        WebhookDeliveryDetail: {
+            delivery: components["schemas"]["WebhookDelivery"];
+            /** @description The exact JSON body sent (signatures cover its bytes as sent). */
+            payload: {
+                [key: string]: unknown;
+            };
+            attempts: components["schemas"]["WebhookAttempt"][];
+        };
         /**
          * @description `risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals.
          * @enum {string}
@@ -531,7 +1320,7 @@ export interface components {
                 ref: string;
             };
             title: string;
-            severity: components["schemas"]["Severity"];
+            severity: components["schemas"]["RiskLevel"];
             status: components["schemas"]["AlertStatus"];
             assignee: string | null;
             case_id: string | null;
@@ -598,7 +1387,7 @@ export interface components {
             title: string;
             description: string;
             status: components["schemas"]["CaseStatus"];
-            priority: components["schemas"]["Severity"];
+            priority: components["schemas"]["RiskLevel"];
             assignee: string | null;
             resolution: components["schemas"]["CaseResolution"] | null;
             resolution_note: string | null;
@@ -632,14 +1421,14 @@ export interface components {
         CreateCaseRequest: {
             title: string;
             description?: string;
-            priority?: components["schemas"]["Severity"];
+            priority?: components["schemas"]["RiskLevel"];
             assignee?: string;
             alert_ids?: string[];
         };
         UpdateCaseRequest: {
             title?: string;
             description?: string;
-            priority?: components["schemas"]["Severity"];
+            priority?: components["schemas"]["RiskLevel"];
             assignee?: string;
             status?: components["schemas"]["CaseStatus"];
             resolution?: components["schemas"]["CaseResolution"];
@@ -683,7 +1472,7 @@ export interface components {
          * @description A permission an API key holds.
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -929,8 +1718,37 @@ export interface components {
         ProfileChangeData: {
             fields: ("email" | "phone" | "address" | "name" | "password")[];
         };
-        /** @enum {string} */
-        RiskLevel: "low" | "medium" | "high" | "critical";
+        /**
+         * @description The risk band of a score: minimal, low, elevated, high, critical (default thresholds
+         *     20/50/70/90, adjustable per environment; see `GET /api/v1/risk/policy`).
+         * @enum {string}
+         */
+        RiskLevel: "minimal" | "low" | "elevated" | "high" | "critical";
+        /** @description Lowest score of each band above minimal; must increase strictly. Always present in responses; when omitted from a PUT, the defaults are stored. */
+        RiskThresholds: {
+            /** @example 20 */
+            low: number;
+            /** @example 50 */
+            elevated: number;
+            /** @example 70 */
+            high: number;
+            /** @example 90 */
+            critical: number;
+        };
+        RiskPolicy: {
+            engine_version: string;
+            thresholds: components["schemas"]["RiskThresholds"];
+            /** @description True when the environment's thresholds differ from the defaults. */
+            custom_calibration: boolean;
+            /** @enum {string} */
+            alert_min_decision: "step_up" | "review";
+            bands: {
+                band: components["schemas"]["RiskLevel"];
+                min_score: number;
+                max_score: number;
+                default_decision: components["schemas"]["Decision"];
+            }[];
+        };
         /** @enum {string} */
         Decision: "allow" | "review" | "step_up" | "block";
         Signal: {
@@ -957,7 +1775,7 @@ export interface components {
             risk_score: number;
             risk_level: components["schemas"]["RiskLevel"];
             decision: components["schemas"]["Decision"];
-            /** @example risk-engine-1.0.0 */
+            /** @example risk-engine-2.0.0 */
             engine_version: string;
             signals: components["schemas"]["Signal"][];
             degraded_signals: string[];
@@ -1145,6 +1963,7 @@ export interface components {
             fail_policies: {
                 [key: string]: "open" | "closed";
             };
+            thresholds?: components["schemas"]["RiskThresholds"];
             /**
              * @description The least severe decision that raises an alert. Always present in responses; when
              *     omitted from a PUT, `review` is stored.
@@ -1625,6 +2444,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskCatalog"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRiskPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskPolicy"];
                 };
             };
             401: components["responses"]["Unauthenticated"];
@@ -2132,6 +2975,776 @@ export interface operations {
                 };
             };
             400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The environment's endpoints, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description The endpoint and its secret. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookWithSecret"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description The endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateWebhookSecretRequest"];
+            };
+        };
+        responses: {
+            /** @description The endpoint and its new secret. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookWithSecret"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    testWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The queued delivery. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDelivery"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: components["schemas"]["WebhookDeliveryStatus"];
+            };
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of deliveries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getWebhookDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The delivery. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    redeliverWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The delivery, pending again. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDelivery"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    login: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's next step. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getSession: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The session. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConsoleSession"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    logout: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Signed out. */
+            204: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifyTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifyRecoveryCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's state and the codes left. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    enrollTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pending enrollment. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TotpEnrollment"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    confirmTotp: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CodeRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's state (with recovery codes when issued). */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    passkeyRegistrationOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebAuthn creation options. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAuthnOptions"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    registerPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyRegistrationRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    passkeyLoginOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description WebAuthn request options. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebAuthnOptions"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifyPasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PasskeyAssertionRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's state. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deletePasskey: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                passkey_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    regenerateRecoveryCodes: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The new codes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecoveryCodes"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    acceptInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["AcceptInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session's state. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listTeamMembers: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The users. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMemberList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateTeamMember: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                user_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateTeamMemberRequest"];
+            };
+        };
+        responses: {
+            /** @description The user. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TeamMember"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listInvites: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Invites, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["InviteList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateInviteRequest"];
+            };
+        };
+        responses: {
+            /** @description The invite and its link. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CreatedInvite"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    revokeInvite: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                invite_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

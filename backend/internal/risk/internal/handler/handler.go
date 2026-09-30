@@ -62,6 +62,37 @@ func (h *Handlers) GetRiskCatalog(ctx context.Context, _ apigen.GetRiskCatalogRe
 	return out, nil
 }
 
+// GetRiskPolicy implements GET /api/v1/risk/policy.
+func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequestObject) (apigen.GetRiskPolicyResponseObject, error) {
+	s, err := h.svc.Policy(ctx)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	t := s.Thresholds
+	bounds := []struct {
+		level    domain.Level
+		min, max int
+	}{
+		{domain.LevelMinimal, 0, t.Low - 1}, {domain.LevelLow, t.Low, t.Elevated - 1},
+		{domain.LevelElevated, t.Elevated, t.High - 1}, {domain.LevelHigh, t.High, t.Critical - 1},
+		{domain.LevelCritical, t.Critical, domain.MaxScore},
+	}
+	out := apigen.GetRiskPolicy200JSONResponse{
+		EngineVersion: engine.Version, CustomCalibration: t != domain.DefaultThresholds(),
+		AlertMinDecision: apigen.RiskPolicyAlertMinDecision(s.AlertMinDecision),
+		Thresholds:       apigen.RiskThresholds{Low: t.Low, Elevated: t.Elevated, High: t.High, Critical: t.Critical},
+	}
+	for _, b := range bounds {
+		out.Bands = append(out.Bands, struct {
+			Band            apigen.RiskLevel `json:"band"`
+			DefaultDecision apigen.Decision  `json:"default_decision"`
+			MaxScore        int              `json:"max_score"`
+			MinScore        int              `json:"min_score"`
+		}{Band: apigen.RiskLevel(b.level), DefaultDecision: apigen.Decision(domain.DefaultDecision(b.level)), MaxScore: b.max, MinScore: b.min})
+	}
+	return out, nil
+}
+
 // GetRiskSettings implements GET /api/v1/risk/settings.
 func (h *Handlers) GetRiskSettings(ctx context.Context, _ apigen.GetRiskSettingsRequestObject) (apigen.GetRiskSettingsResponseObject, error) {
 	s, err := h.svc.Settings(ctx)
@@ -82,6 +113,10 @@ func (h *Handlers) PutRiskSettings(ctx context.Context, req apigen.PutRiskSettin
 		HighValueByCurrency: req.Body.HighValueByCurrency,
 		FailPolicies:        map[string]domain.FailPolicy{},
 		AlertMinDecision:    domain.DecisionReview,
+		Thresholds:          domain.DefaultThresholds(),
+	}
+	if t := req.Body.Thresholds; t != nil {
+		in.Thresholds = domain.Thresholds{Low: t.Low, Elevated: t.Elevated, High: t.High, Critical: t.Critical}
 	}
 	if req.Body.AlertMinDecision != nil {
 		in.AlertMinDecision = domain.Decision(*req.Body.AlertMinDecision)
@@ -274,6 +309,9 @@ func settingsToAPI(s domain.Settings) apigen.RiskSettings {
 		Weights: s.Weights, HighValueDefault: s.HighValueDefault, HighValueByCurrency: s.HighValueByCurrency,
 		FailPolicies:     map[string]apigen.RiskSettingsFailPolicies{},
 		AlertMinDecision: new(apigen.RiskSettingsAlertMinDecision(s.AlertMinDecision)),
+		Thresholds: &apigen.RiskThresholds{
+			Low: s.Thresholds.Low, Elevated: s.Thresholds.Elevated, High: s.Thresholds.High, Critical: s.Thresholds.Critical,
+		},
 	}
 	for k, v := range s.FailPolicies {
 		out.FailPolicies[k] = apigen.RiskSettingsFailPolicies(v)

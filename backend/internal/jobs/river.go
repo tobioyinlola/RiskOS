@@ -37,7 +37,13 @@ type QueueConfig struct {
 	Concurrency int
 	// JobTimeout bounds each job's context.
 	JobTimeout time.Duration
+	// Queues are additional queues (see Queued) and their maximum concurrent jobs.
+	Queues map[string]int
 }
+
+// Snooze returns an error that makes the queue run the job again after d, without counting an
+// attempt. For handlers that manage their own retry schedule.
+func Snooze(d time.Duration) error { return river.JobSnooze(d) }
 
 // NewQueue builds a queue on pool that executes the handlers in registry.
 func NewQueue(pool *pgxpool.Pool, registry *Registry, cfg QueueConfig, logger *slog.Logger) (*Queue, error) {
@@ -56,12 +62,16 @@ func NewQueue(pool *pgxpool.Pool, registry *Registry, cfg QueueConfig, logger *s
 			&river.PeriodicJobOpts{RunOnStart: true},
 		))
 	}
+	queues := map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.Concurrency}}
+	for name, n := range cfg.Queues {
+		queues[name] = river.QueueConfig{MaxWorkers: n}
+	}
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:       logger,
 		JobTimeout:   cfg.JobTimeout,
 		Workers:      workers,
 		PeriodicJobs: periodic,
-		Queues:       map[string]river.QueueConfig{river.QueueDefault: {MaxWorkers: cfg.Concurrency}},
+		Queues:       queues,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create river client: %w", err)
@@ -81,11 +91,15 @@ func NewInserter(pool *pgxpool.Pool, logger *slog.Logger) (*Queue, error) {
 // Enqueue inserts a job. Inside a tenant transaction (txn.Runner) the job joins it, so it is
 // created only if the transaction commits: the queue then acts as a transactional outbox.
 func (q *Queue) Enqueue(ctx context.Context, args Args) error {
+	var opts *river.InsertOpts
+	if qd, ok := args.(Queued); ok {
+		opts = &river.InsertOpts{Queue: qd.Queue()}
+	}
 	var err error
 	if tx, txErr := db.TxFrom(ctx); txErr == nil {
-		_, err = q.client.InsertTx(ctx, tx, args, nil)
+		_, err = q.client.InsertTx(ctx, tx, args, opts)
 	} else {
-		_, err = q.client.Insert(ctx, args, nil)
+		_, err = q.client.Insert(ctx, args, opts)
 	}
 	if err != nil {
 		return fmt.Errorf("enqueue %s job: %w", args.Kind(), err)

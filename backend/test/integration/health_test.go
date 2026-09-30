@@ -29,6 +29,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 func newAPI(t *testing.T) http.Handler {
@@ -41,7 +42,8 @@ func newAPI(t *testing.T) http.Handler {
 	riskModule := newRisk(shared.rdb, runner, auditModule, clock.System{})
 	queue, err := jobs.NewInserter(shared.pool, shared.logger)
 	require.NoError(t, err)
-	alertsModule := alerts.New(runner, auditModule.Recorder(), clock.System{}, shared.logger)
+	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clock.System{}, queue, testWebhookConfig(), nil, shared.logger)
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clock.System{}, webhooksModule.Publisher(), shared.logger)
 	h, err := httpapi.New(httpapi.Deps{
 		Logger:     shared.logger,
 		Clock:      clock.System{},
@@ -52,7 +54,8 @@ func newAPI(t *testing.T) http.Handler {
 		Events:     events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clock.System{}),
 		Risk:       riskModule,
 		Alerts:     alertsModule,
-		Cases:      cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clock.System{}),
+		Cases:      cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clock.System{}, webhooksModule.Publisher()),
+		Webhooks:   webhooksModule,
 		Limiter:    ratelimit.New(shared.rdb),
 		RateLimits: generousLimits(),
 		Health: health.NewService(shared.logger,
@@ -82,7 +85,14 @@ func stopFor(t *testing.T, c testcontainers.Container, fn func()) {
 	defer func() {
 		ctx := context.WithoutCancel(t.Context())
 		require.NoError(t, c.Start(ctx))
-		require.NoError(t, shared.connect(ctx))
+		// A restarted database can report ready before it accepts connections (57P03, "the
+		// database system is starting up"), so reconnect until it does. Every later test uses
+		// the shared clients.
+		var err error
+		require.Eventually(t, func() bool {
+			err = shared.connect(ctx)
+			return err == nil
+		}, 60*time.Second, 250*time.Millisecond, "reconnect after restart: %v", err)
 	}()
 	fn()
 }

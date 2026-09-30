@@ -41,17 +41,23 @@ func NewRequestID() string { return New("req") }
 
 // Prefixes of exposed domain IDs. A prefix is part of the public API; never change one.
 const (
-	PrefixTenant      = "ten"
-	PrefixEnvironment = "env"
-	PrefixAPIKey      = "key"
-	PrefixAudit       = "aud"
-	PrefixEvent       = "evt"
-	PrefixEvaluation  = "evl"
-	PrefixRule        = "rul"
-	PrefixAlert       = "alr"
-	PrefixCase        = "cas"
-	PrefixCaseNote    = "cnt"
-	PrefixActivity    = "act"
+	PrefixTenant          = "ten"
+	PrefixEnvironment     = "env"
+	PrefixAPIKey          = "key"
+	PrefixAudit           = "aud"
+	PrefixEvent           = "evt"
+	PrefixEvaluation      = "evl"
+	PrefixRule            = "rul"
+	PrefixAlert           = "alr"
+	PrefixCase            = "cas"
+	PrefixCaseNote        = "cnt"
+	PrefixActivity        = "act"
+	PrefixWebhook         = "whk"
+	PrefixWebhookEvent    = "wev"
+	PrefixWebhookDelivery = "whd"
+	PrefixUser            = "usr"
+	PrefixInvite          = "inv"
+	PrefixPasskey         = "pky"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

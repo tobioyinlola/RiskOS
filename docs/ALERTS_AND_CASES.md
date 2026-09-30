@@ -2,8 +2,8 @@
 
 **Purpose:** how risk decisions become alerts, how alerts are grouped and triaged, and how cases
 investigate and resolve them. Design: [ARCHITECTURE.md §6 and §7](ARCHITECTURE.md). Status:
-**built (build step 5).** Delivery of alerts to customer systems (webhooks) is build step 6; the
-console is build step 7.
+**built (build step 5).** Alert and case events reach customer systems as webhooks
+([WEBHOOKS.md](WEBHOOKS.md), build step 6); the console is build step 7.
 
 ## Flow
 
@@ -32,8 +32,10 @@ analyst (API) ─▶ triage alert ─▶ open a case with alerts ─▶ notes �
 
 | Alert kind | Raised when | Subject (grouping key) | Severity |
 |---|---|---|---|
-| `risk` | The decision reaches the environment's threshold: REVIEW by default; a tenant can lower it to STEP_UP (`alert_min_decision` in `PUT /api/v1/risk/settings`) | The event's `actor.user_id` | The evaluation's risk level; the highest level when grouped |
+| `risk` | The decision reaches the environment's threshold: REVIEW by default; a tenant can lower it to STEP_UP (`alert_min_decision` in `PUT /api/v1/risk/settings`) | The event's `actor.user_id` | The evaluation's risk band; the highest band when grouped |
 | `security` | Any signal was degraded (the feature store was slow or down), whatever the decision | The environment | high |
+
+Severities and case priorities use the five risk bands (minimal, low, elevated, high, critical).
 
 A fail-closed REVIEW caused by degradation raises both. BLOCK is never produced (RISK_ENGINE.md).
 
@@ -61,7 +63,7 @@ Notes on alerts go into the alert's timeline.
 
 - `POST /api/v1/cases` opens a case, optionally escalating up to 50 alerts into it (all must be
   `open` or `investigating`; any failure creates nothing). Without an explicit priority, the case
-  takes the highest severity of its alerts (`medium` without alerts).
+  takes the highest severity of its alerts (`elevated` without alerts).
 - `PATCH` changes title, description, priority, assignee and status (`open`, `investigating`).
   Resolving requires a resolution: `confirmed_fraud`, `false_positive`, `legitimate` or
   `inconclusive`, with an optional note. Resolving closes the case's alerts: `false_positive` for a
