@@ -11,6 +11,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -41,7 +42,7 @@ func (h *Handlers) ListCases(ctx context.Context, req apigen.ListCasesRequestObj
 	rows, next := httpx.NextCursor(rows, page.Limit, ids.PrefixCase, func(c domain.Case) uuid.UUID { return c.ID })
 	data := make([]apigen.Case, len(rows))
 	for i, c := range rows {
-		data[i] = toAPI(c)
+		data[i] = present.ToAPI(c)
 	}
 	return apigen.ListCases200JSONResponse{Data: data, NextCursor: next}, nil
 }
@@ -75,7 +76,7 @@ func (h *Handlers) CreateCase(ctx context.Context, req apigen.CreateCaseRequestO
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apigen.CreateCase201JSONResponse(toAPI(c)), nil
+	return apigen.CreateCase201JSONResponse(present.ToAPI(c)), nil
 }
 
 // GetCase implements GET /api/v1/cases/{case_id}.
@@ -100,7 +101,7 @@ func (h *Handlers) GetCase(ctx context.Context, req apigen.GetCaseRequestObject)
 	for i, a := range d.Activity {
 		activity[i] = alerts.Activity(a)
 	}
-	return apigen.GetCase200JSONResponse{Case: toAPI(d.Case), Alerts: as, Notes: notes, Activity: alerts.ActivityToAPI(activity)}, nil
+	return apigen.GetCase200JSONResponse{Case: present.ToAPI(d.Case), Alerts: as, Notes: notes, Activity: alerts.ActivityToAPI(activity)}, nil
 }
 
 // UpdateCase implements PATCH /api/v1/cases/{case_id}.
@@ -127,7 +128,7 @@ func (h *Handlers) UpdateCase(ctx context.Context, req apigen.UpdateCaseRequestO
 	if err != nil {
 		return nil, mapError(err)
 	}
-	return apigen.UpdateCase200JSONResponse(toAPI(c)), nil
+	return apigen.UpdateCase200JSONResponse(present.ToAPI(c)), nil
 }
 
 // AddCaseNote implements POST /api/v1/cases/{case_id}/notes.
@@ -144,19 +145,6 @@ func (h *Handlers) AddCaseNote(ctx context.Context, req apigen.AddCaseNoteReques
 		return nil, mapError(err)
 	}
 	return apigen.AddCaseNote201JSONResponse(noteToAPI(n)), nil
-}
-
-func toAPI(c domain.Case) apigen.Case {
-	out := apigen.Case{
-		Id: ids.Format(ids.PrefixCase, c.ID), Title: c.Title, Description: c.Description,
-		Status: apigen.CaseStatus(c.Status), Priority: apigen.Severity(c.Priority), Assignee: c.Assignee,
-		ResolutionNote: c.ResolutionNote, ResolvedAt: c.ResolvedAt, ResolvedBy: c.ResolvedBy,
-		CreatedAt: c.CreatedAt, CreatedBy: c.CreatedBy, UpdatedAt: c.UpdatedAt,
-	}
-	if c.Resolution != nil {
-		out.Resolution = new(apigen.CaseResolution(*c.Resolution))
-	}
-	return out
 }
 
 func noteToAPI(n domain.Note) apigen.CaseNote {

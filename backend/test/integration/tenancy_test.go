@@ -37,16 +37,38 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 const testPepper = "integration-pepper-0123456789abcdef"
 
 // stack is one API instance wired exactly like cmd/api, on the application role.
 type stack struct {
-	handler http.Handler
-	tenants *tenants.Module
-	auth    *auth.Module
-	alerts  *alerts.Module
+	handler  http.Handler
+	tenants  *tenants.Module
+	auth     *auth.Module
+	alerts   *alerts.Module
+	webhooks *webhooks.Module
+}
+
+func cfgWebhooks(opts []webhooks.Config) webhooks.Config {
+	if len(opts) > 0 {
+		return opts[0]
+	}
+	return testWebhookConfig()
+}
+
+// testWebhookKey derives webhook secrets in integration tests.
+const testWebhookKey = "integration-webhook-key-0123456789abcdef"
+
+// testWebhookConfig delivers to local test servers (private addresses in the test environment)
+// on a fast retry schedule.
+func testWebhookConfig() webhooks.Config {
+	return webhooks.Config{
+		SigningKey: []byte(testWebhookKey), Timeout: 2 * time.Second, AllowPrivateTest: true,
+		RetryDelays:  []time.Duration{20 * time.Millisecond, 20 * time.Millisecond},
+		DisableAfter: time.Hour,
+	}
 }
 
 func newStack(t *testing.T, cacheTTL time.Duration) stack {
@@ -69,7 +91,7 @@ func newStackWithLimits(t *testing.T, cacheTTL time.Duration, limits httpapi.Rat
 
 // newStackWith builds a stack whose risk engine reads features from featureRedis, so tests can
 // give it an unreachable one.
-func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits, featureRedis risk.Redis) stack {
+func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits, featureRedis risk.Redis, opts ...webhooks.Config) stack {
 	t.Helper()
 	tel, err := telemetry.Setup(t.Context(), config.Telemetry{}, "integration", config.EnvTest)
 	require.NoError(t, err)
@@ -80,23 +102,28 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	riskModule := newRisk(featureRedis, runner, auditModule, clk)
 	queue, err := jobs.NewInserter(shared.pool, shared.logger)
 	require.NoError(t, err)
-	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, shared.logger)
+	var alertsModule *alerts.Module
+	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, cfgWebhooks(opts), webhooks.NotifierFunc(
+		func(ctx context.Context, id uuid.UUID) error { return alertsModule.WebhookEndpointDisabled(ctx, id) }), shared.logger)
+	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), shared.logger)
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		Events:  events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
-		Risk:    riskModule,
-		Alerts:  alertsModule,
-		Cases:   cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk),
-		Limiter: ratelimit.New(shared.rdb), RateLimits: limits,
+		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
+		Risk:     riskModule,
+		Alerts:   alertsModule,
+		Cases:    cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher()),
+		Webhooks: webhooksModule,
+		Limiter:  ratelimit.New(shared.rdb), RateLimits: limits,
 	})
 	require.NoError(t, err)
 	return stack{
-		handler: h,
-		tenants: tenants.New(runner, auditModule.Recorder()),
-		auth:    authModule,
-		alerts:  alertsModule,
+		handler:  h,
+		tenants:  tenants.New(runner, auditModule.Recorder()),
+		auth:     authModule,
+		alerts:   alertsModule,
+		webhooks: webhooksModule,
 	}
 }
 
@@ -234,6 +261,7 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	assert.ElementsMatch(t, []apigen.Scope{
 		"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate",
 		"rules:read", "rules:write", "risk:configure", "alerts:read", "alerts:write", "cases:read", "cases:write",
+		"webhooks:read", "webhooks:write",
 	}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.

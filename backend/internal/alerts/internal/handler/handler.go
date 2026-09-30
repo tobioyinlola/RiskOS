@@ -9,6 +9,7 @@ import (
 	"github.com/google/uuid"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
@@ -43,7 +44,7 @@ func (h *Handlers) ListAlerts(ctx context.Context, req apigen.ListAlertsRequestO
 	rows, next := httpx.NextCursor(rows, page.Limit, ids.PrefixAlert, func(a domain.Alert) uuid.UUID { return a.ID })
 	data := make([]apigen.Alert, len(rows))
 	for i, a := range rows {
-		data[i] = ToAPI(a)
+		data[i] = present.ToAPI(a)
 	}
 	return apigen.ListAlerts200JSONResponse{Data: data, NextCursor: next}, nil
 }
@@ -70,7 +71,7 @@ func (h *Handlers) GetAlert(ctx context.Context, req apigen.GetAlertRequestObjec
 			Decision: apigen.Decision(e.Decision), Signals: signals, DegradedSignals: e.Degraded, EvaluatedAt: e.EvaluatedAt,
 		}
 	}
-	return apigen.GetAlert200JSONResponse{Alert: ToAPI(d.Alert), Evaluations: evals, Activity: ActivityToAPI(d.Activity)}, nil
+	return apigen.GetAlert200JSONResponse{Alert: present.ToAPI(d.Alert), Evaluations: evals, Activity: present.ActivityToAPI(d.Activity)}, nil
 }
 
 // UpdateAlert implements PATCH /api/v1/alerts/{alert_id}.
@@ -90,36 +91,7 @@ func (h *Handlers) UpdateAlert(ctx context.Context, req apigen.UpdateAlertReques
 	if err != nil {
 		return nil, MapError(err)
 	}
-	return apigen.UpdateAlert200JSONResponse(ToAPI(a)), nil
-}
-
-// ToAPI converts an alert to the contract.
-func ToAPI(a domain.Alert) apigen.Alert {
-	out := apigen.Alert{
-		Id: ids.Format(ids.PrefixAlert, a.ID), Kind: apigen.AlertKind(a.Kind), Title: a.Title,
-		Severity: apigen.Severity(a.Severity), Status: apigen.AlertStatus(a.Status), Assignee: a.Assignee,
-		MaxScore: a.MaxScore, EvaluationCount: a.EvaluationCount, FirstSeenAt: a.FirstSeenAt,
-		LastSeenAt: a.LastSeenAt, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
-	}
-	out.Subject.Type, out.Subject.Ref = apigen.AlertSubjectType(a.SubjectType), a.SubjectRef
-	if a.CaseID != nil {
-		out.CaseId = new(ids.Format(ids.PrefixCase, *a.CaseID))
-	}
-	return out
-}
-
-// ActivityToAPI converts a timeline to the contract.
-func ActivityToAPI(entries []domain.Activity) []apigen.ActivityEntry {
-	out := make([]apigen.ActivityEntry, len(entries))
-	for i, e := range entries {
-		out[i] = apigen.ActivityEntry{
-			Id: ids.Format(ids.PrefixActivity, e.ID), Action: e.Action, Actor: e.Actor, Detail: e.Detail, CreatedAt: e.CreatedAt,
-		}
-		if out[i].Detail == nil {
-			out[i].Detail = map[string]any{}
-		}
-	}
-	return out
+	return apigen.UpdateAlert200JSONResponse(present.ToAPI(a)), nil
 }
 
 // MapError translates the module's errors to the error contract.

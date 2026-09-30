@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: RiskOS API
-  version: 0.5.0
+  version: 0.6.0
   description: |
     RiskOS public HTTP contract. This file is the single source of truth: Go server stubs and the
     TypeScript client are generated from it (`make generate`), and CI fails if generated code drifts.
@@ -43,6 +43,8 @@ tags:
     description: Alerts raised from risk decisions and degraded evaluations, and their triage.
   - name: cases
     description: Investigation cases grouping alerts, with notes and a resolution.
+  - name: webhooks
+    description: Signed notifications to customer endpoints, with delivery logs and retries.
 security:
   - apiKey: []
 paths:
@@ -1014,6 +1016,339 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/webhooks:
+    get:
+      operationId: listWebhooks
+      tags: [webhooks]
+      summary: List webhook endpoints
+      description: |
+        Requires scope `webhooks:read`.
+      responses:
+        "200":
+          description: The environment's endpoints, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createWebhook
+      tags: [webhooks]
+      summary: Register a webhook endpoint
+      description: |
+        Requires scope `webhooks:write`. Audited. The response contains the endpoint's signing secret,
+        shown only this once. URLs must use https and must not point to localhost or private,
+        loopback, link-local or reserved addresses (also checked after DNS resolution on every
+        delivery). At most 20 endpoints per environment (409 beyond).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateWebhookRequest"
+      responses:
+        "201":
+          description: The endpoint and its secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookWithSecret"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}:
+    get:
+      operationId: getWebhook
+      tags: [webhooks]
+      summary: Get a webhook endpoint
+      description: |
+        Requires scope `webhooks:read`. Never returns the secret.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    patch:
+      operationId: updateWebhook
+      tags: [webhooks]
+      summary: Change or enable/disable a webhook endpoint
+      description: |
+        Requires scope `webhooks:write`. Audited. Setting `status: active` re-enables an endpoint
+        disabled after failing, and clears its failure state.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/UpdateWebhookRequest"
+      responses:
+        "200":
+          description: The endpoint.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Webhook"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/rotate-secret:
+    post:
+      operationId: rotateWebhookSecret
+      tags: [webhooks]
+      summary: Rotate a webhook endpoint's signing secret
+      description: |
+        Requires scope `webhooks:write`. Audited. Returns the new secret, shown only this once.
+        Until the overlap ends, deliveries carry signatures from both the new and the previous
+        secret, so receivers can switch without dropping events.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RotateWebhookSecretRequest"
+      responses:
+        "200":
+          description: The endpoint and its new secret.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookWithSecret"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/test:
+    post:
+      operationId: testWebhook
+      tags: [webhooks]
+      summary: Send a test event to an endpoint
+      description: |
+        Requires scope `webhooks:write`. Queues a `webhook.test` event for this endpoint only.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "202":
+          description: The queued delivery.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/deliveries:
+    get:
+      operationId: listWebhookDeliveries
+      tags: [webhooks]
+      summary: List an endpoint's deliveries, newest first
+      description: |
+        Requires scope `webhooks:read`.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        - $ref: "#/components/parameters/Limit"
+        - $ref: "#/components/parameters/Cursor"
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/WebhookDeliveryStatus"
+      responses:
+        "200":
+          description: A page of deliveries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}:
+    get:
+      operationId: getWebhookDelivery
+      tags: [webhooks]
+      summary: Get a delivery with its payload and every attempt
+      description: |
+        Requires scope `webhooks:read`.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whd_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The delivery.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDeliveryDetail"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/redeliver:
+    post:
+      operationId: redeliverWebhook
+      tags: [webhooks]
+      summary: Retry a failed delivery
+      description: |
+        Requires scope `webhooks:write`. Audited. Starts a new delivery cycle for a `failed` delivery
+        to an active endpoint. The event keeps its ID.
+      parameters:
+        - name: webhook_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        - name: delivery_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+            example: whd_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "202":
+          description: The delivery, pending again.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/WebhookDelivery"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
 components:
   securitySchemes:
     apiKey:
@@ -1114,6 +1449,209 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    WebhookEventType:
+      type: string
+      enum: [alert.created, alert.updated, case.created, case.resolved]
+    Webhook:
+      type: object
+      additionalProperties: false
+      required: [id, url, description, event_types, status, disabled_reason, failing_since, previous_secret_valid_until, created_at, created_by, updated_at]
+      properties:
+        id:
+          type: string
+          example: whk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        url:
+          type: string
+        description:
+          type: string
+        event_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        status:
+          type: string
+          enum: [active, disabled]
+        disabled_reason:
+          type: string
+          nullable: true
+        failing_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When the current run of failed attempts started. After 3 days the endpoint is disabled.
+        previous_secret_valid_until:
+          type: string
+          format: date-time
+          nullable: true
+          description: End of the current rotation overlap, if any.
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+    WebhookList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/Webhook"
+    WebhookWithSecret:
+      type: object
+      additionalProperties: false
+      required: [webhook, secret]
+      properties:
+        webhook:
+          $ref: "#/components/schemas/Webhook"
+        secret:
+          type: string
+          description: The signing secret. Shown only in this response; store it in a secrets manager.
+          example: whsec_3q2-7wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+    CreateWebhookRequest:
+      type: object
+      additionalProperties: false
+      required: [url, event_types]
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+          example: https://hooks.example.com/riskos
+        description:
+          type: string
+          maxLength: 500
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+    UpdateWebhookRequest:
+      type: object
+      additionalProperties: false
+      minProperties: 1
+      properties:
+        url:
+          type: string
+          maxLength: 2048
+        description:
+          type: string
+          maxLength: 500
+        event_types:
+          type: array
+          minItems: 1
+          maxItems: 10
+          items:
+            $ref: "#/components/schemas/WebhookEventType"
+        status:
+          type: string
+          enum: [active, disabled]
+    RotateWebhookSecretRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        overlap_hours:
+          type: integer
+          minimum: 0
+          maximum: 168
+          default: 24
+          description: How long the previous secret keeps signing deliveries.
+    WebhookDeliveryStatus:
+      type: string
+      enum: [pending, succeeded, failed]
+    WebhookDelivery:
+      type: object
+      additionalProperties: false
+      required: [id, webhook_id, event_id, event_type, status, attempts, next_attempt_at, last_attempt_at, last_status_code, last_error, created_at, completed_at]
+      properties:
+        id:
+          type: string
+          example: whd_01j9x2k7m3q4r5s6t7v8w9x0yz
+        webhook_id:
+          type: string
+        event_id:
+          type: string
+          description: The event's ID (`RiskOS-Webhook-Id`), the same for every endpoint and every retry.
+          example: wev_01j9x2k7m3q4r5s6t7v8w9x0yz
+        event_type:
+          type: string
+          example: alert.created
+        status:
+          $ref: "#/components/schemas/WebhookDeliveryStatus"
+        attempts:
+          type: integer
+          description: Attempts in the current delivery cycle (at most 9 over about an hour).
+        next_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_attempt_at:
+          type: string
+          format: date-time
+          nullable: true
+        last_status_code:
+          type: integer
+          nullable: true
+        last_error:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        completed_at:
+          type: string
+          format: date-time
+          nullable: true
+    WebhookDeliveryList:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookDelivery"
+        next_cursor:
+          type: string
+          nullable: true
+    WebhookAttempt:
+      type: object
+      additionalProperties: false
+      required: [attempt, started_at, duration_ms, status_code, error]
+      properties:
+        attempt:
+          type: integer
+        started_at:
+          type: string
+          format: date-time
+        duration_ms:
+          type: integer
+        status_code:
+          type: integer
+          nullable: true
+        error:
+          type: string
+          nullable: true
+          description: A short reason such as `timeout` or `http status 500`. Response bodies are never stored.
+    WebhookDeliveryDetail:
+      type: object
+      additionalProperties: false
+      required: [delivery, payload, attempts]
+      properties:
+        delivery:
+          $ref: "#/components/schemas/WebhookDelivery"
+        payload:
+          type: object
+          additionalProperties: true
+          description: The exact JSON body sent (signatures cover its bytes as sent).
+        attempts:
+          type: array
+          items:
+            $ref: "#/components/schemas/WebhookAttempt"
     AlertKind:
       type: string
       description: "`risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals."
@@ -1466,7 +2004,7 @@ components:
     Scope:
       type: string
       description: A permission an API key holds.
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write]
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write]
     Whoami:
       type: object
       additionalProperties: false

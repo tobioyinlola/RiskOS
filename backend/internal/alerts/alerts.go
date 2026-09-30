@@ -16,6 +16,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/handler"
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
@@ -23,6 +24,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // Public types and errors.
@@ -95,8 +97,15 @@ type Module struct {
 }
 
 // New returns the alerts module.
-func New(runner txn.Runner, rec audit.Recorder, clk clock.Clock, logger *slog.Logger) *Module {
-	return &Module{svc: service.New(runner, rec, clk), logger: logger}
+// Alert events are published to pub in the transaction of each change.
+func New(runner txn.Runner, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher, logger *slog.Logger) *Module {
+	return &Module{svc: service.New(runner, rec, clk, pub), logger: logger}
+}
+
+// WebhookEndpointDisabled implements webhooks.Notifier: it raises a security alert for an
+// endpoint the webhooks module disabled after it kept failing.
+func (m *Module) WebhookEndpointDisabled(ctx context.Context, endpointID uuid.UUID) error {
+	return m.svc.RaiseWebhookDisabled(ctx, endpointID)
 }
 
 // HTTPHandlers returns the module's API handlers.
@@ -106,10 +115,10 @@ func (m *Module) HTTPHandlers() AlertHandlers { return handler.New(m.svc) }
 func (m *Module) Linker() Linker { return m.svc }
 
 // ToAPI converts an alert to the contract (used by the cases module's responses).
-func ToAPI(a Alert) apigen.Alert { return handler.ToAPI(a) }
+func ToAPI(a Alert) apigen.Alert { return present.ToAPI(a) }
 
 // ActivityToAPI converts a timeline to the contract.
-func ActivityToAPI(a []Activity) []apigen.ActivityEntry { return handler.ActivityToAPI(a) }
+func ActivityToAPI(a []Activity) []apigen.ActivityEntry { return present.ActivityToAPI(a) }
 
 // MapError translates the module's errors to the API error contract.
 func MapError(err error) error { return handler.MapError(err) }

@@ -509,10 +509,271 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/webhooks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List webhook endpoints
+         * @description Requires scope `webhooks:read`.
+         */
+        get: operations["listWebhooks"];
+        put?: never;
+        /**
+         * Register a webhook endpoint
+         * @description Requires scope `webhooks:write`. Audited. The response contains the endpoint's signing secret,
+         *     shown only this once. URLs must use https and must not point to localhost or private,
+         *     loopback, link-local or reserved addresses (also checked after DNS resolution on every
+         *     delivery). At most 20 endpoints per environment (409 beyond).
+         */
+        post: operations["createWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a webhook endpoint
+         * @description Requires scope `webhooks:read`. Never returns the secret.
+         */
+        get: operations["getWebhook"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change or enable/disable a webhook endpoint
+         * @description Requires scope `webhooks:write`. Audited. Setting `status: active` re-enables an endpoint
+         *     disabled after failing, and clears its failure state.
+         */
+        patch: operations["updateWebhook"];
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/rotate-secret": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rotate a webhook endpoint's signing secret
+         * @description Requires scope `webhooks:write`. Audited. Returns the new secret, shown only this once.
+         *     Until the overlap ends, deliveries carry signatures from both the new and the previous
+         *     secret, so receivers can switch without dropping events.
+         */
+        post: operations["rotateWebhookSecret"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a test event to an endpoint
+         * @description Requires scope `webhooks:write`. Queues a `webhook.test` event for this endpoint only.
+         */
+        post: operations["testWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/deliveries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List an endpoint's deliveries, newest first
+         * @description Requires scope `webhooks:read`.
+         */
+        get: operations["listWebhookDeliveries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a delivery with its payload and every attempt
+         * @description Requires scope `webhooks:read`.
+         */
+        get: operations["getWebhookDelivery"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/redeliver": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Retry a failed delivery
+         * @description Requires scope `webhooks:write`. Audited. Starts a new delivery cycle for a `failed` delivery
+         *     to an active endpoint. The event keeps its ID.
+         */
+        post: operations["redeliverWebhook"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /** @enum {string} */
+        WebhookEventType: "alert.created" | "alert.updated" | "case.created" | "case.resolved";
+        Webhook: {
+            /** @example whk_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            url: string;
+            description: string;
+            event_types: components["schemas"]["WebhookEventType"][];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            disabled_reason: string | null;
+            /**
+             * Format: date-time
+             * @description When the current run of failed attempts started. After 3 days the endpoint is disabled.
+             */
+            failing_since: string | null;
+            /**
+             * Format: date-time
+             * @description End of the current rotation overlap, if any.
+             */
+            previous_secret_valid_until: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        WebhookList: {
+            data: components["schemas"]["Webhook"][];
+        };
+        WebhookWithSecret: {
+            webhook: components["schemas"]["Webhook"];
+            /**
+             * @description The signing secret. Shown only in this response; store it in a secrets manager.
+             * @example whsec_3q2-7wEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA
+             */
+            secret: string;
+        };
+        CreateWebhookRequest: {
+            /** @example https://hooks.example.com/riskos */
+            url: string;
+            description?: string;
+            event_types: components["schemas"]["WebhookEventType"][];
+        };
+        UpdateWebhookRequest: {
+            url?: string;
+            description?: string;
+            event_types?: components["schemas"]["WebhookEventType"][];
+            /** @enum {string} */
+            status?: "active" | "disabled";
+        };
+        RotateWebhookSecretRequest: {
+            /**
+             * @description How long the previous secret keeps signing deliveries.
+             * @default 24
+             */
+            overlap_hours: number;
+        };
+        /** @enum {string} */
+        WebhookDeliveryStatus: "pending" | "succeeded" | "failed";
+        WebhookDelivery: {
+            /** @example whd_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            webhook_id: string;
+            /**
+             * @description The event's ID (`RiskOS-Webhook-Id`), the same for every endpoint and every retry.
+             * @example wev_01j9x2k7m3q4r5s6t7v8w9x0yz
+             */
+            event_id: string;
+            /** @example alert.created */
+            event_type: string;
+            status: components["schemas"]["WebhookDeliveryStatus"];
+            /** @description Attempts in the current delivery cycle (at most 9 over about an hour). */
+            attempts: number;
+            /** Format: date-time */
+            next_attempt_at: string | null;
+            /** Format: date-time */
+            last_attempt_at: string | null;
+            last_status_code: number | null;
+            last_error: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            completed_at: string | null;
+        };
+        WebhookDeliveryList: {
+            data: components["schemas"]["WebhookDelivery"][];
+            next_cursor: string | null;
+        };
+        WebhookAttempt: {
+            attempt: number;
+            /** Format: date-time */
+            started_at: string;
+            duration_ms: number;
+            status_code: number | null;
+            /** @description A short reason such as `timeout` or `http status 500`. Response bodies are never stored. */
+            error: string | null;
+        };
+        WebhookDeliveryDetail: {
+            delivery: components["schemas"]["WebhookDelivery"];
+            /** @description The exact JSON body sent (signatures cover its bytes as sent). */
+            payload: {
+                [key: string]: unknown;
+            };
+            attempts: components["schemas"]["WebhookAttempt"][];
+        };
         /**
          * @description `risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals.
          * @enum {string}
@@ -683,7 +944,7 @@ export interface components {
          * @description A permission an API key holds.
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -2135,6 +2396,270 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listWebhooks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The environment's endpoints, newest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description The endpoint and its secret. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookWithSecret"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateWebhookRequest"];
+            };
+        };
+        responses: {
+            /** @description The endpoint. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Webhook"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rotateWebhookSecret: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RotateWebhookSecretRequest"];
+            };
+        };
+        responses: {
+            /** @description The endpoint and its new secret. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookWithSecret"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    testWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The queued delivery. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDelivery"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listWebhookDeliveries: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: components["schemas"]["WebhookDeliveryStatus"];
+            };
+            header?: never;
+            path: {
+                webhook_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of deliveries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getWebhookDelivery: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The delivery. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDeliveryDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    redeliverWebhook: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                webhook_id: string;
+                delivery_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The delivery, pending again. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["WebhookDelivery"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

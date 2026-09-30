@@ -31,6 +31,9 @@ x-pepper: &pepper ${RISKOS_API_KEY_PEPPER:?set RISKOS_API_KEY_PEPPER in .env}
 # Pseudonymizes customer identifiers before they reach Redis; given only to the API.
 x-feature-key: &feature-key ${RISKOS_FEATURE_HASH_KEY:?set RISKOS_FEATURE_HASH_KEY in .env}
 
+# Derives webhook signing secrets; given to the API (shows secrets) and the worker (signs).
+x-webhook-key: &webhook-key ${RISKOS_WEBHOOK_SIGNING_KEY:?set RISKOS_WEBHOOK_SIGNING_KEY in .env}
+
 x-hardening: &hardening
   read_only: true
   cap_drop: [ALL]
@@ -108,6 +111,9 @@ services:
       <<: *backend-env
       RISKOS_API_KEY_PEPPER: *pepper
       RISKOS_FEATURE_HASH_KEY: *feature-key
+      RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
+      # Local development only: test-environment endpoints may be http:// and private addresses.
+      RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
       RISKOS_HTTP_SHUTDOWN_DRAIN_DELAY: 2s
       RISKOS_RATE_LIMIT_KEY_PER_SECOND: ${RISKOS_RATE_LIMIT_KEY_PER_SECOND:-100}
       RISKOS_RATE_LIMIT_KEY_BURST: ${RISKOS_RATE_LIMIT_KEY_BURST:-200}
@@ -128,7 +134,10 @@ services:
     profiles: [app]
     build: { context: ./backend, target: worker }
     image: riskos/worker:local
-    environment: *backend-env
+    environment:
+      <<: *backend-env
+      RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
+      RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
     depends_on: *backend-deps
     stop_grace_period: 40s
     <<: *hardening
@@ -172,6 +181,8 @@ services:
       <<: *backend-env
       RISKOS_API_KEY_PEPPER: *pepper
       RISKOS_FEATURE_HASH_KEY: *feature-key
+      RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
+      RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
     ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
     volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
     depends_on: *backend-deps
@@ -181,7 +192,10 @@ services:
     build: { context: ./backend, target: dev }
     image: riskos/backend-dev:local
     command: ["air", "--build.cmd", "go build -o ./tmp/worker ./cmd/worker", "--build.bin", "./tmp/worker", "--build.exclude_dir", "tmp,test"]
-    environment: *backend-env
+    environment:
+      <<: *backend-env
+      RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
+      RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
     volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
     depends_on: *backend-deps
 

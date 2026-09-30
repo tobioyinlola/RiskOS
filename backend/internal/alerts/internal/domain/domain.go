@@ -42,6 +42,7 @@ const (
 const (
 	SubjectUser        = "user"
 	SubjectEnvironment = "environment"
+	SubjectWebhook     = "webhook_endpoint"
 	// SubjectDegraded is the subject reference of security alerts for degraded evaluations.
 	SubjectDegraded = "degraded_evaluation"
 )

@@ -245,3 +245,51 @@ type Tenant struct {
 	Status    string
 	CreatedAt time.Time
 }
+
+type WebhookAttempt struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	DeliveryID    uuid.UUID
+	Attempt       int32
+	StartedAt     time.Time
+	DurationMs    int32
+	StatusCode    *int32
+	Error         *string
+}
+
+type WebhookDelivery struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	EndpointID     uuid.UUID
+	EventID        uuid.UUID
+	EventType      string
+	Payload        []byte
+	Status         string
+	Attempts       int32
+	NextAttemptAt  *time.Time
+	LastAttemptAt  *time.Time
+	LastStatusCode *int32
+	LastError      *string
+	CreatedAt      time.Time
+	CompletedAt    *time.Time
+}
+
+type WebhookEndpoint struct {
+	TenantID                 uuid.UUID
+	EnvironmentID            uuid.UUID
+	ID                       uuid.UUID
+	Url                      string
+	Description              string
+	EventTypes               []string
+	Status                   string
+	DisabledReason           *string
+	SecretVersion            int32
+	PreviousSecretVersion    *int32
+	PreviousSecretValidUntil *time.Time
+	FailingSince             *time.Time
+	CreatedAt                time.Time
+	CreatedBy                string
+	UpdatedAt                time.Time
+}

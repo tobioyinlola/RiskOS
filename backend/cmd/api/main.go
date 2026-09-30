@@ -31,6 +31,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 func main() {
@@ -86,6 +87,9 @@ func run() (err error) {
 	if err := cfg.Risk.Validate(); err != nil {
 		return err
 	}
+	if err := cfg.Webhooks.Validate(); err != nil {
+		return err
+	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
 
 	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
@@ -129,8 +133,10 @@ func run() (err error) {
 		return err
 	}
 	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk)
-	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, logger)
-	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk)
+	// The API publishes webhook events and manages endpoints; it never delivers (no notifier).
+	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
+	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 
 	handler, err := httpapi.New(httpapi.Deps{
 		Logger:    logger,
@@ -144,6 +150,7 @@ func run() (err error) {
 		Risk:      riskModule,
 		Alerts:    alertsModule,
 		Cases:     casesModule,
+		Webhooks:  webhooksModule,
 		Limiter:   ratelimit.New(rdb),
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
@@ -164,4 +171,8 @@ func run() (err error) {
 		DrainDelay:      cfg.HTTP.ShutdownDrainDelay,
 		ShutdownTimeout: cfg.HTTP.ShutdownTimeout,
 	}, logger)
+}
+
+func webhookConfig(c config.Webhooks) webhooks.Config {
+	return webhooks.Config{SigningKey: []byte(c.SigningKey), Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest}
 }

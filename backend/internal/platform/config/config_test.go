@@ -158,6 +158,26 @@ func TestRiskValidate(t *testing.T) {
 	}
 }
 
+func TestWebhooksValidate(t *testing.T) {
+	key := strings.Repeat("k", 32)
+	assert.NoError(t, config.Webhooks{SigningKey: key, Timeout: 10 * time.Second, Concurrency: 1}.Validate())
+	err := config.Webhooks{SigningKey: "short", Timeout: time.Minute}.Validate()
+	require.Error(t, err)
+	for _, want := range []string{"RISKOS_WEBHOOK_SIGNING_KEY", "RISKOS_WEBHOOK_TIMEOUT", "RISKOS_WEBHOOK_CONCURRENCY"} {
+		assert.Contains(t, err.Error(), want)
+	}
+	assert.NotContains(t, err.Error(), "short", "the key must never be echoed")
+}
+
+func TestPrivateWebhooksRefusedInProduction(t *testing.T) {
+	env := minimalEnv()
+	env["RISKOS_ENV"] = "production"
+	env["RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST"] = "true"
+	_, err := config.Load(lookupFrom(env))
+	require.Error(t, err)
+	assert.Contains(t, err.Error(), "RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST")
+}
+
 func TestLoadRiskDefaults(t *testing.T) {
 	env := minimalEnv()
 	env["RISKOS_FEATURE_HASH_KEY"] = strings.Repeat("x", 40)

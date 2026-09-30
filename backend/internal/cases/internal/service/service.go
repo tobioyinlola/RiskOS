@@ -12,26 +12,29 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 // Service manages cases.
 type Service struct {
-	store  store.Store
-	runner txn.Runner
-	alerts alerts.Linker
-	audit  audit.Recorder
-	clock  clock.Clock
+	store   store.Store
+	runner  txn.Runner
+	alerts  alerts.Linker
+	audit   audit.Recorder
+	clock   clock.Clock
+	webhook webhooks.Publisher
 }
 
 // New returns a Service.
-func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock) *Service {
-	return &Service{runner: runner, alerts: linker, audit: rec, clock: clk}
+func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher) *Service {
+	return &Service{runner: runner, alerts: linker, audit: rec, clock: clk, webhook: pub}
 }
 
 // Detail is a case with its alerts, notes and timeline.
@@ -125,10 +128,13 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 		}, now); err != nil {
 			return err
 		}
-		return s.audit.Record(ctx, audit.Entry{
+		if err := s.audit.Record(ctx, audit.Entry{
 			Action: "case.created", ResourceType: "case", ResourceID: ids.Format(ids.PrefixCase, c.ID),
 			Outcome: audit.OutcomeSuccess, Metadata: map[string]any{"priority": c.Priority, "alert_ids": alertIDs},
-		})
+		}); err != nil {
+			return err
+		}
+		return s.webhook.Publish(ctx, webhooks.EventCaseCreated, map[string]any{"case": present.ToAPI(c), "alert_ids": alertIDs})
 	})
 	if err != nil {
 		return domain.Case{}, err
@@ -229,6 +235,9 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, p domain.Patch) (dom
 			return err
 		}
 		out = next
+		if resolving {
+			return s.webhook.Publish(ctx, webhooks.EventCaseResolved, map[string]any{"case": present.ToAPI(next)})
+		}
 		return nil
 	})
 	return out, err

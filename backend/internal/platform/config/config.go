@@ -39,6 +39,39 @@ type Config struct {
 	Auth      Auth
 	RateLimit RateLimit
 	Risk      Risk
+	Webhooks  Webhooks
+}
+
+// Webhooks configures webhook signing and delivery.
+type Webhooks struct {
+	// SigningKey derives every endpoint's signing secret (at least 32 bytes, from the secrets
+	// manager). Rotating it changes every endpoint's secret at once.
+	SigningKey string
+	// Timeout bounds each delivery attempt.
+	Timeout time.Duration
+	// Concurrency is the number of deliveries the worker runs at once.
+	Concurrency int
+	// AllowPrivateTest lets test-environment endpoints use http:// and private addresses, for
+	// local development only. Refused when RISKOS_ENV=production.
+	AllowPrivateTest bool
+}
+
+// Validate checks the webhook settings; call it in binaries that sign or deliver webhooks.
+func (w Webhooks) Validate() error {
+	var errs []error
+	if len(w.SigningKey) < MinPepperBytes {
+		errs = append(errs, fmt.Errorf("RISKOS_WEBHOOK_SIGNING_KEY: required, at least %d bytes", MinPepperBytes))
+	}
+	if w.Timeout < time.Second || w.Timeout > 30*time.Second {
+		errs = append(errs, errors.New("RISKOS_WEBHOOK_TIMEOUT: must be between 1s and 30s"))
+	}
+	if w.Concurrency < 1 {
+		errs = append(errs, errors.New("RISKOS_WEBHOOK_CONCURRENCY: must be at least 1"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
+	}
+	return nil
 }
 
 // Risk configures the risk engine.
@@ -170,6 +203,12 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	r := reader{lookup: lookup}
 
 	cfg := Config{
+		Webhooks: Webhooks{
+			SigningKey:       r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
+			Timeout:          r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
+			Concurrency:      r.integer("RISKOS_WEBHOOK_CONCURRENCY", 10),
+			AllowPrivateTest: r.boolean("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST", false),
+		},
 		Risk: Risk{
 			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
 			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
@@ -326,6 +365,9 @@ func (c Config) validate() []error {
 		add("RISKOS_OTEL_EXPORTER_OTLP_ENDPOINT: required when RISKOS_OTEL_ENABLED=true")
 	}
 
+	if c.Env == EnvProduction && c.Webhooks.AllowPrivateTest {
+		add("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: must not be set in production")
+	}
 	if c.Env == EnvProduction {
 		for name, raw := range map[string]string{"RISKOS_POSTGRES_URL": c.Postgres.URL, "RISKOS_POSTGRES_MIGRATION_URL": c.Postgres.MigrationURL} {
 			if raw == "" {

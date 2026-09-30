@@ -33,6 +33,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
 type fixture struct {
@@ -52,7 +53,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 		checks = append(checks, health.Check{Name: name, Timeout: time.Second, Probe: func(context.Context) error { return perr }})
 	}
 	authModule, auditModule := testModules()
-	eventsMod, riskMod, alertsMod, casesMod := appModules()
+	eventsMod, riskMod, alertsMod, casesMod, webhooksMod := appModules()
 	return fixture{
 		logs: logs,
 		handler: must(t)(httpapi.New(httpapi.Deps{
@@ -63,7 +64,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 			Health:    health.NewService(logger, checks...),
 			Auth:      authModule,
 			Audit:     auditModule,
-			Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod,
+			Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Webhooks: webhooksMod,
 			Limiter: allowAll{},
 		})),
 	}
@@ -203,7 +204,7 @@ func BenchmarkLiveness(b *testing.B) {
 	tel, err := telemetry.Setup(context.Background(), config.Telemetry{}, "bench", config.EnvTest)
 	require.NoError(b, err)
 	authModule, auditModule := testModules()
-	eventsMod, riskMod, alertsMod, casesMod := appModules()
+	eventsMod, riskMod, alertsMod, casesMod, webhooksMod := appModules()
 	h := must(b)(httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clock.System{},
@@ -212,7 +213,7 @@ func BenchmarkLiveness(b *testing.B) {
 		Health:    health.NewService(logger),
 		Auth:      authModule,
 		Audit:     auditModule,
-		Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod,
+		Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Webhooks: webhooksMod,
 		Limiter: allowAll{},
 	}))
 	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/health/live", nil)
@@ -264,13 +265,15 @@ type noJobs struct{}
 
 func (noJobs) Enqueue(context.Context, jobs.Args) error { return nil }
 
-func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module) {
+func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module, *webhooks.Module) {
 	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
 	riskModule := risk.New(rdb, noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{},
 		slog.New(slog.DiscardHandler), risk.Config{FeatureHashKey: []byte(strings.Repeat("f", 32)), FeatureTimeout: 10 * time.Millisecond})
-	alertsModule := alerts.New(noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{}, slog.New(slog.DiscardHandler))
-	casesModule := cases.New(noDB{}, alertsModule.Linker(), audit.New(noDB{}, clock.System{}).Recorder(), clock.System{})
-	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule
+	rec := audit.New(noDB{}, clock.System{}).Recorder()
+	webhooksModule := webhooks.New(noDB{}, rec, clock.System{}, noJobs{}, webhooks.Config{SigningKey: []byte(strings.Repeat("w", 32)), Timeout: time.Second}, nil, slog.New(slog.DiscardHandler))
+	alertsModule := alerts.New(noDB{}, rec, clock.System{}, webhooksModule.Publisher(), slog.New(slog.DiscardHandler))
+	casesModule := cases.New(noDB{}, alertsModule.Linker(), rec, clock.System{}, webhooksModule.Publisher())
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule, webhooksModule
 }
 
 func must(t testing.TB) func(http.Handler, error) http.Handler {

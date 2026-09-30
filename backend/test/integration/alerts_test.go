@@ -27,7 +27,10 @@ func (s stack) startWorker(t *testing.T) {
 	t.Helper()
 	registry := jobs.NewRegistry()
 	jobs.Register(registry, s.alerts.RaiseJob(s.tenants))
-	queue, err := jobs.NewQueue(shared.pool, registry, jobs.QueueConfig{Concurrency: 4, JobTimeout: 10 * time.Second}, shared.logger)
+	jobs.Register(registry, s.webhooks.DeliverJob(s.tenants))
+	queue, err := jobs.NewQueue(shared.pool, registry, jobs.QueueConfig{
+		Concurrency: 4, JobTimeout: 10 * time.Second, Queues: map[string]int{jobs.QueueWebhooks: 4},
+	}, shared.logger)
 	require.NoError(t, err)
 	require.NoError(t, queue.Start(context.WithoutCancel(t.Context())))
 	t.Cleanup(func() {

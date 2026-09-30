@@ -88,3 +88,11 @@ sql:
       go:
         <<: *go
         out: internal/cases/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
+    queries: db/queries/webhooks
+    gen:
+      go:
+        <<: *go
+        out: internal/webhooks/internal/store/sqlcgen

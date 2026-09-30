@@ -28,7 +28,7 @@ INSERT INTO alerts (
   max_score, evaluation_count, first_seen_at, last_seen_at, created_at, updated_at
 ) VALUES (
   @tenant_id, @environment_id, @id, @kind, @subject_type, @subject_ref, @title, @severity, 'open',
-  @max_score, 1, @seen_at, @seen_at, @now, @now
+  @max_score, @evaluation_count, @seen_at, @seen_at, @now, @now
 );
 
 -- name: AddToAlert :exec
