@@ -23,6 +23,7 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | GET | `/api/v1/events` | List events (`events:read`) |
 | GET | `/api/v1/events/{event_id}` | Event with raw and normalized payloads and its evaluation (`events:read`) |
 | POST | `/api/v1/risk/evaluate` | Dry-run evaluation; stores no event (`risk:evaluate`) |
+| GET | `/api/v1/risk/policy` | The environment's bands, thresholds and default decisions (any score-reading scope) |
 | GET | `/api/v1/risk/catalog` | Built-in signals with effective weights, and the fields and operators rules can use (`rules:read`) |
 | GET | `/api/v1/risk/settings` | Signal weights, high-value thresholds, fail policies (`risk:configure`) |
 | PUT | `/api/v1/risk/settings` | Replace them; audited (`risk:configure`) |
