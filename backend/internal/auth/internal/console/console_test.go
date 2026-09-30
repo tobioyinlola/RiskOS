@@ -77,7 +77,7 @@ func TestSealer(t *testing.T) {
 func TestTokensAndRecoveryCodes(t *testing.T) {
 	tok, hash, err := console.NewToken()
 	require.NoError(t, err)
-	assert.Len(t, tok, 43)
+	assert.Regexp(t, `^[0-9a-f]{64}$`, tok, "letters and digits only, so links survive Markdown and chat")
 	assert.True(t, console.EqualToken(tok, hash))
 	assert.False(t, console.EqualToken(tok+"x", hash))
 	assert.Equal(t, 64, len(hex.EncodeToString(hash)))
