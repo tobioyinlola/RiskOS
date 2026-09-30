@@ -49,12 +49,17 @@ func readiness(t *testing.T, h http.Handler) (int, apigen.ReadinessResponse) {
 	return rec.Code, body
 }
 
-// stopFor stops a dependency container for the duration of fn and restarts it afterwards.
+// stopFor stops a dependency container for the duration of fn, then restarts it and reconnects
+// the shared clients (the restarted container gets a new host port).
 func stopFor(t *testing.T, c testcontainers.Container, fn func()) {
 	t.Helper()
 	timeout := 5 * time.Second
 	require.NoError(t, c.Stop(t.Context(), &timeout))
-	defer func() { require.NoError(t, c.Start(context.WithoutCancel(t.Context()))) }()
+	defer func() {
+		ctx := context.WithoutCancel(t.Context())
+		require.NoError(t, c.Start(ctx))
+		require.NoError(t, shared.connect(ctx))
+	}()
 	fn()
 }
 

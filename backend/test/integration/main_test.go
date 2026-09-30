@@ -76,39 +76,55 @@ func setup(m *testing.M) (int, error) {
 	}
 	defer func() { _ = testcontainers.TerminateContainer(rc) }()
 
-	dsn, err := pg.ConnectionString(ctx, "sslmode=disable")
-	if err != nil {
+	shared = env{postgres: pg, redis: rc, logger: logger}
+	if err := shared.connect(ctx); err != nil {
 		return 0, err
 	}
-	redisEndpoint, err := rc.Endpoint(ctx, "")
-	if err != nil {
-		return 0, err
-	}
+	defer shared.close()
 
-	pgCfg := config.Postgres{
+	if _, err := dbmigrate.Up(ctx, shared.pool, logger); err != nil {
+		return 0, err
+	}
+	return m.Run(), nil
+}
+
+// connect (re)creates the pool and Redis client from the containers' current endpoints. Docker
+// assigns a new host port when a container restarts, so tests that stop a dependency call this
+// after starting it again.
+func (e *env) connect(ctx context.Context) error {
+	e.close()
+	dsn, err := e.postgres.ConnectionString(ctx, "sslmode=disable")
+	if err != nil {
+		return err
+	}
+	redisEndpoint, err := e.redis.Endpoint(ctx, "")
+	if err != nil {
+		return err
+	}
+	e.pgCfg = config.Postgres{
 		URL: dsn, MaxConns: 10, MinConns: 0, MaxConnLifetime: time.Hour, MaxConnIdleTime: time.Minute,
 		ConnectTimeout: 5 * time.Second, CheckTimeout: time.Second,
 	}
-	redisCfg := config.Redis{
+	e.redisCfg = config.Redis{
 		Addr: redisEndpoint, PoolSize: 5, DialTimeout: time.Second,
 		ReadTimeout: 500 * time.Millisecond, WriteTimeout: 500 * time.Millisecond, CheckTimeout: time.Second,
 	}
-
-	pool, err := db.NewPool(ctx, pgCfg)
-	if err != nil {
-		return 0, err
+	if e.pool, err = db.NewPool(ctx, e.pgCfg); err != nil {
+		return err
 	}
-	defer pool.Close()
-	rdb, err := redisx.New(ctx, redisCfg)
-	if err != nil {
-		return 0, err
+	if e.rdb, err = redisx.New(ctx, e.redisCfg); err != nil {
+		return err
 	}
-	defer func() { _ = rdb.Close() }()
+	return nil
+}
 
-	if _, err := dbmigrate.Up(ctx, pool, logger); err != nil {
-		return 0, err
+func (e *env) close() {
+	if e.pool != nil {
+		e.pool.Close()
+		e.pool = nil
 	}
-
-	shared = env{postgres: pg, redis: rc, pgCfg: pgCfg, redisCfg: redisCfg, pool: pool, rdb: rdb, logger: logger}
-	return m.Run(), nil
+	if e.rdb != nil {
+		_ = e.rdb.Close()
+		e.rdb = nil
+	}
 }
