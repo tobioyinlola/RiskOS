@@ -6,6 +6,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/service"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
@@ -18,6 +19,7 @@ type IngestHandlers interface {
 	EvaluateRisk(ctx context.Context, req apigen.EvaluateRiskRequestObject) (apigen.EvaluateRiskResponseObject, error)
 	ListEvents(ctx context.Context, req apigen.ListEventsRequestObject) (apigen.ListEventsResponseObject, error)
 	GetEvent(ctx context.Context, req apigen.GetEventRequestObject) (apigen.GetEventResponseObject, error)
+	TestRule(ctx context.Context, req apigen.TestRuleRequestObject) (apigen.TestRuleResponseObject, error)
 }
 
 // Module is the events module.
@@ -26,8 +28,9 @@ type Module struct {
 }
 
 // New returns the events module.
-func New(runner txn.Runner, evaluator risk.Evaluator, clk clock.Clock) *Module {
-	return &Module{svc: service.New(runner, evaluator, clk)}
+// enq receives the alert jobs of decisions; it must join the caller's transaction.
+func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, enq jobs.Enqueuer, clk clock.Clock) *Module {
+	return &Module{svc: service.New(runner, evaluator, tester, enq, clk)}
 }
 
 // HTTPHandlers returns the module's API handlers.

@@ -11,6 +11,53 @@ import (
 	"github.com/google/uuid"
 )
 
+type Alert struct {
+	TenantID        uuid.UUID
+	EnvironmentID   uuid.UUID
+	ID              uuid.UUID
+	Kind            string
+	SubjectType     string
+	SubjectRef      string
+	Title           string
+	Severity        string
+	Status          string
+	Assignee        *string
+	CaseID          *uuid.UUID
+	MaxScore        int16
+	EvaluationCount int32
+	FirstSeenAt     time.Time
+	LastSeenAt      time.Time
+	CreatedAt       time.Time
+	UpdatedAt       time.Time
+}
+
+type AlertActivity struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	AlertID       uuid.UUID
+	Action        string
+	Actor         string
+	Detail        []byte
+	CreatedAt     time.Time
+}
+
+type AlertEvaluation struct {
+	TenantID        uuid.UUID
+	EnvironmentID   uuid.UUID
+	AlertID         uuid.UUID
+	AlertKind       string
+	EvaluationID    uuid.UUID
+	EventID         uuid.UUID
+	EventType       string
+	Score           int16
+	Level           string
+	Decision        string
+	Signals         []byte
+	DegradedSignals []string
+	EvaluatedAt     time.Time
+}
+
 type ApiKey struct {
 	ID            uuid.UUID
 	TenantID      uuid.UUID
@@ -50,6 +97,45 @@ type AuditLog struct {
 	Hash          []byte
 }
 
+type Case struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	Title          string
+	Description    string
+	Status         string
+	Priority       string
+	Assignee       *string
+	Resolution     *string
+	ResolutionNote *string
+	ResolvedAt     *time.Time
+	ResolvedBy     *string
+	CreatedAt      time.Time
+	CreatedBy      string
+	UpdatedAt      time.Time
+}
+
+type CaseActivity struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	CaseID        uuid.UUID
+	Action        string
+	Actor         string
+	Detail        []byte
+	CreatedAt     time.Time
+}
+
+type CaseNote struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	CaseID        uuid.UUID
+	Body          string
+	Author        string
+	CreatedAt     time.Time
+}
+
 type Environment struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID
@@ -75,6 +161,8 @@ type Evaluation struct {
 	DegradedSignals []string
 	RequestID       string
 	DurationUs      int32
+	PolicyReasons   []string
+	ShadowSignals   []byte
 }
 
 type Event struct {
@@ -109,6 +197,45 @@ type EventIdempotency struct {
 	EventID       uuid.UUID
 	Response      *string
 	CreatedAt     time.Time
+}
+
+type RiskSetting struct {
+	TenantID            uuid.UUID
+	EnvironmentID       uuid.UUID
+	Weights             []byte
+	HighValueDefault    int64
+	HighValueByCurrency []byte
+	FailPolicies        []byte
+	UpdatedAt           time.Time
+	UpdatedBy           string
+	AlertMinDecision    string
+}
+
+type Rule struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	Code           string
+	CurrentVersion int32
+	CreatedAt      time.Time
+	CreatedBy      string
+}
+
+type RuleVersion struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RuleID        uuid.UUID
+	Version       int32
+	Name          string
+	Description   string
+	Severity      string
+	Weight        int16
+	Mode          string
+	Enabled       bool
+	Condition     []byte
+	CreatedAt     time.Time
+	CreatedBy     string
+	RestoredFrom  *int32
 }
 
 type Tenant struct {

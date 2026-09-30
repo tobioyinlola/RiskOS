@@ -14,10 +14,13 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
@@ -80,6 +83,9 @@ func run() (err error) {
 	if err := cfg.Auth.Validate(); err != nil {
 		return err
 	}
+	if err := cfg.Risk.Validate(); err != nil {
+		return err
+	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
 
 	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
@@ -113,8 +119,18 @@ func run() (err error) {
 		CacheTTL: cfg.Auth.APIKeyCacheTTL,
 	})
 
-	riskModule := risk.New(runner, clk)
-	eventsModule := events.New(runner, riskModule.Evaluator(), clk)
+	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
+		FeatureHashKey: []byte(cfg.Risk.FeatureHashKey),
+		FeatureTimeout: cfg.Risk.FeatureTimeout,
+	})
+	// The API only inserts jobs (in the decision transaction); the worker runs them.
+	queue, err := jobs.NewInserter(pool, logger)
+	if err != nil {
+		return err
+	}
+	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk)
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, logger)
+	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk)
 
 	handler, err := httpapi.New(httpapi.Deps{
 		Logger:    logger,
@@ -125,6 +141,9 @@ func run() (err error) {
 		Auth:      authModule,
 		Audit:     auditModule,
 		Events:    eventsModule,
+		Risk:      riskModule,
+		Alerts:    alertsModule,
+		Cases:     casesModule,
 		Limiter:   ratelimit.New(rdb),
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},

@@ -28,6 +28,9 @@ x-owner-url: &owner-url postgres://riskos:${POSTGRES_PASSWORD:?set POSTGRES_PASS
 # The API key pepper is given only to processes that authenticate or issue keys.
 x-pepper: &pepper ${RISKOS_API_KEY_PEPPER:?set RISKOS_API_KEY_PEPPER in .env}
 
+# Pseudonymizes customer identifiers before they reach Redis; given only to the API.
+x-feature-key: &feature-key ${RISKOS_FEATURE_HASH_KEY:?set RISKOS_FEATURE_HASH_KEY in .env}
+
 x-hardening: &hardening
   read_only: true
   cap_drop: [ALL]
@@ -104,6 +107,7 @@ services:
     environment:
       <<: *backend-env
       RISKOS_API_KEY_PEPPER: *pepper
+      RISKOS_FEATURE_HASH_KEY: *feature-key
       RISKOS_HTTP_SHUTDOWN_DRAIN_DELAY: 2s
       RISKOS_RATE_LIMIT_KEY_PER_SECOND: ${RISKOS_RATE_LIMIT_KEY_PER_SECOND:-100}
       RISKOS_RATE_LIMIT_KEY_BURST: ${RISKOS_RATE_LIMIT_KEY_BURST:-200}
@@ -167,6 +171,7 @@ services:
     environment:
       <<: *backend-env
       RISKOS_API_KEY_PEPPER: *pepper
+      RISKOS_FEATURE_HASH_KEY: *feature-key
     ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
     volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
     depends_on: *backend-deps

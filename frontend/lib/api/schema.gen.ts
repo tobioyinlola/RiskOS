@@ -225,10 +225,429 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/risk/catalog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Built-in signals and the fields rules can use
+         * @description Requires scope `rules:read`. Includes each signal's default and effective weight for the caller's environment.
+         */
+        get: operations["getRiskCatalog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/risk/settings": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get the environment's risk settings
+         * @description Requires scope `risk:configure`. Returns product defaults until settings are saved.
+         */
+        get: operations["getRiskSettings"];
+        /**
+         * Replace the environment's risk settings
+         * @description Requires scope `risk:configure`. Audited. Built-in signal weights may be tuned between 0
+         *     and 50; changes apply within seconds.
+         */
+        put: operations["putRiskSettings"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List rules with their current versions
+         * @description Requires scope `rules:read`.
+         */
+        get: operations["listRules"];
+        put?: never;
+        /**
+         * Create a rule
+         * @description Requires scope `rules:write`. Audited. Start new rules in `shadow` mode: they are evaluated
+         *     on live traffic and recorded, but do not change decisions until switched to `active`.
+         *     Returns 409 when the code is taken or the environment already has 200 rules (disabled
+         *     rules count; rules are disabled, never deleted).
+         */
+        post: operations["createRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a rule
+         * @description Requires scope `rules:read`.
+         */
+        get: operations["getRule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change a rule (creates a new version)
+         * @description Requires scope `rules:write`. Audited. Only the given fields change. Every change creates a
+         *     new version; earlier versions are kept and can be restored. A change that alters nothing
+         *     creates no version.
+         */
+        patch: operations["updateRule"];
+        trace?: never;
+    };
+    "/api/v1/rules/{rule_id}/versions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A rule's version history
+         * @description Requires scope `rules:read`. Newest first.
+         */
+        get: operations["listRuleVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/{rule_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an earlier version (one-step rollback)
+         * @description Requires scope `rules:write`. Audited. Adds a new version with the content of the given
+         *     version; history is never rewritten.
+         */
+        post: operations["rollbackRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/{rule_id}/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Test a rule against an event
+         * @description Requires scope `rules:read`. Evaluates the rule's current condition, or a draft
+         *     `condition`, against the event using the environment's live features without changing
+         *     them. Nothing is stored. Returns whether it matched and the values of the fields the
+         *     condition uses.
+         */
+        post: operations["testRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List alerts, newest first
+         * @description Requires scope `alerts:read`.
+         */
+        get: operations["listAlerts"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/alerts/{alert_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get an alert with its evaluations and timeline
+         * @description Requires scope `alerts:read`. Returns the newest 100 evaluations the alert groups.
+         */
+        get: operations["getAlert"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Triage an alert (status, assignee, note)
+         * @description Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`
+         *     to any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and
+         *     `resolved` are final. Alerts are escalated by creating a case with them
+         *     (`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty
+         *     `assignee` unassigns. A change that alters nothing is a no-op.
+         */
+        patch: operations["updateAlert"];
+        trace?: never;
+    };
+    "/api/v1/cases": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List cases, newest first
+         * @description Requires scope `cases:read`.
+         */
+        get: operations["listCases"];
+        put?: never;
+        /**
+         * Open a case, optionally escalating alerts into it
+         * @description Requires scope `cases:write`, and `alerts:write` when `alert_ids` are given. Audited. Every
+         *     listed alert must be `open` or `investigating`; they become `escalated`. Without a
+         *     `priority`, the case takes the highest severity of its alerts (`medium` without alerts).
+         */
+        post: operations["createCase"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a case with its alerts, notes and timeline
+         * @description Requires scope `cases:read`.
+         */
+        get: operations["getCase"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Update or resolve a case
+         * @description Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a
+         *     `resolution` and closes the case's alerts: `false_positive` when the resolution is
+         *     `false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.
+         *     An empty `assignee` unassigns.
+         */
+        patch: operations["updateCase"];
+        trace?: never;
+    };
+    "/api/v1/cases/{case_id}/notes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Add a note to a case
+         * @description Requires scope `cases:write`. Notes are append-only: they cannot be edited or deleted. Do
+         *     not put card numbers, passwords or other secrets in notes.
+         */
+        post: operations["addCaseNote"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        /**
+         * @description `risk`: an evaluation reached the alert threshold. `security`: evaluations ran with missing signals.
+         * @enum {string}
+         */
+        AlertKind: "risk" | "security";
+        /** @enum {string} */
+        AlertStatus: "open" | "investigating" | "escalated" | "false_positive" | "resolved";
+        Alert: {
+            /** @example alr_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            kind: components["schemas"]["AlertKind"];
+            /** @description What the alert is about: the customer's user reference, or the environment for security alerts. */
+            subject: {
+                /** @enum {string} */
+                type: "user" | "environment";
+                ref: string;
+            };
+            title: string;
+            severity: components["schemas"]["Severity"];
+            status: components["schemas"]["AlertStatus"];
+            assignee: string | null;
+            case_id: string | null;
+            max_score: number;
+            /** @description Evaluations grouped into this alert (same subject, each within an hour of the previous). */
+            evaluation_count: number;
+            /** Format: date-time */
+            first_seen_at: string;
+            /** Format: date-time */
+            last_seen_at: string;
+            /** Format: date-time */
+            created_at: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        AlertList: {
+            data: components["schemas"]["Alert"][];
+            next_cursor: string | null;
+        };
+        AlertEvaluation: {
+            evaluation_id: string;
+            event_id: string;
+            event_type: components["schemas"]["EventType"];
+            risk_score: number;
+            risk_level: components["schemas"]["RiskLevel"];
+            decision: components["schemas"]["Decision"];
+            signals: components["schemas"]["Signal"][];
+            degraded_signals: string[];
+            /** Format: date-time */
+            evaluated_at: string;
+        };
+        ActivityEntry: {
+            id: string;
+            /** @example updated */
+            action: string;
+            /** @description The API key or system job that acted. */
+            actor: string;
+            detail: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+        };
+        AlertDetail: {
+            alert: components["schemas"]["Alert"];
+            evaluations: components["schemas"]["AlertEvaluation"][];
+            activity: components["schemas"]["ActivityEntry"][];
+        };
+        UpdateAlertRequest: {
+            /** @enum {string} */
+            status?: "open" | "investigating" | "false_positive" | "resolved";
+            /** @description Free-text reference to the analyst (for example an email or staff ID); empty to unassign. */
+            assignee?: string;
+            /** @description Recorded in the alert's timeline. */
+            note?: string;
+        };
+        /** @enum {string} */
+        CaseStatus: "open" | "investigating" | "resolved";
+        /** @enum {string} */
+        CaseResolution: "confirmed_fraud" | "false_positive" | "legitimate" | "inconclusive";
+        Case: {
+            /** @example cas_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            title: string;
+            description: string;
+            status: components["schemas"]["CaseStatus"];
+            priority: components["schemas"]["Severity"];
+            assignee: string | null;
+            resolution: components["schemas"]["CaseResolution"] | null;
+            resolution_note: string | null;
+            /** Format: date-time */
+            resolved_at: string | null;
+            resolved_by: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        CaseList: {
+            data: components["schemas"]["Case"][];
+            next_cursor: string | null;
+        };
+        CaseNote: {
+            /** @example cnt_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            body: string;
+            author: string;
+            /** Format: date-time */
+            created_at: string;
+        };
+        CaseDetail: {
+            case: components["schemas"]["Case"];
+            alerts: components["schemas"]["Alert"][];
+            notes: components["schemas"]["CaseNote"][];
+            activity: components["schemas"]["ActivityEntry"][];
+        };
+        CreateCaseRequest: {
+            title: string;
+            description?: string;
+            priority?: components["schemas"]["Severity"];
+            assignee?: string;
+            alert_ids?: string[];
+        };
+        UpdateCaseRequest: {
+            title?: string;
+            description?: string;
+            priority?: components["schemas"]["Severity"];
+            assignee?: string;
+            status?: components["schemas"]["CaseStatus"];
+            resolution?: components["schemas"]["CaseResolution"];
+            resolution_note?: string;
+        };
+        CreateCaseNoteRequest: {
+            body: string;
+        };
         ErrorResponse: {
             error: components["schemas"]["ErrorDetail"];
         };
@@ -264,7 +683,7 @@ export interface components {
          * @description A permission an API key holds.
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -538,7 +957,7 @@ export interface components {
             risk_score: number;
             risk_level: components["schemas"]["RiskLevel"];
             decision: components["schemas"]["Decision"];
-            /** @example risk-engine-stub-0.1 */
+            /** @example risk-engine-1.0.0 */
             engine_version: string;
             signals: components["schemas"]["Signal"][];
             degraded_signals: string[];
@@ -577,6 +996,182 @@ export interface components {
                 [key: string]: unknown;
             };
             evaluation: components["schemas"]["RiskDecision"];
+        };
+        /**
+         * @description A condition tree. Each node is exactly one of:
+         *     `{"all": [node, ...]}`, `{"any": [node, ...]}`, `{"not": node}`, or a comparison
+         *     `{"field": "<field>", "op": "<operator>", "value": <value>}`. Fields and their operators
+         *     are listed by `GET /api/v1/risk/catalog`. At most 50 nodes, 6 levels deep, 100 list
+         *     items. A comparison on a field the event does not have never matches.
+         * @example {
+         *       "all": [
+         *         {
+         *           "field": "transaction.amount",
+         *           "op": "gt",
+         *           "value": 1000000
+         *         },
+         *         {
+         *           "field": "feature.new_beneficiary",
+         *           "op": "eq",
+         *           "value": true
+         *         }
+         *       ]
+         *     }
+         */
+        RuleCondition: {
+            [key: string]: unknown;
+        };
+        /** @enum {string} */
+        Severity: "low" | "medium" | "high" | "critical";
+        /**
+         * @description active rules add their weight to the score; shadow rules are only recorded.
+         * @enum {string}
+         */
+        RuleMode: "active" | "shadow";
+        Rule: {
+            /** @example rul_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            /**
+             * @description Signal code the rule emits when it matches.
+             * @example high_value_new_beneficiary
+             */
+            code: string;
+            name: string;
+            description: string;
+            severity: components["schemas"]["Severity"];
+            weight: number;
+            mode: components["schemas"]["RuleMode"];
+            enabled: boolean;
+            condition: components["schemas"]["RuleCondition"];
+            version: number;
+            /** @description Set when this version restored an earlier one. */
+            restored_from?: number | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When the current version was created.
+             */
+            updated_at: string;
+        };
+        RuleList: {
+            data: components["schemas"]["Rule"][];
+        };
+        CreateRuleRequest: {
+            code: string;
+            name: string;
+            description?: string;
+            severity: components["schemas"]["Severity"];
+            weight: number;
+            mode: components["schemas"]["RuleMode"];
+            /** @default true */
+            enabled: boolean;
+            condition: components["schemas"]["RuleCondition"];
+        };
+        UpdateRuleRequest: {
+            name?: string;
+            description?: string;
+            severity?: components["schemas"]["Severity"];
+            weight?: number;
+            mode?: components["schemas"]["RuleMode"];
+            enabled?: boolean;
+            condition?: components["schemas"]["RuleCondition"];
+        };
+        RuleVersion: {
+            version: number;
+            name: string;
+            description: string;
+            severity: components["schemas"]["Severity"];
+            weight: number;
+            mode: components["schemas"]["RuleMode"];
+            enabled: boolean;
+            condition: components["schemas"]["RuleCondition"];
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            restored_from?: number | null;
+        };
+        RuleVersionList: {
+            rule_id: string;
+            current_version: number;
+            data: components["schemas"]["RuleVersion"][];
+        };
+        RollbackRuleRequest: {
+            version: number;
+        };
+        TestRuleRequest: {
+            event: components["schemas"]["Event"];
+            condition?: components["schemas"]["RuleCondition"];
+        };
+        TestRuleResult: {
+            rule_id: string;
+            /** @description The version tested; null when a draft condition was tested. */
+            version?: number | null;
+            draft: boolean;
+            matched: boolean;
+            /** @description Values of the fields the condition references, for this event. */
+            facts: {
+                [key: string]: unknown;
+            };
+        };
+        RiskSettings: {
+            /** @description Overrides of built-in signal weights (0-50), keyed by signal code. */
+            weights: {
+                [key: string]: number;
+            };
+            /**
+             * Format: int64
+             * @description High-value threshold in minor units for currencies without their own entry. While any
+             *     signal source is degraded, events at or above it get at least REVIEW.
+             * @example 1000000
+             */
+            high_value_default: number;
+            /**
+             * @example {
+             *       "USD": 500000
+             *     }
+             */
+            high_value_by_currency: {
+                [key: string]: number;
+            };
+            /**
+             * @description What a degraded evaluation falls back to, per event type: `closed` (at least REVIEW)
+             *     or `open` (allow, flagged). Types not listed fail closed.
+             * @example {
+             *       "transaction": "closed",
+             *       "login": "open"
+             *     }
+             */
+            fail_policies: {
+                [key: string]: "open" | "closed";
+            };
+            /**
+             * @description The least severe decision that raises an alert. Always present in responses; when
+             *     omitted from a PUT, `review` is stored.
+             * @default review
+             * @enum {string}
+             */
+            alert_min_decision: "step_up" | "review";
+        };
+        RiskCatalog: {
+            engine_version: string;
+            signals: {
+                code: string;
+                label: string;
+                default_weight: number;
+                /** @description Effective weight in the caller's environment. */
+                weight: number;
+                /** @enum {string} */
+                source: "history" | "velocity" | "network";
+                /** @description Whether the signal turns a MEDIUM decision into STEP_UP. */
+                strengthenable: boolean;
+            }[];
+            fields: {
+                name: string;
+                /** @enum {string} */
+                type: "number" | "string" | "boolean";
+                operators: string[];
+            }[];
         };
     };
     responses: {
@@ -1010,6 +1605,536 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRiskCatalog: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The catalog. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskCatalog"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRiskSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putRiskSettings: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RiskSettings"];
+            };
+        };
+        responses: {
+            /** @description The stored settings. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskSettings"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listRules: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rules, by code. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description The created rule (version 1). */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rule. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description The rule with its (possibly new) current version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listRuleVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleVersionList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rollbackRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["RollbackRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description The rule with the restored content as its new current version. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Rule"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    testRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TestRuleRequest"];
+            };
+        };
+        responses: {
+            /** @description The test result. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestRuleResult"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listAlerts: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: components["schemas"]["AlertStatus"];
+                kind?: components["schemas"]["AlertKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of alerts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The alert. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AlertDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateAlert: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                alert_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateAlertRequest"];
+            };
+        };
+        responses: {
+            /** @description The alert. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Alert"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listCases: {
+        parameters: {
+            query?: {
+                /** @description Page size. */
+                limit?: components["parameters"]["Limit"];
+                /** @description The `next_cursor` of the previous page. */
+                cursor?: components["parameters"]["Cursor"];
+                status?: components["schemas"]["CaseStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A page of cases. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description The case. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The case. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateCase: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["UpdateCaseRequest"];
+            };
+        };
+        responses: {
+            /** @description The case. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Case"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    addCaseNote: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                case_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateCaseNoteRequest"];
+            };
+        };
+        responses: {
+            /** @description The note. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CaseNote"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

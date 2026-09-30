@@ -13,15 +13,18 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 // server implements apigen.StrictServerInterface by embedding each module's handlers.
@@ -30,6 +33,9 @@ type server struct {
 	auth.CredentialHandlers
 	audit.LogHandlers
 	events.IngestHandlers
+	risk.RuleHandlers
+	alerts.AlertHandlers
+	cases.CaseHandlers
 }
 
 var _ apigen.StrictServerInterface = server{}
@@ -44,6 +50,9 @@ type Deps struct {
 	Auth      *auth.Module
 	Audit     *audit.Module
 	Events    *events.Module
+	Risk      *risk.Module
+	Alerts    *alerts.Module
+	Cases     *cases.Module
 	// Limiter enforces RateLimits on authenticated requests.
 	Limiter    Allower
 	RateLimits RateLimits
@@ -83,6 +92,9 @@ func New(d Deps) (http.Handler, error) {
 		CredentialHandlers: d.Auth.HTTPHandlers(),
 		LogHandlers:        d.Audit.HTTPHandlers(),
 		IngestHandlers:     d.Events.HTTPHandlers(),
+		RuleHandlers:       d.Risk.HTTPHandlers(),
+		AlertHandlers:      d.Alerts.HTTPHandlers(),
+		CaseHandlers:       d.Cases.HTTPHandlers(),
 	}
 	strict := apigen.NewStrictHandlerWithOptions(impl, nil, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {

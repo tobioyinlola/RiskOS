@@ -38,6 +38,32 @@ type Config struct {
 	Telemetry Telemetry
 	Auth      Auth
 	RateLimit RateLimit
+	Risk      Risk
+}
+
+// Risk configures the risk engine.
+type Risk struct {
+	// FeatureHashKey keys the HMAC that pseudonymizes identifiers before they reach Redis
+	// (ARCHITECTURE.md §16.3). At least 32 bytes, from the secrets manager. Changing it resets
+	// every user's behavioral history.
+	FeatureHashKey string
+	// FeatureTimeout bounds the feature-store round trip on the decision path.
+	FeatureTimeout time.Duration
+}
+
+// Validate checks the risk settings; call it in binaries that evaluate events.
+func (r Risk) Validate() error {
+	var errs []error
+	if len(r.FeatureHashKey) < MinPepperBytes {
+		errs = append(errs, fmt.Errorf("RISKOS_FEATURE_HASH_KEY: required, at least %d bytes", MinPepperBytes))
+	}
+	if r.FeatureTimeout <= 0 || r.FeatureTimeout > time.Second {
+		errs = append(errs, errors.New("RISKOS_FEATURE_TIMEOUT: must be between 1ms and 1s"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
+	}
+	return nil
 }
 
 // RateLimit configures per-API-key and per-tenant request limits (sustained rate and burst).
@@ -144,6 +170,10 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	r := reader{lookup: lookup}
 
 	cfg := Config{
+		Risk: Risk{
+			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
+			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
+		},
 		RateLimit: RateLimit{
 			KeyPerSecond:    r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),
 			KeyBurst:        r.integer("RISKOS_RATE_LIMIT_KEY_BURST", 200),

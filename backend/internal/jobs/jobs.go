@@ -17,7 +17,8 @@ type Args interface {
 	Kind() string
 }
 
-// Enqueuer schedules jobs for asynchronous execution.
+// Enqueuer schedules jobs for asynchronous execution. Called inside a tenant transaction, the job
+// is created atomically with the transaction's writes.
 type Enqueuer interface {
 	Enqueue(ctx context.Context, args Args) error
 }

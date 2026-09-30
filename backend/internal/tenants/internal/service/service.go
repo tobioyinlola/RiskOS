@@ -139,6 +139,31 @@ func (s *Service) OperatorScope(ctx context.Context, tenantID uuid.UUID, kind te
 	return tenancy.WithScope(ctx, systemScope(tenantID, envID, kind, actor)), nil
 }
 
+// JobScope returns ctx scoped to an environment of an active tenant for a background job, acting
+// as actor with exactly permissions. Jobs carry tenant and environment IDs that the server wrote
+// when it enqueued them; this re-checks that both exist and that the tenant is still active.
+func (s *Service) JobScope(ctx context.Context, tenantID, envID uuid.UUID, actor string, permissions []string) (context.Context, error) {
+	lookupCtx := tenancy.WithScope(ctx, systemScope(tenantID, envID, "", actor))
+	var kind, status string
+	err := s.runner.Run(lookupCtx, func(ctx context.Context) error {
+		var err error
+		kind, status, err = s.store.Environment(ctx, tenantID, envID)
+		return err
+	})
+	if errors.Is(err, store.ErrNotFound) {
+		return nil, ErrNotFound
+	}
+	if err != nil {
+		return nil, err
+	}
+	if status != "active" {
+		return nil, ErrNotActive
+	}
+	scope := systemScope(tenantID, envID, tenancy.EnvironmentKind(kind), actor)
+	scope.Principal.Permissions = permissions
+	return tenancy.WithScope(ctx, scope), nil
+}
+
 func systemScope(tenantID, envID uuid.UUID, kind tenancy.EnvironmentKind, actor string) tenancy.Scope {
 	return tenancy.Scope{
 		TenantID:        tenantID,

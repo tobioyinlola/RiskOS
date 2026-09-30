@@ -12,11 +12,15 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
+	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 )
 
 func main() {
@@ -48,8 +52,15 @@ func run() (err error) {
 	}
 	defer pool.Close()
 
+	clk := clock.System{}
+	runner := db.NewTxRunner(pool)
+	auditModule := audit.New(runner, clk)
+	tenantsModule := tenants.New(runner, auditModule.Recorder())
+	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, logger)
+
 	registry := jobs.NewRegistry()
 	jobs.Register(registry, jobs.NoopHandler(logger))
+	jobs.Register(registry, alertsModule.RaiseJob(tenantsModule))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, jobs.EnsurePartitionsArgs{}, func(ctx context.Context, _ jobs.EnsurePartitionsArgs) error {
 		created, err := db.EnsureTimePartitions(ctx, pool, db.PartitionMonthsAhead)
 		if err != nil {

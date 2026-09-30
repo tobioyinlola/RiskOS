@@ -131,6 +131,42 @@ func TestAuthValidate(t *testing.T) {
 	}
 }
 
+func TestRiskValidate(t *testing.T) {
+	key := strings.Repeat("k", 32)
+	tests := []struct {
+		name    string
+		risk    config.Risk
+		wantErr string
+	}{
+		{"valid", config.Risk{FeatureHashKey: key, FeatureTimeout: 50 * time.Millisecond}, ""},
+		{"missing key", config.Risk{FeatureTimeout: 50 * time.Millisecond}, "RISKOS_FEATURE_HASH_KEY"},
+		{"short key", config.Risk{FeatureHashKey: "short", FeatureTimeout: 50 * time.Millisecond}, "RISKOS_FEATURE_HASH_KEY"},
+		{"no timeout", config.Risk{FeatureHashKey: key}, "RISKOS_FEATURE_TIMEOUT"},
+		{"timeout too long", config.Risk{FeatureHashKey: key, FeatureTimeout: 2 * time.Second}, "RISKOS_FEATURE_TIMEOUT"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			err := tt.risk.Validate()
+			if tt.wantErr == "" {
+				require.NoError(t, err)
+				return
+			}
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), tt.wantErr)
+			assert.NotContains(t, err.Error(), "short", "the key must never be echoed")
+		})
+	}
+}
+
+func TestLoadRiskDefaults(t *testing.T) {
+	env := minimalEnv()
+	env["RISKOS_FEATURE_HASH_KEY"] = strings.Repeat("x", 40)
+	cfg, err := config.Load(lookupFrom(env))
+	require.NoError(t, err)
+	assert.Equal(t, 50*time.Millisecond, cfg.Risk.FeatureTimeout)
+	require.NoError(t, cfg.Risk.Validate())
+}
+
 func TestLoadAuthDefaults(t *testing.T) {
 	env := minimalEnv()
 	env["RISKOS_API_KEY_PEPPER"] = strings.Repeat("x", 40)

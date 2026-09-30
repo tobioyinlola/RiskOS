@@ -11,6 +11,29 @@ import (
 	"github.com/google/uuid"
 )
 
+const getEnvironment = `-- name: GetEnvironment :one
+SELECT e.kind, t.status AS tenant_status
+FROM environments e JOIN tenants t ON t.id = e.tenant_id
+WHERE e.tenant_id = $1 AND e.id = $2
+`
+
+type GetEnvironmentParams struct {
+	TenantID uuid.UUID
+	ID       uuid.UUID
+}
+
+type GetEnvironmentRow struct {
+	Kind         string
+	TenantStatus string
+}
+
+func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error) {
+	row := q.db.QueryRow(ctx, getEnvironment, arg.TenantID, arg.ID)
+	var i GetEnvironmentRow
+	err := row.Scan(&i.Kind, &i.TenantStatus)
+	return i, err
+}
+
 const getEnvironmentByKind = `-- name: GetEnvironmentByKind :one
 SELECT e.id, t.status AS tenant_status
 FROM environments e JOIN tenants t ON t.id = e.tenant_id

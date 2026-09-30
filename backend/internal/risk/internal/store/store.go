@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/google/uuid"
@@ -35,8 +36,9 @@ func scoped(ctx context.Context) (*sqlcgen.Queries, tenancy.Scope, error) {
 	return sqlcgen.New(tx), scope, nil
 }
 
-// Insert stores an evaluation with everything needed to reproduce it.
-func (Store) Insert(ctx context.Context, r domain.Result, in domain.Input, duration time.Duration) error {
+// Insert stores an evaluation with everything needed to reproduce it: engine and rule versions,
+// the features (normalized event and facts), signals, shadow-rule matches and policy reasons.
+func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, features []byte, duration time.Duration) error {
 	q, scope, err := scoped(ctx)
 	if err != nil {
 		return err
@@ -45,17 +47,19 @@ func (Store) Insert(ctx context.Context, r domain.Result, in domain.Input, durat
 	if err != nil {
 		return fmt.Errorf("encode signals: %w", err)
 	}
-	us := duration.Microseconds()
-	if us > int64(^uint32(0)>>1) {
-		us = int64(^uint32(0) >> 1)
+	shadow, err := json.Marshal(nonNil(r.ShadowSignals))
+	if err != nil {
+		return fmt.Errorf("encode shadow signals: %w", err)
 	}
+	us := min(duration.Microseconds(), int64(math.MaxInt32))
 	if err := q.InsertEvaluation(ctx, sqlcgen.InsertEvaluationParams{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID,
-		ID: r.ID, CreatedAt: r.CreatedAt, EventID: r.EventID, EventKey: in.EventKey, DryRun: r.EventID == nil,
-		EngineVersion: r.EngineVersion, RuleVersions: []string{}, Features: in.Features.Normalized,
+		ID: r.ID, CreatedAt: r.CreatedAt, EventID: r.EventID, EventKey: eventKey, DryRun: r.EventID == nil,
+		EngineVersion: r.EngineVersion, RuleVersions: nonNilStrings(r.RuleVersions), Features: features,
 		RiskScore: int16(r.Score), RiskLevel: string(r.Level), Decision: string(r.Decision), //nolint:gosec // score is 0..100
 		Signals: signals, DegradedSignals: nonNilStrings(r.DegradedSignals), RequestID: r.RequestID,
-		DurationUs: int32(us), //nolint:gosec // clamped above
+		DurationUs:    int32(us), //nolint:gosec // clamped above
+		PolicyReasons: nonNilStrings(r.PolicyReasons), ShadowSignals: shadow,
 	}); err != nil {
 		return fmt.Errorf("insert evaluation: %w", err)
 	}
