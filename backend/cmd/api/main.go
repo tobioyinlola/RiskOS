@@ -90,6 +90,9 @@ func run() (err error) {
 	if err := cfg.Webhooks.Validate(); err != nil {
 		return err
 	}
+	if err := cfg.Console.Validate(cfg.Env); err != nil {
+		return err
+	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
 
 	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
@@ -121,6 +124,12 @@ func run() (err error) {
 	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
 		Pepper:   []byte(cfg.Auth.APIKeyPepper),
 		CacheTTL: cfg.Auth.APIKeyCacheTTL,
+		Console:  consoleConfig(cfg.Console),
+		Cookie: auth.CookieConfig{
+			Secure: cfg.Console.CookieSecure, Origins: cfg.Console.Origins, ConsoleURL: cfg.Console.URL,
+		},
+		Limiter: ratelimit.New(rdb),
+		Logger:  logger,
 	})
 
 	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
@@ -175,4 +184,10 @@ func run() (err error) {
 
 func webhookConfig(c config.Webhooks) webhooks.Config {
 	return webhooks.Config{SigningKey: []byte(c.SigningKey), Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest}
+}
+
+func consoleConfig(c config.Console) auth.ConsoleConfig {
+	cc := auth.DefaultConsole()
+	cc.Secret, cc.RPID, cc.Origins = []byte(c.Secret), c.RPID, c.Origins
+	return cc
 }

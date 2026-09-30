@@ -37,6 +37,8 @@ const (
 	CasesWrite    Permission = "cases:write"
 	WebhooksRead  Permission = "webhooks:read"
 	WebhooksWrite Permission = "webhooks:write"
+	TeamRead      Permission = "team:read"
+	TeamWrite     Permission = "team:write"
 )
 
 // System permissions are held only by RiskOS's own background jobs, never by a customer
@@ -53,7 +55,7 @@ func CustomerPermissions() []Permission {
 	return []Permission{
 		APIKeysRead, APIKeysWrite, AuditLogsRead, EventsWrite, EventsRead, RiskEvaluate,
 		RulesRead, RulesWrite, RiskConfigure, AlertsRead, AlertsWrite, CasesRead, CasesWrite,
-		WebhooksRead, WebhooksWrite,
+		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite,
 	}
 }
 

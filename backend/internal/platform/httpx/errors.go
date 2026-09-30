@@ -35,6 +35,17 @@ type Error struct {
 	Code    string
 	Message string
 	Cause   error
+	// Headers are set on the error response (for example Retry-After).
+	Headers map[string]string
+}
+
+// WithHeader returns e with a response header added.
+func (e *Error) WithHeader(key, value string) *Error {
+	if e.Headers == nil {
+		e.Headers = map[string]string{}
+	}
+	e.Headers[key] = value
+	return e
 }
 
 func (e *Error) Error() string {
@@ -96,6 +107,9 @@ func WriteError(w http.ResponseWriter, r *http.Request, logger *slog.Logger, err
 		logger.ErrorContext(ctx, "request failed", slog.String("code", e.Code), slog.Int("status", e.Status), slog.Any("error", err))
 	} else {
 		logger.DebugContext(ctx, "request rejected", slog.String("code", e.Code), slog.Int("status", e.Status), slog.Any("error", err))
+	}
+	for k, v := range e.Headers {
+		w.Header().Set(k, v)
 	}
 	WriteJSON(ctx, w, logger, e.Status, apigen.ErrorResponse{Error: apigen.ErrorDetail{
 		Code:      e.Code,

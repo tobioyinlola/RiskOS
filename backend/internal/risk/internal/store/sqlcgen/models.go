@@ -136,6 +136,22 @@ type CaseNote struct {
 	CreatedAt     time.Time
 }
 
+type ConsoleSession struct {
+	ID               uuid.UUID
+	TenantID         uuid.UUID
+	UserID           uuid.UUID
+	TokenHash        []byte
+	State            string
+	CreatedAt        time.Time
+	LastSeenAt       time.Time
+	ExpiresAt        time.Time
+	ReauthAt         *time.Time
+	RevokedAt        *time.Time
+	WebauthnCeremony []byte
+	Ip               *netip.Addr
+	UserAgent        *string
+}
+
 type Environment struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID
@@ -245,6 +261,51 @@ type Tenant struct {
 	Region    string
 	Status    string
 	CreatedAt time.Time
+}
+
+type User struct {
+	ID             uuid.UUID
+	TenantID       uuid.UUID
+	Email          string
+	Name           string
+	Role           string
+	Status         string
+	PasswordHash   string
+	TotpSecretEnc  []byte
+	TotpLastStep   *int64
+	RecoveryHashes [][]byte
+	CreatedAt      time.Time
+	CreatedBy      string
+	UpdatedAt      time.Time
+	LastLoginAt    *time.Time
+}
+
+type UserInvite struct {
+	ID         uuid.UUID
+	TenantID   uuid.UUID
+	Email      string
+	Role       string
+	TokenHash  []byte
+	CreatedAt  time.Time
+	CreatedBy  string
+	ExpiresAt  time.Time
+	AcceptedAt *time.Time
+	RevokedAt  *time.Time
+}
+
+type WebauthnCredential struct {
+	ID              []byte
+	TenantID        uuid.UUID
+	UserID          uuid.UUID
+	Name            string
+	PublicKey       []byte
+	AttestationType string
+	Aaguid          []byte
+	SignCount       int64
+	Transports      []string
+	Flags           []byte
+	CreatedAt       time.Time
+	LastUsedAt      *time.Time
 }
 
 type WebhookAttempt struct {

@@ -55,6 +55,9 @@ const (
 	PrefixWebhook         = "whk"
 	PrefixWebhookEvent    = "wev"
 	PrefixWebhookDelivery = "whd"
+	PrefixUser            = "usr"
+	PrefixInvite          = "inv"
+	PrefixPasskey         = "pky"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

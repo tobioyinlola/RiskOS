@@ -51,11 +51,20 @@ type stack struct {
 	webhooks *webhooks.Module
 }
 
-func cfgWebhooks(opts []webhooks.Config) webhooks.Config {
-	if len(opts) > 0 {
-		return opts[0]
-	}
-	return testWebhookConfig()
+// stackConfig holds the optional settings of a test stack.
+type stackConfig struct {
+	webhooks webhooks.Config
+	console  auth.ConsoleConfig
+	// throttle enables console sign-in throttling (in Redis).
+	throttle bool
+}
+
+type stackOption func(*stackConfig)
+
+func withWebhooks(c webhooks.Config) stackOption { return func(s *stackConfig) { s.webhooks = c } }
+
+func withConsole(c auth.ConsoleConfig, throttle bool) stackOption {
+	return func(s *stackConfig) { s.console, s.throttle = c, throttle }
 }
 
 // testWebhookKey derives webhook secrets in integration tests.
@@ -91,19 +100,30 @@ func newStackWithLimits(t *testing.T, cacheTTL time.Duration, limits httpapi.Rat
 
 // newStackWith builds a stack whose risk engine reads features from featureRedis, so tests can
 // give it an unreachable one.
-func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits, featureRedis risk.Redis, opts ...webhooks.Config) stack {
+func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits, featureRedis risk.Redis, opts ...stackOption) stack {
 	t.Helper()
+	sc := stackConfig{webhooks: testWebhookConfig()}
+	for _, o := range opts {
+		o(&sc)
+	}
+	var limiter auth.Limiter
+	if sc.throttle {
+		limiter = ratelimit.New(shared.rdb)
+	}
 	tel, err := telemetry.Setup(t.Context(), config.Telemetry{}, "integration", config.EnvTest)
 	require.NoError(t, err)
 	clk := clock.System{}
 	runner := db.NewTxRunner(shared.pool)
 	auditModule := audit.New(runner, clk)
-	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{Pepper: []byte(testPepper), CacheTTL: cacheTTL})
+	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{
+		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
+		Cookie: auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
+	})
 	riskModule := newRisk(featureRedis, runner, auditModule, clk)
 	queue, err := jobs.NewInserter(shared.pool, shared.logger)
 	require.NoError(t, err)
 	var alertsModule *alerts.Module
-	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, cfgWebhooks(opts), webhooks.NotifierFunc(
+	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, sc.webhooks, webhooks.NotifierFunc(
 		func(ctx context.Context, id uuid.UUID) error { return alertsModule.WebhookEndpointDisabled(ctx, id) }), shared.logger)
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), shared.logger)
 	h, err := httpapi.New(httpapi.Deps{
@@ -261,7 +281,7 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	assert.ElementsMatch(t, []apigen.Scope{
 		"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate",
 		"rules:read", "rules:write", "risk:configure", "alerts:read", "alerts:write", "cases:read", "cases:write",
-		"webhooks:read", "webhooks:write",
+		"webhooks:read", "webhooks:write", "team:read", "team:write",
 	}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.

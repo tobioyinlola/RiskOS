@@ -178,6 +178,24 @@ func TestPrivateWebhooksRefusedInProduction(t *testing.T) {
 	assert.Contains(t, err.Error(), "RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST")
 }
 
+func TestConsoleConfig(t *testing.T) {
+	env := minimalEnv()
+	env["RISKOS_CONSOLE_URL"] = "https://console.example.com/"
+	cfg, err := config.Load(lookupFrom(env))
+	require.NoError(t, err)
+	assert.Equal(t, "https://console.example.com", cfg.Console.URL)
+	assert.Equal(t, []string{"https://console.example.com"}, cfg.Console.Origins)
+	assert.Equal(t, "console.example.com", cfg.Console.RPID)
+	assert.True(t, cfg.Console.CookieSecure, "secure by default")
+
+	err = config.Console{Secret: "short", URL: "http://localhost:3000"}.Validate(config.EnvProduction)
+	require.Error(t, err)
+	for _, want := range []string{"RISKOS_CONSOLE_SECRET", "production requires https", "RISKOS_SESSION_COOKIE_SECURE"} {
+		assert.Contains(t, err.Error(), want)
+	}
+	assert.NoError(t, config.Console{Secret: strings.Repeat("s", 32), URL: "http://localhost:3000"}.Validate(config.EnvDevelopment))
+}
+
 func TestLoadRiskDefaults(t *testing.T) {
 	env := minimalEnv()
 	env["RISKOS_FEATURE_HASH_KEY"] = strings.Repeat("x", 40)

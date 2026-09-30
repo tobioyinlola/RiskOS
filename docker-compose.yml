@@ -34,6 +34,9 @@ x-feature-key: &feature-key ${RISKOS_FEATURE_HASH_KEY:?set RISKOS_FEATURE_HASH_K
 # Derives webhook signing secrets; given to the API (shows secrets) and the worker (signs).
 x-webhook-key: &webhook-key ${RISKOS_WEBHOOK_SIGNING_KEY:?set RISKOS_WEBHOOK_SIGNING_KEY in .env}
 
+# Keys console MFA secrets and CSRF tokens; given only to the API.
+x-console-secret: &console-secret ${RISKOS_CONSOLE_SECRET:?set RISKOS_CONSOLE_SECRET in .env}
+
 x-hardening: &hardening
   read_only: true
   cap_drop: [ALL]
@@ -114,6 +117,10 @@ services:
       RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
       # Local development only: test-environment endpoints may be http:// and private addresses.
       RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
+      RISKOS_CONSOLE_SECRET: *console-secret
+      RISKOS_CONSOLE_URL: http://localhost:${FRONTEND_PORT:-3000}
+      # Local development over http; production requires Secure cookies.
+      RISKOS_SESSION_COOKIE_SECURE: "false"
       RISKOS_HTTP_SHUTDOWN_DRAIN_DELAY: 2s
       RISKOS_RATE_LIMIT_KEY_PER_SECOND: ${RISKOS_RATE_LIMIT_KEY_PER_SECOND:-100}
       RISKOS_RATE_LIMIT_KEY_BURST: ${RISKOS_RATE_LIMIT_KEY_BURST:-200}
@@ -164,6 +171,7 @@ services:
       <<: *backend-env
       RISKOS_API_KEY_PEPPER: *pepper
       RISKOS_POSTGRES_MIGRATION_URL: *owner-url
+      RISKOS_CONSOLE_URL: http://localhost:${FRONTEND_PORT:-3000}
       RISKOS_OTEL_ENABLED: "false"
       RISKOS_LOG_LEVEL: warn
     depends_on:
@@ -183,6 +191,9 @@ services:
       RISKOS_FEATURE_HASH_KEY: *feature-key
       RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
       RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
+      RISKOS_CONSOLE_SECRET: *console-secret
+      RISKOS_CONSOLE_URL: http://localhost:${FRONTEND_PORT:-3000}
+      RISKOS_SESSION_COOKIE_SECURE: "false"
     ports: ["127.0.0.1:${API_PORT:-8080}:8080"]
     volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
     depends_on: *backend-deps

@@ -40,6 +40,44 @@ type Config struct {
 	RateLimit RateLimit
 	Risk      Risk
 	Webhooks  Webhooks
+	Console   Console
+}
+
+// Console configures the dashboard realm (console sign-in and sessions).
+type Console struct {
+	// Secret keys MFA secret encryption and CSRF tokens (at least 32 bytes, from the secrets
+	// manager). Rotating it invalidates enrolled authenticator apps and open sessions' CSRF tokens.
+	Secret string
+	// URL is the console's public base URL (invite links, passkey origin).
+	URL string
+	// Origins may make cookie-authenticated requests; defaults to URL's origin.
+	Origins []string
+	// RPID is the passkey relying party ID; defaults to URL's host name.
+	RPID string
+	// CookieSecure sets the Secure attribute on the session cookie. Required in production.
+	CookieSecure bool
+}
+
+// Validate checks the console settings; call it in binaries that serve the console API or
+// create invites.
+func (c Console) Validate(env Environment) error {
+	var errs []error
+	if len(c.Secret) < MinPepperBytes {
+		errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET: required, at least %d bytes", MinPepperBytes))
+	}
+	u, err := url.Parse(c.URL)
+	if err != nil || !u.IsAbs() || u.Host == "" {
+		errs = append(errs, errors.New("RISKOS_CONSOLE_URL: must be an absolute URL"))
+	} else if env == EnvProduction && u.Scheme != "https" {
+		errs = append(errs, errors.New("RISKOS_CONSOLE_URL: production requires https"))
+	}
+	if env == EnvProduction && !c.CookieSecure {
+		errs = append(errs, errors.New("RISKOS_SESSION_COOKIE_SECURE: must be true in production"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
+	}
+	return nil
 }
 
 // Webhooks configures webhook signing and delivery.
@@ -203,6 +241,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 	r := reader{lookup: lookup}
 
 	cfg := Config{
+		Console: consoleConfig(&r),
 		Webhooks: Webhooks{
 			SigningKey:       r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
 			Timeout:          r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
@@ -512,4 +551,29 @@ func (r *reader) logLevel(key string, def slog.Level) slog.Level {
 		return def
 	}
 	return l
+}
+
+func consoleConfig(r *reader) Console {
+	c := Console{
+		Secret:       r.str("RISKOS_CONSOLE_SECRET", ""),
+		URL:          strings.TrimRight(r.str("RISKOS_CONSOLE_URL", "http://localhost:3000"), "/"),
+		RPID:         r.str("RISKOS_WEBAUTHN_RP_ID", ""),
+		CookieSecure: r.boolean("RISKOS_SESSION_COOKIE_SECURE", true),
+	}
+	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
+		for _, o := range strings.Split(raw, ",") {
+			if o = strings.TrimSpace(o); o != "" {
+				c.Origins = append(c.Origins, strings.TrimRight(o, "/"))
+			}
+		}
+	}
+	if u, err := url.Parse(c.URL); err == nil && u.Host != "" {
+		if len(c.Origins) == 0 {
+			c.Origins = []string{u.Scheme + "://" + u.Host}
+		}
+		if c.RPID == "" {
+			c.RPID = u.Hostname()
+		}
+	}
+	return c
 }

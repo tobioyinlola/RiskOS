@@ -25,6 +25,26 @@ var (
 	ErrConflict        = errors.New("api key cannot be changed in its current state")
 )
 
+// Errors of the dashboard realm.
+var (
+	// ErrInvalidCredentials covers unknown emails, wrong passwords and disabled users alike.
+	ErrInvalidCredentials = errors.New("invalid email or password")
+	ErrMFAInvalid         = errors.New("invalid verification code")
+	// ErrSessionState means the session is not at the step this operation needs.
+	ErrSessionState   = errors.New("session is not in the right state")
+	ErrReauthRequired = errors.New("recent verification required")
+	ErrInviteInvalid  = errors.New("invite is invalid or expired")
+	ErrEmailTaken     = errors.New("email already has an account")
+	ErrLastAdmin      = errors.New("a tenant must keep at least one active administrator")
+	ErrSelfChange     = errors.New("you cannot change your own role or status")
+	ErrUserNotFound   = errors.New("user not found")
+)
+
+// RateLimitedError is returned when sign-in or verification attempts are throttled.
+type RateLimitedError struct{ RetryAfter time.Duration }
+
+func (e *RateLimitedError) Error() string { return "too many attempts" }
+
 // API key format (ARCHITECTURE.md §9, §16.7):
 //
 //	rsk_<env>_<lookup>_<secret>

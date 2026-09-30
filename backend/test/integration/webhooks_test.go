@@ -285,7 +285,7 @@ func TestWebhookRetriesRedeliveryAndRotation(t *testing.T) {
 func TestWebhookAutoDisable(t *testing.T) {
 	cfg := testWebhookConfig()
 	cfg.DisableAfter = time.Millisecond
-	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, cfg)
+	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, withWebhooks(cfg))
 	s.startWorker(t)
 	a := s.createTenant(t, "Webhook disable")
 	rcv := newReceiver(t)
@@ -337,7 +337,7 @@ func TestWebhookURLPolicy(t *testing.T) {
 		// A hostname passes URL validation but resolves to loopback; the delivery must refuse it.
 		cfg := testWebhookConfig()
 		cfg.AllowPrivateTest = false
-		strict := newStackWith(t, time.Second, generousLimits(), shared.rdb, cfg)
+		strict := newStackWith(t, time.Second, generousLimits(), shared.rdb, withWebhooks(cfg))
 		strict.startWorker(t)
 		b := strict.createTenant(t, "Webhook rebinding")
 		rcv := newReceiver(t)
