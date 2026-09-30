@@ -18,6 +18,7 @@ type IngestHandlers interface {
 	EvaluateRisk(ctx context.Context, req apigen.EvaluateRiskRequestObject) (apigen.EvaluateRiskResponseObject, error)
 	ListEvents(ctx context.Context, req apigen.ListEventsRequestObject) (apigen.ListEventsResponseObject, error)
 	GetEvent(ctx context.Context, req apigen.GetEventRequestObject) (apigen.GetEventResponseObject, error)
+	TestRule(ctx context.Context, req apigen.TestRuleRequestObject) (apigen.TestRuleResponseObject, error)
 }
 
 // Module is the events module.
@@ -26,8 +27,8 @@ type Module struct {
 }
 
 // New returns the events module.
-func New(runner txn.Runner, evaluator risk.Evaluator, clk clock.Clock) *Module {
-	return &Module{svc: service.New(runner, evaluator, clk)}
+func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, clk clock.Clock) *Module {
+	return &Module{svc: service.New(runner, evaluator, tester, clk)}
 }
 
 // HTTPHandlers returns the module's API handlers.

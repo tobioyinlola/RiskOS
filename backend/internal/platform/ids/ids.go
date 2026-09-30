@@ -47,6 +47,7 @@ const (
 	PrefixAudit       = "aud"
 	PrefixEvent       = "evt"
 	PrefixEvaluation  = "evl"
+	PrefixRule        = "rul"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

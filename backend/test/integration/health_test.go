@@ -26,7 +26,6 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
-	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 func newAPI(t *testing.T) http.Handler {
@@ -36,6 +35,7 @@ func newAPI(t *testing.T) http.Handler {
 	runner := db.NewTxRunner(shared.pool)
 	auditModule := audit.New(runner, clock.System{})
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clock.System{}, auth.Config{Pepper: []byte(testPepper)})
+	riskModule := newRisk(shared.rdb, runner, auditModule, clock.System{})
 	h, err := httpapi.New(httpapi.Deps{
 		Logger:     shared.logger,
 		Clock:      clock.System{},
@@ -43,7 +43,8 @@ func newAPI(t *testing.T) http.Handler {
 		Telemetry:  tel,
 		Auth:       authModule,
 		Audit:      auditModule,
-		Events:     events.New(runner, risk.New(runner, clock.System{}).Evaluator(), clock.System{}),
+		Events:     events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), clock.System{}),
+		Risk:       riskModule,
 		Limiter:    ratelimit.New(shared.rdb),
 		RateLimits: generousLimits(),
 		Health: health.NewService(shared.logger,

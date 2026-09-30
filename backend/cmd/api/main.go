@@ -80,6 +80,9 @@ func run() (err error) {
 	if err := cfg.Auth.Validate(); err != nil {
 		return err
 	}
+	if err := cfg.Risk.Validate(); err != nil {
+		return err
+	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
 
 	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
@@ -113,8 +116,11 @@ func run() (err error) {
 		CacheTTL: cfg.Auth.APIKeyCacheTTL,
 	})
 
-	riskModule := risk.New(runner, clk)
-	eventsModule := events.New(runner, riskModule.Evaluator(), clk)
+	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
+		FeatureHashKey: []byte(cfg.Risk.FeatureHashKey),
+		FeatureTimeout: cfg.Risk.FeatureTimeout,
+	})
+	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), clk)
 
 	handler, err := httpapi.New(httpapi.Deps{
 		Logger:    logger,
@@ -125,6 +131,7 @@ func run() (err error) {
 		Auth:      authModule,
 		Audit:     auditModule,
 		Events:    eventsModule,
+		Risk:      riskModule,
 		Limiter:   ratelimit.New(rdb),
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},

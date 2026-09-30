@@ -18,6 +18,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 // Error codes specific to events (EVENTS.md).
@@ -116,6 +117,49 @@ func (h *Handlers) GetEvent(ctx context.Context, req apigen.GetEventRequestObjec
 	}, nil
 }
 
+// TestRule implements POST /api/v1/rules/{rule_id}/test. It lives here because the events module
+// owns event validation and normalization; the rule itself is evaluated by the risk module.
+func (h *Handlers) TestRule(ctx context.Context, req apigen.TestRuleRequestObject) (apigen.TestRuleResponseObject, error) {
+	id, err := ids.Parse(ids.PrefixRule, req.RuleId)
+	if err != nil {
+		return nil, httpx.NotFound(err)
+	}
+	if req.Body == nil {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	body, ok := httpx.RawBody(ctx)
+	if !ok {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	var envelope struct {
+		Event json.RawMessage `json:"event"`
+	}
+	if err := json.Unmarshal(body, &envelope); err != nil {
+		return nil, httpx.InvalidRequest("The request body is invalid.", err)
+	}
+	e, err := toDomain(&req.Body.Event)
+	if err != nil {
+		return nil, err
+	}
+	var draft json.RawMessage
+	if req.Body.Condition != nil {
+		if draft, err = json.Marshal(req.Body.Condition); err != nil {
+			return nil, fmt.Errorf("encode condition: %w", err)
+		}
+	}
+	res, err := h.svc.TestRule(ctx, id, envelope.Event, e, draft)
+	if err != nil {
+		return nil, risk.MapError(mapError(err))
+	}
+	out := apigen.TestRule200JSONResponse{
+		RuleId: ids.Format(ids.PrefixRule, res.Rule.ID), Draft: res.Draft, Matched: res.Matched, Facts: res.Facts,
+	}
+	if !res.Draft {
+		out.Version = new(res.Rule.Current.Version)
+	}
+	return out, nil
+}
+
 // decode converts the contract-validated body into a domain event and returns the raw bytes the
 // validation middleware captured.
 func decode(ctx context.Context, body *apigen.Event) (domain.Event, []byte, error) {
@@ -123,9 +167,18 @@ func decode(ctx context.Context, body *apigen.Event) (domain.Event, []byte, erro
 	if body == nil || !ok {
 		return domain.Event{}, nil, httpx.InvalidRequest("A request body is required.", nil)
 	}
+	e, err := toDomain(body)
+	if err != nil {
+		return domain.Event{}, nil, err
+	}
+	return e, raw, nil
+}
+
+// toDomain converts a contract-validated event into the domain event.
+func toDomain(body *apigen.Event) (domain.Event, error) {
 	v, err := body.ValueByDiscriminator()
 	if err != nil {
-		return domain.Event{}, nil, httpx.InvalidRequest("Unknown event type.", err)
+		return domain.Event{}, httpx.InvalidRequest("Unknown event type.", err)
 	}
 	var e domain.Event
 	var data any
@@ -143,12 +196,12 @@ func decode(ctx context.Context, body *apigen.Event) (domain.Event, []byte, erro
 	case apigen.ProfileChangeEvent:
 		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
 	default:
-		return domain.Event{}, nil, httpx.InvalidRequest("Unknown event type.", fmt.Errorf("unexpected %T", v))
+		return domain.Event{}, httpx.InvalidRequest("Unknown event type.", fmt.Errorf("unexpected %T", v))
 	}
 	if e.Data, err = json.Marshal(data); err != nil {
-		return domain.Event{}, nil, fmt.Errorf("encode event data: %w", err)
+		return domain.Event{}, fmt.Errorf("encode event data: %w", err)
 	}
-	return e, raw, nil
+	return e, nil
 }
 
 func common(key, typ string, occurredAt time.Time, a apigen.Actor, c *apigen.EventContext) domain.Event {

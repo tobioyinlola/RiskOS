@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -48,6 +49,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 		checks = append(checks, health.Check{Name: name, Timeout: time.Second, Probe: func(context.Context) error { return perr }})
 	}
 	authModule, auditModule := testModules()
+	eventsMod, riskMod := appModules()
 	return fixture{
 		logs: logs,
 		handler: must(t)(httpapi.New(httpapi.Deps{
@@ -58,8 +60,8 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 			Health:    health.NewService(logger, checks...),
 			Auth:      authModule,
 			Audit:     auditModule,
-			Events:    eventsModule(),
-			Limiter:   allowAll{},
+			Events:    eventsMod, Risk: riskMod,
+			Limiter: allowAll{},
 		})),
 	}
 }
@@ -198,6 +200,7 @@ func BenchmarkLiveness(b *testing.B) {
 	tel, err := telemetry.Setup(context.Background(), config.Telemetry{}, "bench", config.EnvTest)
 	require.NoError(b, err)
 	authModule, auditModule := testModules()
+	eventsMod, riskMod := appModules()
 	h := must(b)(httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clock.System{},
@@ -206,8 +209,8 @@ func BenchmarkLiveness(b *testing.B) {
 		Health:    health.NewService(logger),
 		Auth:      authModule,
 		Audit:     auditModule,
-		Events:    eventsModule(),
-		Limiter:   allowAll{},
+		Events:    eventsMod, Risk: riskMod,
+		Limiter: allowAll{},
 	}))
 	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/health/live", nil)
 	b.ReportAllocs()
@@ -251,8 +254,13 @@ func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, e
 	return ratelimit.Decision{Allowed: true}, nil
 }
 
-func eventsModule() *events.Module {
-	return events.New(noDB{}, risk.New(noDB{}, clock.System{}).Evaluator(), clock.System{})
+// appModules returns the events and risk modules over a database that is never reached and a
+// Redis that does not exist; these tests never evaluate an event.
+func appModules() (*events.Module, *risk.Module) {
+	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
+	riskModule := risk.New(rdb, noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{},
+		slog.New(slog.DiscardHandler), risk.Config{FeatureHashKey: []byte(strings.Repeat("f", 32)), FeatureTimeout: 10 * time.Millisecond})
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), clock.System{}), riskModule
 }
 
 func must(t testing.TB) func(http.Handler, error) http.Handler {

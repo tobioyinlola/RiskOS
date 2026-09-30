@@ -17,6 +17,7 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+	"github.com/redis/go-redis/v9"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -81,10 +82,11 @@ func startServer(t *testing.T) server {
 	tel, err := telemetry.Setup(t.Context(), cfg.Telemetry, "security-test", cfg.Env)
 	require.NoError(t, err)
 	authModule, auditModule := testModules()
+	eventsMod, riskMod := appModules()
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: logger, Clock: clock.System{}, HTTP: cfg.HTTP, Telemetry: tel,
 		Health: health.NewService(logger), Auth: authModule, Audit: auditModule,
-		Events: eventsModule(), Limiter: allowAll{},
+		Events: eventsMod, Risk: riskMod, Limiter: allowAll{},
 	})
 	require.NoError(t, err)
 
@@ -248,6 +250,11 @@ func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, e
 	return ratelimit.Decision{Allowed: true}, nil
 }
 
-func eventsModule() *events.Module {
-	return events.New(noDB{}, risk.New(noDB{}, clock.System{}).Evaluator(), clock.System{})
+// appModules returns the events and risk modules over a database that is never reached and a
+// Redis that does not exist; these tests never evaluate an event.
+func appModules() (*events.Module, *risk.Module) {
+	rdb := redis.NewClient(&redis.Options{Addr: "127.0.0.1:1"})
+	riskModule := risk.New(rdb, noDB{}, audit.New(noDB{}, clock.System{}).Recorder(), clock.System{},
+		slog.New(slog.DiscardHandler), risk.Config{FeatureHashKey: []byte(strings.Repeat("f", 32)), FeatureTimeout: 10 * time.Millisecond})
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), clock.System{}), riskModule
 }

@@ -60,17 +60,26 @@ func generousLimits() httpapi.RateLimits {
 
 func newStackWithLimits(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits) stack {
 	t.Helper()
+	return newStackWith(t, cacheTTL, limits, shared.rdb)
+}
+
+// newStackWith builds a stack whose risk engine reads features from featureRedis, so tests can
+// give it an unreachable one.
+func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimits, featureRedis risk.Redis) stack {
+	t.Helper()
 	tel, err := telemetry.Setup(t.Context(), config.Telemetry{}, "integration", config.EnvTest)
 	require.NoError(t, err)
 	clk := clock.System{}
 	runner := db.NewTxRunner(shared.pool)
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{Pepper: []byte(testPepper), CacheTTL: cacheTTL})
+	riskModule := newRisk(featureRedis, runner, auditModule, clk)
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		Events:  events.New(runner, risk.New(runner, clk).Evaluator(), clk),
+		Events:  events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), clk),
+		Risk:    riskModule,
 		Limiter: ratelimit.New(shared.rdb), RateLimits: limits,
 	})
 	require.NoError(t, err)
@@ -79,6 +88,16 @@ func newStackWithLimits(t *testing.T, cacheTTL time.Duration, limits httpapi.Rat
 		tenants: tenants.New(runner, auditModule.Recorder()),
 		auth:    authModule,
 	}
+}
+
+// testFeatureKey pseudonymizes identifiers in the integration Redis.
+const testFeatureKey = "integration-feature-key-0123456789abcdef"
+
+// newRisk returns the risk module wired like cmd/api.
+func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock) *risk.Module {
+	return risk.New(rdb, runner, auditModule.Recorder(), clk, shared.logger, risk.Config{
+		FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond,
+	})
 }
 
 type tenantFixture struct {
@@ -202,7 +221,10 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	who := decode[apigen.Whoami](t, r)
 	assert.Equal(t, ids.Format(ids.PrefixTenant, a.id), who.TenantId)
 	assert.Equal(t, apigen.Environment("test"), who.Environment)
-	assert.ElementsMatch(t, []apigen.Scope{"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate"}, who.Scopes)
+	assert.ElementsMatch(t, []apigen.Scope{
+		"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate",
+		"rules:read", "rules:write", "risk:configure",
+	}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.
 	logs := s.call(t, http.MethodGet, "/api/v1/audit-logs", a.testKey, nil)

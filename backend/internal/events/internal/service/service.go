@@ -26,12 +26,31 @@ type Service struct {
 	store  store.Store
 	runner txn.Runner
 	risk   risk.Evaluator
+	tester risk.RuleTester
 	clock  clock.Clock
 }
 
 // New returns a Service.
-func New(runner txn.Runner, evaluator risk.Evaluator, clk clock.Clock) *Service {
-	return &Service{runner: runner, risk: evaluator, clock: clk}
+func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, clk clock.Clock) *Service {
+	return &Service{runner: runner, risk: evaluator, tester: tester, clock: clk}
+}
+
+// TestRule normalizes an event and tests a rule against it without storing anything. The time
+// window is not applied, so rules can be tested against historical events; card numbers are
+// still rejected. Authorization (rules:read) is enforced by the risk module.
+func (s *Service) TestRule(ctx context.Context, ruleID uuid.UUID, raw []byte, e domain.Event, draft json.RawMessage) (risk.TestResult, error) {
+	if domain.ContainsCardNumber(raw) {
+		return risk.TestResult{}, domain.ErrSensitiveData
+	}
+	n, _, err := domain.Normalize(e)
+	if err != nil {
+		return risk.TestResult{}, err
+	}
+	encoded, err := n.Encode()
+	if err != nil {
+		return risk.TestResult{}, fmt.Errorf("encode normalized event: %w", err)
+	}
+	return s.tester.TestRule(ctx, ruleID, encoded, draft)
 }
 
 // prepared is an event that passed every pre-storage check.

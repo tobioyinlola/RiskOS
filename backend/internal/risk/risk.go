@@ -2,14 +2,20 @@ package risk
 
 import (
 	"context"
+	"encoding/json"
+	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/domain"
-	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/engine"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/service"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/store"
 )
 
 // Public types.
@@ -26,6 +32,8 @@ type (
 	Level = domain.Level
 	// Decision is the recommended action.
 	Decision = domain.Decision
+	// TestResult is the outcome of testing a rule against an event.
+	TestResult = service.TestResult
 )
 
 // ErrNotFound is returned when an evaluation does not exist in the caller's environment.
@@ -38,16 +46,57 @@ type Evaluator interface {
 	Get(ctx context.Context, id uuid.UUID) (Result, error)
 }
 
+// RuleTester evaluates a rule against a normalized event without side effects. The events
+// module serves the test endpoint because it owns event validation and normalization.
+type RuleTester interface {
+	TestRule(ctx context.Context, id uuid.UUID, normalized []byte, draft json.RawMessage) (TestResult, error)
+}
+
+// RuleHandlers are the risk module's operations of the public API.
+type RuleHandlers interface {
+	GetRiskCatalog(ctx context.Context, req apigen.GetRiskCatalogRequestObject) (apigen.GetRiskCatalogResponseObject, error)
+	GetRiskSettings(ctx context.Context, req apigen.GetRiskSettingsRequestObject) (apigen.GetRiskSettingsResponseObject, error)
+	PutRiskSettings(ctx context.Context, req apigen.PutRiskSettingsRequestObject) (apigen.PutRiskSettingsResponseObject, error)
+	ListRules(ctx context.Context, req apigen.ListRulesRequestObject) (apigen.ListRulesResponseObject, error)
+	CreateRule(ctx context.Context, req apigen.CreateRuleRequestObject) (apigen.CreateRuleResponseObject, error)
+	GetRule(ctx context.Context, req apigen.GetRuleRequestObject) (apigen.GetRuleResponseObject, error)
+	UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestObject) (apigen.UpdateRuleResponseObject, error)
+	ListRuleVersions(ctx context.Context, req apigen.ListRuleVersionsRequestObject) (apigen.ListRuleVersionsResponseObject, error)
+	RollbackRule(ctx context.Context, req apigen.RollbackRuleRequestObject) (apigen.RollbackRuleResponseObject, error)
+}
+
+// Config configures the risk module.
+type Config struct {
+	// FeatureHashKey keys the HMAC that pseudonymizes identifiers before they reach Redis.
+	FeatureHashKey []byte
+	// FeatureTimeout bounds the feature store round trip on the decision path; beyond it the
+	// affected signals are reported as degraded.
+	FeatureTimeout time.Duration
+}
+
+// Redis holds the behavioral feature store. *redis.Client connected to the shared instance
+// satisfies it.
+type Redis = store.Redis
+
 // Module is the risk module.
 type Module struct {
 	svc *service.Service
 }
 
-// New returns the risk module. Build step 3 runs the stub engine (no signals; every event is
-// LOW/ALLOW, labelled with its engine version); build step 4 replaces it.
-func New(runner txn.Runner, clk clock.Clock) *Module {
-	return &Module{svc: service.New(engine.Stub{}, runner, clk)}
+// New returns the risk module.
+func New(rdb Redis, runner txn.Runner, rec audit.Recorder, clk clock.Clock, logger *slog.Logger, cfg Config) *Module {
+	fs := store.NewFeatureStore(rdb, cfg.FeatureHashKey, cfg.FeatureTimeout)
+	return &Module{svc: service.New(fs, runner, rec, clk, logger)}
 }
 
 // Evaluator returns the module's evaluator.
 func (m *Module) Evaluator() Evaluator { return m.svc }
+
+// RuleTester returns the module's rule tester.
+func (m *Module) RuleTester() RuleTester { return m.svc }
+
+// MapError translates the risk module's errors to the API error contract.
+func MapError(err error) error { return handler.MapError(err) }
+
+// HTTPHandlers returns the module's API handlers.
+func (m *Module) HTTPHandlers() RuleHandlers { return handler.New(m.svc) }

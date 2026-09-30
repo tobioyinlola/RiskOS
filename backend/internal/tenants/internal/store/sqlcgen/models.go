@@ -75,6 +75,8 @@ type Evaluation struct {
 	DegradedSignals []string
 	RequestID       string
 	DurationUs      int32
+	PolicyReasons   []string
+	ShadowSignals   []byte
 }
 
 type Event struct {
@@ -109,6 +111,44 @@ type EventIdempotency struct {
 	EventID       uuid.UUID
 	Response      *string
 	CreatedAt     time.Time
+}
+
+type RiskSetting struct {
+	TenantID            uuid.UUID
+	EnvironmentID       uuid.UUID
+	Weights             []byte
+	HighValueDefault    int64
+	HighValueByCurrency []byte
+	FailPolicies        []byte
+	UpdatedAt           time.Time
+	UpdatedBy           string
+}
+
+type Rule struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	Code           string
+	CurrentVersion int32
+	CreatedAt      time.Time
+	CreatedBy      string
+}
+
+type RuleVersion struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RuleID        uuid.UUID
+	Version       int32
+	Name          string
+	Description   string
+	Severity      string
+	Weight        int16
+	Mode          string
+	Enabled       bool
+	Condition     []byte
+	CreatedAt     time.Time
+	CreatedBy     string
+	RestoredFrom  *int32
 }
 
 type Tenant struct {

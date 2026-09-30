@@ -22,6 +22,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 )
 
 // server implements apigen.StrictServerInterface by embedding each module's handlers.
@@ -30,6 +31,7 @@ type server struct {
 	auth.CredentialHandlers
 	audit.LogHandlers
 	events.IngestHandlers
+	risk.RuleHandlers
 }
 
 var _ apigen.StrictServerInterface = server{}
@@ -44,6 +46,7 @@ type Deps struct {
 	Auth      *auth.Module
 	Audit     *audit.Module
 	Events    *events.Module
+	Risk      *risk.Module
 	// Limiter enforces RateLimits on authenticated requests.
 	Limiter    Allower
 	RateLimits RateLimits
@@ -83,6 +86,7 @@ func New(d Deps) (http.Handler, error) {
 		CredentialHandlers: d.Auth.HTTPHandlers(),
 		LogHandlers:        d.Audit.HTTPHandlers(),
 		IngestHandlers:     d.Events.HTTPHandlers(),
+		RuleHandlers:       d.Risk.HTTPHandlers(),
 	}
 	strict := apigen.NewStrictHandlerWithOptions(impl, nil, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {

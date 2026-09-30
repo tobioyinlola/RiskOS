@@ -67,11 +67,11 @@ const insertEvaluation = `-- name: InsertEvaluation :exec
 INSERT INTO evaluations (
   tenant_id, environment_id, id, created_at, event_id, event_key, dry_run,
   engine_version, rule_versions, features, risk_score, risk_level, decision,
-  signals, degraded_signals, request_id, duration_us
+  signals, degraded_signals, request_id, duration_us, policy_reasons, shadow_signals
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7,
   $8, $9, $10, $11, $12, $13,
-  $14, $15, $16, $17
+  $14, $15, $16, $17, $18, $19
 )
 `
 
@@ -93,6 +93,8 @@ type InsertEvaluationParams struct {
 	DegradedSignals []string
 	RequestID       string
 	DurationUs      int32
+	PolicyReasons   []string
+	ShadowSignals   []byte
 }
 
 // Every query takes tenant_id and environment_id explicitly (TENANCY.md, layer 1).
@@ -115,6 +117,8 @@ func (q *Queries) InsertEvaluation(ctx context.Context, arg InsertEvaluationPara
 		arg.DegradedSignals,
 		arg.RequestID,
 		arg.DurationUs,
+		arg.PolicyReasons,
+		arg.ShadowSignals,
 	)
 	return err
 }

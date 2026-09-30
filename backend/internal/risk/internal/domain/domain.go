@@ -3,7 +3,6 @@
 package domain
 
 import (
-	"context"
 	"encoding/json"
 	"time"
 
@@ -90,14 +89,6 @@ type Features struct {
 	Normalized json.RawMessage
 }
 
-// Engine produces signals for an event. Implementations must be deterministic for given
-// features and must respect ctx; a source that cannot be evaluated is reported as degraded
-// instead of failing the evaluation.
-type Engine interface {
-	Version() string
-	Signals(ctx context.Context, f Features) (signals []Signal, degraded []string)
-}
-
 // Input describes an evaluation request.
 type Input struct {
 	Features Features
@@ -119,4 +110,8 @@ type Result struct {
 	Signals         []Signal
 	DegradedSignals []string
 	RequestID       string
+	// Explainability and reproducibility (stored, not returned to the customer).
+	PolicyReasons []string
+	ShadowSignals []Signal
+	RuleVersions  []string
 }

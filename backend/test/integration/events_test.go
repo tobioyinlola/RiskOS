@@ -41,7 +41,7 @@ func (s stack) ingest(t *testing.T, key string, event any) response {
 	return s.call(t, http.MethodPost, "/api/v1/events", key, event)
 }
 
-func TestIngestReturnsTheStubDecision(t *testing.T) {
+func TestIngestReturnsTheDecision(t *testing.T) {
 	s := newStack(t, time.Second)
 	a := s.createTenant(t, "Ingest")
 
@@ -51,12 +51,13 @@ func TestIngestReturnsTheStubDecision(t *testing.T) {
 	require.NotNil(t, d.EventId)
 	assert.True(t, strings.HasPrefix(*d.EventId, "evt_"))
 	assert.True(t, strings.HasPrefix(d.EvaluationId, "evl_"))
-	assert.Equal(t, 0, d.RiskScore)
+	// A first event: cold start, so only new_user fires (RISK_ENGINE.md).
+	assert.Equal(t, []apigen.Signal{{Code: "new_user", Label: "New user with no history", Weight: 5}}, d.Signals)
+	assert.Equal(t, 5, d.RiskScore)
 	assert.Equal(t, apigen.RiskLevel("low"), d.RiskLevel)
 	assert.Equal(t, apigen.Decision("allow"), d.Decision)
-	assert.Equal(t, "risk-engine-stub-0.1", d.EngineVersion)
-	assert.Empty(t, d.Signals)
-	assert.NotNil(t, d.Signals, "signals is an empty array, never null")
+	assert.Equal(t, "risk-engine-1.0.0", d.EngineVersion)
+	assert.NotNil(t, d.DegradedSignals, "degraded_signals is an empty array, never null")
 	assert.Empty(t, d.DegradedSignals)
 	assert.True(t, strings.HasPrefix(d.RequestId, "req_"))
 }
