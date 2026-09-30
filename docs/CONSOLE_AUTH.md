@@ -66,5 +66,6 @@ sign-ins, enrollments, re-authentications and sign-outs are in the tenant's audi
   per-email and per-user throttling are unaffected. TODO(phase-8): trust the proxy's
   forwarded address.
 - Passkey ceremonies are verified by the go-webauthn library; the integration tests cover their
-  request and rejection paths, and the browser test suite exercises a full registration with a
-  virtual authenticator.
+  request and rejection paths. The stack browser test (`make test-e2e-stack`, in CI) registers a
+  passkey with a virtual authenticator and signs in with it against the real API
+  ([CONSOLE.md](CONSOLE.md#tests)).

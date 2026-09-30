@@ -9,7 +9,7 @@ analysts investigate as cases, and every material action is audited.
 Product specification (source of truth): [`docs/spec/`](docs/spec/RiskOS_Complete_Implementation_Specification.md).
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> **Status:** build steps 1-6 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
+> **Status:** build steps 1-7 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
 > Built: the platform, tenants, environments, API keys, the hash-chained audit log, RBAC, event
 > ingest with idempotency, strict validation and rate limits, and the risk engine: ten behavioral
 > signals, tenant rules (versioned, shadow mode, testable), tunable weights and a decision policy
@@ -17,7 +17,10 @@ Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 > degraded decisions raise grouped alerts off the decision path, which analysts triage and resolve
 > through cases ([docs/ALERTS_AND_CASES.md](docs/ALERTS_AND_CASES.md)), and signed webhooks that deliver
 > alert and case events to customer systems with retries and delivery logs
-> ([docs/WEBHOOKS.md](docs/WEBHOOKS.md)). Next: the dashboard (step 7).
+> ([docs/WEBHOOKS.md](docs/WEBHOOKS.md)), and the console: sign-in with a mandatory passkey or
+> authenticator app, alert triage, cases, rules, risk settings, keys, webhooks, team and audit log
+> for both environments ([docs/CONSOLE.md](docs/CONSOLE.md)). Next: security hardening, load and
+> failure testing (step 8).
 
 ## Prerequisites
 
@@ -40,7 +43,7 @@ git clone https://github.com/tobioyinlola/RiskOS.git riskos && cd riskos
 cp .env.example .env
 make up
 curl -s localhost:8080/health/ready   # {"status":"ok","checks":{"postgres":"ok","redis":"ok"}}
-open http://localhost:3000             # console shell
+open http://localhost:3000             # console (sign in with an invite, below)
 ```
 
 `make up` builds the images, starts PostgreSQL, Redis and the OpenTelemetry Collector, runs
@@ -58,6 +61,7 @@ curl -s -H "Authorization: Bearer rsk_test_..." -H "Content-Type: application/js
   "data":{"transaction_id":"t-1","amount":250000,"currency":"NGN","direction":"debit"}}'
 make apikey TENANT=ten_... ENV=production NAME=ci OPERATOR=you@example.com
 make audit-verify TENANT=ten_...
+make invite TENANT=ten_... EMAIL=you@example.com OPERATOR=you@example.com   # console invite link
 ```
 
 If your local database predates build step 2, run `make clean && make up` once (the application
@@ -104,7 +108,8 @@ make help         # all targets
 | Backend security (black-box HTTP) | `backend/test/security` | included in `make test` |
 | Backend integration (real Postgres/Redis) | `backend/test/integration` | `make test-integration` |
 | Frontend unit/component | `frontend/tests/unit` | `make test-frontend` |
-| Frontend end-to-end | `frontend/tests/e2e` | `make test-e2e` |
+| Frontend end-to-end (mocked API) | `frontend/tests/e2e` | `make test-e2e` |
+| Console against the stack | `frontend/tests/e2e/stack.spec.ts` | `make up && make test-e2e-stack` |
 | Micro-benchmarks | `Benchmark*` in backend | `make bench` |
 | Load (k6) | `backend/test/load` | `make up && make load` (HTTP baseline), `make load-events API_KEY=...` (decision path) |
 
@@ -115,7 +120,8 @@ Baseline numbers: [`docs/PERFORMANCE_BASELINE.md`](docs/PERFORMANCE_BASELINE.md)
 ```
 backend/            Go: cmd/{api,worker,migrate}, internal/ (platform + domain modules),
                     api/openapi.yaml (contract), db/{migrations,queries}, test/
-frontend/           Next.js console: app/, components/, lib/api (generated client), tests/
+frontend/           Next.js console: app/ (routes), features/ (screens), components/instrument
+                    (design system), lib/ (API client, session, queries), tests/
 docs/               spec/, ARCHITECTURE.md, SECURITY.md, THREAT_MODEL.md, … , adr/
 infra/              local infrastructure config (OpenTelemetry Collector)
 scripts/            tool installation and repository checks

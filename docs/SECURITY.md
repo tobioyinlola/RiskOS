@@ -20,7 +20,8 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Input limits | Body size limit, default 64 KB (413); header size limit (431); request timeout | `platform/httpx`, `platform/httpserver` |
 | Slow clients | Explicit read-header, read, write and idle timeouts | `platform/httpserver` |
 | Correlation IDs | Inbound request IDs restricted to `[A-Za-z0-9._-]{1,64}`, preventing log and header injection | `platform/ids` |
-| Response headers | `nosniff`, `no-store`, restrictive CSP, `no-referrer`; the console adds `X-Frame-Options: DENY` | API; `frontend/next.config.ts` |
+| Response headers | API: `nosniff`, `no-store`, restrictive CSP, `no-referrer`. Console: a nonce-based CSP per page (`strict-dynamic`, `frame-ancestors 'none'`), HSTS, `nosniff`, `X-Frame-Options: DENY` | API; `frontend/proxy.ts`, `frontend/next.config.ts` |
+| Console sessions | HttpOnly, Secure, SameSite=Strict cookie through a same-origin proxy; CSRF token and Origin check on every change; 12 h absolute and 30 min idle timeouts; a recent second factor for key, webhook, rule, settings and team changes ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) | `internal/auth`, `frontend/app/api/v1` |
 | Configuration | Fail-fast validation; secrets never echoed; production requires verified Postgres TLS and a Redis password | `platform/config` |
 | Containers | Distroless, nonroot, read-only root filesystem, all capabilities dropped, `no-new-privileges` | Dockerfiles, `docker-compose.yml` |
 | Local networking | PostgreSQL and Redis ports bound to 127.0.0.1 only; Redis requires a password | `docker-compose.yml` |
@@ -54,7 +55,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Rate limiting (remaining) | Per IP and per endpoint at the gateway; concurrency caps; load shedding | 8 |
 | Decision integrity (remaining) | Four-eyes approval of production rule changes; an operator-wide view of degradation across tenants; baseline drift alerts; auto-block with shadow evidence and a kill switch | 8 |
 | Webhooks (remaining) | Egress proxy with an allow policy; per-tenant delivery queues; signing key in the secrets manager | 8 |
-| Dashboard hardening | HttpOnly/Secure/SameSite=Strict cookies, CSRF tokens, nonce-based CSP, HSTS, session timeouts, SSO, step-up for exports, key creation and rule promotion | 7 |
+| Dashboard hardening (remaining) | SSO; step-up for exports once exports exist | 8 |
 | Cryptography | Envelope encryption with per-tenant data keys (crypto-shredding), secrets manager/KMS, TLS 1.2+ everywhere | 8 |
 | Supply chain | CodeQL or Semgrep, signed images, build provenance, deploys refuse unsigned images | 8 |
 | Assurance | Independent penetration test before the first production customer; `security.txt`; remediation targets (critical 7 days, high 30, assumption) | 8 |
