@@ -2989,7 +2989,7 @@ components:
           properties:
             type:
               type: string
-              enum: [api_key, system]
+              enum: [api_key, system, user]
             id:
               type: string
         action:
@@ -3750,7 +3750,7 @@ components:
                 enum: [history, velocity, network]
               strengthenable:
                 type: boolean
-                description: Whether the signal turns a MEDIUM decision into STEP_UP.
+                description: Whether the signal turns a Low-band score into STEP_UP.
         fields:
           type: array
           items:

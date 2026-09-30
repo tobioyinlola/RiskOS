@@ -1,48 +1,44 @@
 import { describe, expect, it } from "vitest";
 
-import { getSection, isActiveSection, navSections } from "@/lib/navigation";
+import {
+  isActiveSection,
+  navSections,
+  visibleSections,
+} from "@/lib/navigation";
 
 describe("navigation", () => {
-  it("matches the specification's navigation, in order (spec §10)", () => {
+  it("lists the built console sections in their groups", () => {
     expect(navSections.map((s) => s.label)).toEqual([
       "Overview",
-      "Risk Monitor",
-      "Transactions",
       "Events",
-      "Users",
-      "Accounts",
-      "Devices",
       "Alerts",
       "Cases",
       "Rules",
-      "Analytics",
+      "Risk settings",
       "Developer",
       "Team",
-      "Audit Logs",
-      "Settings",
+      "Audit log",
     ]);
   });
 
-  it("has unique hrefs and a description for every section", () => {
-    const hrefs = navSections.map((s) => s.href);
-    expect(new Set(hrefs).size).toBe(hrefs.length);
-    for (const s of navSections) {
-      expect(s.description.length).toBeGreaterThan(10);
-    }
+  it("shows a section only to users holding one of its permissions", () => {
+    const analyst = new Set([
+      "events:read",
+      "rules:read",
+      "alerts:read",
+      "alerts:write",
+      "cases:read",
+      "cases:write",
+    ]);
+    const labels = visibleSections((p) => analyst.has(p)).map((s) => s.label);
+    expect(labels).toEqual(["Overview", "Events", "Alerts", "Cases", "Rules"]);
+    expect(visibleSections(() => false)).toEqual([]);
   });
 
-  it("looks up sections by href", () => {
-    expect(getSection("/alerts").label).toBe("Alerts");
-  });
-
-  it.each([
-    ["/", "/", true],
-    ["/", "/alerts", false],
-    ["/alerts", "/alerts", true],
-    ["/alerts", "/alerts/alt_123", true],
-    ["/alerts", "/alerts-archive", false],
-    ["/cases", "/alerts", false],
-  ])("isActiveSection(%s, %s) = %s", (href, pathname, want) => {
-    expect(isActiveSection(href, pathname)).toBe(want);
+  it("matches the root exactly and sections by prefix", () => {
+    expect(isActiveSection("/", "/")).toBe(true);
+    expect(isActiveSection("/", "/alerts")).toBe(false);
+    expect(isActiveSection("/cases", "/cases/cas_1")).toBe(true);
+    expect(isActiveSection("/cases", "/casesx")).toBe(false);
   });
 });

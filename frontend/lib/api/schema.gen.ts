@@ -1547,7 +1547,7 @@ export interface components {
             environment?: components["schemas"]["Environment"] | null;
             actor: {
                 /** @enum {string} */
-                type: "api_key" | "system";
+                type: "api_key" | "system" | "user";
                 id: string;
             };
             /** @example api_key.created */
@@ -1982,7 +1982,7 @@ export interface components {
                 weight: number;
                 /** @enum {string} */
                 source: "history" | "velocity" | "network";
-                /** @description Whether the signal turns a MEDIUM decision into STEP_UP. */
+                /** @description Whether the signal turns a Low-band score into STEP_UP. */
                 strengthenable: boolean;
             }[];
             fields: {

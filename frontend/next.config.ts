@@ -1,8 +1,12 @@
 import type { NextConfig } from "next";
 
-// Security headers for every response. A Content-Security-Policy with per-request nonces is
-// added with authentication in the frontend phase (TODO(phase-6)); these headers are safe now.
+// Security headers for every response. The Content-Security-Policy carries a per-request nonce,
+// so it is set in proxy.ts instead.
 const securityHeaders = [
+  {
+    key: "Strict-Transport-Security",
+    value: "max-age=63072000; includeSubDomains",
+  },
   { key: "X-Content-Type-Options", value: "nosniff" },
   { key: "X-Frame-Options", value: "DENY" },
   { key: "Referrer-Policy", value: "strict-origin-when-cross-origin" },
