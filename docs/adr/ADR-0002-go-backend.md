@@ -17,12 +17,12 @@ specification stands. The stack:
 | Concern | Choice | Reason |
 |---|---|---|
 | HTTP | `net/http` + `chi` | stdlib compatibility (middleware, OpenTelemetry, testing); **not** Fiber/fasthttp |
-| Contract | OpenAPI 3 + `oapi-codegen` (strict server) | contract-first; undocumented endpoints impossible |
+| Contract | OpenAPI 3.0.3 + `oapi-codegen` (strict server) | contract-first; undocumented endpoints impossible ([ADR-0004](ADR-0004-openapi-3-0.md)) |
 | Database | PostgreSQL 16, `pgx/v5` + `pgxpool` | fastest mature driver; native types |
 | Queries | `sqlc` | SQL stays SQL; type-safe code generated; no ORM |
 | Migrations | `goose` | plain SQL files that sqlc reads directly; embeddable; advisory locking |
 | Cache/velocity | Redis 7, `go-redis/v9` | Lua scripts for atomic counters |
-| Jobs | River (provisional) behind `internal/jobs` | Postgres-backed, transactional enqueue; final decision in phase-0 |
+| Jobs | River behind `internal/jobs` | Postgres-backed, transactional enqueue ([ADR-0003](ADR-0003-river-job-queue.md)) |
 | Logging | `log/slog` JSON + redaction | stdlib |
 | Telemetry | OpenTelemetry (OTLP), injected providers | vendor-neutral |
 | Tests | `testing` + testify, testcontainers-go | real dependencies in integration tests |
