@@ -245,6 +245,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/risk/policy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The environment's risk bands, thresholds and default decisions
+         * @description Readable with any of `events:read`, `alerts:read`, `cases:read`, `rules:read`,
+         *     `risk:evaluate` or `risk:configure`: everyone who sees scores can see how they are banded.
+         */
+        get: operations["getRiskPolicy"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/risk/settings": {
         parameters: {
             query?: never;
@@ -792,7 +813,7 @@ export interface components {
                 ref: string;
             };
             title: string;
-            severity: components["schemas"]["Severity"];
+            severity: components["schemas"]["RiskLevel"];
             status: components["schemas"]["AlertStatus"];
             assignee: string | null;
             case_id: string | null;
@@ -859,7 +880,7 @@ export interface components {
             title: string;
             description: string;
             status: components["schemas"]["CaseStatus"];
-            priority: components["schemas"]["Severity"];
+            priority: components["schemas"]["RiskLevel"];
             assignee: string | null;
             resolution: components["schemas"]["CaseResolution"] | null;
             resolution_note: string | null;
@@ -893,14 +914,14 @@ export interface components {
         CreateCaseRequest: {
             title: string;
             description?: string;
-            priority?: components["schemas"]["Severity"];
+            priority?: components["schemas"]["RiskLevel"];
             assignee?: string;
             alert_ids?: string[];
         };
         UpdateCaseRequest: {
             title?: string;
             description?: string;
-            priority?: components["schemas"]["Severity"];
+            priority?: components["schemas"]["RiskLevel"];
             assignee?: string;
             status?: components["schemas"]["CaseStatus"];
             resolution?: components["schemas"]["CaseResolution"];
@@ -1190,8 +1211,37 @@ export interface components {
         ProfileChangeData: {
             fields: ("email" | "phone" | "address" | "name" | "password")[];
         };
-        /** @enum {string} */
-        RiskLevel: "low" | "medium" | "high" | "critical";
+        /**
+         * @description The risk band of a score: minimal, low, elevated, high, critical (default thresholds
+         *     20/50/70/90, adjustable per environment; see `GET /api/v1/risk/policy`).
+         * @enum {string}
+         */
+        RiskLevel: "minimal" | "low" | "elevated" | "high" | "critical";
+        /** @description Lowest score of each band above minimal; must increase strictly. Always present in responses; when omitted from a PUT, the defaults are stored. */
+        RiskThresholds: {
+            /** @example 20 */
+            low: number;
+            /** @example 50 */
+            elevated: number;
+            /** @example 70 */
+            high: number;
+            /** @example 90 */
+            critical: number;
+        };
+        RiskPolicy: {
+            engine_version: string;
+            thresholds: components["schemas"]["RiskThresholds"];
+            /** @description True when the environment's thresholds differ from the defaults. */
+            custom_calibration: boolean;
+            /** @enum {string} */
+            alert_min_decision: "step_up" | "review";
+            bands: {
+                band: components["schemas"]["RiskLevel"];
+                min_score: number;
+                max_score: number;
+                default_decision: components["schemas"]["Decision"];
+            }[];
+        };
         /** @enum {string} */
         Decision: "allow" | "review" | "step_up" | "block";
         Signal: {
@@ -1218,7 +1268,7 @@ export interface components {
             risk_score: number;
             risk_level: components["schemas"]["RiskLevel"];
             decision: components["schemas"]["Decision"];
-            /** @example risk-engine-1.0.0 */
+            /** @example risk-engine-2.0.0 */
             engine_version: string;
             signals: components["schemas"]["Signal"][];
             degraded_signals: string[];
@@ -1406,6 +1456,7 @@ export interface components {
             fail_policies: {
                 [key: string]: "open" | "closed";
             };
+            thresholds?: components["schemas"]["RiskThresholds"];
             /**
              * @description The least severe decision that raises an alert. Always present in responses; when
              *     omitted from a PUT, `review` is stored.
@@ -1886,6 +1937,30 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RiskCatalog"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRiskPolicy: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The policy. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RiskPolicy"];
                 };
             };
             401: components["responses"]["Unauthenticated"];

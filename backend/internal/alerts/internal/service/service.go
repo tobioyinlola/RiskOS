@@ -174,7 +174,7 @@ func (s *Service) RaiseWebhookDisabled(ctx context.Context, endpointID uuid.UUID
 		id := ids.NewV7()
 		if err := s.store.InsertAlert(ctx, domain.Alert{
 			ID: id, Kind: domain.KindSecurity, SubjectType: domain.SubjectWebhook, SubjectRef: ref,
-			Title: "Webhook endpoint disabled after repeated failed deliveries", Severity: "medium",
+			Title: "Webhook endpoint disabled after repeated failed deliveries", Severity: "elevated",
 			FirstSeenAt: now, CreatedAt: now,
 		}); err != nil {
 			return err

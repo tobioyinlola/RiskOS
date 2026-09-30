@@ -11,7 +11,7 @@ import (
 func ToAPI(a domain.Alert) apigen.Alert {
 	out := apigen.Alert{
 		Id: ids.Format(ids.PrefixAlert, a.ID), Kind: apigen.AlertKind(a.Kind), Title: a.Title,
-		Severity: apigen.Severity(a.Severity), Status: apigen.AlertStatus(a.Status), Assignee: a.Assignee,
+		Severity: apigen.RiskLevel(a.Severity), Status: apigen.AlertStatus(a.Status), Assignee: a.Assignee,
 		MaxScore: a.MaxScore, EvaluationCount: a.EvaluationCount, FirstSeenAt: a.FirstSeenAt,
 		LastSeenAt: a.LastSeenAt, CreatedAt: a.CreatedAt, UpdatedAt: a.UpdatedAt,
 	}

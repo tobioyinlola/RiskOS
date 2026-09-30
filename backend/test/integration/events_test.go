@@ -54,9 +54,9 @@ func TestIngestReturnsTheDecision(t *testing.T) {
 	// A first event: cold start, so only new_user fires (RISK_ENGINE.md).
 	assert.Equal(t, []apigen.Signal{{Code: "new_user", Label: "New user with no history", Weight: 5}}, d.Signals)
 	assert.Equal(t, 5, d.RiskScore)
-	assert.Equal(t, apigen.RiskLevel("low"), d.RiskLevel)
+	assert.Equal(t, apigen.RiskLevel("minimal"), d.RiskLevel)
 	assert.Equal(t, apigen.Decision("allow"), d.Decision)
-	assert.Equal(t, "risk-engine-1.0.0", d.EngineVersion)
+	assert.Equal(t, "risk-engine-2.0.0", d.EngineVersion)
 	assert.NotNil(t, d.DegradedSignals, "degraded_signals is an empty array, never null")
 	assert.Empty(t, d.DegradedSignals)
 	assert.True(t, strings.HasPrefix(d.RequestId, "req_"))

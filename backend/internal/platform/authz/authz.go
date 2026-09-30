@@ -102,6 +102,20 @@ func RolePermissions(r Role) []Permission {
 	}
 }
 
+// RequireAny returns ErrForbidden unless the principal in ctx holds at least one of ps.
+func RequireAny(ctx context.Context, ps ...Permission) error {
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return errors.Join(ErrForbidden, err)
+	}
+	for _, p := range ps {
+		if scope.Principal.Can(p) {
+			return nil
+		}
+	}
+	return ErrForbidden
+}
+
 // ErrForbidden means the caller is authenticated but lacks a permission.
 var ErrForbidden = errors.New("forbidden")
 

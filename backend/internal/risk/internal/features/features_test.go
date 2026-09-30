@@ -42,7 +42,7 @@ func TestSpecScenario(t *testing.T) {
 	assert.ElementsMatch(t, []string{"new_device", "new_beneficiary", "amount_anomaly", "velocity_anomaly", "geo_anomaly"}, codes(signals))
 	score := domain.Score(signals)
 	assert.Equal(t, 84, score, "20+15+24+15+10, exactly the spec's example")
-	assert.Equal(t, domain.LevelCritical, domain.LevelForScore(score))
+	assert.Equal(t, domain.LevelHigh, domain.LevelForScore(score, domain.DefaultThresholds()), "84 is High on the default 20/50/70/90 bands")
 }
 
 func TestColdStart(t *testing.T) {

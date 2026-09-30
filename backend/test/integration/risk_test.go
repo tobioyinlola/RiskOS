@@ -109,7 +109,7 @@ func storedEvaluation(t *testing.T, evaluationID string) stored {
 	return out
 }
 
-func TestSpecScenarioScoresCritical(t *testing.T) {
+func TestSpecScenarioScoresHigh(t *testing.T) {
 	s := newStack(t, time.Second)
 	a := s.createTenant(t, "Spec scenario")
 	u := actor{"u_spec", "acc_spec", "dev_home"}
@@ -129,8 +129,8 @@ func TestSpecScenarioScoresCritical(t *testing.T) {
 	d := s.decide(t, a.testKey, debit(u, "ben_new", "GH", "NGN", 5000000))
 	assert.ElementsMatch(t, []string{"new_device", "new_beneficiary", "amount_anomaly", "velocity_anomaly", "geo_anomaly"}, signalCodes(d))
 	assert.Equal(t, 84, d.RiskScore)
-	assert.Equal(t, apigen.RiskLevel("critical"), d.RiskLevel)
-	assert.Equal(t, apigen.Decision("review"), d.Decision, "critical goes to review; BLOCK is never produced")
+	assert.Equal(t, apigen.RiskLevel("high"), d.RiskLevel, "84 is High on the default 20/50/70/90 bands")
+	assert.Equal(t, apigen.Decision("step_up"), d.Decision, "high steps up a transaction; BLOCK is never produced")
 	assert.Empty(t, d.DegradedSignals)
 
 	rec := storedEvaluation(t, d.EvaluationId)
@@ -163,8 +163,8 @@ func TestCredentialChangeThenNewDeviceStepsUp(t *testing.T) {
 	u.device = "dev_attacker"
 	d := s.decide(t, a.testKey, debit(u, "ben_ato", "NG", "NGN", 5000))
 	assert.ElementsMatch(t, []string{"new_device", "recent_credential_change"}, signalCodes(d))
-	assert.Equal(t, apigen.RiskLevel("medium"), d.RiskLevel)
-	assert.Equal(t, apigen.Decision("step_up"), d.Decision, "medium with a signal step-up addresses")
+	assert.Equal(t, apigen.RiskLevel("low"), d.RiskLevel)
+	assert.Equal(t, apigen.Decision("step_up"), d.Decision, "low with a signal step-up addresses")
 	assert.Equal(t, []string{"strengthenable_signal"}, storedEvaluation(t, d.EvaluationId).PolicyReasons)
 }
 
@@ -529,5 +529,50 @@ func TestRiskScopesAndIsolation(t *testing.T) {
 		var n int
 		require.NoError(t, shared.pool.QueryRow(t.Context(), `SELECT count(*) FROM rules`).Scan(&n))
 		assert.Zero(t, n)
+	})
+}
+
+func TestRiskPolicyAndCalibration(t *testing.T) {
+	s := newStack(t, time.Second)
+	a := s.createTenant(t, "Calibration")
+
+	policy := decode[apigen.RiskPolicy](t, s.call(t, http.MethodGet, "/api/v1/risk/policy", a.testKey, nil))
+	assert.False(t, policy.CustomCalibration)
+	assert.Equal(t, apigen.RiskThresholds{Low: 20, Elevated: 50, High: 70, Critical: 90}, policy.Thresholds)
+	require.Len(t, policy.Bands, 5)
+	want := []struct {
+		band     string
+		min, max int
+		decision string
+	}{{"minimal", 0, 19, "allow"}, {"low", 20, 49, "allow"}, {"elevated", 50, 69, "review"}, {"high", 70, 89, "step_up"}, {"critical", 90, 100, "review"}}
+	for i, w := range want {
+		b := policy.Bands[i]
+		assert.Equal(t, w.band, string(b.Band))
+		assert.Equal(t, [2]int{w.min, w.max}, [2]int{b.MinScore, b.MaxScore}, w.band)
+		assert.Equal(t, w.decision, string(b.DefaultDecision), w.band)
+	}
+
+	t.Run("readable by anyone who sees scores", func(t *testing.T) {
+		_, alertsReader := s.createKey(t, a.testKey, "alerts reader", "alerts:read")
+		assert.Equal(t, http.StatusOK, s.call(t, http.MethodGet, "/api/v1/risk/policy", alertsReader, nil).status)
+		_, keysOnly := s.createKey(t, a.testKey, "keys only", "api_keys:read")
+		assert.Equal(t, http.StatusForbidden, s.call(t, http.MethodGet, "/api/v1/risk/policy", keysOnly, nil).status)
+	})
+	t.Run("tenant calibration moves the bands", func(t *testing.T) {
+		body := func(th map[string]any) map[string]any {
+			return map[string]any{
+				"weights": map[string]any{}, "high_value_default": 1000000, "high_value_by_currency": map[string]any{},
+				"fail_policies": map[string]any{"transaction": "closed", "login": "open"}, "thresholds": th,
+			}
+		}
+		bad := s.call(t, http.MethodPut, "/api/v1/risk/settings", a.testKey, body(map[string]any{"low": 30, "elevated": 30, "high": 60, "critical": 80}))
+		assert.Equal(t, http.StatusBadRequest, bad.status, bad.String())
+		r := s.call(t, http.MethodPut, "/api/v1/risk/settings", a.testKey, body(map[string]any{"low": 3, "elevated": 30, "high": 60, "critical": 80}))
+		require.Equal(t, http.StatusOK, r.status, r.String())
+		p := decode[apigen.RiskPolicy](t, s.call(t, http.MethodGet, "/api/v1/risk/policy", a.testKey, nil))
+		assert.True(t, p.CustomCalibration)
+		d := s.decide(t, a.testKey, debit(actor{"u_cal", "acc_cal", "dev_cal"}, "ben", "NG", "NGN", 5000))
+		assert.Equal(t, 5, d.RiskScore, "new_user only")
+		assert.Equal(t, apigen.RiskLevel("low"), d.RiskLevel, "5 is Low when low starts at 3")
 	})
 }

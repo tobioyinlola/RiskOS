@@ -79,7 +79,7 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 		}
 	}
 	if in.Priority != "" && !domain.ValidPriority(in.Priority) {
-		return domain.Case{}, invalid("priority must be low, medium, high or critical")
+		return domain.Case{}, invalid("priority must be minimal, low, elevated, high or critical")
 	}
 	if len(in.AlertIDs) > domain.MaxAlertsOnCreate {
 		return domain.Case{}, invalid("at most %d alerts can be added at once", domain.MaxAlertsOnCreate)
@@ -95,7 +95,7 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
 		derive := c.Priority == ""
 		if derive {
-			c.Priority = "medium"
+			c.Priority = domain.DefaultPriority
 		}
 		// The case row must exist before alerts reference it.
 		if err := s.store.Insert(ctx, c); err != nil {
@@ -303,7 +303,7 @@ func validatePatch(p *domain.Patch) error {
 		}
 	}
 	if p.Priority != nil && !domain.ValidPriority(*p.Priority) {
-		return invalid("priority must be low, medium, high or critical")
+		return invalid("priority must be minimal, low, elevated, high or critical")
 	}
 	if p.ResolutionNote != nil {
 		if err := checkLen("resolution_note", *p.ResolutionNote, domain.MaxResolutionNote); err != nil {
@@ -386,10 +386,12 @@ func auditSafe(changes map[string]any) map[string]any {
 func severityRank(s string) int {
 	switch s {
 	case "critical":
-		return 3
+		return 4
 	case "high":
+		return 3
+	case "elevated":
 		return 2
-	case "medium":
+	case "low":
 		return 1
 	default:
 		return 0

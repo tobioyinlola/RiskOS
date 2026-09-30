@@ -11,7 +11,7 @@ import (
 func ToAPI(c domain.Case) apigen.Case {
 	out := apigen.Case{
 		Id: ids.Format(ids.PrefixCase, c.ID), Title: c.Title, Description: c.Description,
-		Status: apigen.CaseStatus(c.Status), Priority: apigen.Severity(c.Priority), Assignee: c.Assignee,
+		Status: apigen.CaseStatus(c.Status), Priority: apigen.RiskLevel(c.Priority), Assignee: c.Assignee,
 		ResolutionNote: c.ResolutionNote, ResolvedAt: c.ResolvedAt, ResolvedBy: c.ResolvedBy,
 		CreatedAt: c.CreatedAt, CreatedBy: c.CreatedBy, UpdatedAt: c.UpdatedAt,
 	}

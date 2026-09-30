@@ -209,6 +209,7 @@ type RiskSetting struct {
 	UpdatedAt           time.Time
 	UpdatedBy           string
 	AlertMinDecision    string
+	Thresholds          []byte
 }
 
 type Rule struct {

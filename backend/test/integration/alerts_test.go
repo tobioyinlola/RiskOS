@@ -89,19 +89,26 @@ func TestEndToEndAlertToResolution(t *testing.T) {
 	a := s.createTenant(t, "End to end")
 	u := actor{"u_e2e", "acc_e2e", "dev_e2e"}
 
-	// History, then the spec's scenario: CRITICAL, REVIEW.
+	// This tenant also wants alerts for step-up decisions.
+	r := s.call(t, http.MethodPut, "/api/v1/risk/settings", a.testKey, map[string]any{
+		"weights": map[string]any{}, "high_value_default": 1000000, "high_value_by_currency": map[string]any{},
+		"fail_policies": map[string]any{"transaction": "closed", "login": "open"}, "alert_min_decision": "step_up",
+	})
+	require.Equal(t, http.StatusOK, r.status, r.String())
+
+	// History, then the spec's scenario: 84, HIGH, STEP_UP.
 	for range 6 {
 		s.decide(t, a.testKey, debit(u, "ben_usual", "NG", "NGN", 200000))
 	}
 	u.device = "dev_new"
 	d := s.decide(t, a.testKey, debit(u, "ben_new", "GH", "NGN", 5000000))
-	require.Equal(t, apigen.Decision("review"), d.Decision)
+	require.Equal(t, apigen.Decision("step_up"), d.Decision)
 
 	alertList := s.waitForAlerts(t, a.testKey, "kind=risk", 1)
-	require.Len(t, alertList, 1, "only the REVIEW decision raised an alert")
+	require.Len(t, alertList, 1, "only the STEP_UP decision raised an alert")
 	al := alertList[0]
 	assert.Equal(t, apigen.AlertStatus("open"), al.Status)
-	assert.Equal(t, apigen.Severity("critical"), al.Severity)
+	assert.Equal(t, apigen.RiskLevel("high"), al.Severity)
 	assert.Equal(t, "u_e2e", al.Subject.Ref)
 	assert.Equal(t, 84, al.MaxScore)
 
@@ -114,7 +121,7 @@ func TestEndToEndAlertToResolution(t *testing.T) {
 	assert.Equal(t, "system:alerts", detail.Activity[0].Actor)
 
 	// Triage, then escalate into a case.
-	r := s.call(t, http.MethodPatch, "/api/v1/alerts/"+al.Id, a.testKey,
+	r = s.call(t, http.MethodPatch, "/api/v1/alerts/"+al.Id, a.testKey,
 		map[string]any{"status": "investigating", "assignee": "analyst@example.com", "note": "Looking at the device."})
 	require.Equal(t, http.StatusOK, r.status, r.String())
 	assert.Equal(t, "analyst@example.com", *decode[apigen.Alert](t, r).Assignee)
@@ -124,7 +131,7 @@ func TestEndToEndAlertToResolution(t *testing.T) {
 	})
 	require.Equal(t, http.StatusCreated, r.status, r.String())
 	c := decode[apigen.Case](t, r)
-	assert.Equal(t, apigen.Severity("critical"), c.Priority, "priority follows the alerts")
+	assert.Equal(t, apigen.RiskLevel("high"), c.Priority, "priority follows the alerts")
 	assert.Equal(t, apigen.CaseStatus("open"), c.Status)
 	escalated := decode[apigen.AlertDetail](t, s.call(t, http.MethodGet, "/api/v1/alerts/"+al.Id, a.testKey, nil)).Alert
 	assert.Equal(t, apigen.AlertStatus("escalated"), escalated.Status)
@@ -257,7 +264,7 @@ func TestSecurityAlertsForDegradedEvaluations(t *testing.T) {
 		d := decode[apigen.AlertDetail](t, s.call(t, http.MethodGet, "/api/v1/alerts/"+sec[0].Id, a.testKey, nil))
 		return d.Alert.EvaluationCount == 2
 	}, 20*time.Second, 50*time.Millisecond, "both degraded evaluations grouped")
-	assert.Equal(t, apigen.Severity("high"), sec[0].Severity)
+	assert.Equal(t, apigen.RiskLevel("high"), sec[0].Severity)
 	assert.Equal(t, apigen.AlertSubjectType("environment"), sec[0].Subject.Type)
 
 	risk := s.waitForAlerts(t, a.testKey, "kind=risk", 1)
@@ -308,7 +315,7 @@ func TestAlertAndCaseRules(t *testing.T) {
 
 		c := decode[apigen.Case](t, s.call(t, http.MethodPost, "/api/v1/cases", a.testKey,
 			map[string]any{"title": "Two alerts", "alert_ids": []string{second, third}, "priority": "low"}))
-		assert.Equal(t, apigen.Severity("low"), c.Priority, "an explicit priority wins")
+		assert.Equal(t, apigen.RiskLevel("low"), c.Priority, "an explicit priority wins")
 		assert.Equal(t, http.StatusConflict, patch(second, map[string]any{"status": "resolved"}).status, "escalated: resolve the case")
 		assert.Equal(t, http.StatusConflict, s.call(t, http.MethodPost, "/api/v1/cases", a.testKey,
 			map[string]any{"title": "Again", "alert_ids": []string{second}}).status, "already in a case")
@@ -342,7 +349,7 @@ func TestAlertScopesAndIsolation(t *testing.T) {
 	s.decide(t, a.testKey, debit(actor{"u_iso", "acc", "dev"}, "ben", "NG", "NGN", 5000))
 	al := s.waitForAlerts(t, a.testKey, "", 1)[0]
 	c := decode[apigen.Case](t, s.call(t, http.MethodPost, "/api/v1/cases", a.testKey, map[string]any{"title": "Mine"}))
-	assert.Equal(t, apigen.Severity("medium"), c.Priority, "default priority without alerts")
+	assert.Equal(t, apigen.RiskLevel("elevated"), c.Priority, "default priority without alerts")
 
 	t.Run("other tenant sees nothing", func(t *testing.T) {
 		assert.Equal(t, http.StatusNotFound, s.call(t, http.MethodGet, "/api/v1/alerts/"+al.Id, b.testKey, nil).status)

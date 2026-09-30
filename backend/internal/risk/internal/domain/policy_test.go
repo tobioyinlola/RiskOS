@@ -18,14 +18,15 @@ func TestDecide(t *testing.T) {
 		want    domain.Decision
 		reasons []string
 	}{
-		{"low allows", domain.PolicyInput{EventType: "transaction", Level: domain.LevelLow}, domain.DecisionAllow, nil},
-		{"medium without strengthenable allows", domain.PolicyInput{EventType: "transaction", Level: domain.LevelMedium, Signals: velocity}, domain.DecisionAllow, nil},
-		{"medium with new device steps up", domain.PolicyInput{EventType: "transaction", Level: domain.LevelMedium, Signals: newDevice}, domain.DecisionStepUp, []string{"strengthenable_signal"}},
+		{"minimal allows", domain.PolicyInput{EventType: "transaction", Level: domain.LevelMinimal, Signals: newDevice}, domain.DecisionAllow, nil},
+		{"low without strengthenable allows", domain.PolicyInput{EventType: "transaction", Level: domain.LevelLow, Signals: velocity}, domain.DecisionAllow, nil},
+		{"low with new device steps up", domain.PolicyInput{EventType: "transaction", Level: domain.LevelLow, Signals: newDevice}, domain.DecisionStepUp, []string{"strengthenable_signal"}},
+		{"elevated reviews", domain.PolicyInput{EventType: "transaction", Level: domain.LevelElevated}, domain.DecisionReview, nil},
 		{"high steps up a transaction", domain.PolicyInput{EventType: "transaction", Level: domain.LevelHigh}, domain.DecisionStepUp, nil},
 		{"high reviews a profile change", domain.PolicyInput{EventType: "profile_change", Level: domain.LevelHigh}, domain.DecisionReview, []string{"step_up_not_available"}},
 		{"critical reviews, never blocks", domain.PolicyInput{EventType: "transaction", Level: domain.LevelCritical}, domain.DecisionReview, nil},
-		{"degraded transaction fails closed", domain.PolicyInput{EventType: "transaction", Level: domain.LevelLow, Degraded: []string{"velocity"}}, domain.DecisionReview, []string{"fail_closed"}},
-		{"degraded login fails open", domain.PolicyInput{EventType: "login", Level: domain.LevelLow, Degraded: []string{"velocity"}}, domain.DecisionAllow, nil},
+		{"degraded transaction fails closed", domain.PolicyInput{EventType: "transaction", Level: domain.LevelMinimal, Degraded: []string{"velocity"}}, domain.DecisionReview, []string{"fail_closed"}},
+		{"degraded login fails open", domain.PolicyInput{EventType: "login", Level: domain.LevelMinimal, Degraded: []string{"velocity"}}, domain.DecisionAllow, nil},
 		{"degraded high-value floor overrides fail-open", domain.PolicyInput{
 			EventType: "transaction", Level: domain.LevelLow, Degraded: []string{"history"}, HighValue: true,
 			Settings: domain.Settings{FailPolicies: map[string]domain.FailPolicy{"transaction": domain.FailOpen}},
@@ -45,7 +46,7 @@ func TestDecide(t *testing.T) {
 }
 
 func TestDecideNeverBlocks(t *testing.T) {
-	for _, l := range []domain.Level{domain.LevelLow, domain.LevelMedium, domain.LevelHigh, domain.LevelCritical} {
+	for _, l := range []domain.Level{domain.LevelMinimal, domain.LevelLow, domain.LevelElevated, domain.LevelHigh, domain.LevelCritical} {
 		for _, typ := range []string{"login", "transaction", "profile_change"} {
 			d := domain.Decide(domain.PolicyInput{EventType: typ, Level: l, Degraded: []string{"x"}, HighValue: true, Settings: domain.DefaultSettings()})
 			assert.NotEqual(t, domain.DecisionBlock, d.Decision)

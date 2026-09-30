@@ -88,7 +88,7 @@ func CheckTransition(from, to Status) error {
 }
 
 // Severity ranks.
-var severities = []string{"low", "medium", "high", "critical"} //nolint:gochecknoglobals // constant table
+var severities = []string{"minimal", "low", "elevated", "high", "critical"} //nolint:gochecknoglobals // constant table
 
 // SeverityRank returns the rank of a severity (low = 0); unknown values rank lowest.
 func SeverityRank(s string) int {

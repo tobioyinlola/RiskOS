@@ -1,7 +1,7 @@
 openapi: 3.0.3
 info:
   title: RiskOS API
-  version: 0.6.0
+  version: 0.7.0
   description: |
     RiskOS public HTTP contract. This file is the single source of truth: Go server stubs and the
     TypeScript client are generated from it (`make generate`), and CI fails if generated code drifts.
@@ -417,6 +417,29 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/risk/policy:
+    get:
+      operationId: getRiskPolicy
+      tags: [risk]
+      summary: The environment's risk bands, thresholds and default decisions
+      description: |
+        Readable with any of `events:read`, `alerts:read`, `cases:read`, `rules:read`,
+        `risk:evaluate` or `risk:configure`: everyone who sees scores can see how they are banded.
+      responses:
+        "200":
+          description: The policy.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskPolicy"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/risk/settings:
     get:
       operationId: getRiskSettings
@@ -1684,7 +1707,7 @@ components:
         title:
           type: string
         severity:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         status:
           $ref: "#/components/schemas/AlertStatus"
         assignee:
@@ -1823,7 +1846,7 @@ components:
         status:
           $ref: "#/components/schemas/CaseStatus"
         priority:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         assignee:
           type: string
           nullable: true
@@ -1908,7 +1931,7 @@ components:
           type: string
           maxLength: 5000
         priority:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         assignee:
           type: string
           maxLength: 254
@@ -1932,7 +1955,7 @@ components:
           type: string
           maxLength: 5000
         priority:
-          $ref: "#/components/schemas/Severity"
+          $ref: "#/components/schemas/RiskLevel"
         assignee:
           type: string
           maxLength: 254
@@ -2444,7 +2467,66 @@ components:
             enum: [email, phone, address, name, password]
     RiskLevel:
       type: string
-      enum: [low, medium, high, critical]
+      description: |
+        The risk band of a score: minimal, low, elevated, high, critical (default thresholds
+        20/50/70/90, adjustable per environment; see `GET /api/v1/risk/policy`).
+      enum: [minimal, low, elevated, high, critical]
+    RiskThresholds:
+      type: object
+      additionalProperties: false
+      required: [low, elevated, high, critical]
+      description: Lowest score of each band above minimal; must increase strictly. Always present in responses; when omitted from a PUT, the defaults are stored.
+      properties:
+        low:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 20
+        elevated:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 50
+        high:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 70
+        critical:
+          type: integer
+          minimum: 1
+          maximum: 100
+          example: 90
+    RiskPolicy:
+      type: object
+      additionalProperties: false
+      required: [engine_version, thresholds, custom_calibration, alert_min_decision, bands]
+      properties:
+        engine_version:
+          type: string
+        thresholds:
+          $ref: "#/components/schemas/RiskThresholds"
+        custom_calibration:
+          type: boolean
+          description: True when the environment's thresholds differ from the defaults.
+        alert_min_decision:
+          type: string
+          enum: [step_up, review]
+        bands:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [band, min_score, max_score, default_decision]
+            properties:
+              band:
+                $ref: "#/components/schemas/RiskLevel"
+              min_score:
+                type: integer
+              max_score:
+                type: integer
+              default_decision:
+                $ref: "#/components/schemas/Decision"
     Decision:
       type: string
       enum: [allow, review, step_up, block]
@@ -2492,7 +2574,7 @@ components:
           $ref: "#/components/schemas/Decision"
         engine_version:
           type: string
-          example: risk-engine-1.0.0
+          example: risk-engine-2.0.0
         signals:
           type: array
           items:
@@ -2809,6 +2891,8 @@ components:
           example:
             transaction: closed
             login: open
+        thresholds:
+          $ref: "#/components/schemas/RiskThresholds"
         alert_min_decision:
           type: string
           enum: [step_up, review]

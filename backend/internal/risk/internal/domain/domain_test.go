@@ -24,19 +24,34 @@ func TestScoreIsSumOfWeightsCappedAt100(t *testing.T) {
 
 func TestLevelBands(t *testing.T) {
 	tests := map[int]domain.Level{
-		0: domain.LevelLow, 29: domain.LevelLow,
-		30: domain.LevelMedium, 59: domain.LevelMedium,
-		60: domain.LevelHigh, 79: domain.LevelHigh,
-		80: domain.LevelCritical, 100: domain.LevelCritical,
+		0: domain.LevelMinimal, 19: domain.LevelMinimal,
+		20: domain.LevelLow, 49: domain.LevelLow,
+		50: domain.LevelElevated, 69: domain.LevelElevated,
+		70: domain.LevelHigh, 89: domain.LevelHigh,
+		90: domain.LevelCritical, 100: domain.LevelCritical,
 	}
 	for score, want := range tests {
-		assert.Equal(t, want, domain.LevelForScore(score), "score %d", score)
+		assert.Equal(t, want, domain.LevelForScore(score, domain.DefaultThresholds()), "score %d", score)
+	}
+	custom := domain.Thresholds{Low: 10, Elevated: 30, High: 60, Critical: 80}
+	assert.Equal(t, domain.LevelCritical, domain.LevelForScore(84, custom), "tenant calibration")
+	assert.Equal(t, domain.LevelMinimal, domain.LevelForScore(9, custom))
+}
+
+func TestThresholdsValid(t *testing.T) {
+	assert.True(t, domain.DefaultThresholds().Valid())
+	for _, bad := range []domain.Thresholds{
+		{Low: 0, Elevated: 50, High: 70, Critical: 90}, {Low: 20, Elevated: 20, High: 70, Critical: 90},
+		{Low: 20, Elevated: 50, High: 90, Critical: 70}, {Low: 20, Elevated: 50, High: 70, Critical: 101},
+	} {
+		assert.False(t, bad.Valid(), "%+v", bad)
 	}
 }
 
 func TestDefaultDecisionNeverBlocks(t *testing.T) {
+	assert.Equal(t, domain.DecisionAllow, domain.DefaultDecision(domain.LevelMinimal))
 	assert.Equal(t, domain.DecisionAllow, domain.DefaultDecision(domain.LevelLow))
-	assert.Equal(t, domain.DecisionAllow, domain.DefaultDecision(domain.LevelMedium))
+	assert.Equal(t, domain.DecisionReview, domain.DefaultDecision(domain.LevelElevated))
 	assert.Equal(t, domain.DecisionStepUp, domain.DefaultDecision(domain.LevelHigh))
-	assert.Equal(t, domain.DecisionReview, domain.DefaultDecision(domain.LevelCritical), "CRITICAL defaults to REVIEW (decision 12)")
+	assert.Equal(t, domain.DecisionReview, domain.DefaultDecision(domain.LevelCritical), "CRITICAL defaults to REVIEW; BLOCK is opt-in (step 8)")
 }
