@@ -27,6 +27,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Supply chain | Pinned toolchains, lockfiles, digest-pinned images, SHA-pinned actions, Dependabot, govulncheck, pnpm audit, Trivy, SBOMs | CI |
 | Secrets in code | gitleaks in pre-commit and in CI over the full history | `lefthook.yml`, CI |
 | API keys | `rsk_test_`/`rsk_live_` keys; only an HMAC with a server-side pepper is stored; shown once; scoped; rotation with overlap; revocation effective within 5 s; uniform 401 | `internal/auth` |
+| Console sign-in | Argon2id passwords, mandatory passkey or TOTP second factor, recovery codes, throttling, HttpOnly SameSite=Strict session cookies with hashed tokens, CSRF tokens and Origin checks, re-authentication for high-impact actions | `internal/auth` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
 | Authorization | Deny-by-default permission catalog and roles; a key cannot grant or rotate scopes it lacks | `platform/authz`, `internal/auth` |
 | Tenant isolation | Credential-derived scope, tenant-scoped queries, Postgres RLS under the non-owner `riskos_app` role, uniform 404, cross-tenant test matrix | [TENANCY.md](TENANCY.md) |
 | Audit log | Append-only (grants and trigger), per-tenant hash chain written in the action's transaction, verification detects tampering | `internal/audit`, `riskosctl audit verify` |
@@ -46,7 +47,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 
 | Area | Design | Build step |
 |---|---|---|
-| Authentication realms | Dashboard sessions with MFA (passkeys preferred); internal admin with SSO, hardware keys and a private access path | 7 (dashboard), 8 (admin) |
+| Authentication realms (remaining) | Breached-password check and SSO for the console; internal admin with SSO, hardware keys and a private access path | 8 |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |

@@ -41,6 +41,20 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | GET | `/api/v1/cases/{case_id}` | Case with its alerts, notes and timeline (`cases:read`) |
 | PATCH | `/api/v1/cases/{case_id}` | Update or resolve a case; audited (`cases:write`) |
 | POST | `/api/v1/cases/{case_id}/notes` | Add an append-only note; audited (`cases:write`) |
+| POST | `/api/v1/auth/login` | Console sign-in: email and password (cookie session; see [CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
+| GET | `/api/v1/auth/session` | The console session: user, tenant, permissions, factors, CSRF token |
+| POST | `/api/v1/auth/logout` | End the console session |
+| POST | `/api/v1/auth/mfa/totp/verify`, `.../recovery/verify` | Complete sign-in or re-authenticate with a code |
+| POST | `/api/v1/auth/mfa/totp/enroll`, `.../totp/confirm` | Enroll an authenticator app |
+| POST | `/api/v1/auth/mfa/passkeys/register/options`, `.../register` | Add a passkey |
+| POST | `/api/v1/auth/mfa/passkeys/login/options`, `.../login` | Sign in or re-authenticate with a passkey |
+| DELETE | `/api/v1/auth/mfa/passkeys/{passkey_id}` | Remove a passkey (re-authentication) |
+| POST | `/api/v1/auth/mfa/recovery-codes` | Replace recovery codes (re-authentication) |
+| POST | `/api/v1/auth/invites/accept` | Accept an invite: set name and password |
+| GET | `/api/v1/team/members` | Console users (`team:read`) |
+| PATCH | `/api/v1/team/members/{user_id}` | Change a user's role or status (`team:write`, re-authentication) |
+| GET, POST | `/api/v1/team/invites` | List or create invites (`team:read` / `team:write`, re-authentication) |
+| POST | `/api/v1/team/invites/{invite_id}/revoke` | Revoke a pending invite (`team:write`) |
 | GET | `/api/v1/webhooks` | List webhook endpoints (`webhooks:read`) |
 | POST | `/api/v1/webhooks` | Register an endpoint; secret returned once; audited (`webhooks:write`) |
 | GET | `/api/v1/webhooks/{webhook_id}` | An endpoint (never its secret) (`webhooks:read`) |

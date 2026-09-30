@@ -647,6 +647,15 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
+### A.9 Console sign-in (build step 7)
+
+| Area | What is built |
+|---|---|
+| Accounts | Users per tenant with roles; invites as single-use links (operator CLI for the first administrator, the console for the rest) ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
+| Sign-in | Password (Argon2id) plus a mandatory passkey or authenticator-app code; recovery codes; throttling; uniform failures |
+| Sessions | Hashed tokens in HttpOnly SameSite=Strict cookies, CSRF tokens and Origin checks, 12 h absolute / 30 min idle, environment chosen per request, re-authentication for high-impact actions |
+| Team | Role and status changes (ending sessions), last-administrator and self-change guards, invite management, all audited |
+
 ### A.8 Webhooks (build step 6)
 
 | Area | What is built |
@@ -687,7 +696,7 @@ password.
 | OpenAPI 3.1 | OpenAPI 3.0.3 until oapi-codegen fully supports 3.1 | [ADR-0004](adr/ADR-0004-openapi-3-0.md) |
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
-| Build step 2 includes dashboard authentication (password, MFA, sessions) | Only the API realm is built. The dashboard realm is built with the dashboard (build step 7) on the same `authz` roles and permissions | TODO(phase-6) |
+| Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no breached-password check, SSO or email delivery yet | TODO(phase-8) |
 | Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
@@ -695,7 +704,7 @@ password.
 | Rules: four-eyes promotion to production (sections 10, 16) | Rules can be created, tested, versioned and rolled back; a `rules:write` key changes production rules directly (audited). Approval before a production change applies comes with the other four-eyes controls | TODO(phase-8) |
 | BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Not built: the engine never returns BLOCK. Auto-block needs shadow evidence and a kill switch; hard-block needs deny-lists | TODO(phase-8) |
 | Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
-| Analysts are dashboard users (spec section 3) | Alert and case `assignee` is a free-text reference until dashboard user accounts exist (build step 7) | TODO(phase-7) |
+| Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |
 | Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |
 | Rule pattern matching with RE2 (section 10) | No pattern matching at all in rule conditions: equality, comparison and set membership only | This appendix |
 | Webhook egress through a proxy with an allow policy (section 9) | Not built; the resolved-IP dialer check is the SSRF control until deployment infrastructure exists | TODO(phase-8) |
