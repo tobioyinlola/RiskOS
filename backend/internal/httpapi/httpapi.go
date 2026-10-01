@@ -13,6 +13,7 @@ import (
 	"github.com/go-chi/chi/v5"
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
@@ -57,6 +58,8 @@ type Deps struct {
 	Alerts    *alerts.Module
 	Cases     *cases.Module
 	Webhooks  *webhooks.Module
+	// Admin is the internal admin realm (/api/admin/); nil leaves it out.
+	Admin *admin.Module
 	// Limiter enforces RateLimits on authenticated requests.
 	Limiter    Allower
 	RateLimits RateLimits
@@ -77,7 +80,7 @@ func New(d Deps) (http.Handler, error) {
 		return nil, err
 	}
 	r := chi.NewRouter()
-	r.Use(
+	middlewares := []func(http.Handler) http.Handler{
 		httpx.RequestID,
 		httpx.ClientIP(d.HTTP.TrustedProxies),
 		httpx.AccessLog(d.Logger, d.Clock),
@@ -89,7 +92,11 @@ func New(d Deps) (http.Handler, error) {
 		authFailureGuard(d.Limiter, d.RateLimits.AuthFailures, d.Logger),
 		d.Auth.Middleware(d.Logger),
 		rateLimit(d.Limiter, d.RateLimits, d.Logger),
-	)
+	}
+	if d.Admin != nil {
+		middlewares = append(middlewares, d.Admin.Middleware())
+	}
+	r.Use(middlewares...)
 	r.NotFound(httpx.NotFoundHandler(d.Logger))
 	r.MethodNotAllowed(httpx.MethodNotAllowedHandler(d.Logger))
 
@@ -120,6 +127,10 @@ func New(d Deps) (http.Handler, error) {
 			writeErr(w, req, httpx.InvalidRequest("The request parameters are invalid.", err))
 		},
 	})
+
+	if d.Admin != nil {
+		d.Admin.Mount(r)
+	}
 
 	return otelhttp.NewHandler(r, "http.server",
 		otelhttp.WithTracerProvider(d.Telemetry.TracerProvider),

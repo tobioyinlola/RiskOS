@@ -1853,8 +1853,12 @@ export interface components {
             /** @description Null for tenant-level actions. */
             environment?: components["schemas"]["Environment"] | null;
             actor: {
-                /** @enum {string} */
-                type: "api_key" | "system" | "user";
+                /**
+                 * @description `staff` is RiskOS staff reading this tenant with support access that the tenant's
+                 *     log also shows being requested and approved by two different staff members.
+                 * @enum {string}
+                 */
+                type: "api_key" | "system" | "user" | "staff";
                 id: string;
             };
             /** @example api_key.created */

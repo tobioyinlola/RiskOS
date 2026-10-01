@@ -14,6 +14,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
@@ -31,6 +32,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
@@ -158,6 +160,17 @@ func run() (err error) {
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 
+	// The internal admin realm: staff passkeys use the console's relying party and origins.
+	rpid, origins := authModule.PasskeyRP()
+	adminModule, err := admin.New(pool, tenants.New(runner, auditModule.Recorder()), runner, auditModule.Recorder(), clk, admin.Config{
+		Secret: []byte(cfg.Console.Secret), RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
+		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
+	})
+	if err != nil {
+		return err
+	}
+	authModule.SetSupport(adminModule)
+
 	handler, err := httpapi.New(httpapi.Deps{
 		Logger:    logger,
 		Clock:     clk,
@@ -171,6 +184,7 @@ func run() (err error) {
 		Alerts:    alertsModule,
 		Cases:     casesModule,
 		Webhooks:  webhooksModule,
+		Admin:     adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},

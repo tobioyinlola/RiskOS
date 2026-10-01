@@ -28,6 +28,7 @@ const FORWARD = [
   "user-agent",
   "x-csrf-token",
   "riskos-environment",
+  "riskos-support-grant",
   "x-request-id",
   "x-forwarded-for",
 ];

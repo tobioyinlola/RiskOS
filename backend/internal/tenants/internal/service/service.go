@@ -139,6 +139,22 @@ func (s *Service) OperatorScope(ctx context.Context, tenantID uuid.UUID, kind te
 	return tenancy.WithScope(ctx, systemScope(tenantID, envID, kind, actor)), nil
 }
 
+// StaffScope returns ctx scoped to an environment of an active tenant for RiskOS staff holding
+// approved support access, with exactly permissions. Only the admin module calls it, after
+// checking the access grant.
+func (s *Service) StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, staffRef string, permissions []string) (context.Context, error) {
+	ctx, err := s.OperatorScope(ctx, tenantID, kind, staffRef)
+	if err != nil {
+		return nil, err
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	scope.Principal = tenancy.Principal{Type: tenancy.PrincipalStaff, ID: staffRef, Permissions: permissions}
+	return tenancy.WithScope(ctx, scope), nil
+}
+
 // JobScope returns ctx scoped to an environment of an active tenant for a background job, acting
 // as actor with exactly permissions. Jobs carry tenant and environment IDs that the server wrote
 // when it enqueued them; this re-checks that both exist and that the tenant is still active.

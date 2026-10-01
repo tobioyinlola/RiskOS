@@ -122,6 +122,9 @@ type Console struct {
 	ssoKey []byte
 }
 
+// PasskeyRP returns the passkey relying party ID and allowed origins.
+func (c *Console) PasskeyRP() (string, []string) { return c.cfg.RPID, c.cfg.Origins }
+
 // SetInviteEmails makes new invites queue an email through q.
 func (c *Console) SetInviteEmails(q jobs.Enqueuer) { c.emails = q }
 

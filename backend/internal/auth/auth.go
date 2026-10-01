@@ -46,7 +46,14 @@ var (
 	ErrTenantSuspended = domain.ErrTenantSuspended
 	ErrInvalidInput    = domain.ErrInvalidInput
 	ErrEmailTaken      = domain.ErrEmailTaken
+	// ErrStaffUnauthenticated and ErrSupportDenied are what a SupportResolver returns when the
+	// staff session is missing or the support access cannot be used.
+	ErrStaffUnauthenticated = domain.ErrStaffUnauthenticated
+	ErrSupportDenied        = domain.ErrSupportDenied
 )
+
+// SupportResolver authorizes RiskOS staff's read-only support access to a tenant.
+type SupportResolver = handler.SupportResolver
 
 // CredentialHandlers are the auth operations of the public API.
 type CredentialHandlers interface {
@@ -137,7 +144,16 @@ type Module struct {
 	console *service.Console
 	cookie  CookieConfig
 	clock   clock.Clock
+	support SupportResolver
 }
+
+// PasskeyRP returns the console's passkey relying party ID and allowed origins; the admin realm
+// uses the same.
+func (m *Module) PasskeyRP() (string, []string) { return m.console.PasskeyRP() }
+
+// SetSupport lets RiskOS staff with approved support access read a tenant through the customer
+// API (the admin module). Call before Middleware.
+func (m *Module) SetSupport(s SupportResolver) { m.support = s }
 
 type noLimit struct{}
 
@@ -209,7 +225,7 @@ func withConsoleDefaults(c ConsoleConfig) ConsoleConfig {
 
 // Middleware authenticates /api/v1 requests (API key or console session) and sets the scope.
 func (m *Module) Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
-	return handler.Middleware(m.svc, m.console, m.cookie, logger)
+	return handler.Middleware(m.svc, m.console, m.cookie, m.support, logger)
 }
 
 // ReauthOperations are the operations a console user may only perform shortly after verifying

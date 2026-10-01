@@ -1,0 +1,7 @@
+# oapi-codegen configuration for the internal admin API (api/admin.yaml). Run via `make generate`.
+package: adminapi
+output: internal/adminapi/adminapi.gen.go
+generate:
+  models: true
+  chi-server: true
+  strict-server: true

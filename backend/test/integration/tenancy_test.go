@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
@@ -50,6 +51,7 @@ type stack struct {
 	alerts   *alerts.Module
 	webhooks *webhooks.Module
 	risk     *risk.Module
+	admin    *admin.Module
 }
 
 // stackConfig holds the optional settings of a test stack.
@@ -62,6 +64,13 @@ type stackConfig struct {
 	historyWarmup time.Duration
 	// inviteEmails, when set, queues invite emails.
 	inviteEmails jobs.Enqueuer
+	// admin enables the internal admin realm.
+	admin bool
+}
+
+// withAdmin enables the internal admin realm and support access.
+func withAdmin() stackOption {
+	return func(c *stackConfig) { c.admin = true }
 }
 
 // withInviteEmails makes new invites queue an email job on q.
@@ -146,6 +155,14 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, sc.webhooks, webhooks.NotifierFunc(
 		func(ctx context.Context, id uuid.UUID) error { return alertsModule.WebhookEndpointDisabled(ctx, id) }), shared.logger)
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), shared.logger)
+	var adminModule *admin.Module
+	if sc.admin {
+		rpid, origins := authModule.PasskeyRP()
+		adminModule, err = admin.New(shared.pool, tenants.New(runner, auditModule.Recorder()), runner, auditModule.Recorder(), clk,
+			admin.Config{Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger})
+		require.NoError(t, err)
+		authModule.SetSupport(adminModule)
+	}
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
@@ -155,6 +172,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		Alerts:   alertsModule,
 		Cases:    cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher()),
 		Webhooks: webhooksModule,
+		Admin:    adminModule,
 		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
 	})
 	require.NoError(t, err)
@@ -165,6 +183,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		alerts:   alertsModule,
 		webhooks: webhooksModule,
 		risk:     riskModule,
+		admin:    adminModule,
 	}
 }
 

@@ -322,6 +322,78 @@ type SsoLogin struct {
 	ExpiresAt   time.Time
 }
 
+type Staff struct {
+	ID              uuid.UUID
+	Email           string
+	Name            string
+	Role            string
+	Status          string
+	EnrollTokenHash []byte
+	EnrollExpiresAt *time.Time
+	CreatedAt       time.Time
+	CreatedBy       string
+}
+
+type StaffAuditLog struct {
+	ID         uuid.UUID
+	OccurredAt time.Time
+	Actor      string
+	Action     string
+	TenantID   *uuid.UUID
+	ResourceID string
+	Outcome    string
+	Metadata   []byte
+}
+
+type StaffCeremony struct {
+	IDHash    []byte
+	Kind      string
+	StaffID   *uuid.UUID
+	Data      []byte
+	ExpiresAt time.Time
+}
+
+type StaffPasskey struct {
+	ID              []byte
+	StaffID         uuid.UUID
+	Name            string
+	PublicKey       []byte
+	AttestationType string
+	Aaguid          []byte
+	SignCount       int64
+	Transports      []string
+	Flags           []byte
+	CreatedAt       time.Time
+	LastUsedAt      *time.Time
+}
+
+type StaffSession struct {
+	ID         uuid.UUID
+	StaffID    uuid.UUID
+	TokenHash  []byte
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	Ip         *netip.Addr
+	UserAgent  string
+}
+
+type SupportAccess struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	RequestedBy     uuid.UUID
+	Reason          string
+	DurationMinutes int32
+	Status          string
+	CreatedAt       time.Time
+	DecidedBy       *uuid.UUID
+	DecidedAt       *time.Time
+	ExpiresAt       *time.Time
+	RevokedBy       *uuid.UUID
+	RevokedAt       *time.Time
+}
+
 type Tenant struct {
 	ID        uuid.UUID
 	Name      string

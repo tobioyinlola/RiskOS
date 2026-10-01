@@ -45,6 +45,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Webhooks | Signed (HMAC-SHA256, id + timestamp + body), secrets derived and never stored, rotation with overlap, SSRF-safe dialer on the resolved IP, no redirects, dedicated delivery queue, auto-disable of failing endpoints with a security alert | `internal/webhooks` ([WEBHOOKS.md](WEBHOOKS.md)) |
 | Invite emails | Plain-text messages over SMTP (STARTTLS or TLS outside local development); the queued job holds IDs only, and the worker derives the link's token from the invite ID with a key derived from the console secret; only pending invites of active tenants are emailed, and each send is audited | `internal/auth`, `platform/mail` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md#invite-emails)) |
 | Single sign-on | OpenID Connect authorization code flow with PKCE, state and nonce; ID tokens verified (signature, issuer, audience, expiry, nonce); requests bound to the starting browser; first sign-in needs a verified matching email, then the provider subject is bound; RiskOS second factor still required; client secrets encrypted; provider requests through an SSRF-safe client | `internal/auth` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md#single-sign-on)) |
+| Internal admin realm | Separate staff accounts created only by the operator CLI; passkeys only (user verification, clone detection); 15-minute idle and 4-hour sessions; append-only staff audit log; support access to one tenant only with a second staff member's approval, read-only (GET, read permissions), at most 4 hours, recorded in the tenant's audit log; cross-tenant view of counts only | `internal/admin` ([ADMIN.md](ADMIN.md)) |
 | Rules | Typed JSON conditions only (no code, no regex), depth, node, list and count bounds, immutable versions, rollback, shadow mode, every change audited. Production changes need a second person's approval (`rules:approve`, people only, never the proposer) | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 
 ## Designed, not yet built
@@ -53,7 +54,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 
 | Area | Design | Build step |
 |---|---|---|
-| Authentication realms (remaining) | Internal admin with SSO, hardware keys and a private access path | 8 |
+| Authentication realms (remaining) | Staff SSO, hardware-key attestation and a private access path for the admin realm | 9 |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |

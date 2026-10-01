@@ -120,3 +120,12 @@ restarts.
 - Remaining operations of spec §7 (entities, analytics).
 - Filtering and sorting conventions for lists (event type, decision, time range).
 - Versioning and deprecation policy.
+
+## Support access by RiskOS staff
+
+RiskOS staff never hold standing access to tenant data. With support access that a second staff
+member approved ([ADMIN.md](ADMIN.md)), the requesting staff member may send `GET` requests to
+this API with the `RiskOS-Support-Grant` header and their staff session, holding read
+permissions only, for at most four hours. Each such request appears in the tenant's audit log
+with actor type `staff`. Every other method, and the session endpoints, answer 403. The internal
+admin API itself is described separately in `backend/api/admin.yaml`.

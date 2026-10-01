@@ -15,7 +15,12 @@ const eslintConfig = defineConfig([
         {
           patterns: [
             {
-              group: ["**/schema.gen", "**/schema.gen.ts"],
+              group: [
+                "**/schema.gen",
+                "**/schema.gen.ts",
+                "**/admin.gen",
+                "**/admin.gen.ts",
+              ],
               message: "Import API types and the client from @/lib/api/client.",
             },
           ],
@@ -42,6 +47,7 @@ const eslintConfig = defineConfig([
     "test-results/**",
     "next-env.d.ts",
     "lib/api/schema.gen.ts",
+    "lib/api/admin.gen.ts",
     "components/ui/**",
   ]),
 ]);

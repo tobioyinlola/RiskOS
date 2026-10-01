@@ -3618,7 +3618,10 @@ components:
           properties:
             type:
               type: string
-              enum: [api_key, system, user]
+              enum: [api_key, system, user, staff]
+              description: |
+                `staff` is RiskOS staff reading this tenant with support access that the tenant's
+                log also shows being requested and approved by two different staff members.
             id:
               type: string
         action:

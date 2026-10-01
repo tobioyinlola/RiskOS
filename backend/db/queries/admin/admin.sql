@@ -1,0 +1,103 @@
+-- The admin realm (staff). Platform tables: no tenant scope. See docs/ADMIN.md.
+
+-- name: InsertStaff :exec
+INSERT INTO staff (id, email, name, role, status, enroll_token_hash, enroll_expires_at, created_at, created_by)
+VALUES (@id, @email, @name, @role, 'active', @enroll_token_hash, @enroll_expires_at, @now, @created_by);
+
+-- name: GetStaff :one
+SELECT * FROM staff WHERE id = @id;
+
+-- name: StaffByEmail :one
+SELECT * FROM staff WHERE email = @email;
+
+-- name: StaffByEnrollToken :one
+SELECT * FROM staff WHERE enroll_token_hash = @token_hash;
+
+-- name: ListStaff :many
+SELECT * FROM staff ORDER BY created_at;
+
+-- name: SetEnrollToken :execrows
+UPDATE staff SET enroll_token_hash = @token_hash, enroll_expires_at = @expires_at WHERE id = @id;
+
+-- name: ClearEnrollToken :exec
+UPDATE staff SET enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = @id;
+
+-- name: SetStaffStatus :execrows
+UPDATE staff SET status = @status WHERE id = @id;
+
+-- name: InsertStaffPasskey :exec
+INSERT INTO staff_passkeys (id, staff_id, name, public_key, attestation_type, aaguid, sign_count, transports, flags, created_at)
+VALUES (@id, @staff_id, @name, @public_key, @attestation_type, @aaguid, @sign_count, @transports, @flags, @now);
+
+-- name: StaffPasskeys :many
+SELECT * FROM staff_passkeys WHERE staff_id = @staff_id ORDER BY created_at;
+
+-- name: UpdateStaffPasskeyUse :exec
+UPDATE staff_passkeys SET sign_count = @sign_count, flags = @flags, last_used_at = @now::timestamptz WHERE id = @id;
+
+-- name: InsertStaffSession :exec
+INSERT INTO staff_sessions (id, staff_id, token_hash, created_at, last_seen_at, expires_at, ip, user_agent)
+VALUES (@id, @staff_id, @token_hash, @now, @now, @expires_at, @ip, @user_agent);
+
+-- name: StaffSessionByToken :one
+SELECT s.id, s.staff_id, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at,
+       st.email, st.name, st.role, st.status
+FROM staff_sessions s JOIN staff st ON st.id = s.staff_id
+WHERE s.token_hash = @token_hash;
+
+-- name: TouchStaffSession :exec
+UPDATE staff_sessions SET last_seen_at = @now WHERE id = @id;
+
+-- name: RevokeStaffSession :exec
+UPDATE staff_sessions SET revoked_at = @now::timestamptz WHERE id = @id AND revoked_at IS NULL;
+
+-- name: RevokeStaffSessions :exec
+UPDATE staff_sessions SET revoked_at = @now::timestamptz WHERE staff_id = @staff_id AND revoked_at IS NULL;
+
+-- name: InsertCeremony :exec
+INSERT INTO staff_ceremonies (id_hash, kind, staff_id, data, expires_at)
+VALUES (@id_hash, @kind, @staff_id, @data, @expires_at);
+
+-- name: PurgeCeremonies :exec
+DELETE FROM staff_ceremonies WHERE expires_at < @now;
+
+-- name: TakeCeremony :one
+DELETE FROM staff_ceremonies WHERE id_hash = @id_hash AND kind = @kind AND expires_at > @now
+RETURNING staff_id, data;
+
+-- name: InsertSupportAccess :exec
+INSERT INTO support_access (id, tenant_id, requested_by, reason, duration_minutes, status, created_at)
+VALUES (@id, @tenant_id, @requested_by, @reason, @duration_minutes, 'pending', @now);
+
+-- name: GetSupportAccess :one
+SELECT * FROM support_access WHERE id = @id;
+
+-- name: GetSupportAccessForUpdate :one
+SELECT * FROM support_access WHERE id = @id FOR UPDATE;
+
+-- name: ListSupportAccess :many
+SELECT * FROM support_access ORDER BY created_at DESC LIMIT 200;
+
+-- name: DecideSupportAccess :exec
+UPDATE support_access SET status = @status, decided_by = @decided_by, decided_at = @now::timestamptz, expires_at = @expires_at
+WHERE id = @id;
+
+-- name: RevokeSupportAccess :exec
+UPDATE support_access SET status = 'revoked', revoked_by = @revoked_by, revoked_at = @now::timestamptz WHERE id = @id;
+
+-- name: InsertStaffAudit :exec
+INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata)
+VALUES (@id, @now, @actor, @action, @tenant_id, @resource_id, @outcome, @metadata);
+
+-- name: ListStaffAudit :many
+SELECT * FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT @lim;
+
+-- name: AdminTenants :many
+SELECT id::uuid AS id, name::text AS name, status::text AS status, created_at::timestamptz AS created_at
+FROM admin_tenants();
+
+-- name: SecurityOverview :many
+SELECT tenant_id::uuid AS tenant_id, tenant_name::text AS tenant_name, tenant_status::text AS tenant_status,
+       degraded_evaluations::bigint AS degraded_evaluations, open_security_alerts::bigint AS open_security_alerts,
+       failed_logins::bigint AS failed_logins, disabled_webhooks::bigint AS disabled_webhooks
+FROM admin_security_overview(@since);
