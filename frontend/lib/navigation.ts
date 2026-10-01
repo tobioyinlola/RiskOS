@@ -26,7 +26,8 @@ export interface NavSection {
     | "sliders"
     | "code"
     | "users"
-    | "scroll";
+    | "scroll"
+    | "key";
   anyOf: readonly Scope[];
 }
 
@@ -120,6 +121,13 @@ export const navSections = [
     label: "Team",
     group: "Organization",
     icon: "users",
+    anyOf: ["team:read"],
+  },
+  {
+    href: "/sso",
+    label: "Single sign-on",
+    group: "Organization",
+    icon: "key",
     anyOf: ["team:read"],
   },
   {

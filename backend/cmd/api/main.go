@@ -204,6 +204,7 @@ func webhookConfig(c config.Webhooks) webhooks.Config {
 func consoleConfig(c config.Console) auth.ConsoleConfig {
 	cc := auth.DefaultConsole()
 	cc.Secret, cc.RPID, cc.Origins = []byte(c.Secret), c.RPID, c.Origins
+	cc.SSOAllowPrivate = c.SSOAllowPrivate
 	if c.BreachedPasswordCheck == "pwned" {
 		cc.Breach = auth.PwnedPasswords(c.BreachedPasswordURL, 3*time.Second)
 	}

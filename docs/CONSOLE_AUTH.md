@@ -71,6 +71,40 @@ sign-ins, enrollments, re-authentications and sign-outs are in the tenant's audi
 | `RISKOS_WEBAUTHN_RP_ID` | Passkey relying party ID (default: the URL's host name). |
 | `RISKOS_SESSION_COOKIE_SECURE` | `true` by default and required in production. |
 
+## Single sign-on
+
+A tenant can connect one OpenID Connect identity provider (Team → Single sign-on, or
+`PUT /api/v1/sso`). People then choose "Sign in with single sign-on" and enter their work email.
+
+- **Existing accounts only.** SSO signs in people who already have an account (invited as usual).
+  It never creates accounts or changes roles. Password sign-in keeps working.
+- **RiskOS's second factor still applies.** After the provider, the session needs a passkey,
+  authenticator code or recovery code, exactly as after a password.
+- **The flow.** Authorization code with PKCE (S256), `state` and `nonce`. RiskOS verifies the ID
+  token: its signature against the provider's published keys, the issuer, the audience (the client
+  ID), the expiry and the nonce. The PKCE verifier and the nonce are derived from the state with a
+  key derived from `RISKOS_CONSOLE_SECRET`, so only the state's hash is stored, for ten minutes, and
+  it works once.
+- **Login CSRF.** Starting SSO sets a ten-minute `riskos_sso` cookie (HttpOnly, SameSite=Lax,
+  scoped to the SSO endpoints); the callback must come from the browser that holds it.
+- **Account binding.** The first SSO sign-in needs the provider to confirm the account's email
+  (`email_verified: true` and the same address). RiskOS then binds the provider's subject (`sub`)
+  to the account, and later sign-ins must present that subject: an email reassigned at the provider
+  cannot take over the account. A subject belongs to one account. Changing the issuer or removing
+  SSO forgets the bindings.
+- **The client secret** is stored encrypted (AES-256-GCM under the console secret, bound to the
+  tenant) and never returned. Changes are audited (`sso.configured`, `sso.removed`) without it and
+  need re-authentication; sign-ins are audited (`user.sso_authenticated`, `user.sso_failed` with a
+  reason).
+- **Reaching providers.** Discovery, keys and token requests go through an SSRF-safe client: https
+  only, no private or special-purpose addresses, no redirects, 5-second timeouts. Saving a
+  connection reads the issuer's discovery document first and refuses an issuer it cannot read.
+  `RISKOS_SSO_ALLOW_PRIVATE=true` allows http and private addresses for local providers; production
+  refuses it.
+- **Known trade-off.** Starting SSO answers differently for an email with SSO (a redirect) and one
+  without (404 `SSO_NOT_CONFIGURED`), so it reveals that an account uses SSO. Attempts are
+  throttled per email and per IP, like password sign-in.
+
 ## Invite emails
 
 With `RISKOS_SMTP_HOST` set, each console invite queues a job, in the invite's transaction, that
@@ -101,7 +135,9 @@ Mailpit, which catches every message (inbox at http://localhost:8025).
 
 ## Deviations and pending work
 
-- Single sign-on (OIDC or SAML) for customer administrators is not built. TODO(phase-8).
+- SAML is not supported; SSO is OpenID Connect only.
+- Requiring SSO (turning off password sign-in for a tenant) and provisioning accounts from the
+  provider (SCIM or just-in-time) are not built. TODO(phase-9)
 - Operator invites (`riskosctl`) print the link and are not emailed.
 - Passkey ceremonies are verified by the go-webauthn library; the integration tests cover their
   request and rejection paths. The stack browser test (`make test-e2e-stack`, in CI) registers a

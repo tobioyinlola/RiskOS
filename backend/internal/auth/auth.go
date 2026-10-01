@@ -73,6 +73,11 @@ type ConsoleHandlers interface {
 	DeletePasskey(ctx context.Context, req apigen.DeletePasskeyRequestObject) (apigen.DeletePasskeyResponseObject, error)
 	RegenerateRecoveryCodes(ctx context.Context, req apigen.RegenerateRecoveryCodesRequestObject) (apigen.RegenerateRecoveryCodesResponseObject, error)
 	AcceptInvite(ctx context.Context, req apigen.AcceptInviteRequestObject) (apigen.AcceptInviteResponseObject, error)
+	StartSSO(ctx context.Context, req apigen.StartSSORequestObject) (apigen.StartSSOResponseObject, error)
+	FinishSSO(ctx context.Context, req apigen.FinishSSORequestObject) (apigen.FinishSSOResponseObject, error)
+	GetSSO(ctx context.Context, req apigen.GetSSORequestObject) (apigen.GetSSOResponseObject, error)
+	PutSSO(ctx context.Context, req apigen.PutSSORequestObject) (apigen.PutSSOResponseObject, error)
+	DeleteSSO(ctx context.Context, req apigen.DeleteSSORequestObject) (apigen.DeleteSSOResponseObject, error)
 	ListTeamMembers(ctx context.Context, req apigen.ListTeamMembersRequestObject) (apigen.ListTeamMembersResponseObject, error)
 	UpdateTeamMember(ctx context.Context, req apigen.UpdateTeamMemberRequestObject) (apigen.UpdateTeamMemberResponseObject, error)
 	ListInvites(ctx context.Context, req apigen.ListInvitesRequestObject) (apigen.ListInvitesResponseObject, error)
@@ -144,6 +149,9 @@ func (noLimit) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, er
 func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg Config) *Module {
 	st := store.New(pool)
 	cc := withConsoleDefaults(cfg.Console)
+	if cc.SSORedirectURL == "" && cfg.Cookie.ConsoleURL != "" {
+		cc.SSORedirectURL = strings.TrimRight(cfg.Cookie.ConsoleURL, "/") + "/sso/callback"
+	}
 	if cfg.Limiter == nil {
 		cfg.Limiter = noLimit{}
 	}
@@ -210,7 +218,7 @@ func (m *Module) Middleware(logger *slog.Logger) func(http.Handler) http.Handler
 func ReauthOperations() []string {
 	return []string{
 		"CreateAPIKey", "RotateAPIKey", "RevokeAPIKey", "CreateWebhook", "UpdateWebhook", "RotateWebhookSecret",
-		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember",
+		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember", "PutSSO", "DeleteSSO",
 	}
 }
 

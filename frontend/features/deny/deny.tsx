@@ -192,7 +192,7 @@ export function DenyList() {
           params: { path: { entry_id: id } },
         }),
       ),
-    { invalidate: INVALIDATE },
+    { invalidate: INVALIDATE, onSuccess: () => setRemoving(undefined) },
   );
   const now = q.dataUpdatedAt;
   const entries = q.data?.data ?? [];
@@ -323,8 +323,7 @@ export function DenyList() {
         busy={remove.busy}
         onConfirm={async () => {
           if (!removing) return;
-          const r = await remove.run(removing.id);
-          if (r !== undefined) setRemoving(undefined);
+          await remove.run(removing.id);
         }}
       />
     </>

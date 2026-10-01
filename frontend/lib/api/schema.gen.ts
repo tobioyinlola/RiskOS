@@ -1214,8 +1214,8 @@ export interface paths {
         /**
          * Invite a person
          * @description Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
-         *     Audited. Returns a single-use link, valid for 72 hours and shown once; share it with the person
-         *     directly (RiskOS does not send email yet).
+         *     Audited. Returns a single-use link, valid for 72 hours and shown once. When RiskOS has email
+         *     configured, the link is also emailed to the person (`email_queued`).
          */
         post: operations["createInvite"];
         delete?: never;
@@ -1244,10 +1244,126 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/sso/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in with the tenant's identity provider
+         * @description For a person whose tenant uses single sign-on (OpenID Connect). Returns the provider's
+         *     authorization URL to send the browser to, and sets a short-lived cookie binding the request to
+         *     this browser. Unknown emails, disabled accounts and tenants without SSO all get 404
+         *     `SSO_NOT_CONFIGURED`. Throttled per email and per IP (429). SSO signs in existing accounts only,
+         *     and RiskOS still asks for its own second factor afterwards.
+         */
+        post: operations["startSSO"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/sso/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish signing in with the tenant's identity provider
+         * @description Called by the console's callback page with the provider's `code` and `state`. The request must
+         *     have been started in this browser within ten minutes, and the provider's ID token must verify.
+         *     The first SSO sign-in also needs the provider to confirm the account's email
+         *     (`email_verified`); it binds the provider's subject to the account, and later sign-ins must
+         *     present the same subject. Starts a console session exactly like `login`: the response says
+         *     which second factor is needed next. Failures get 401 `SSO_FAILED`.
+         */
+        post: operations["finishSSO"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sso": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The tenant's single sign-on connection
+         * @description Requires `team:read`. `connection` is null when SSO is not set up. The client secret is never
+         *     returned.
+         */
+        get: operations["getSSO"];
+        /**
+         * Set up or change single sign-on
+         * @description Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+         *     Audited (without the secret). RiskOS reads the issuer's OpenID Connect discovery document
+         *     first and refuses an issuer it cannot read (400). `client_secret` is required the first time;
+         *     leave it out to keep the stored one. Changing the issuer forgets the provider subjects bound
+         *     to accounts.
+         */
+        put: operations["putSSO"];
+        post?: never;
+        /**
+         * Remove single sign-on
+         * @description Requires `team:write` and, from the console, re-authentication. Audited. People sign in with
+         *     their password again.
+         */
+        delete: operations["deleteSSO"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        SSOStartRequest: {
+            email: string;
+        };
+        SSOStart: {
+            /** @description The identity provider's authorization URL. */
+            redirect_url: string;
+        };
+        SSOCallbackRequest: {
+            code: string;
+            state: string;
+        };
+        SSOConnection: {
+            /** @example https://login.example.com */
+            issuer: string;
+            client_id: string;
+            /** @description When false, the connection is kept but nobody can sign in with it. */
+            enabled: boolean;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by: string;
+        };
+        SSOSettings: {
+            /** @description The callback to register at the identity provider. */
+            redirect_uri: string;
+            connection: components["schemas"]["SSOConnection"] | null;
+        };
+        SSOConnectionInput: {
+            issuer: string;
+            client_id: string;
+            /** @description Required the first time; leave out to keep the stored secret. */
+            client_secret?: string;
+            enabled: boolean;
+        };
         LoginRequest: {
             email: string;
             password: string;
@@ -4437,6 +4553,145 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Revoked. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSOStartRequest"];
+            };
+        };
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    /** @description The request's browser binding (HttpOnly, SameSite=Lax, ten minutes). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOStart"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    finishSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_sso?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSOCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description The session's next step. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The redirect URI to register at the provider, and the connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOSettings"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSOConnectionInput"];
+            };
+        };
+        responses: {
+            /** @description The connection. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOConnection"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deleteSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
             204: {
                 headers: {
                     [name: string]: unknown;

@@ -483,7 +483,7 @@ export function AccountSecurity() {
           params: { path: { passkey_id: id } },
         }),
       ),
-    { invalidate: ["session"] },
+    { invalidate: ["session"], onSuccess: () => setRemoving(undefined) },
   );
   const regenerate = useAction(
     async () => unwrap(await api().POST("/api/v1/auth/mfa/recovery-codes")),
@@ -578,8 +578,7 @@ export function AccountSecurity() {
             busy={remove.busy}
             onConfirm={async () => {
               if (!removing) return;
-              const r = await remove.run(removing.id);
-              if (r !== undefined) setRemoving(undefined);
+              await remove.run(removing.id);
             }}
           />
         </Panel>

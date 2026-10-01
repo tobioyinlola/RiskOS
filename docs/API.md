@@ -60,10 +60,13 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | DELETE | `/api/v1/auth/mfa/passkeys/{passkey_id}` | Remove a passkey (re-authentication) |
 | POST | `/api/v1/auth/mfa/recovery-codes` | Replace recovery codes (re-authentication) |
 | POST | `/api/v1/auth/invites/accept` | Accept an invite: set name and password |
+| POST | `/api/v1/auth/sso/start` | Start single sign-on for an email; returns the provider's authorization URL |
+| POST | `/api/v1/auth/sso/callback` | Finish single sign-on with the provider's code and state; the session still needs its second factor |
 | GET | `/api/v1/team/members` | Console users (`team:read`) |
 | PATCH | `/api/v1/team/members/{user_id}` | Change a user's role or status (`team:write`, re-authentication) |
 | GET, POST | `/api/v1/team/invites` | List or create invites (`team:read` / `team:write`, re-authentication). With email configured, the link is also emailed (`email_queued`, `email_sent_at`) |
 | POST | `/api/v1/team/invites/{invite_id}/revoke` | Revoke a pending invite (`team:write`) |
+| GET, PUT, DELETE | `/api/v1/sso` | The tenant's OpenID Connect provider: read (`team:read`), set up or change, remove (`team:write`, re-authentication; audited) |
 | GET | `/api/v1/webhooks` | List webhook endpoints (`webhooks:read`) |
 | POST | `/api/v1/webhooks` | Register an endpoint; secret returned once; audited (`webhooks:write`) |
 | GET | `/api/v1/webhooks/{webhook_id}` | An endpoint (never its secret) (`webhooks:read`) |

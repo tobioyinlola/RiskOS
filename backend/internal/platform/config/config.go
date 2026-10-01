@@ -63,6 +63,9 @@ type Console struct {
 	// API, k-anonymity) or "off". BreachedPasswordURL overrides the API's address.
 	BreachedPasswordCheck string
 	BreachedPasswordURL   string
+	// SSOAllowPrivate lets single sign-on identity providers be http and on private addresses:
+	// local development and tests only (refused in production).
+	SSOAllowPrivate bool
 }
 
 // Validate checks the console settings; call it in binaries that serve the console API or
@@ -71,6 +74,9 @@ func (c Console) Validate(env Environment) error {
 	var errs []error
 	if len(c.Secret) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET: required, at least %d bytes", MinPepperBytes))
+	}
+	if c.SSOAllowPrivate && env == EnvProduction {
+		errs = append(errs, errors.New("RISKOS_SSO_ALLOW_PRIVATE: not allowed in production"))
 	}
 	if c.BreachedPasswordCheck != "" && c.BreachedPasswordCheck != "pwned" && c.BreachedPasswordCheck != "off" {
 		errs = append(errs, errors.New("RISKOS_BREACHED_PASSWORD_CHECK: must be pwned or off"))
@@ -691,6 +697,7 @@ func consoleConfig(r *reader) Console {
 
 		BreachedPasswordCheck: r.str("RISKOS_BREACHED_PASSWORD_CHECK", "pwned"),
 		BreachedPasswordURL:   r.str("RISKOS_BREACHED_PASSWORD_URL", ""),
+		SSOAllowPrivate:       r.boolean("RISKOS_SSO_ALLOW_PRIVATE", false),
 	}
 	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
 		for _, o := range strings.Split(raw, ",") {

@@ -2,7 +2,13 @@
 
 import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
@@ -24,10 +30,34 @@ export function Login() {
   const [codes, setCodes] = useState<string[]>();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [sso, setSSO] = useState(false);
 
   const enter = async () => {
     await qc.resetQueries();
     router.replace(safeNext(params.get("next")) as "/");
+  };
+
+  const startSSO = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = new FormData(e.currentTarget);
+    setBusy(true);
+    setError(undefined);
+    try {
+      const st = unwrap(
+        await api().POST("/api/v1/auth/sso/start", {
+          body: { email: String(form.get("email") ?? "") },
+        }),
+      );
+      // Leaves the console for the identity provider, which returns to /sso/callback.
+      window.location.assign(st.redirect_url);
+    } catch (err) {
+      setError(
+        err instanceof ApiError
+          ? err.message
+          : "Single sign-on is unavailable. Try again.",
+      );
+      setBusy(false);
+    }
   };
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
@@ -67,6 +97,44 @@ export function Login() {
     );
   }
 
+  if (sso) {
+    return (
+      <form onSubmit={(e) => void startSSO(e)} className="flex flex-col gap-4">
+        <div>
+          <h1 className="text-heading-1">Sign in with single sign-on</h1>
+          <p className="mt-1 text-body text-text-secondary">
+            We&apos;ll send you to your organization&apos;s identity provider.
+          </p>
+        </div>
+        {error ? <Notice tone="error">{error}</Notice> : null}
+        <Field label="Work email">
+          {(p) => (
+            <Input
+              {...p}
+              name="email"
+              type="email"
+              autoComplete="username"
+              required
+              autoFocus
+            />
+          )}
+        </Field>
+        <Button type="submit" variant="primary" disabled={busy}>
+          Continue
+        </Button>
+        <Button
+          variant="ghost"
+          onClick={() => {
+            setSSO(false);
+            setError(undefined);
+          }}
+        >
+          Sign in with a password instead
+        </Button>
+      </form>
+    );
+  }
+
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       <div>
@@ -102,10 +170,101 @@ export function Login() {
       <Button type="submit" variant="primary" disabled={busy}>
         Continue
       </Button>
+      <Button
+        variant="secondary"
+        onClick={() => {
+          setSSO(true);
+          setError(undefined);
+        }}
+      >
+        Sign in with single sign-on
+      </Button>
       <p className="text-body-sm text-text-muted">
         No account yet? Ask your RiskOS administrator for an invite link.
       </p>
     </form>
+  );
+}
+
+/** Where the identity provider sends the browser back: finishes single sign-on once. */
+export function SSOCallback() {
+  const router = useRouter();
+  const params = useSearchParams();
+  const qc = useQueryClient();
+  const [state, setState] = useState<AuthState>();
+  const [codes, setCodes] = useState<string[]>();
+  const [error, setError] = useState<string>();
+  // Read once: the address bar is cleaned up below, which changes the search parameters.
+  const [returned] = useState(() => ({
+    code: params.get("code"),
+    state: params.get("state"),
+    error: params.get("error"),
+  }));
+  const incomplete =
+    returned.error || !returned.code || !returned.state
+      ? returned.error === "access_denied"
+        ? "Sign-in was cancelled at your identity provider."
+        : "Your identity provider did not complete the sign-in."
+      : undefined;
+  // The state is single use: never send it twice (effects can run twice in development).
+  const sent = useRef(false);
+
+  const enter = async () => {
+    await qc.resetQueries();
+    router.replace("/");
+  };
+
+  useEffect(() => {
+    if (sent.current || incomplete || !returned.code || !returned.state) return;
+    sent.current = true;
+    const { code, state: st } = returned;
+    // Keep the code out of the address bar and history.
+    window.history.replaceState(null, "", "/sso/callback");
+    void (async () => {
+      try {
+        const next = unwrap(
+          await api().POST("/api/v1/auth/sso/callback", {
+            body: { code, state: st },
+          }),
+        );
+        if (next.state === "active") await enter();
+        else setState(next);
+      } catch (err) {
+        setError(
+          err instanceof ApiError
+            ? err.message
+            : "Single sign-on is unavailable. Try again.",
+        );
+      }
+    })();
+    // Runs once per visit; enter only navigates.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  if (codes)
+    return <RecoveryCodes codes={codes} onContinue={() => void enter()} />;
+  if (state?.state === "mfa_required")
+    return <SecondFactor state={state} onDone={() => void enter()} />;
+  if (state?.state === "enrollment_required") {
+    return (
+      <Enrollment onEnrolled={(c) => (c.length ? setCodes(c) : void enter())} />
+    );
+  }
+  if (error || incomplete) {
+    return (
+      <div className="flex flex-col gap-4">
+        <h1 className="text-heading-1">Sign-in did not complete</h1>
+        <Notice tone="error">{error ?? incomplete}</Notice>
+        <Button variant="primary" onClick={() => router.replace("/login")}>
+          Back to sign-in
+        </Button>
+      </div>
+    );
+  }
+  return (
+    <p className="text-body text-text-secondary" role="status">
+      Finishing sign-in…
+    </p>
   );
 }
 

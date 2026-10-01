@@ -303,6 +303,25 @@ type RuleVersion struct {
 	RestoredFrom  *int32
 }
 
+type SsoConnection struct {
+	TenantID        uuid.UUID
+	Issuer          string
+	ClientID        string
+	ClientSecretEnc []byte
+	Enabled         bool
+	UpdatedAt       time.Time
+	UpdatedBy       string
+}
+
+type SsoLogin struct {
+	StateHash   []byte
+	BrowserHash []byte
+	TenantID    uuid.UUID
+	UserID      uuid.UUID
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+}
+
 type Tenant struct {
 	ID        uuid.UUID
 	Name      string
@@ -326,6 +345,7 @@ type User struct {
 	CreatedBy      string
 	UpdatedAt      time.Time
 	LastLoginAt    *time.Time
+	SsoSubject     *string
 }
 
 type UserInvite struct {

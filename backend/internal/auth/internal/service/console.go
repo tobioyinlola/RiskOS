@@ -23,6 +23,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/console"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
@@ -66,6 +67,11 @@ type ConsoleConfig struct {
 	Origins []string
 	// Breach rejects passwords found in known breaches; nil disables the check.
 	Breach BreachChecker
+	// SSORedirectURL is the console's SSO callback, registered at identity providers.
+	SSORedirectURL string
+	// SSOAllowPrivate lets identity providers be http and on private addresses (local
+	// development and tests only; configuration refuses it in production).
+	SSOAllowPrivate bool
 }
 
 // BreachChecker reports whether a password appears in known data breaches.
@@ -111,10 +117,16 @@ type Console struct {
 	inviteKey []byte
 	// emails queues invite emails; nil when email is not configured.
 	emails jobs.Enqueuer
+	// sso talks to identity providers; ssoKey derives each request's PKCE verifier and nonce.
+	sso    *sso.Client
+	ssoKey []byte
 }
 
 // SetInviteEmails makes new invites queue an email through q.
 func (c *Console) SetInviteEmails(q jobs.Enqueuer) { c.emails = q }
+
+// ssoTimeout bounds each request to an identity provider.
+const ssoTimeout = 5 * time.Second
 
 // NewConsole returns the dashboard realm service.
 func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock.Clock, limiter Limiter, cfg ConsoleConfig, logger *slog.Logger) (*Console, error) {
@@ -126,6 +138,8 @@ func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock
 	csrf.Write([]byte("riskos-csrf-key"))
 	invite := hmac.New(sha256.New, cfg.Secret)
 	invite.Write([]byte("riskos-invite-key"))
+	ssoKey := hmac.New(sha256.New, cfg.Secret)
+	ssoKey.Write([]byte("riskos-sso-key"))
 	wa, err := webauthn.New(&webauthn.Config{RPID: cfg.RPID, RPDisplayName: "RiskOS", RPOrigins: cfg.Origins})
 	if err != nil {
 		return nil, fmt.Errorf("configure passkeys: %w", err)
@@ -133,6 +147,7 @@ func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock
 	return &Console{
 		store: st, runner: runner, audit: rec, clock: clk, limiter: limiter, sealer: sealer,
 		csrfKey: csrf.Sum(nil), wa: wa, cfg: cfg, logger: logger, inviteKey: invite.Sum(nil),
+		sso: sso.New(ssoTimeout, cfg.SSOAllowPrivate), ssoKey: ssoKey.Sum(nil),
 	}, nil
 }
 

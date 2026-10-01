@@ -78,7 +78,7 @@ func (q *Queries) GetSessionCeremony(ctx context.Context, arg GetSessionCeremony
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at FROM users WHERE tenant_id = $1 AND id = $2
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 AND id = $2
 `
 
 type GetUserParams struct {
@@ -104,12 +104,13 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (User, error) 
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.SsoSubject,
 	)
 	return i, err
 }
 
 const getUserForUpdate = `-- name: GetUserForUpdate :one
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE
 `
 
 type GetUserForUpdateParams struct {
@@ -135,6 +136,7 @@ func (q *Queries) GetUserForUpdate(ctx context.Context, arg GetUserForUpdatePara
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.SsoSubject,
 	)
 	return i, err
 }
@@ -359,7 +361,7 @@ func (q *Queries) ListInvites(ctx context.Context, tenantID uuid.UUID) ([]ListIn
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at FROM users WHERE tenant_id = $1 ORDER BY created_at, id
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, error) {
@@ -386,6 +388,7 @@ func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, er
 			&i.CreatedBy,
 			&i.UpdatedAt,
 			&i.LastLoginAt,
+			&i.SsoSubject,
 		); err != nil {
 			return nil, err
 		}

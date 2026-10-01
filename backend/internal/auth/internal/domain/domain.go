@@ -38,6 +38,11 @@ var (
 	ErrLastAdmin      = errors.New("a tenant must keep at least one active administrator")
 	ErrSelfChange     = errors.New("you cannot change your own role or status")
 	ErrUserNotFound   = errors.New("user not found")
+	// Single sign-on.
+	ErrSSONotConfigured = errors.New("single sign-on is not set up for this email")
+	ErrSSOFailed        = errors.New("single sign-on failed")
+	ErrSSOProvider      = errors.New("identity provider unavailable")
+	ErrSSONotFound      = errors.New("no single sign-on connection")
 )
 
 // RateLimitedError is returned when sign-in or verification attempts are throttled.

@@ -44,6 +44,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Alerts and cases | Raised off the decision path through a transactional outbox; jobs re-check the tenant and hold one system-only permission; RLS, insert-only notes and timelines, audit without free text | `internal/alerts`, `internal/cases` ([ALERTS_AND_CASES.md](ALERTS_AND_CASES.md)) |
 | Webhooks | Signed (HMAC-SHA256, id + timestamp + body), secrets derived and never stored, rotation with overlap, SSRF-safe dialer on the resolved IP, no redirects, dedicated delivery queue, auto-disable of failing endpoints with a security alert | `internal/webhooks` ([WEBHOOKS.md](WEBHOOKS.md)) |
 | Invite emails | Plain-text messages over SMTP (STARTTLS or TLS outside local development); the queued job holds IDs only, and the worker derives the link's token from the invite ID with a key derived from the console secret; only pending invites of active tenants are emailed, and each send is audited | `internal/auth`, `platform/mail` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md#invite-emails)) |
+| Single sign-on | OpenID Connect authorization code flow with PKCE, state and nonce; ID tokens verified (signature, issuer, audience, expiry, nonce); requests bound to the starting browser; first sign-in needs a verified matching email, then the provider subject is bound; RiskOS second factor still required; client secrets encrypted; provider requests through an SSRF-safe client | `internal/auth` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md#single-sign-on)) |
 | Rules | Typed JSON conditions only (no code, no regex), depth, node, list and count bounds, immutable versions, rollback, shadow mode, every change audited. Production changes need a second person's approval (`rules:approve`, people only, never the proposer) | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 
 ## Designed, not yet built
@@ -52,14 +53,14 @@ A dedicated disclosure contact and response targets are defined before any produ
 
 | Area | Design | Build step |
 |---|---|---|
-| Authentication realms (remaining) | SSO for the console; internal admin with SSO, hardware keys and a private access path | 8 |
+| Authentication realms (remaining) | Internal admin with SSO, hardware keys and a private access path | 8 |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |
 | Rate limiting (remaining) | WAF and per-address limits on all traffic at the gateway; concurrency caps; load shedding | 8 |
 | Decision integrity (remaining) | An operator-wide view of degradation across tenants; baseline drift alerts | 8 |
 | Webhooks (remaining) | Egress proxy with an allow policy; per-tenant delivery queues; signing key in the secrets manager | 8 |
-| Dashboard hardening (remaining) | SSO; step-up for exports once exports exist | 8 |
+| Dashboard hardening (remaining) | Requiring SSO per tenant; step-up for exports once exports exist | 8 |
 | Cryptography | Envelope encryption with per-tenant data keys (crypto-shredding), secrets manager/KMS, TLS 1.2+ everywhere | 8 |
 | Supply chain (remaining) | Signed images, build provenance, deploys refuse unsigned images (with the deployment pipeline and its registry) | 8 |
 | Assurance | Independent penetration test before the first production customer; `security.txt`; remediation targets (critical 7 days, high 30, assumption) | 8 |
