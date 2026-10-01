@@ -12,6 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
+const countDenyEntries = `-- name: CountDenyEntries :one
+SELECT count(*) FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2
+`
+
+type CountDenyEntriesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+func (q *Queries) CountDenyEntries(ctx context.Context, arg CountDenyEntriesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countDenyEntries, arg.TenantID, arg.EnvironmentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countRules = `-- name: CountRules :one
 SELECT count(*) FROM rules
 `
@@ -76,6 +93,30 @@ func (q *Queries) DecideRuleChange(ctx context.Context, arg DecideRuleChangePara
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deleteDenyEntry = `-- name: DeleteDenyEntry :one
+DELETE FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+RETURNING kind, value
+`
+
+type DeleteDenyEntryParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+type DeleteDenyEntryRow struct {
+	Kind  string
+	Value string
+}
+
+func (q *Queries) DeleteDenyEntry(ctx context.Context, arg DeleteDenyEntryParams) (DeleteDenyEntryRow, error) {
+	row := q.db.QueryRow(ctx, deleteDenyEntry, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i DeleteDenyEntryRow
+	err := row.Scan(&i.Kind, &i.Value)
+	return i, err
 }
 
 const getCurrentRule = `-- name: GetCurrentRule :one
@@ -266,6 +307,38 @@ func (q *Queries) GetRuleVersion(ctx context.Context, arg GetRuleVersionParams) 
 	return i, err
 }
 
+const insertDenyEntry = `-- name: InsertDenyEntry :exec
+INSERT INTO deny_list_entries (tenant_id, environment_id, id, kind, value, reason, expires_at, created_at, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type InsertDenyEntryParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	Value         string
+	Reason        string
+	ExpiresAt     *time.Time
+	CreatedAt     time.Time
+	CreatedBy     string
+}
+
+func (q *Queries) InsertDenyEntry(ctx context.Context, arg InsertDenyEntryParams) error {
+	_, err := q.db.Exec(ctx, insertDenyEntry,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+		arg.Kind,
+		arg.Value,
+		arg.Reason,
+		arg.ExpiresAt,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
+	return err
+}
+
 const insertRule = `-- name: InsertRule :exec
 
 INSERT INTO rules (tenant_id, environment_id, id, code, current_version, created_by)
@@ -392,6 +465,46 @@ func (q *Queries) InsertRuleVersion(ctx context.Context, arg InsertRuleVersionPa
 	return err
 }
 
+const listActiveDenyEntries = `-- name: ListActiveDenyEntries :many
+
+SELECT kind, value FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2
+  AND (expires_at IS NULL OR expires_at > $3)
+`
+
+type ListActiveDenyEntriesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Now           *time.Time
+}
+
+type ListActiveDenyEntriesRow struct {
+	Kind  string
+	Value string
+}
+
+// Deny lists ------------------------------------------------------------------------------
+// The entries evaluation applies (cached per environment).
+func (q *Queries) ListActiveDenyEntries(ctx context.Context, arg ListActiveDenyEntriesParams) ([]ListActiveDenyEntriesRow, error) {
+	rows, err := q.db.Query(ctx, listActiveDenyEntries, arg.TenantID, arg.EnvironmentID, arg.Now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveDenyEntriesRow
+	for rows.Next() {
+		var i ListActiveDenyEntriesRow
+		if err := rows.Scan(&i.Kind, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listCurrentRules = `-- name: ListCurrentRules :many
 SELECT r.id, r.code, r.created_at, v.version, v.name, v.description, v.severity, v.weight, v.mode,
        v.enabled, v.condition, v.created_at AS version_created_at, v.created_by AS version_created_by, v.restored_from
@@ -447,6 +560,56 @@ func (q *Queries) ListCurrentRules(ctx context.Context, arg ListCurrentRulesPara
 			&i.VersionCreatedAt,
 			&i.VersionCreatedBy,
 			&i.RestoredFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDenyEntries = `-- name: ListDenyEntries :many
+SELECT tenant_id, environment_id, id, kind, value, reason, expires_at, created_at, created_by FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2
+  AND ($3::text IS NULL OR kind = $3::text)
+ORDER BY id DESC
+LIMIT $4
+`
+
+type ListDenyEntriesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Kind          *string
+	Lim           int32
+}
+
+func (q *Queries) ListDenyEntries(ctx context.Context, arg ListDenyEntriesParams) ([]DenyListEntry, error) {
+	rows, err := q.db.Query(ctx, listDenyEntries,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Kind,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DenyListEntry
+	for rows.Next() {
+		var i DenyListEntry
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.Kind,
+			&i.Value,
+			&i.Reason,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.CreatedBy,
 		); err != nil {
 			return nil, err
 		}

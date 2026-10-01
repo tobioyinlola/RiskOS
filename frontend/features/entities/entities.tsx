@@ -30,6 +30,7 @@ import {
 
 import { EventTable } from "../events/events";
 
+import { DenyEntityButton } from "../deny/deny";
 import { entityHref, EntityLink } from "./link";
 
 export { entityHref, EntityLink };
@@ -216,6 +217,7 @@ export function EntityProfile({
   const header = (
     <PageHeader
       title={`${KIND_LABEL[kind]} profile`}
+      actions={<DenyEntityButton kind={kind} refId={refId} />}
       description={
         <span className="inline-flex items-center gap-2">
           <Icon

@@ -25,6 +25,7 @@ type Event struct {
 	} `json:"actor"`
 	Context struct {
 		Country string `json:"country"`
+		IP      string `json:"ip"`
 	} `json:"context"`
 	Data json.RawMessage `json:"data"`
 

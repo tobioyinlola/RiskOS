@@ -56,7 +56,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |
 | Rate limiting (remaining) | WAF and per-address limits on all traffic at the gateway; concurrency caps; load shedding | 8 |
-| Decision integrity (remaining) | An operator-wide view of degradation across tenants; baseline drift alerts; hard-block rules on tenant deny-lists | 8 |
+| Decision integrity (remaining) | An operator-wide view of degradation across tenants; baseline drift alerts | 8 |
 | Webhooks (remaining) | Egress proxy with an allow policy; per-tenant delivery queues; signing key in the secrets manager | 8 |
 | Dashboard hardening (remaining) | SSO; step-up for exports once exports exist | 8 |
 | Cryptography | Envelope encryption with per-tenant data keys (crypto-shredding), secrets manager/KMS, TLS 1.2+ everywhere | 8 |

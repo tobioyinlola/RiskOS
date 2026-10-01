@@ -118,6 +118,9 @@ func (s *Service) CreateRule(ctx context.Context, in RuleInput) (RuleResult, err
 	if !codePattern.MatchString(in.Code) {
 		return RuleResult{}, fmt.Errorf("%w: code must match %s", domain.ErrRuleInvalid, codePattern)
 	}
+	if in.Code == domain.SignalDenyList {
+		return RuleResult{}, fmt.Errorf("%w: code %q is reserved for deny lists", domain.ErrRuleInvalid, in.Code)
+	}
 	if _, builtin := domain.BuiltinSignal(in.Code); builtin {
 		return RuleResult{}, fmt.Errorf("%w: code %q is a built-in signal", domain.ErrRuleInvalid, in.Code)
 	}

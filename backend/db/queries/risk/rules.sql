@@ -116,3 +116,31 @@ SELECT EXISTS (
 SELECT count(*) FROM evaluations
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since
   AND NOT dry_run AND 'would_block' = ANY (policy_reasons);
+
+-- Deny lists ------------------------------------------------------------------------------
+
+-- name: ListActiveDenyEntries :many
+-- The entries evaluation applies (cached per environment).
+SELECT kind, value FROM deny_list_entries
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id
+  AND (expires_at IS NULL OR expires_at > @now);
+
+-- name: ListDenyEntries :many
+SELECT * FROM deny_list_entries
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id
+  AND (sqlc.narg('kind')::text IS NULL OR kind = sqlc.narg('kind')::text)
+ORDER BY id DESC
+LIMIT @lim;
+
+-- name: CountDenyEntries :one
+SELECT count(*) FROM deny_list_entries
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id;
+
+-- name: InsertDenyEntry :exec
+INSERT INTO deny_list_entries (tenant_id, environment_id, id, kind, value, reason, expires_at, created_at, created_by)
+VALUES (@tenant_id, @environment_id, @id, @kind, @value, @reason, @expires_at, @created_at, @created_by);
+
+-- name: DeleteDenyEntry :one
+DELETE FROM deny_list_entries
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id
+RETURNING kind, value;

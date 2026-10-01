@@ -262,6 +262,23 @@ test("investigate: live monitor, transactions, entity profile, analytics", async
       .getByRole("link", { name: "dev_2" }),
   ).toBeVisible();
 
+  // The user goes on the deny list from their profile, and comes off it on the deny-list page.
+  await page.getByRole("button", { name: "Add to deny list" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Identifier")).toHaveValue("usr_4812");
+  await dialog.getByLabel("Reason (optional)").fill("Confirmed mule");
+  await dialog.getByRole("button", { name: "Add to deny list" }).click();
+  await expect(
+    page.getByRole("button", { name: "On the deny list" }),
+  ).toBeDisabled();
+  expect(api.deny).toHaveLength(1);
+  await page.goto("/deny-lists");
+  const deny = page.getByRole("table", { name: "Deny list" });
+  await expect(deny).toContainText("Confirmed mule");
+  await deny.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("button", { name: "Remove from deny list" }).click();
+  await expect(page.getByText("Nothing on the deny list")).toBeVisible();
+
   // Analytics: a chart with a table view.
   await page.goto("/analytics");
   await expect(

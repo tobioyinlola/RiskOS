@@ -59,6 +59,7 @@ const (
 	PrefixInvite          = "inv"
 	PrefixPasskey         = "pky"
 	PrefixRuleChange      = "rch"
+	PrefixDenyEntry       = "dny"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

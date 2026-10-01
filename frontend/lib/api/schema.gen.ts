@@ -458,6 +458,55 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/deny-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the deny list
+         * @description Requires `rules:read` or `risk:configure`. Newest first, at most 1,000. Events whose user,
+         *     account, device, IP address, beneficiary or country is listed (and not expired) are
+         *     blocked, whatever their score.
+         */
+        get: operations["listDenyEntries"];
+        put?: never;
+        /**
+         * Add an identifier to the deny list
+         * @description Requires `risk:configure`. Audited. Takes effect within seconds. IP addresses are stored
+         *     in canonical form and countries upper-case; other identifiers must match exactly what you
+         *     send in events. 409 when the identifier is already listed or the environment has 10,000
+         *     entries.
+         */
+        post: operations["createDenyEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deny-list/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an identifier from the deny list
+         * @description Requires `risk:configure`. Audited. Takes effect within seconds.
+         */
+        delete: operations["deleteDenyEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rule-changes": {
         parameters: {
             query?: never;
@@ -2175,6 +2224,34 @@ export interface components {
             created_by: string;
             restored_from?: number | null;
         };
+        /** @enum {string} */
+        DenyKind: "user" | "account" | "device" | "ip" | "beneficiary" | "country";
+        DenyEntry: {
+            /** @example dny_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            kind: components["schemas"]["DenyKind"];
+            value: string;
+            reason: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+        };
+        DenyEntryList: {
+            data: components["schemas"]["DenyEntry"][];
+            /** @description Entries in the environment, including those not listed here. */
+            total: number;
+            /** @description The most entries an environment can have. */
+            limit: number;
+        };
+        CreateDenyEntryRequest: {
+            kind: components["schemas"]["DenyKind"];
+            value: string;
+            reason?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
         RuleChange: {
             /** @example rch_01j9x2k7m3q4r5s6t7v8w9x0yz */
             id: string;
@@ -3148,6 +3225,87 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listDenyEntries: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["DenyKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenyEntryList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createDenyEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDenyEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The entry. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenyEntry"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deleteDenyEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

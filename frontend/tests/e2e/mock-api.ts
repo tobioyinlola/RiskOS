@@ -63,6 +63,8 @@ export interface MockApi {
   changeStatus: "pending" | "approved";
   /** Events the console can list, newest first; tests push to it to simulate arrivals. */
   events: ReturnType<typeof eventSummary>[];
+  /** The deny list; the console adds and removes entries. */
+  deny: Record<string, unknown>[];
 }
 
 let eventSeq = 0;
@@ -193,6 +195,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     hasPasskey: false,
     changeStatus: "pending",
     events: [],
+    deny: [],
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -262,6 +265,12 @@ export async function mockApi(page: Page): Promise<MockApi> {
       req.headers()["x-csrf-token"] !== csrf
     ) {
       state.problems.push(`${method} ${path} without the CSRF token`);
+    }
+
+    if (path.startsWith("/deny-list/") && method === "DELETE") {
+      const id = path.slice("/deny-list/".length);
+      state.deny = state.deny.filter((e) => e.id !== id);
+      return route.fulfill({ status: 204 });
     }
 
     // Sign-in and second factors.
@@ -484,6 +493,25 @@ export async function mockApi(page: Page): Promise<MockApi> {
       }
       case "/analytics":
         return json(route, ANALYTICS);
+      case "/deny-list":
+        if (method === "POST") {
+          const entry = {
+            id: `dny_${state.deny.length + 1}`,
+            kind: body?.kind,
+            value: body?.value,
+            reason: body?.reason ?? "",
+            expires_at: body?.expires_at ?? null,
+            created_at: NOW,
+            created_by: "usr_admin",
+          };
+          state.deny.unshift(entry);
+          return json(route, entry, 201);
+        }
+        return json(route, {
+          data: state.deny,
+          total: state.deny.length,
+          limit: 10000,
+        });
       case "/entities/user/usr_4812":
         return json(route, PROFILE);
       case "/cases":

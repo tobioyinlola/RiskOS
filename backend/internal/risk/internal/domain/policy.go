@@ -158,6 +158,8 @@ type PolicyInput struct {
 	// HighValue reports whether the event's amount is at or above the tenant's threshold.
 	HighValue bool
 	Settings  Settings
+	// DenyListed reports whether an identifier of the event is on the tenant's deny list.
+	DenyListed bool
 }
 
 // PolicyResult is the decision and why it deviated from the default table.
@@ -175,10 +177,11 @@ type PolicyResult struct {
 //   - HIGH on an event type that cannot be stepped up: REVIEW;
 //   - degraded evaluation: the event type's fail policy (closed: at least REVIEW);
 //   - degraded and high-value: at least REVIEW whatever the fail policy (induced-degradation guard);
-//   - CRITICAL with automatic blocking in shadow: REVIEW, marked would_block; on: BLOCK.
+//   - CRITICAL with automatic blocking in shadow: REVIEW, marked would_block; on: BLOCK;
+//   - an identifier on the tenant's deny list: BLOCK, whatever the score.
 //
-// BLOCK is produced only by automatic blocking, a per-environment opt-in behind 14 days of
-// shadow evidence with a kill switch (decision 12). The named signals explain it.
+// BLOCK is produced only by a deny-list match or by automatic blocking, a per-environment opt-in
+// behind 14 days of shadow evidence with a kill switch (decision 12). Named signals explain it.
 func Decide(in PolicyInput) PolicyResult {
 	d := DefaultDecision(in.Level)
 	var reasons []string
@@ -220,6 +223,11 @@ func Decide(in PolicyInput) PolicyResult {
 			reasons = append(reasons, "auto_block")
 		case AutoBlockOff:
 		}
+	}
+	// A deny-list match blocks whatever the score: the tenant named this identifier.
+	if in.DenyListed {
+		d = DecisionBlock
+		reasons = append(reasons, "deny_list")
 	}
 	slices.Sort(reasons)
 	return PolicyResult{Decision: d, Reasons: slices.Compact(reasons)}

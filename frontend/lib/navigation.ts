@@ -18,6 +18,7 @@ export interface NavSection {
     | "receipt"
     | "fingerprint"
     | "chart"
+    | "ban"
     | "activity"
     | "alert"
     | "folder"
@@ -92,6 +93,13 @@ export const navSections = [
     group: "Configure",
     icon: "shield",
     anyOf: ["rules:read"],
+  },
+  {
+    href: "/deny-lists",
+    label: "Deny lists",
+    group: "Configure",
+    icon: "ban",
+    anyOf: ["rules:read", "risk:configure"],
   },
   {
     href: "/settings",

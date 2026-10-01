@@ -152,6 +152,18 @@ type ConsoleSession struct {
 	UserAgent        *string
 }
 
+type DenyListEntry struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	Value         string
+	Reason        string
+	ExpiresAt     *time.Time
+	CreatedAt     time.Time
+	CreatedBy     string
+}
+
 type Environment struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID

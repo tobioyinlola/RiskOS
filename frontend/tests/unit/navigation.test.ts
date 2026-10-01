@@ -18,6 +18,7 @@ describe("navigation", () => {
       "Entities",
       "Analytics",
       "Rules",
+      "Deny lists",
       "Risk settings",
       "Developer",
       "Team",
@@ -45,6 +46,7 @@ describe("navigation", () => {
       "Entities",
       "Analytics",
       "Rules",
+      "Deny lists",
     ]);
     expect(visibleSections(() => false)).toEqual([]);
   });

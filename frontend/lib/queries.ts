@@ -87,6 +87,19 @@ export function useEntity(kind: EntityKind, ref: string) {
   });
 }
 
+export function useDenyList(kind?: Schemas["DenyKind"]) {
+  const key = useKey("deny-list", kind ?? "all");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/deny-list", {
+          params: { query: kind ? { kind } : {} },
+        }),
+      ),
+  });
+}
+
 export type AnalyticsWindow = "24h" | "7d" | "30d";
 
 export function useAnalytics(window: AnalyticsWindow) {

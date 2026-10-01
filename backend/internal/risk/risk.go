@@ -72,6 +72,9 @@ type RuleHandlers interface {
 	GetRuleChange(ctx context.Context, req apigen.GetRuleChangeRequestObject) (apigen.GetRuleChangeResponseObject, error)
 	ApproveRuleChange(ctx context.Context, req apigen.ApproveRuleChangeRequestObject) (apigen.ApproveRuleChangeResponseObject, error)
 	RejectRuleChange(ctx context.Context, req apigen.RejectRuleChangeRequestObject) (apigen.RejectRuleChangeResponseObject, error)
+	ListDenyEntries(ctx context.Context, req apigen.ListDenyEntriesRequestObject) (apigen.ListDenyEntriesResponseObject, error)
+	CreateDenyEntry(ctx context.Context, req apigen.CreateDenyEntryRequestObject) (apigen.CreateDenyEntryResponseObject, error)
+	DeleteDenyEntry(ctx context.Context, req apigen.DeleteDenyEntryRequestObject) (apigen.DeleteDenyEntryResponseObject, error)
 }
 
 // Config configures the risk module.

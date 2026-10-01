@@ -380,8 +380,14 @@ func MapError(err error) error {
 		return httpx.Conflict("A rule with this code already exists in this environment.", err)
 	case errors.Is(err, domain.ErrRuleConflict):
 		return httpx.Conflict("The rule was changed by another request; reload it and try again.", err)
-	case errors.Is(err, domain.ErrChangeNotFound):
+	case errors.Is(err, domain.ErrChangeNotFound), errors.Is(err, domain.ErrDenyNotFound):
 		return httpx.NotFound(err)
+	case errors.Is(err, domain.ErrDenyInvalid):
+		return httpx.InvalidRequest(capitalizeSentence(detail(domain.ErrDenyInvalid)), err)
+	case errors.Is(err, domain.ErrDenyDuplicate):
+		return httpx.Conflict("This identifier is already on the deny list.", err)
+	case errors.Is(err, domain.ErrDenyLimit):
+		return httpx.Conflict(capitalizeSentence(detail(domain.ErrDenyLimit)), err)
 	case errors.Is(err, domain.ErrChangePending), errors.Is(err, domain.ErrChangeDecided), errors.Is(err, domain.ErrChangeStale):
 		return httpx.Conflict(capitalizeSentence(err.Error()), err)
 	case errors.Is(err, domain.ErrSelfApproval), errors.Is(err, domain.ErrApproverNotPerson):

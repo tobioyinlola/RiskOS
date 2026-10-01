@@ -549,7 +549,7 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
 2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
 3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
-4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval and automatic blocking added in build step 8 (A.11); hard-block deferred (Appendix B).
+4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval and automatic blocking added in build step 8 (A.11); deny-list hard blocks added after build step 8.
 5. Alerts, cases, notes, resolution. **Done** (Appendix A.7); alerts reach customers by webhook in step 6.
 6. Webhooks with signing and delivery logs. **Done** (Appendix A.8); egress proxy and per-tenant delivery queues deferred (Appendix B).
 7. Dashboard on the generated client.
@@ -726,7 +726,7 @@ password.
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
 | Four-eyes approval for tenant suspension, support access, key-pepper rotation and audit or retention configuration (section 16) | Production rule changes need a second person's approval ([RISK_ENGINE.md](RISK_ENGINE.md)). The other approvals belong to the internal admin realm, which is not built | TODO(phase-8) |
-| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Automatic blocking is built: off by default, 14 days of shadow evidence before it can be switched on, and a kill switch ([RISK_ENGINE.md](RISK_ENGINE.md#automatic-blocking)). Hard-block rules need tenant deny-lists, which are not built | TODO(phase-8) |
+| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Automatic blocking is built: off by default, 14 days of shadow evidence before it can be switched on, and a kill switch ([RISK_ENGINE.md](RISK_ENGINE.md#automatic-blocking)). Hard blocks come from tenant deny lists of users, accounts, devices, IP addresses, beneficiaries and countries ([RISK_ENGINE.md](RISK_ENGINE.md#deny-lists)), not from rules: rules only add weight | Resolved |
 | Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
 | Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |
 | Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |

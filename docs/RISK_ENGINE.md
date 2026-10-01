@@ -5,7 +5,7 @@ level and a decision, and how evaluations stay reproducible. Design:
 [ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **built (build step 4),
 engine `risk-engine-2.0.0` (five bands since build step 7).** Production rule changes need a
 second person's approval, and BLOCK is an opt-in per environment behind shadow evidence (build
-step 8). Hard-block rules on tenant deny-lists are not built (Appendix B).
+step 8). Tenant deny lists block listed identifiers whatever the score (after build step 8).
 
 ## Pipeline
 
@@ -117,8 +117,28 @@ environment in the risk settings (`auto_block.mode`) and is off by default.
 
 Decisions stay advisory: the customer's own flow decides what a BLOCK does.
 
-Not built: hard-block rules on tenant deny-lists, which would block regardless of score.
-TODO(phase-8)
+## Deny lists
+
+A deny list holds identifiers a tenant never wants to transact with, per environment. An event
+whose user, account, device, IP address (`context.ip`), beneficiary or country is listed is
+BLOCKED whatever its score or auto-block mode, with the signal `deny_list` ("On your deny list:
+device dev_9a1", weight 0) and the reason `deny_list`. The score is not inflated: the block comes
+from the list, and the score still reports the other signals.
+
+- **Matching is exact** after normalisation: IP addresses are canonical (an IPv4-mapped IPv6
+  address matches its IPv4 form), countries are two upper-case letters, other identifiers are
+  trimmed. There are no ranges, prefixes or patterns.
+- **Entries can expire.** An expired entry stops applying; it stays listed, marked expired, until
+  someone removes it.
+- **Limits.** 10,000 entries per environment; an identifier is listed once per kind.
+- **Speed.** The list is part of the cached risk configuration, so a lookup costs nothing on the
+  sync path. Adding or removing an entry refreshes the cache at once on the instance that took
+  the change, and within 5 seconds on the others.
+- **Control.** Adding and removing need `risk:configure`, are audited (`deny_list.added`,
+  `deny_list.removed`) and need a recent second factor in the console. Reading needs
+  `rules:read` or `risk:configure`. The rule code `deny_list` is reserved.
+
+Decisions stay advisory: the customer's own flow decides what a BLOCK does.
 
 ## Degradation
 
@@ -194,7 +214,7 @@ In a production environment, creating, changing or rolling back a rule does not 
 - **Integrity.** The database refuses to change a proposal's content or a decision once made.
 - **Test environments** apply changes at once, for fast iteration.
 
-Not built: rule priority for hard blocks.
+Rules only add weight; hard blocks come from [deny lists](#deny-lists).
 
 ## Feature store
 

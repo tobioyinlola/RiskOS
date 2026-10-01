@@ -17,6 +17,7 @@ const configTTL = 5 * time.Second
 type config struct {
 	settings domain.Settings
 	rules    []engine.CompiledRule
+	deny     domain.DenyList
 }
 
 type configEntry struct {

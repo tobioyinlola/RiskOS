@@ -39,6 +39,9 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | GET | `/api/v1/rule-changes/{change_id}` | A proposed change (`rules:read`) |
 | POST | `/api/v1/rule-changes/{change_id}/approve` | Apply a change; a person other than the proposer, never a key; audited (`rules:approve`) |
 | POST | `/api/v1/rule-changes/{change_id}/reject` | Reject, or withdraw your own; audited (`rules:approve`, or the proposer) |
+| GET | `/api/v1/deny-list` | Deny-list entries, by `kind`, with the total and the limit (`rules:read` or `risk:configure`) |
+| POST | `/api/v1/deny-list` | List an identifier; events carrying it are blocked; audited (`risk:configure`) |
+| DELETE | `/api/v1/deny-list/{entry_id}` | Remove an entry; audited (`risk:configure`) |
 | GET | `/api/v1/alerts` | List alerts; filter by `status`, `kind` (`alerts:read`) |
 | GET | `/api/v1/alerts/{alert_id}` | Alert with its evaluations and timeline (`alerts:read`) |
 | PATCH | `/api/v1/alerts/{alert_id}` | Triage: status, assignee, note; audited (`alerts:write`) |

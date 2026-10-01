@@ -895,6 +895,98 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/deny-list:
+    get:
+      operationId: listDenyEntries
+      tags: [rules]
+      summary: List the deny list
+      description: |
+        Requires `rules:read` or `risk:configure`. Newest first, at most 1,000. Events whose user,
+        account, device, IP address, beneficiary or country is listed (and not expired) are
+        blocked, whatever their score.
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/DenyKind"
+      responses:
+        "200":
+          description: The entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DenyEntryList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createDenyEntry
+      tags: [rules]
+      summary: Add an identifier to the deny list
+      description: |
+        Requires `risk:configure`. Audited. Takes effect within seconds. IP addresses are stored
+        in canonical form and countries upper-case; other identifiers must match exactly what you
+        send in events. 409 when the identifier is already listed or the environment has 10,000
+        entries.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDenyEntryRequest"
+      responses:
+        "201":
+          description: The entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DenyEntry"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/deny-list/{entry_id}:
+    delete:
+      operationId: deleteDenyEntry
+      tags: [rules]
+      summary: Remove an identifier from the deny list
+      description: Requires `risk:configure`. Audited. Takes effect within seconds.
+      parameters:
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: dny_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
   /api/v1/rule-changes:
     get:
       operationId: listRuleChanges
@@ -4171,6 +4263,65 @@ components:
           type: string
         restored_from:
           type: integer
+          nullable: true
+    DenyKind:
+      type: string
+      enum: [user, account, device, ip, beneficiary, country]
+    DenyEntry:
+      type: object
+      additionalProperties: false
+      required: [id, kind, value, reason, expires_at, created_at, created_by]
+      properties:
+        id:
+          type: string
+          example: dny_01j9x2k7m3q4r5s6t7v8w9x0yz
+        kind:
+          $ref: "#/components/schemas/DenyKind"
+        value:
+          type: string
+        reason:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+    DenyEntryList:
+      type: object
+      additionalProperties: false
+      required: [data, total, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DenyEntry"
+        total:
+          type: integer
+          description: Entries in the environment, including those not listed here.
+        limit:
+          type: integer
+          description: The most entries an environment can have.
+    CreateDenyEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, value]
+      properties:
+        kind:
+          $ref: "#/components/schemas/DenyKind"
+        value:
+          type: string
+          minLength: 1
+          maxLength: 128
+        reason:
+          type: string
+          maxLength: 200
+        expires_at:
+          type: string
+          format: date-time
           nullable: true
     RuleChange:
       type: object

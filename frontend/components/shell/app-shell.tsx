@@ -4,6 +4,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import {
   Activity,
+  Ban,
   ChartColumn,
   Fingerprint,
   Radio,
@@ -67,6 +68,7 @@ const ICONS: Record<NavSection["icon"], typeof Gauge> = {
   receipt: Receipt,
   fingerprint: Fingerprint,
   chart: ChartColumn,
+  ban: Ban,
   activity: Activity,
   alert: TriangleAlert,
   folder: FolderOpen,
