@@ -20,7 +20,8 @@ Status: **built (build step 7).** API keys (machine access) are unchanged ([TENA
 ## Sign-in
 
 1. Email and password (`POST /api/v1/auth/login`). Passwords: 12 to 128 characters, not the
-   email address, stored only as Argon2id hashes (m=64 MiB, t=3, p=2). Unknown emails, wrong
+   email address, not found in known data breaches (below), stored only as Argon2id hashes
+   (m=64 MiB, t=3, p=2). Unknown emails, wrong
    passwords and disabled users get the same `401 INVALID_CREDENTIALS`, and take the same time.
 2. A mandatory second factor: a **passkey** (WebAuthn, user verification required, preferred)
    or an **authenticator-app code** (TOTP, RFC 6238, each code accepted once). Ten single-use
@@ -28,7 +29,19 @@ Status: **built (build step 7).** API keys (machine access) are unchanged ([TENA
 3. The session becomes active for 12 hours, ending after 30 minutes without activity.
 
 Attempts are throttled in Redis: 10 per email and 60 per client address per 15 minutes for
-passwords, 5 per user per 5 minutes for second factors (`429` with `Retry-After`). Failures,
+passwords, 5 per user per 5 minutes for second factors (`429` with `Retry-After`). The client
+address is the browser's, read through the console's server and any load balancer listed in
+`RISKOS_TRUSTED_PROXIES` (only addresses those proxies added are believed). Every failed
+authentication also counts against the address's API-wide budget (see
+[SECURITY.md](SECURITY.md)).
+
+**Breached passwords.** A new password is checked against the Pwned Passwords range API with
+k-anonymity: only the first five hexadecimal characters of its SHA-1 hash leave RiskOS, and
+responses are padded. A password found there is refused. If the service cannot be reached
+within 3 seconds, the password is accepted and the failure logged, so an outside outage cannot
+stop people from joining. `RISKOS_BREACHED_PASSWORD_CHECK=off` disables the check (for
+deployments without outbound internet access); `RISKOS_BREACHED_PASSWORD_URL` points it at a
+mirror. Failures,
 sign-ins, enrollments, re-authentications and sign-outs are in the tenant's audit log.
 
 ## Sessions
@@ -59,12 +72,8 @@ sign-ins, enrollments, re-authentications and sign-outs are in the tenant's audi
 
 ## Deviations and pending work
 
-- No breached-password check yet (requires an outbound k-anonymity lookup). TODO(phase-8).
 - Single sign-on (OIDC or SAML) for customer administrators is not built. TODO(phase-8).
 - No email delivery: invites are links the administrator passes on. TODO(phase-8).
-- Per-address throttling sees the console proxy's address when requests come through it;
-  per-email and per-user throttling are unaffected. TODO(phase-8): trust the proxy's
-  forwarded address.
 - Passkey ceremonies are verified by the go-webauthn library; the integration tests cover their
   request and rejection paths. The stack browser test (`make test-e2e-stack`, in CI) registers a
   passkey with a virtual authenticator and signs in with it against the real API

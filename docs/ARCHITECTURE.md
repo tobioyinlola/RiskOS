@@ -653,6 +653,7 @@ password.
 |---|---|
 | Failure drill | `make failure-drill`: ingest under load while Redis, PostgreSQL, the worker and the API fail; checks that no event is lost or duplicated, no degraded transaction is allowed, every alert and webhook arrives ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) |
 | Restore drill | `make restore-drill`: backup, restore into a fresh server, then row counts, audit chains, isolation and a live API on the copy |
+| Abuse limits | Failed authentications per client address, read through trusted proxies only; per-tenant limits on sensitive operations; breached-password check for console passwords |
 | Failing fast | Redis circuit breaker; bounded rate-limit checks; a 1 s deadline to get a database connection, then 503 with `Retry-After`; jobs of a killed worker retried after the job timeout plus a minute |
 | Schedule | Both drills run weekly in CI (`.github/workflows/drills.yml`) |
 
@@ -716,9 +717,9 @@ password.
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
 | Console screens for the live risk monitor, entity pages (users, accounts, devices, transactions) and analytics beyond counts | Not built; the console covers triage, investigation, configuration and administration ([CONSOLE.md](CONSOLE.md)) | TODO(phase-8) |
-| Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no breached-password check, SSO or email delivery yet | TODO(phase-8) |
+| Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no SSO or email delivery yet | TODO(phase-8) |
 | Redis state is rebuildable (section 12) | A total loss of Redis state makes every user look new; history signals go silent without being reported as degraded ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md#losing-redis-state)) | TODO(phase-8) |
-| Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
+| Rate limits per tenant, key, IP and endpoint (section 9) | Per key, per tenant, failed authentications per client address, and per tenant for sensitive operations are built ([SECURITY.md](SECURITY.md)). A per-address limit on all traffic belongs at the gateway, since customers' servers share addresses. The limiter fails open if Redis is down | TODO(phase-8) |
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
@@ -731,4 +732,4 @@ password.
 | Webhook egress through a proxy with an allow policy (section 9) | Not built; the resolved-IP dialer check is the SSRF control until deployment infrastructure exists | TODO(phase-8) |
 | Per-tenant webhook queues (section 14) | One `webhooks` queue with global concurrency, separate from other jobs; per-tenant fairness is not built | TODO(phase-8) |
 | Webhook secrets derived from a master secret in the secrets manager (section 16) | Derived from `RISKOS_WEBHOOK_SIGNING_KEY`, an environment variable locally; the secrets manager comes with deployment | TODO(phase-8) |
-| CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), govulncheck, Trivy, gitleaks and SBOMs are in CI. Static analysis with CodeQL and image signing arrive with the deployment pipeline | TODO(phase-7) |
+| CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), CodeQL (Go and TypeScript, failing on high-severity findings), govulncheck, Trivy, gitleaks and SBOMs are in CI. Image signing and provenance arrive with the deployment pipeline and its registry | TODO(phase-8) |
