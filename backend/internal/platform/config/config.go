@@ -143,6 +143,8 @@ type RateLimit struct {
 	KeyBurst        int
 	TenantPerSecond float64
 	TenantBurst     int
+	// Timeout bounds each limit check; past it the request is allowed (limits fail open).
+	Timeout time.Duration
 }
 
 // Auth configures API key authentication. It is validated only by the binaries that
@@ -214,6 +216,9 @@ type Postgres struct {
 	MaxConnIdleTime time.Duration
 	ConnectTimeout  time.Duration
 	CheckTimeout    time.Duration
+	// AcquireTimeout bounds getting a connection and beginning a transaction. Past it the
+	// request fails with 503 instead of queueing while the database is unreachable.
+	AcquireTimeout time.Duration
 }
 
 // Redis configures the Redis client.
@@ -226,6 +231,9 @@ type Redis struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	CheckTimeout time.Duration
+	// BreakerCooldown is how long commands fail at once after Redis proves unreachable
+	// (0 disables the circuit breaker).
+	BreakerCooldown time.Duration
 }
 
 // Telemetry configures OpenTelemetry export. When disabled, no-op providers are installed.
@@ -257,6 +265,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			KeyBurst:        r.integer("RISKOS_RATE_LIMIT_KEY_BURST", 200),
 			TenantPerSecond: r.float("RISKOS_RATE_LIMIT_TENANT_PER_SECOND", 500),
 			TenantBurst:     r.integer("RISKOS_RATE_LIMIT_TENANT_BURST", 1000),
+			Timeout:         r.duration("RISKOS_RATE_LIMIT_TIMEOUT", 50*time.Millisecond),
 		},
 		Auth: Auth{
 			APIKeyPepper:   r.str("RISKOS_API_KEY_PEPPER", ""),
@@ -291,16 +300,18 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			MaxConnIdleTime: r.duration("RISKOS_POSTGRES_MAX_CONN_IDLE_TIME", 15*time.Minute),
 			ConnectTimeout:  r.duration("RISKOS_POSTGRES_CONNECT_TIMEOUT", 5*time.Second),
 			CheckTimeout:    r.duration("RISKOS_POSTGRES_CHECK_TIMEOUT", time.Second),
+			AcquireTimeout:  r.duration("RISKOS_POSTGRES_ACQUIRE_TIMEOUT", time.Second),
 		},
 		Redis: Redis{
-			Addr:         r.required("RISKOS_REDIS_ADDR"),
-			Password:     r.str("RISKOS_REDIS_PASSWORD", ""),
-			DB:           r.integer("RISKOS_REDIS_DB", 0),
-			PoolSize:     r.integer("RISKOS_REDIS_POOL_SIZE", 20),
-			DialTimeout:  r.duration("RISKOS_REDIS_DIAL_TIMEOUT", 2*time.Second),
-			ReadTimeout:  r.duration("RISKOS_REDIS_READ_TIMEOUT", 500*time.Millisecond),
-			WriteTimeout: r.duration("RISKOS_REDIS_WRITE_TIMEOUT", 500*time.Millisecond),
-			CheckTimeout: r.duration("RISKOS_REDIS_CHECK_TIMEOUT", time.Second),
+			Addr:            r.required("RISKOS_REDIS_ADDR"),
+			Password:        r.str("RISKOS_REDIS_PASSWORD", ""),
+			DB:              r.integer("RISKOS_REDIS_DB", 0),
+			PoolSize:        r.integer("RISKOS_REDIS_POOL_SIZE", 20),
+			DialTimeout:     r.duration("RISKOS_REDIS_DIAL_TIMEOUT", 2*time.Second),
+			ReadTimeout:     r.duration("RISKOS_REDIS_READ_TIMEOUT", 500*time.Millisecond),
+			WriteTimeout:    r.duration("RISKOS_REDIS_WRITE_TIMEOUT", 500*time.Millisecond),
+			CheckTimeout:    r.duration("RISKOS_REDIS_CHECK_TIMEOUT", time.Second),
+			BreakerCooldown: r.duration("RISKOS_REDIS_BREAKER_COOLDOWN", time.Second),
 		},
 		Telemetry: Telemetry{
 			Enabled:      r.boolean("RISKOS_OTEL_ENABLED", false),

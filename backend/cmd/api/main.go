@@ -107,7 +107,7 @@ func run() (err error) {
 	}
 	defer pool.Close()
 
-	rdb, err := redisx.New(ctx, cfg.Redis)
+	rdb, err := redisx.New(ctx, cfg.Redis, logger)
 	if err != nil {
 		return err
 	}
@@ -119,7 +119,7 @@ func run() (err error) {
 	)
 
 	clk := clock.System{}
-	runner := db.NewTxRunner(pool)
+	runner := db.NewTxRunner(pool, db.WithBeginTimeout(cfg.Postgres.AcquireTimeout))
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
 		Pepper:   []byte(cfg.Auth.APIKeyPepper),
@@ -128,7 +128,7 @@ func run() (err error) {
 		Cookie: auth.CookieConfig{
 			Secure: cfg.Console.CookieSecure, Origins: cfg.Console.Origins, ConsoleURL: cfg.Console.URL,
 		},
-		Limiter: ratelimit.New(rdb),
+		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		Logger:  logger,
 	})
 
@@ -160,7 +160,7 @@ func run() (err error) {
 		Alerts:    alertsModule,
 		Cases:     casesModule,
 		Webhooks:  webhooksModule,
-		Limiter:   ratelimit.New(rdb),
+		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
 			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},

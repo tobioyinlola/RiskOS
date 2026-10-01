@@ -9,6 +9,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/requestctx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 )
 
 // Stable error codes of the public error contract (spec §7). Codes are part of the API; never
@@ -91,6 +92,9 @@ func toError(err error) *Error {
 		return NewError(http.StatusForbidden, CodeForbidden, "The credential lacks the permission required for this operation.", err)
 	case errors.As(err, &tooLarge):
 		return NewError(http.StatusRequestEntityTooLarge, CodePayloadTooLarge, "The request body is too large.", err)
+	case errors.Is(err, txn.ErrUnavailable):
+		return NewError(http.StatusServiceUnavailable, CodeServiceUnavailable,
+			"The service is temporarily unavailable. Retry shortly.", err).WithHeader("Retry-After", "1")
 	case errors.Is(err, context.DeadlineExceeded):
 		return NewError(http.StatusServiceUnavailable, CodeTimeout, "The request timed out.", err)
 	default:

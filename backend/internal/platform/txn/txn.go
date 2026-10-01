@@ -5,7 +5,15 @@
 // call, so it commits or rolls back together.
 package txn
 
-import "context"
+import (
+	"context"
+	"errors"
+)
+
+// ErrUnavailable marks a failure to reach the database: no connection in time, or the
+// connection lost. Nothing was committed, so the caller may retry; the API answers 503 with
+// Retry-After.
+var ErrUnavailable = errors.New("database unavailable")
 
 // Runner executes fn inside a transaction bound to the tenant scope in ctx.
 //

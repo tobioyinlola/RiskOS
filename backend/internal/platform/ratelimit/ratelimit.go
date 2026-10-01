@@ -30,13 +30,15 @@ type Decision struct {
 
 // Limiter checks limits in Redis.
 type Limiter struct {
-	rdb    *redis.Client
-	script *redis.Script
+	rdb     *redis.Client
+	script  *redis.Script
+	timeout time.Duration
 }
 
-// New returns a Limiter on rdb.
-func New(rdb *redis.Client) *Limiter {
-	return &Limiter{rdb: rdb, script: redis.NewScript(gcraScript)}
+// New returns a Limiter on rdb. Each check is bounded by timeout (0: the caller's context
+// only), so a slow or unreachable Redis costs a request at most that long.
+func New(rdb *redis.Client, timeout time.Duration) *Limiter {
+	return &Limiter{rdb: rdb, script: redis.NewScript(gcraScript), timeout: timeout}
 }
 
 // gcraScript checks N keys, each with its own emission interval and burst tolerance, and
@@ -85,6 +87,11 @@ func (l *Limiter) Allow(ctx context.Context, rules ...Rule) (Decision, error) {
 		keys[i] = r.Key
 		interval := 1e6 / r.Limit.PerSecond
 		args = append(args, int64(math.Ceil(interval)), int64(math.Ceil(interval*float64(r.Limit.Burst-1))))
+	}
+	if l.timeout > 0 {
+		var cancel context.CancelFunc
+		ctx, cancel = context.WithTimeout(ctx, l.timeout)
+		defer cancel()
 	}
 	res, err := l.script.Run(ctx, l.rdb, keys, args...).Int64Slice()
 	if err != nil {

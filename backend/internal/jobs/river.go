@@ -66,12 +66,19 @@ func NewQueue(pool *pgxpool.Pool, registry *Registry, cfg QueueConfig, logger *s
 	for name, n := range cfg.Queues {
 		queues[name] = river.QueueConfig{MaxWorkers: n}
 	}
+	// Jobs held by a worker that died (SIGKILL, lost node) are retried once they have been
+	// running longer than any job may run, instead of after River's default hour.
+	var rescueAfter time.Duration
+	if cfg.JobTimeout > 0 {
+		rescueAfter = cfg.JobTimeout + time.Minute
+	}
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
-		Logger:       logger,
-		JobTimeout:   cfg.JobTimeout,
-		Workers:      workers,
-		PeriodicJobs: periodic,
-		Queues:       queues,
+		Logger:               logger,
+		JobTimeout:           cfg.JobTimeout,
+		RescueStuckJobsAfter: rescueAfter,
+		Workers:              workers,
+		PeriodicJobs:         periodic,
+		Queues:               queues,
 	})
 	if err != nil {
 		return nil, fmt.Errorf("create river client: %w", err)

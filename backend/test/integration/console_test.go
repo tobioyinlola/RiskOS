@@ -68,7 +68,7 @@ func (b *browser) do(t *testing.T, method, path string, body any) response {
 			b.cookie = c.Value
 		}
 	}
-	return response{status: rec.Code, raw: rec.Body.Bytes()}
+	return response{status: rec.Code, raw: rec.Body.Bytes(), header: rec.Header()}
 }
 
 // refresh reads the session (and its CSRF token).

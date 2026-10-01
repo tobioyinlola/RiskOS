@@ -5,6 +5,7 @@ package integration
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"net/http/httptest"
 	"testing"
@@ -56,7 +57,7 @@ func newAPI(t *testing.T) http.Handler {
 		Alerts:     alertsModule,
 		Cases:      cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clock.System{}, webhooksModule.Publisher()),
 		Webhooks:   webhooksModule,
-		Limiter:    ratelimit.New(shared.rdb),
+		Limiter:    ratelimit.New(shared.rdb, 50*time.Millisecond),
 		RateLimits: generousLimits(),
 		Health: health.NewService(shared.logger,
 			health.Check{Name: "postgres", Timeout: time.Second, Probe: func(ctx context.Context) error { return db.Ping(ctx, shared.pool) }},
@@ -126,4 +127,47 @@ func TestReadinessTracksDependencies(t *testing.T) {
 			assert.Equal(t, apigen.ReadinessResponseChecksUnavailable, body.Checks["postgres"])
 		})
 	})
+}
+
+// TestOutagesFailFast checks the failure drill's findings stay fixed: with PostgreSQL down the
+// decision path answers 503 with Retry-After within about a second (clients retry with the same
+// event_id), and with Redis down it still decides quickly, degraded and failing closed.
+func TestOutagesFailFast(t *testing.T) {
+	// Each case builds its own stack: a restart replaces the shared clients a stack is built on.
+	// The key stays cached, so the ingest itself meets the outage.
+	warm := func(t *testing.T) (stack, string) {
+		s := newStack(t, time.Minute)
+		a := s.createTenant(t, "Outages")
+		require.Equal(t, http.StatusOK, s.ingest(t, a.testKey, txn("warm")).status)
+		return s, a.testKey
+	}
+
+	t.Run("redis stopped", func(t *testing.T) {
+		s, key := warm(t)
+		stopFor(t, shared.redis, func() {
+			for i := range 20 {
+				start := time.Now()
+				r := s.ingest(t, key, txn(fmt.Sprintf("redis-down-%d", i)))
+				require.Equal(t, http.StatusOK, r.status, r.String())
+				d := decode[apigen.RiskDecision](t, r)
+				assert.NotEmpty(t, d.DegradedSignals)
+				assert.NotEqual(t, apigen.Decision("allow"), d.Decision, "transactions fail closed")
+				if i >= 10 { // by now the breaker is open: no waiting on Redis at all
+					assert.Less(t, time.Since(start), 500*time.Millisecond)
+				}
+			}
+		})
+	})
+	t.Run("postgres stopped", func(t *testing.T) {
+		s, key := warm(t)
+		stopFor(t, shared.postgres, func() {
+			start := time.Now()
+			r := s.ingest(t, key, txn("pg-down"))
+			assert.Less(t, time.Since(start), 3*time.Second)
+			assert.Equal(t, http.StatusServiceUnavailable, r.status, r.String())
+			assert.Equal(t, "1", r.header.Get("Retry-After"))
+			assert.Contains(t, r.String(), "SERVICE_UNAVAILABLE")
+		})
+	})
+
 }
