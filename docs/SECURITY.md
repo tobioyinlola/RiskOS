@@ -25,7 +25,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Configuration | Fail-fast validation; secrets never echoed; production requires verified Postgres TLS and a Redis password | `platform/config` |
 | Containers | Distroless, nonroot, read-only root filesystem, all capabilities dropped, `no-new-privileges` | Dockerfiles, `docker-compose.yml` |
 | Local networking | PostgreSQL and Redis ports bound to 127.0.0.1 only; Redis requires a password | `docker-compose.yml` |
-| Supply chain | Pinned toolchains, lockfiles, digest-pinned images, SHA-pinned actions, Dependabot, govulncheck, pnpm audit, Trivy, SBOMs, CodeQL (security-extended queries; high-severity findings fail CI) | CI |
+| Supply chain | Pinned toolchains, lockfiles, digest-pinned images, SHA-pinned actions, Dependabot, govulncheck, pnpm audit, Trivy, SBOMs, CodeQL (security-extended queries; high-severity findings fail CI unless accepted with a written reason in `.github/codeql-accepted.json`) | CI |
 | Secrets in code | gitleaks in pre-commit and in CI over the full history | `lefthook.yml`, CI |
 | API keys | `rsk_test_`/`rsk_live_` keys; only an HMAC with a server-side pepper is stored; shown once; scoped; rotation with overlap; revocation effective within 5 s; uniform 401 | `internal/auth` |
 | Console sign-in | Argon2id passwords, mandatory passkey or TOTP second factor, recovery codes, throttling, HttpOnly SameSite=Strict session cookies with hashed tokens, CSRF tokens and Origin checks, re-authentication for high-impact actions | `internal/auth` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |

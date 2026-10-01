@@ -1,0 +1,8 @@
+[
+  {
+    "rule": "go/weak-sensitive-data-hashing",
+    "path": "backend/internal/auth/internal/breach/breach.go",
+    "reason": "The Pwned Passwords range API is keyed by SHA-1; the hash is a lookup key sent as a 5-character prefix (k-anonymity), never stored. Passwords are stored only as Argon2id hashes (internal/auth/internal/console).",
+    "reviewed": "2026-10-01"
+  }
+]

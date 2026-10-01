@@ -183,7 +183,7 @@ test("pages carry security headers and a nonce-based CSP", async ({
 
   // Every script on the page carries this response's nonce.
   const html = await res.text();
-  const scripts = html.match(/<script\b[^>]*>/g) ?? [];
+  const scripts = html.match(/<script\b[^>]*>/gi) ?? [];
   expect(scripts.length).toBeGreaterThan(0);
   for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`);
 
