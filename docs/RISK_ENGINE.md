@@ -3,8 +3,9 @@
 **Purpose:** how signals are produced and combined into an explainable score, mapped to a risk
 level and a decision, and how evaluations stay reproducible. Design:
 [ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **built (build step 4),
-engine `risk-engine-2.0.0` (five bands since build step 7).** The production approval workflow for rules, auto-block and
-hard-block rules are deferred to build step 8 (Appendix B); the engine never returns BLOCK.
+engine `risk-engine-2.0.0` (five bands since build step 7).** Production rule changes need a
+second person's approval, and BLOCK is an opt-in per environment behind shadow evidence (build
+step 8). Tenant deny lists block listed identifiers whatever the score (after build step 8).
 
 ## Pipeline
 
@@ -93,10 +94,51 @@ use the same five bands.
 | ELEVATED | REVIEW | |
 | HIGH | STEP_UP | REVIEW for event types that cannot be stepped up (only logins and transactions can): `step_up_not_available` |
 | CRITICAL | REVIEW | |
+| CRITICAL, automatic blocking in shadow | REVIEW | marked `would_block` |
+| CRITICAL, automatic blocking on | BLOCK | `auto_block` |
 
-BLOCK is never produced. Auto-block (tenant opt-in after shadow evidence, with a kill switch) and
-hard-block rules on tenant deny-lists are deferred to build step 8, together with the other
-four-eyes controls. Decisions are advisory; the customer's own flow enforces them.
+### Automatic blocking
+
+BLOCK comes only from automatic blocking (ARCHITECTURE.md decision 12). It is set per
+environment in the risk settings (`auto_block.mode`) and is off by default.
+
+- **Off.** Critical scores get REVIEW.
+- **Shadow.** Critical scores still get REVIEW, but each evaluation is marked `would_block`.
+  `GET /api/v1/risk/policy` shows how many evaluations were marked in the last 14 days, since
+  when, and from when blocking can be switched on.
+- **On.** Critical scores get BLOCK, explained by the same named signals as any other decision.
+  It can be switched on only after 14 days in shadow mode (an assumption to confirm with
+  customers). Earlier attempts, or attempts straight from off, are refused.
+- **Kill switch.** Switching back to shadow or off is always allowed and takes effect at once.
+  Off discards the shadow evidence; shadow keeps it.
+- Every mode change is audited (`risk.auto_block_changed`), and in the console it needs a recent
+  second factor.
+- BLOCK decisions raise alerts like REVIEW does.
+
+Decisions stay advisory: the customer's own flow decides what a BLOCK does.
+
+## Deny lists
+
+A deny list holds identifiers a tenant never wants to transact with, per environment. An event
+whose user, account, device, IP address (`context.ip`), beneficiary or country is listed is
+BLOCKED whatever its score or auto-block mode, with the signal `deny_list` ("On your deny list:
+device dev_9a1", weight 0) and the reason `deny_list`. The score is not inflated: the block comes
+from the list, and the score still reports the other signals.
+
+- **Matching is exact** after normalisation: IP addresses are canonical (an IPv4-mapped IPv6
+  address matches its IPv4 form), countries are two upper-case letters, other identifiers are
+  trimmed. There are no ranges, prefixes or patterns.
+- **Entries can expire.** An expired entry stops applying; it stays listed, marked expired, until
+  someone removes it.
+- **Limits.** 10,000 entries per environment; an identifier is listed once per kind.
+- **Speed.** The list is part of the cached risk configuration, so a lookup costs nothing on the
+  sync path. Adding or removing an entry refreshes the cache at once on the instance that took
+  the change, and within 5 seconds on the others.
+- **Control.** Adding and removing need `risk:configure`, are audited (`deny_list.added`,
+  `deny_list.removed`) and need a recent second factor in the console. Reading needs
+  `rules:read` or `risk:configure`. The rule code `deny_list` is reserved.
+
+Decisions stay advisory: the customer's own flow decides what a BLOCK does.
 
 ## Degradation
 
@@ -152,8 +194,27 @@ Tenants add their own signals as rules (`/api/v1/rules`, scopes `rules:read` / `
 - Rules and settings are cached per environment for 5 seconds; the instance that made a change
   applies it at once, other instances within 5 seconds.
 
-Deferred to build step 8: four-eyes approval before a rule change applies in production (today a
-`rules:write` key changes production rules directly, audited), and rule priority for hard blocks.
+### Two-person approval in production
+
+In a production environment, creating, changing or rolling back a rule does not apply it.
+
+- **Proposals.** The API answers `202` with a proposed change (`rch_…`), and the rule keeps its
+  current version. A rule, and a new rule's code, can each have one pending change at a time.
+- **Approval.** Another person approves it with `POST /api/v1/rule-changes/{id}/approve`:
+  - It applies the change as the rule's next version, credited to the proposer.
+  - It only succeeds if the rule has not changed since the proposal.
+  - Approving needs `rules:approve`, which only people hold (administrators and risk managers).
+    An API key can never be granted it, and nobody can approve their own proposal.
+  - In the console it also needs a recent second factor.
+- **Rejection.** `POST …/reject` rejects a change, with an optional reason. The proposer can
+  withdraw their own change the same way.
+- **Audit.** Proposals, approvals and rejections are audited (`rule.change_proposed`,
+  `rule.change_approved`, `rule.change_rejected`), next to the usual `rule.created`,
+  `rule.updated` and `rule.rolled_back` with `change_id` and `proposed_by`.
+- **Integrity.** The database refuses to change a proposal's content or a decision once made.
+- **Test environments** apply changes at once, for fast iteration.
+
+Rules only add weight; hard blocks come from [deny lists](#deny-lists).
 
 ## Feature store
 

@@ -108,12 +108,12 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	}
 	var limiter auth.Limiter
 	if sc.throttle {
-		limiter = ratelimit.New(shared.rdb)
+		limiter = ratelimit.New(shared.rdb, 50*time.Millisecond)
 	}
 	tel, err := telemetry.Setup(t.Context(), config.Telemetry{}, "integration", config.EnvTest)
 	require.NoError(t, err)
 	clk := clock.System{}
-	runner := db.NewTxRunner(shared.pool)
+	runner := db.NewTxRunner(shared.pool, db.WithBeginTimeout(time.Second))
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{
 		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
@@ -135,7 +135,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		Alerts:   alertsModule,
 		Cases:    cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher()),
 		Webhooks: webhooksModule,
-		Limiter:  ratelimit.New(shared.rdb), RateLimits: limits,
+		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
 	})
 	require.NoError(t, err)
 	return stack{
@@ -169,7 +169,7 @@ func (s stack) createTenant(t *testing.T, name string) tenantFixture {
 	tn, err := s.tenants.Create(t.Context(), tenants.CreateParams{Name: name, Region: "eu-west-1", Actor: "riskosctl:integration"},
 		func(ctx context.Context, _ tenants.Tenant) error {
 			var err error
-			key, err = s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "bootstrap", Scopes: authz.RolePermissions(authz.RoleCustomerAdmin)})
+			key, err = s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "bootstrap", Scopes: authz.CustomerPermissions()})
 			return err
 		})
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ func (s stack) productionKey(t *testing.T, tenantID uuid.UUID) string {
 	t.Helper()
 	ctx, err := s.tenants.OperatorScope(t.Context(), tenantID, tenancy.EnvironmentProduction, "riskosctl:integration")
 	require.NoError(t, err)
-	key, err := s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "prod", Scopes: authz.RolePermissions(authz.RoleCustomerAdmin)})
+	key, err := s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "prod", Scopes: authz.CustomerPermissions()})
 	require.NoError(t, err)
 	return key.Secret
 }
@@ -189,6 +189,7 @@ func (s stack) productionKey(t *testing.T, tenantID uuid.UUID) string {
 type response struct {
 	status int
 	raw    []byte
+	header http.Header
 }
 
 func (r response) String() string { return string(r.raw) }
@@ -212,7 +213,7 @@ func (r response) errorCode(t *testing.T) string {
 func (s stack) call(t *testing.T, method, path, key string, body any) response {
 	t.Helper()
 	rec := s.rawCall(t, method, path, key, body)
-	return response{status: rec.Code, raw: rec.Body.Bytes()}
+	return response{status: rec.Code, raw: rec.Body.Bytes(), header: rec.Header()}
 }
 
 // rawCall sends body as JSON and returns the recorder, for tests that inspect headers.

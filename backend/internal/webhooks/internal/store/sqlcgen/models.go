@@ -152,6 +152,18 @@ type ConsoleSession struct {
 	UserAgent        *string
 }
 
+type DenyListEntry struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	Value         string
+	Reason        string
+	ExpiresAt     *time.Time
+	CreatedAt     time.Time
+	CreatedBy     string
+}
+
 type Environment struct {
 	ID        uuid.UUID
 	TenantID  uuid.UUID
@@ -216,16 +228,18 @@ type EventIdempotency struct {
 }
 
 type RiskSetting struct {
-	TenantID            uuid.UUID
-	EnvironmentID       uuid.UUID
-	Weights             []byte
-	HighValueDefault    int64
-	HighValueByCurrency []byte
-	FailPolicies        []byte
-	UpdatedAt           time.Time
-	UpdatedBy           string
-	AlertMinDecision    string
-	Thresholds          []byte
+	TenantID             uuid.UUID
+	EnvironmentID        uuid.UUID
+	Weights              []byte
+	HighValueDefault     int64
+	HighValueByCurrency  []byte
+	FailPolicies         []byte
+	UpdatedAt            time.Time
+	UpdatedBy            string
+	AlertMinDecision     string
+	Thresholds           []byte
+	AutoBlockMode        string
+	AutoBlockShadowSince *time.Time
 }
 
 type Rule struct {
@@ -236,6 +250,31 @@ type Rule struct {
 	CurrentVersion int32
 	CreatedAt      time.Time
 	CreatedBy      string
+}
+
+type RuleChange struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	RuleID         uuid.UUID
+	Code           string
+	Kind           string
+	BaseVersion    *int32
+	Name           string
+	Description    string
+	Severity       string
+	Weight         int16
+	Mode           string
+	Enabled        bool
+	Condition      []byte
+	RestoredFrom   *int32
+	Status         string
+	ProposedBy     string
+	ProposedAt     time.Time
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	Reason         *string
+	AppliedVersion *int32
 }
 
 type RuleVersion struct {

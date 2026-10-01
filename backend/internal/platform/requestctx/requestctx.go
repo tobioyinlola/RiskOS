@@ -4,7 +4,10 @@
 // accessors during system design (TODO(phase-0)) and are never read from client-supplied input.
 package requestctx
 
-import "context"
+import (
+	"context"
+	"net/netip"
+)
 
 type requestIDKey struct{}
 
@@ -17,4 +20,17 @@ func WithRequestID(ctx context.Context, id string) context.Context {
 func RequestID(ctx context.Context) string {
 	id, _ := ctx.Value(requestIDKey{}).(string)
 	return id
+}
+
+type clientIPKey struct{}
+
+// WithClientIP returns ctx carrying the client's address (see httpx.ClientIP).
+func WithClientIP(ctx context.Context, ip netip.Addr) context.Context {
+	return context.WithValue(ctx, clientIPKey{}, ip)
+}
+
+// ClientIP returns the client's address, if known.
+func ClientIP(ctx context.Context) (netip.Addr, bool) {
+	ip, ok := ctx.Value(clientIPKey{}).(netip.Addr)
+	return ip, ok && ip.IsValid()
 }

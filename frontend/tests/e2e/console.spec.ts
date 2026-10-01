@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { navSections } from "../../lib/navigation";
-import { mockApi } from "./mock-api";
+import { eventSummary, mockApi } from "./mock-api";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -141,6 +141,161 @@ test("the alert queue works from the keyboard", async ({ page, isMobile }) => {
   expect(api.problems).toEqual([]);
 });
 
+test("a production rule change is approved by a second person", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/rules");
+  await page.getByRole("radio", { name: "Production" }).click();
+
+  const pending = page.getByRole("table", {
+    name: "Rule changes awaiting approval",
+  });
+  await expect(pending.getByText("Large transfer")).toBeVisible();
+  await pending.getByRole("button", { name: "Review" }).click();
+
+  const drawer = page.getByRole("dialog");
+  await expect(drawer.getByText("A new rule")).toBeVisible();
+  await expect(drawer.getByText("+25")).toBeVisible();
+  await drawer.getByRole("button", { name: "Approve and apply" }).click();
+
+  await expect(drawer).toBeHidden();
+  await expect(pending).toBeHidden();
+  expect(api.calls).toContain("POST /rule-changes/rch_01/approve");
+  expect(api.problems).toEqual([]);
+});
+
+test("the shell: collapsible navigation, command palette, theme and density", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(
+    isMobile,
+    "the navigation rail and palette shortcut are for desktop",
+  );
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav.getByRole("link", { name: "Alerts" })).toContainText(
+    "Alerts",
+  );
+
+  // Collapse to the icon rail; links keep their names; the choice survives a reload.
+  await page.getByRole("button", { name: "Collapse navigation" }).click();
+  await expect(nav.getByRole("link", { name: "Alerts" })).not.toContainText(
+    "Alerts",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Expand navigation" }),
+  ).toBeVisible();
+  await page.keyboard.press("[");
+  await expect(
+    page.getByRole("button", { name: "Collapse navigation" }),
+  ).toBeVisible();
+
+  // The command palette jumps to a section.
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(palette).toBeVisible();
+  await page.keyboard.type("audit");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/audit-logs$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Audit log" }),
+  ).toBeVisible();
+
+  // Theme and density are preferences, applied before first paint after a reload.
+  await page.getByRole("button", { name: "Use light theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Use compact rows" }).click();
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(
+    page.getByRole("button", { name: "Use default rows" }),
+  ).toBeVisible();
+
+  expect(api.problems).toEqual([]);
+  expect(csp).toEqual([]);
+});
+
+test("investigate: live monitor, transactions, entity profile, analytics", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "hover holds are a desktop interaction");
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.events = [eventSummary(12, "usr_1001")];
+
+  // The live monitor shows arrivals; while the pointer is over the table they wait.
+  await page.goto("/live");
+  const table = page.getByRole("table", { name: "Live events" });
+  await expect(table.getByText("usr_1001")).toBeVisible();
+  api.events.unshift(eventSummary(81));
+  await expect(table.getByText("usr_4812")).toBeVisible({ timeout: 6000 });
+  await table.hover();
+  api.events.unshift(eventSummary(55, "usr_2002"));
+  await expect(
+    page.getByRole("button", { name: "Show 1 new event" }),
+  ).toBeVisible({ timeout: 6000 });
+  await expect(table.getByText("usr_2002")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show 1 new event" }).click();
+  await expect(table.getByText("usr_2002")).toBeVisible();
+
+  // Transactions show the amount; the user opens their profile.
+  await page.goto("/transactions");
+  const txns = page.getByRole("table", { name: "Transactions" });
+  await expect(txns.getByText("4,500.00 NGN").first()).toBeVisible();
+  await txns.getByRole("link", { name: "usr_4812" }).first().click();
+  await expect(page).toHaveURL(/\/entities\/user\/usr_4812$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "User profile" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("table", { name: "Devices" })
+      .getByRole("link", { name: "dev_2" }),
+  ).toBeVisible();
+
+  // The user goes on the deny list from their profile, and comes off it on the deny-list page.
+  await page.getByRole("button", { name: "Add to deny list" }).click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog.getByLabel("Identifier")).toHaveValue("usr_4812");
+  await dialog.getByLabel("Reason (optional)").fill("Confirmed mule");
+  await dialog.getByRole("button", { name: "Add to deny list" }).click();
+  await expect(
+    page.getByRole("button", { name: "On the deny list" }),
+  ).toBeDisabled();
+  expect(api.deny).toHaveLength(1);
+  await page.goto("/deny-lists");
+  const deny = page.getByRole("table", { name: "Deny list" });
+  await expect(deny).toContainText("Confirmed mule");
+  await deny.getByRole("button", { name: "Remove" }).click();
+  await page.getByRole("button", { name: "Remove from deny list" }).click();
+  await expect(page.getByText("Nothing on the deny list")).toBeVisible();
+
+  // Analytics: a chart with a table view.
+  await page.goto("/analytics");
+  await expect(
+    page.getByRole("img", { name: /Events per bucket by risk band/ }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Table" }).click();
+  await expect(
+    page.getByRole("table", { name: "Events per bucket" }),
+  ).toContainText("12");
+  await expect(
+    page.getByRole("table", { name: "Signals that fired most" }),
+  ).toContainText("New device for this user");
+
+  expect(api.problems).toEqual([]);
+  expect(csp).toEqual([]);
+});
+
 test("pages carry security headers and a nonce-based CSP", async ({
   request,
 }) => {
@@ -158,7 +313,7 @@ test("pages carry security headers and a nonce-based CSP", async ({
 
   // Every script on the page carries this response's nonce.
   const html = await res.text();
-  const scripts = html.match(/<script\b[^>]*>/g) ?? [];
+  const scripts = html.match(/<script\b[^>]*>/gi) ?? [];
   expect(scripts.length).toBeGreaterThan(0);
   for (const tag of scripts) expect(tag).toContain(`nonce="${nonce}"`);
 

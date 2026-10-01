@@ -311,10 +311,55 @@ paths:
       operationId: listEvents
       tags: [events]
       summary: List events of the caller's environment
-      description: Requires scope `events:read`. Newest first.
+      description: |
+        Requires scope `events:read`. Newest first. Every filter is optional. `after` returns
+        only events newer than the given event (the live monitor polls with it).
       parameters:
         - $ref: "#/components/parameters/Limit"
         - $ref: "#/components/parameters/Cursor"
+        - name: after
+          in: query
+          required: false
+          description: Only events newer than this event ID.
+          schema:
+            type: string
+            maxLength: 64
+        - name: type
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/EventType"
+        - name: decision
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/Decision"
+        - name: risk_level
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/RiskLevel"
+        - name: user
+          in: query
+          required: false
+          description: Only events of this user (actor.user_id).
+          schema:
+            type: string
+            maxLength: 128
+        - name: account
+          in: query
+          required: false
+          description: Only events of this account (actor.account_id).
+          schema:
+            type: string
+            maxLength: 128
+        - name: device
+          in: query
+          required: false
+          description: Only events from this device (actor.device_id).
+          schema:
+            type: string
+            maxLength: 128
       responses:
         "200":
           description: A page of events.
@@ -324,6 +369,79 @@ paths:
                 $ref: "#/components/schemas/EventList"
         "400":
           $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/entities/{kind}/{ref}:
+    get:
+      operationId: getEntityProfile
+      tags: [events]
+      summary: A user's, account's or device's profile
+      description: |
+        Requires scope `events:read`. Built from the entity's most recent 5,000 events: activity,
+        scores, decisions, and the users, accounts, devices, countries and IP addresses seen with
+        it. 404 when the environment has no events for it.
+      parameters:
+        - name: kind
+          in: path
+          required: true
+          schema:
+            type: string
+            enum: [user, account, device]
+        - name: ref
+          in: path
+          required: true
+          description: The identifier you send as actor.user_id, account_id or device_id.
+          schema:
+            type: string
+            maxLength: 128
+      responses:
+        "200":
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/EntityProfile"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/analytics:
+    get:
+      operationId: getAnalytics
+      tags: [events]
+      summary: Decisions, scores and signals over time
+      description: |
+        Requires scope `events:read`. Events per bucket (hourly for 24h and 7d, daily for 30d),
+        the highest-risk users and the signals that fired most, over the window.
+      parameters:
+        - name: window
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [24h, 7d, 30d]
+            default: 24h
+      responses:
+        "200":
+          description: The analytics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Analytics"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -526,6 +644,8 @@ paths:
         on live traffic and recorded, but do not change decisions until switched to `active`.
         Returns 409 when the code is taken or the environment already has 200 rules (disabled
         rules count; rules are disabled, never deleted).
+        In a production environment the change is proposed instead (202) and applies only when
+        another person approves it.
       requestBody:
         required: true
         content:
@@ -534,11 +654,20 @@ paths:
               $ref: "#/components/schemas/CreateRuleRequest"
       responses:
         "201":
-          description: The created rule (version 1).
+          description: The created rule (version 1). Test environments apply changes at once.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Rule"
+        "202":
+          description: |
+            Production environments: the change was proposed and awaits approval by another person
+            (two-person rule). Nothing has changed yet; approve it with
+            `POST /api/v1/rule-changes/{change_id}/approve`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "409":
@@ -590,6 +719,8 @@ paths:
         Requires scope `rules:write`. Audited. Only the given fields change. Every change creates a
         new version; earlier versions are kept and can be restored. A change that alters nothing
         creates no version.
+        In a production environment the change is proposed instead (202) and applies only when
+        another person approves it.
       parameters:
         - name: rule_id
           in: path
@@ -610,6 +741,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Rule"
+        "202":
+          description: |
+            Production environments: the change was proposed and awaits approval by another person
+            (two-person rule). Nothing has changed yet; approve it with
+            `POST /api/v1/rule-changes/{change_id}/approve`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "404":
@@ -664,6 +804,8 @@ paths:
       description: |
         Requires scope `rules:write`. Audited. Adds a new version with the content of the given
         version; history is never rewritten.
+        In a production environment the change is proposed instead (202) and applies only when
+        another person approves it.
       parameters:
         - name: rule_id
           in: path
@@ -684,6 +826,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Rule"
+        "202":
+          description: |
+            Production environments: the change was proposed and awaits approval by another person
+            (two-person rule). Nothing has changed yet; approve it with
+            `POST /api/v1/rule-changes/{change_id}/approve`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "404":
@@ -735,6 +886,238 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/Unprocessable"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/deny-list:
+    get:
+      operationId: listDenyEntries
+      tags: [rules]
+      summary: List the deny list
+      description: |
+        Requires `rules:read` or `risk:configure`. Newest first, at most 1,000. Events whose user,
+        account, device, IP address, beneficiary or country is listed (and not expired) are
+        blocked, whatever their score.
+      parameters:
+        - name: kind
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/DenyKind"
+      responses:
+        "200":
+          description: The entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DenyEntryList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createDenyEntry
+      tags: [rules]
+      summary: Add an identifier to the deny list
+      description: |
+        Requires `risk:configure`. Audited. Takes effect within seconds. IP addresses are stored
+        in canonical form and countries upper-case; other identifiers must match exactly what you
+        send in events. 409 when the identifier is already listed or the environment has 10,000
+        entries.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/CreateDenyEntryRequest"
+      responses:
+        "201":
+          description: The entry.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DenyEntry"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/deny-list/{entry_id}:
+    delete:
+      operationId: deleteDenyEntry
+      tags: [rules]
+      summary: Remove an identifier from the deny list
+      description: Requires `risk:configure`. Audited. Takes effect within seconds.
+      parameters:
+        - name: entry_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: dny_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes:
+    get:
+      operationId: listRuleChanges
+      tags: [rules]
+      summary: List proposed rule changes
+      description: Requires scope `rules:read`. Newest first, at most 200.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only changes in this state (default pending).
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChangeList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes/{change_id}:
+    get:
+      operationId: getRuleChange
+      tags: [rules]
+      summary: Get a proposed rule change
+      description: Requires scope `rules:read`.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes/{change_id}/approve:
+    post:
+      operationId: approveRuleChange
+      tags: [rules]
+      summary: Approve a proposed rule change (applies it)
+      description: |
+        Requires the `rules:approve` permission, which only people hold (never API keys), and a
+        recent second factor in the console. The approver must not be the person who proposed
+        the change. Applies the change as the rule's next version; returns 409 if the rule has
+        changed since the proposal (propose again) or the change is already decided. Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The approved change, with the version it created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes/{change_id}/reject:
+    post:
+      operationId: rejectRuleChange
+      tags: [rules]
+      summary: Reject or withdraw a proposed rule change
+      description: |
+        Requires `rules:approve`, or `rules:write` for the person or key that proposed the change
+        (withdrawing it). Nothing changes on the rule. Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRuleChangeRequest"
+      responses:
+        "200":
+          description: The rejected change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -2848,8 +3231,10 @@ components:
       enum: [test, production]
     Scope:
       type: string
-      description: A permission an API key holds.
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
+      description: |
+        A permission. API keys can hold any except `rules:approve`, which only people hold (a
+        second person approves production rule changes).
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
     Whoami:
       type: object
       additionalProperties: false
@@ -3322,10 +3707,12 @@ components:
     RiskPolicy:
       type: object
       additionalProperties: false
-      required: [engine_version, thresholds, custom_calibration, alert_min_decision, bands]
+      required: [engine_version, thresholds, custom_calibration, alert_min_decision, bands, auto_block]
       properties:
         engine_version:
           type: string
+        auto_block:
+          $ref: "#/components/schemas/AutoBlockStatus"
         thresholds:
           $ref: "#/components/schemas/RiskThresholds"
         custom_calibration:
@@ -3352,6 +3739,51 @@ components:
     Decision:
       type: string
       enum: [allow, review, step_up, block]
+      description: |
+        `block` is produced only for Critical scores in an environment that switched automatic
+        blocking on (see AutoBlockStatus).
+    AutoBlockMode:
+      type: string
+      enum: ["off", shadow, "on"]
+      description: |
+        `off`: Critical scores get REVIEW. `shadow`: they still get REVIEW, and the evaluation is
+        marked `would_block` in its policy reasons, to gather evidence. `on`: they get BLOCK
+        (possible only after 14 days in shadow). Switching to `off` or `shadow` takes effect at
+        once: it is the kill switch.
+    AutoBlock:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode:
+          $ref: "#/components/schemas/AutoBlockMode"
+        shadow_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When shadow evidence started (kept while blocking is on). Set by the server; ignored in a PUT.
+    AutoBlockStatus:
+      type: object
+      additionalProperties: false
+      required: [mode, shadow_since, shadow_days_required, eligible_at, would_block_last_14_days]
+      properties:
+        mode:
+          $ref: "#/components/schemas/AutoBlockMode"
+        shadow_since:
+          type: string
+          format: date-time
+          nullable: true
+        shadow_days_required:
+          type: integer
+          description: Days in shadow mode before blocking can be switched on.
+        eligible_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: From when blocking can be switched on (null when not in shadow or on).
+        would_block_last_14_days:
+          type: integer
+          description: Evaluations in the last 14 days that blocking would have blocked.
     Signal:
       type: object
       additionalProperties: false
@@ -3428,6 +3860,209 @@ components:
           $ref: "#/components/schemas/RiskLevel"
         decision:
           $ref: "#/components/schemas/Decision"
+        actor:
+          $ref: "#/components/schemas/EventActorRefs"
+        country:
+          type: string
+          nullable: true
+        transaction:
+          $ref: "#/components/schemas/TransactionSummary"
+    EventActorRefs:
+      type: object
+      additionalProperties: false
+      required: [user_id]
+      properties:
+        user_id:
+          type: string
+        account_id:
+          type: string
+          nullable: true
+        device_id:
+          type: string
+          nullable: true
+    TransactionSummary:
+      type: object
+      nullable: true
+      additionalProperties: false
+      description: For transactions, the fields an analyst scans for.
+      required: [amount, currency, direction]
+      properties:
+        amount:
+          type: integer
+          format: int64
+          description: Minor units.
+        currency:
+          type: string
+        direction:
+          type: string
+        beneficiary_id:
+          type: string
+          nullable: true
+        channel:
+          type: string
+          nullable: true
+    LinkedEntity:
+      type: object
+      additionalProperties: false
+      required: [ref, events, last_seen]
+      properties:
+        ref:
+          type: string
+        events:
+          type: integer
+        last_seen:
+          type: string
+          format: date-time
+    DecisionCounts:
+      type: object
+      additionalProperties: false
+      required: [allow, step_up, review, block]
+      properties:
+        allow:
+          type: integer
+        step_up:
+          type: integer
+        review:
+          type: integer
+        block:
+          type: integer
+    EntityProfile:
+      type: object
+      additionalProperties: false
+      required: [kind, ref, event_count, first_seen, last_seen, max_score, mean_score, decisions, linked]
+      properties:
+        kind:
+          type: string
+          enum: [user, account, device]
+        ref:
+          type: string
+        event_count:
+          type: integer
+          description: Events in the profile (at most the most recent 5,000).
+        first_seen:
+          type: string
+          format: date-time
+        last_seen:
+          type: string
+          format: date-time
+        max_score:
+          type: integer
+        mean_score:
+          type: integer
+        decisions:
+          $ref: "#/components/schemas/DecisionCounts"
+        linked:
+          $ref: "#/components/schemas/EntityLinks"
+    EntityLinks:
+      type: object
+      additionalProperties: false
+      required: [users, accounts, devices, countries, ips]
+      properties:
+        users:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedEntity"
+        accounts:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedEntity"
+        devices:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedEntity"
+        countries:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedEntity"
+        ips:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkedEntity"
+    Analytics:
+      type: object
+      additionalProperties: false
+      required: [window, bucket, since, series, top_users, top_signals]
+      properties:
+        window:
+          type: string
+          enum: [24h, 7d, 30d]
+        bucket:
+          type: string
+          enum: [hour, day]
+        since:
+          type: string
+          format: date-time
+        series:
+          type: array
+          items:
+            $ref: "#/components/schemas/AnalyticsPoint"
+        top_users:
+          type: array
+          items:
+            $ref: "#/components/schemas/TopUser"
+        top_signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/SignalCount"
+    AnalyticsPoint:
+      type: object
+      additionalProperties: false
+      required: [at, events, mean_score, decisions, bands]
+      properties:
+        at:
+          type: string
+          format: date-time
+        events:
+          type: integer
+        mean_score:
+          type: integer
+        decisions:
+          $ref: "#/components/schemas/DecisionCounts"
+        bands:
+          $ref: "#/components/schemas/BandCounts"
+    BandCounts:
+      type: object
+      additionalProperties: false
+      required: [minimal, low, elevated, high, critical]
+      properties:
+        minimal:
+          type: integer
+        low:
+          type: integer
+        elevated:
+          type: integer
+        high:
+          type: integer
+        critical:
+          type: integer
+    TopUser:
+      type: object
+      additionalProperties: false
+      required: [user_id, max_score, events, flagged, last_seen]
+      properties:
+        user_id:
+          type: string
+        max_score:
+          type: integer
+        events:
+          type: integer
+        flagged:
+          type: integer
+          description: Events that got Review or Block.
+        last_seen:
+          type: string
+          format: date-time
+    SignalCount:
+      type: object
+      additionalProperties: false
+      required: [code, label, hits]
+      properties:
+        code:
+          type: string
+        label:
+          type: string
+        hits:
+          type: integer
     EventList:
       type: object
       additionalProperties: false
@@ -3535,6 +4170,10 @@ components:
           type: string
           format: date-time
           description: When the current version was created.
+        pending_change_id:
+          type: string
+          nullable: true
+          description: A proposed change awaiting approval (production), if any.
     RuleList:
       type: object
       additionalProperties: false
@@ -3625,6 +4264,148 @@ components:
         restored_from:
           type: integer
           nullable: true
+    DenyKind:
+      type: string
+      enum: [user, account, device, ip, beneficiary, country]
+    DenyEntry:
+      type: object
+      additionalProperties: false
+      required: [id, kind, value, reason, expires_at, created_at, created_by]
+      properties:
+        id:
+          type: string
+          example: dny_01j9x2k7m3q4r5s6t7v8w9x0yz
+        kind:
+          $ref: "#/components/schemas/DenyKind"
+        value:
+          type: string
+        reason:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+    DenyEntryList:
+      type: object
+      additionalProperties: false
+      required: [data, total, limit]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/DenyEntry"
+        total:
+          type: integer
+          description: Entries in the environment, including those not listed here.
+        limit:
+          type: integer
+          description: The most entries an environment can have.
+    CreateDenyEntryRequest:
+      type: object
+      additionalProperties: false
+      required: [kind, value]
+      properties:
+        kind:
+          $ref: "#/components/schemas/DenyKind"
+        value:
+          type: string
+          minLength: 1
+          maxLength: 128
+        reason:
+          type: string
+          maxLength: 200
+        expires_at:
+          type: string
+          format: date-time
+          nullable: true
+    RuleChange:
+      type: object
+      additionalProperties: false
+      required: [id, rule_id, code, kind, base_version, status, proposed, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version]
+      properties:
+        id:
+          type: string
+          example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+        rule_id:
+          type: string
+          description: The rule changed, or for a new rule the ID it gets when approved.
+        code:
+          type: string
+        kind:
+          type: string
+          enum: [create, update, rollback]
+        base_version:
+          type: integer
+          nullable: true
+          description: The rule's version when proposed (null for a new rule).
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        proposed:
+          $ref: "#/components/schemas/RuleContent"
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        decided_by:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+          description: Why it was rejected, when given.
+        applied_version:
+          type: integer
+          nullable: true
+          description: The version approval created.
+    RuleContent:
+      type: object
+      additionalProperties: false
+      required: [name, description, severity, weight, mode, enabled, condition, restored_from]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+        weight:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/RuleMode"
+        enabled:
+          type: boolean
+        condition:
+          $ref: "#/components/schemas/RuleCondition"
+        restored_from:
+          type: integer
+          nullable: true
+    RuleChangeList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleChange"
+    RejectRuleChangeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 500
     RuleVersionList:
       type: object
       additionalProperties: false
@@ -3722,6 +4503,11 @@ components:
           description: |
             The least severe decision that raises an alert. Always present in responses; when
             omitted from a PUT, `review` is stored.
+        auto_block:
+          $ref: "#/components/schemas/AutoBlock"
+          description: |
+            Automatic blocking of Critical scores. Always present in responses; when omitted from
+            a PUT, the current mode is kept. Switching it on requires 14 days in shadow mode.
     RiskCatalog:
       type: object
       additionalProperties: false

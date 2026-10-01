@@ -254,6 +254,10 @@ func (allowAll) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, e
 	return ratelimit.Decision{Allowed: true}, nil
 }
 
+func (allowAll) Peek(context.Context, ratelimit.Rule) (ratelimit.Decision, error) {
+	return ratelimit.Decision{Allowed: true}, nil
+}
+
 // appModules returns the events and risk modules over a database that is never reached and a
 // Redis that does not exist; these tests never evaluate an event.
 // noJobs discards enqueued jobs.

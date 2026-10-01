@@ -1,19 +1,18 @@
 /**
  * Risk bands (docs/design-system.md, Risk scale; RISK_ENGINE.md). The engine returns the band;
- * the console reads the environment's thresholds from GET /api/v1/risk/policy to draw rulers.
+ * the console reads the environment's thresholds and decisions from GET /api/v1/risk/policy.
  */
 export type RiskBand = "minimal" | "low" | "elevated" | "high" | "critical";
 
-export const BANDS: {
-  band: RiskBand;
-  label: string;
-  bars: 1 | 2 | 3 | 4 | 5;
-}[] = [
-  { band: "minimal", label: "Minimal", bars: 1 },
-  { band: "low", label: "Low", bars: 2 },
-  { band: "elevated", label: "Elevated", bars: 3 },
-  { band: "high", label: "High", bars: 4 },
-  { band: "critical", label: "Critical", bars: 5 },
+/** The glyph that lets a band read without color. */
+export type BandShape = "circle" | "triangle" | "octagon";
+
+export const BANDS: { band: RiskBand; label: string; shape: BandShape }[] = [
+  { band: "minimal", label: "Minimal", shape: "circle" },
+  { band: "low", label: "Low", shape: "circle" },
+  { band: "elevated", label: "Elevated", shape: "triangle" },
+  { band: "high", label: "High", shape: "triangle" },
+  { band: "critical", label: "Critical", shape: "octagon" },
 ];
 
 export interface Thresholds {
@@ -45,17 +44,17 @@ export function bandInfo(band: RiskBand) {
   return BANDS.find((b) => b.band === band) ?? BANDS[0]!;
 }
 
-/** Readout: always 3 digits; render the leading zeros in ink-3. */
-export function readout(score: number) {
-  const s = String(Math.max(0, Math.min(999, Math.round(score)))).padStart(
-    3,
-    "0",
-  );
-  const lead = s.match(/^0+(?=\d)/)?.[0] ?? "";
-  return { lead, value: s.slice(lead.length) };
+/** The score range of each band under thresholds t, in band order. */
+export function bandRanges(t: Thresholds = DEFAULT_THRESHOLDS) {
+  const edges = [0, t.low, t.elevated, t.high, t.critical, 101];
+  return BANDS.map((b, i) => ({
+    ...b,
+    from: edges[i]!,
+    to: edges[i + 1]! - 1,
+  }));
 }
 
-/** Decisions are verbs (docs/design-system.md, Voice). */
+/** Decisions are verbs (docs/design-system.md, Voice and content). */
 export type Decision = "allow" | "review" | "step_up" | "block";
 
 export const DECISION_LABEL: Record<Decision, string> = {
@@ -63,4 +62,29 @@ export const DECISION_LABEL: Record<Decision, string> = {
   review: "Review",
   step_up: "Step-up",
   block: "Block",
+};
+
+/** Text, badge and fill classes per band (tokens only). */
+export const BAND_TEXT: Record<RiskBand, string> = {
+  minimal: "text-risk-minimal",
+  low: "text-risk-low",
+  elevated: "text-risk-elevated",
+  high: "text-risk-high",
+  critical: "text-risk-critical",
+};
+
+export const BAND_BADGE: Record<RiskBand, string> = {
+  minimal: "text-risk-minimal bg-risk-minimal-bg",
+  low: "text-risk-low bg-risk-low-bg",
+  elevated: "text-risk-elevated bg-risk-elevated-bg",
+  high: "text-risk-high bg-risk-high-bg",
+  critical: "text-risk-critical bg-risk-critical-bg",
+};
+
+export const BAND_FILL: Record<RiskBand, string> = {
+  minimal: "bg-risk-minimal",
+  low: "bg-risk-low",
+  elevated: "bg-risk-elevated",
+  high: "bg-risk-high",
+  critical: "bg-risk-critical",
 };

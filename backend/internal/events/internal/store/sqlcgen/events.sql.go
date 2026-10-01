@@ -11,7 +11,90 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const accountProfile = `-- name: AccountProfile :one
+WITH ev AS (
+  SELECT received_at, risk_score, risk_level, decision, user_ref, account_ref, device_ref, country, ip
+  FROM events
+  WHERE tenant_id = $1 AND environment_id = $2 AND account_ref = $3
+  ORDER BY id DESC
+  LIMIT 5000
+)
+SELECT
+  count(*)::bigint AS event_count,
+  coalesce(min(received_at), 'epoch')::timestamptz AS first_seen,
+  coalesce(max(received_at), 'epoch')::timestamptz AS last_seen,
+  coalesce(max(risk_score), 0)::int AS max_score,
+  coalesce(round(avg(risk_score)), 0)::int AS mean_score,
+  count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
+  count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
+  count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
+  count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT user_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    GROUP BY user_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS users,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT account_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE account_ref IS NOT NULL GROUP BY account_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS accounts,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT device_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE device_ref IS NOT NULL GROUP BY device_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS devices,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT country AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE country IS NOT NULL GROUP BY country ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS countries,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT host(ip) AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE ip IS NOT NULL GROUP BY ip ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS ips
+FROM ev
+`
+
+type AccountProfileParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Ref           *string
+}
+
+type AccountProfileRow struct {
+	EventCount int64
+	FirstSeen  time.Time
+	LastSeen   time.Time
+	MaxScore   int32
+	MeanScore  int32
+	Allowed    int64
+	SteppedUp  int64
+	Reviewed   int64
+	Blocked    int64
+	Users      []byte
+	Accounts   []byte
+	Devices    []byte
+	Countries  []byte
+	Ips        []byte
+}
+
+// A account's profile from its most recent 5,000 events (docs/CONSOLE.md, Entities).
+func (q *Queries) AccountProfile(ctx context.Context, arg AccountProfileParams) (AccountProfileRow, error) {
+	row := q.db.QueryRow(ctx, accountProfile, arg.TenantID, arg.EnvironmentID, arg.Ref)
+	var i AccountProfileRow
+	err := row.Scan(
+		&i.EventCount,
+		&i.FirstSeen,
+		&i.LastSeen,
+		&i.MaxScore,
+		&i.MeanScore,
+		&i.Allowed,
+		&i.SteppedUp,
+		&i.Reviewed,
+		&i.Blocked,
+		&i.Users,
+		&i.Accounts,
+		&i.Devices,
+		&i.Countries,
+		&i.Ips,
+	)
+	return i, err
+}
 
 const claimEventKey = `-- name: ClaimEventKey :execrows
 
@@ -43,6 +126,170 @@ func (q *Queries) ClaimEventKey(ctx context.Context, arg ClaimEventKeyParams) (i
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const deviceProfile = `-- name: DeviceProfile :one
+WITH ev AS (
+  SELECT received_at, risk_score, risk_level, decision, user_ref, account_ref, device_ref, country, ip
+  FROM events
+  WHERE tenant_id = $1 AND environment_id = $2 AND device_ref = $3
+  ORDER BY id DESC
+  LIMIT 5000
+)
+SELECT
+  count(*)::bigint AS event_count,
+  coalesce(min(received_at), 'epoch')::timestamptz AS first_seen,
+  coalesce(max(received_at), 'epoch')::timestamptz AS last_seen,
+  coalesce(max(risk_score), 0)::int AS max_score,
+  coalesce(round(avg(risk_score)), 0)::int AS mean_score,
+  count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
+  count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
+  count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
+  count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT user_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    GROUP BY user_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS users,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT account_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE account_ref IS NOT NULL GROUP BY account_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS accounts,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT device_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE device_ref IS NOT NULL GROUP BY device_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS devices,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT country AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE country IS NOT NULL GROUP BY country ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS countries,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT host(ip) AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE ip IS NOT NULL GROUP BY ip ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS ips
+FROM ev
+`
+
+type DeviceProfileParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Ref           *string
+}
+
+type DeviceProfileRow struct {
+	EventCount int64
+	FirstSeen  time.Time
+	LastSeen   time.Time
+	MaxScore   int32
+	MeanScore  int32
+	Allowed    int64
+	SteppedUp  int64
+	Reviewed   int64
+	Blocked    int64
+	Users      []byte
+	Accounts   []byte
+	Devices    []byte
+	Countries  []byte
+	Ips        []byte
+}
+
+// A device's profile from its most recent 5,000 events (docs/CONSOLE.md, Entities).
+func (q *Queries) DeviceProfile(ctx context.Context, arg DeviceProfileParams) (DeviceProfileRow, error) {
+	row := q.db.QueryRow(ctx, deviceProfile, arg.TenantID, arg.EnvironmentID, arg.Ref)
+	var i DeviceProfileRow
+	err := row.Scan(
+		&i.EventCount,
+		&i.FirstSeen,
+		&i.LastSeen,
+		&i.MaxScore,
+		&i.MeanScore,
+		&i.Allowed,
+		&i.SteppedUp,
+		&i.Reviewed,
+		&i.Blocked,
+		&i.Users,
+		&i.Accounts,
+		&i.Devices,
+		&i.Countries,
+		&i.Ips,
+	)
+	return i, err
+}
+
+const eventTimeline = `-- name: EventTimeline :many
+SELECT date_bin($1::interval, received_at, $2::timestamptz)::timestamptz AS bucket,
+       count(*)::bigint AS events,
+       coalesce(round(avg(risk_score)), 0)::int AS mean_score,
+       count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
+       count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
+       count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
+       count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+       count(*) FILTER (WHERE risk_level = 'minimal')::bigint AS minimal,
+       count(*) FILTER (WHERE risk_level = 'low')::bigint AS low,
+       count(*) FILTER (WHERE risk_level = 'elevated')::bigint AS elevated,
+       count(*) FILTER (WHERE risk_level = 'high')::bigint AS high,
+       count(*) FILTER (WHERE risk_level = 'critical')::bigint AS critical
+FROM events
+WHERE tenant_id = $3 AND environment_id = $4 AND received_at >= $5
+GROUP BY bucket
+ORDER BY bucket
+`
+
+type EventTimelineParams struct {
+	Step          pgtype.Interval
+	Origin        time.Time
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+}
+
+type EventTimelineRow struct {
+	Bucket    time.Time
+	Events    int64
+	MeanScore int32
+	Allowed   int64
+	SteppedUp int64
+	Reviewed  int64
+	Blocked   int64
+	Minimal   int64
+	Low       int64
+	Elevated  int64
+	High      int64
+	Critical  int64
+}
+
+// Analytics: events per time bucket since @since (non-dry-run evaluations are events).
+func (q *Queries) EventTimeline(ctx context.Context, arg EventTimelineParams) ([]EventTimelineRow, error) {
+	rows, err := q.db.Query(ctx, eventTimeline,
+		arg.Step,
+		arg.Origin,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []EventTimelineRow
+	for rows.Next() {
+		var i EventTimelineRow
+		if err := rows.Scan(
+			&i.Bucket,
+			&i.Events,
+			&i.MeanScore,
+			&i.Allowed,
+			&i.SteppedUp,
+			&i.Reviewed,
+			&i.Blocked,
+			&i.Minimal,
+			&i.Low,
+			&i.Elevated,
+			&i.High,
+			&i.Critical,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getEvent = `-- name: GetEvent :one
@@ -180,37 +427,74 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) error 
 }
 
 const listEvents = `-- name: ListEvents :many
-SELECT id, received_at, event_key, type, occurred_at, risk_score, risk_level, decision
+SELECT id, received_at, event_key, type, occurred_at, risk_score, risk_level, decision,
+       user_ref, account_ref, device_ref, country,
+       coalesce(CASE WHEN type = 'transaction' THEN (normalized->'data'->>'amount')::bigint END, 0)::bigint AS amount,
+       coalesce(CASE WHEN type = 'transaction' THEN normalized->'data'->>'currency' END, '')::text AS currency,
+       coalesce(CASE WHEN type = 'transaction' THEN normalized->'data'->>'direction' END, '')::text AS direction,
+       coalesce(CASE WHEN type = 'transaction' THEN normalized->'data'->>'beneficiary_id' END, '')::text AS beneficiary,
+       coalesce(CASE WHEN type = 'transaction' THEN normalized->'data'->>'channel' END, '')::text AS channel
 FROM events
 WHERE tenant_id = $1 AND environment_id = $2
   AND ($3::uuid IS NULL OR id < $3::uuid)
+  AND ($4::uuid IS NULL OR id > $4::uuid)
+  AND ($5::text IS NULL OR type = $5::text)
+  AND ($6::text IS NULL OR decision = $6::text)
+  AND ($7::text IS NULL OR risk_level = $7::text)
+  AND ($8::text IS NULL OR user_ref = $8::text)
+  AND ($9::text IS NULL OR account_ref = $9::text)
+  AND ($10::text IS NULL OR device_ref = $10::text)
 ORDER BY id DESC
-LIMIT $4
+LIMIT $11
 `
 
 type ListEventsParams struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID
 	BeforeID      *uuid.UUID
+	AfterID       *uuid.UUID
+	EventType     *string
+	Decision      *string
+	RiskLevel     *string
+	UserRef       *string
+	AccountRef    *string
+	DeviceRef     *string
 	RowLimit      int32
 }
 
 type ListEventsRow struct {
-	ID         uuid.UUID
-	ReceivedAt time.Time
-	EventKey   string
-	Type       string
-	OccurredAt time.Time
-	RiskScore  int16
-	RiskLevel  string
-	Decision   string
+	ID          uuid.UUID
+	ReceivedAt  time.Time
+	EventKey    string
+	Type        string
+	OccurredAt  time.Time
+	RiskScore   int16
+	RiskLevel   string
+	Decision    string
+	UserRef     string
+	AccountRef  *string
+	DeviceRef   *string
+	Country     *string
+	Amount      int64
+	Currency    string
+	Direction   string
+	Beneficiary string
+	Channel     string
 }
 
+// Newest first. Every filter is optional; the entity filters use their own indexes.
 func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListEventsRow, error) {
 	rows, err := q.db.Query(ctx, listEvents,
 		arg.TenantID,
 		arg.EnvironmentID,
 		arg.BeforeID,
+		arg.AfterID,
+		arg.EventType,
+		arg.Decision,
+		arg.RiskLevel,
+		arg.UserRef,
+		arg.AccountRef,
+		arg.DeviceRef,
 		arg.RowLimit,
 	)
 	if err != nil {
@@ -229,6 +513,15 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListE
 			&i.RiskScore,
 			&i.RiskLevel,
 			&i.Decision,
+			&i.UserRef,
+			&i.AccountRef,
+			&i.DeviceRef,
+			&i.Country,
+			&i.Amount,
+			&i.Currency,
+			&i.Direction,
+			&i.Beneficiary,
+			&i.Channel,
 		); err != nil {
 			return nil, err
 		}
@@ -260,4 +553,144 @@ func (q *Queries) SetEventKeyResponse(ctx context.Context, arg SetEventKeyRespon
 		arg.EventKey,
 	)
 	return err
+}
+
+const topUsers = `-- name: TopUsers :many
+SELECT user_ref, max(risk_score)::int AS max_score, count(*)::bigint AS events,
+       count(*) FILTER (WHERE decision IN ('review', 'block'))::bigint AS flagged,
+       max(received_at)::timestamptz AS last_seen
+FROM events
+WHERE tenant_id = $1 AND environment_id = $2 AND received_at >= $3
+GROUP BY user_ref
+ORDER BY max(risk_score) DESC, max(received_at) DESC
+LIMIT $4
+`
+
+type TopUsersParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	RowLimit      int32
+}
+
+type TopUsersRow struct {
+	UserRef  string
+	MaxScore int32
+	Events   int64
+	Flagged  int64
+	LastSeen time.Time
+}
+
+// Analytics: the users with the highest scores since @since.
+func (q *Queries) TopUsers(ctx context.Context, arg TopUsersParams) ([]TopUsersRow, error) {
+	rows, err := q.db.Query(ctx, topUsers,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopUsersRow
+	for rows.Next() {
+		var i TopUsersRow
+		if err := rows.Scan(
+			&i.UserRef,
+			&i.MaxScore,
+			&i.Events,
+			&i.Flagged,
+			&i.LastSeen,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const userProfile = `-- name: UserProfile :one
+WITH ev AS (
+  SELECT received_at, risk_score, risk_level, decision, user_ref, account_ref, device_ref, country, ip
+  FROM events
+  WHERE tenant_id = $1 AND environment_id = $2 AND user_ref = $3
+  ORDER BY id DESC
+  LIMIT 5000
+)
+SELECT
+  count(*)::bigint AS event_count,
+  coalesce(min(received_at), 'epoch')::timestamptz AS first_seen,
+  coalesce(max(received_at), 'epoch')::timestamptz AS last_seen,
+  coalesce(max(risk_score), 0)::int AS max_score,
+  coalesce(round(avg(risk_score)), 0)::int AS mean_score,
+  count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
+  count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
+  count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
+  count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT user_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    GROUP BY user_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS users,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT account_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE account_ref IS NOT NULL GROUP BY account_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS accounts,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT device_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE device_ref IS NOT NULL GROUP BY device_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS devices,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT country AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE country IS NOT NULL GROUP BY country ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS countries,
+  coalesce((SELECT jsonb_agg(x) FROM (
+    SELECT host(ip) AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
+    WHERE ip IS NOT NULL GROUP BY ip ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS ips
+FROM ev
+`
+
+type UserProfileParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Ref           string
+}
+
+type UserProfileRow struct {
+	EventCount int64
+	FirstSeen  time.Time
+	LastSeen   time.Time
+	MaxScore   int32
+	MeanScore  int32
+	Allowed    int64
+	SteppedUp  int64
+	Reviewed   int64
+	Blocked    int64
+	Users      []byte
+	Accounts   []byte
+	Devices    []byte
+	Countries  []byte
+	Ips        []byte
+}
+
+// A user's profile from its most recent 5,000 events (docs/CONSOLE.md, Entities).
+func (q *Queries) UserProfile(ctx context.Context, arg UserProfileParams) (UserProfileRow, error) {
+	row := q.db.QueryRow(ctx, userProfile, arg.TenantID, arg.EnvironmentID, arg.Ref)
+	var i UserProfileRow
+	err := row.Scan(
+		&i.EventCount,
+		&i.FirstSeen,
+		&i.LastSeen,
+		&i.MaxScore,
+		&i.MeanScore,
+		&i.Allowed,
+		&i.SteppedUp,
+		&i.Reviewed,
+		&i.Blocked,
+		&i.Users,
+		&i.Accounts,
+		&i.Devices,
+		&i.Countries,
+		&i.Ips,
+	)
+	return i, err
 }

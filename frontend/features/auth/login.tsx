@@ -4,9 +4,9 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input } from "@/components/instrument/field";
-import { Notice } from "@/components/instrument/states";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { Notice } from "@/components/ui/states";
 import { api, ApiError, unwrap } from "@/lib/api/client";
 
 import { Enrollment, RecoveryCodes, SecondFactor, type AuthState } from "./mfa";
@@ -70,8 +70,8 @@ export function Login() {
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       <div>
-        <h1 className="text-title">Sign in</h1>
-        <p className="mt-1 text-body text-ink-2">
+        <h1 className="text-heading-1">Sign in</h1>
+        <p className="mt-1 text-body text-text-secondary">
           Use the email your administrator invited.
         </p>
       </div>
@@ -102,7 +102,7 @@ export function Login() {
       <Button type="submit" variant="primary" disabled={busy}>
         Continue
       </Button>
-      <p className="text-body-sm text-ink-3">
+      <p className="text-body-sm text-text-muted">
         No account yet? Ask your RiskOS administrator for an invite link.
       </p>
     </form>
@@ -184,8 +184,8 @@ export function AcceptInvite() {
   if (!token) {
     return (
       <div className="flex flex-col gap-2">
-        <h1 className="text-title">Invite link incomplete</h1>
-        <p className="text-body text-ink-2">
+        <h1 className="text-heading-1">Invite link incomplete</h1>
+        <p className="text-body text-text-secondary">
           Open the full link your administrator shared, including everything
           after the #.
         </p>
@@ -195,8 +195,8 @@ export function AcceptInvite() {
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
       <div>
-        <h1 className="text-title">Set up your account</h1>
-        <p className="mt-1 text-body text-ink-2">
+        <h1 className="text-heading-1">Set up your account</h1>
+        <p className="mt-1 text-body text-text-secondary">
           Choose a name and a password. You will add a second factor next.
         </p>
       </div>

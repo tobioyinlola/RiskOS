@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"time"
 
 	"github.com/google/uuid"
 
@@ -248,4 +249,50 @@ func toOutcome(r risk.Result) domain.Outcome {
 		Score: r.Score, Level: string(r.Level), Decision: string(r.Decision),
 		EngineVersion: r.EngineVersion, Signals: signals, DegradedSignals: degraded,
 	}
+}
+
+// Profile returns an entity's profile. Requires events:read.
+func (s *Service) Profile(ctx context.Context, kind domain.EntityKind, ref string) (domain.Profile, error) {
+	if err := authz.Require(ctx, authz.EventsRead); err != nil {
+		return domain.Profile{}, err
+	}
+	var p domain.Profile
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		var err error
+		p, err = s.store.Profile(ctx, kind, ref)
+		return err
+	})
+	return p, err
+}
+
+// Analytics is the event activity of a window.
+type Analytics struct {
+	Window     domain.Window
+	Since      time.Time
+	Series     []domain.Point
+	TopUsers   []domain.TopUser
+	TopSignals []risk.SignalCount
+}
+
+// Analytics returns events per bucket, the highest-risk users and the most frequent signals of
+// a window. Requires events:read.
+func (s *Service) Analytics(ctx context.Context, w domain.Window) (Analytics, error) {
+	if err := authz.Require(ctx, authz.EventsRead); err != nil {
+		return Analytics{}, err
+	}
+	// Buckets align to whole hours or days (UTC), so the series reads cleanly.
+	since := s.clock.Now().UTC().Add(-w.Length).Truncate(w.Bucket)
+	out := Analytics{Window: w, Since: since}
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		var err error
+		if out.Series, err = s.store.Timeline(ctx, since, w.Bucket); err != nil {
+			return err
+		}
+		if out.TopUsers, err = s.store.TopUsers(ctx, since, 10); err != nil {
+			return err
+		}
+		out.TopSignals, err = s.risk.TopSignals(ctx, since)
+		return err
+	})
+	return out, err
 }

@@ -138,3 +138,10 @@ type Result struct {
 	// the caller acts on it in the same transaction (dry runs never raise alerts).
 	RaiseAlert bool
 }
+
+// SignalCount is how often a signal fired over a window (analytics).
+type SignalCount struct {
+	Code  string
+	Label string
+	Hits  int
+}

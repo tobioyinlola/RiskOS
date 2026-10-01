@@ -16,6 +16,7 @@ const b64url = (s: string) =>
     .replace(/=+$/, "");
 
 const ALL_PERMISSIONS = [
+  "rules:approve",
   "api_keys:read",
   "api_keys:write",
   "audit_logs:read",
@@ -59,6 +60,131 @@ export interface MockApi {
   problems: string[];
   signedIn: boolean;
   hasPasskey: boolean;
+  changeStatus: "pending" | "approved";
+  /** Events the console can list, newest first; tests push to it to simulate arrivals. */
+  events: ReturnType<typeof eventSummary>[];
+  /** The deny list; the console adds and removes entries. */
+  deny: Record<string, unknown>[];
+}
+
+let eventSeq = 0;
+
+/** A transaction event summary as GET /api/v1/events returns it. */
+export function eventSummary(score: number, user = "usr_4812") {
+  eventSeq += 1;
+  const level =
+    score >= 90
+      ? "critical"
+      : score >= 70
+        ? "high"
+        : score >= 50
+          ? "elevated"
+          : score >= 20
+            ? "low"
+            : "minimal";
+  return {
+    id: `evt_${String(eventSeq).padStart(4, "0")}`,
+    event_key: `txn-${eventSeq}`,
+    type: "transaction",
+    occurred_at: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    risk_score: score,
+    risk_level: level,
+    decision: score >= 50 ? "review" : "allow",
+    actor: { user_id: user, account_id: "acc_1", device_id: "dev_1" },
+    country: "NG",
+    transaction: {
+      amount: 450000,
+      currency: "NGN",
+      direction: "debit",
+      beneficiary_id: "ben_9",
+      channel: "bank_transfer",
+    },
+  };
+}
+
+function hourAgo(h: number): string {
+  return (
+    new Date(Date.now() - h * 3600_000).toISOString().slice(0, 13) +
+    ":00:00.000Z"
+  );
+}
+
+const ANALYTICS = {
+  window: "24h",
+  bucket: "hour",
+  since: hourAgo(24),
+  series: [
+    {
+      at: hourAgo(1),
+      events: 12,
+      mean_score: 31,
+      decisions: { allow: 9, step_up: 1, review: 2, block: 0 },
+      bands: { minimal: 5, low: 4, elevated: 1, high: 2, critical: 0 },
+    },
+  ],
+  top_users: [
+    {
+      user_id: "usr_4812",
+      max_score: 81,
+      events: 7,
+      flagged: 2,
+      last_seen: NOW,
+    },
+  ],
+  top_signals: [
+    { code: "new_device", label: "New device for this user", hits: 4 },
+  ],
+};
+
+const PROFILE = {
+  kind: "user",
+  ref: "usr_4812",
+  event_count: 7,
+  first_seen: NOW,
+  last_seen: NOW,
+  max_score: 81,
+  mean_score: 34,
+  decisions: { allow: 5, step_up: 0, review: 2, block: 0 },
+  linked: {
+    users: [{ ref: "usr_4812", events: 7, last_seen: NOW }],
+    accounts: [{ ref: "acc_1", events: 7, last_seen: NOW }],
+    devices: [
+      { ref: "dev_1", events: 5, last_seen: NOW },
+      { ref: "dev_2", events: 2, last_seen: NOW },
+    ],
+    countries: [{ ref: "NG", events: 7, last_seen: NOW }],
+    ips: [{ ref: "203.0.113.7", events: 7, last_seen: NOW }],
+  },
+};
+
+const RULE_CHANGE_ID = "rch_01";
+
+function ruleChange(status: "pending" | "approved") {
+  return {
+    id: RULE_CHANGE_ID,
+    rule_id: "rul_01",
+    code: "large_transfer",
+    kind: "create",
+    base_version: null,
+    status,
+    proposed: {
+      name: "Large transfer",
+      description: "",
+      severity: "high",
+      weight: 25,
+      mode: "shadow",
+      enabled: true,
+      condition: { field: "transaction.amount", op: "gte", value: 1000000 },
+      restored_from: null,
+    },
+    proposed_by: "usr_grace",
+    proposed_at: NOW,
+    decided_by: status === "approved" ? "usr_admin" : null,
+    decided_at: status === "approved" ? NOW : null,
+    reason: null,
+    applied_version: status === "approved" ? 1 : null,
+  };
 }
 
 export async function mockApi(page: Page): Promise<MockApi> {
@@ -67,6 +193,9 @@ export async function mockApi(page: Page): Promise<MockApi> {
     problems: [],
     signedIn: false,
     hasPasskey: false,
+    changeStatus: "pending",
+    events: [],
+    deny: [],
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -136,6 +265,12 @@ export async function mockApi(page: Page): Promise<MockApi> {
       req.headers()["x-csrf-token"] !== csrf
     ) {
       state.problems.push(`${method} ${path} without the CSRF token`);
+    }
+
+    if (path.startsWith("/deny-list/") && method === "DELETE") {
+      const id = path.slice("/deny-list/".length);
+      state.deny = state.deny.filter((e) => e.id !== id);
+      return route.fulfill({ status: 204 });
     }
 
     // Sign-in and second factors.
@@ -272,6 +407,13 @@ export async function mockApi(page: Page): Promise<MockApi> {
           thresholds: THRESHOLDS,
           custom_calibration: false,
           alert_min_decision: "review",
+          auto_block: {
+            mode: "off",
+            shadow_since: null,
+            shadow_days_required: 14,
+            eligible_at: null,
+            would_block_last_14_days: 0,
+          },
           bands: [
             {
               band: "minimal",
@@ -334,14 +476,62 @@ export async function mockApi(page: Page): Promise<MockApi> {
           fail_policies: {},
           thresholds: THRESHOLDS,
           alert_min_decision: "review",
+          auto_block: { mode: "off" },
         });
       case "/alerts":
         return json(route, { data: [ALERT], next_cursor: null });
-      case "/events":
+      case "/events": {
+        const after = url.searchParams.get("after");
+        const user = url.searchParams.get("user");
+        let data = state.events;
+        if (after) {
+          const i = data.findIndex((e) => e.id === after);
+          data = i === -1 ? data : data.slice(0, i);
+        }
+        if (user) data = data.filter((e) => e.actor.user_id === user);
+        return json(route, { data, next_cursor: null });
+      }
+      case "/analytics":
+        return json(route, ANALYTICS);
+      case "/deny-list":
+        if (method === "POST") {
+          const entry = {
+            id: `dny_${state.deny.length + 1}`,
+            kind: body?.kind,
+            value: body?.value,
+            reason: body?.reason ?? "",
+            expires_at: body?.expires_at ?? null,
+            created_at: NOW,
+            created_by: "usr_admin",
+          };
+          state.deny.unshift(entry);
+          return json(route, entry, 201);
+        }
+        return json(route, {
+          data: state.deny,
+          total: state.deny.length,
+          limit: 10000,
+        });
+      case "/entities/user/usr_4812":
+        return json(route, PROFILE);
       case "/cases":
       case "/audit-logs":
       case "/api-keys":
         return json(route, { data: [], next_cursor: null });
+      case "/rule-changes":
+        // Production has one proposal awaiting approval, made by someone else.
+        return json(route, {
+          data:
+            req.headers()["riskos-environment"] === "production" &&
+            state.changeStatus === "pending"
+              ? [ruleChange(state.changeStatus)]
+              : [],
+        });
+      case `/rule-changes/${RULE_CHANGE_ID}`:
+        return json(route, ruleChange(state.changeStatus));
+      case `/rule-changes/${RULE_CHANGE_ID}/approve`:
+        state.changeStatus = "approved";
+        return json(route, ruleChange("approved"));
       case "/rules":
       case "/webhooks":
       case "/team/invites":

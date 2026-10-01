@@ -14,6 +14,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 )
 
 // Querier runs single-row queries outside a tenant transaction. It is satisfied by
@@ -40,6 +41,25 @@ type Store struct {
 	pool Querier
 }
 
+// lookupTimeout bounds the pre-authentication lookups (API keys, console sessions). They run on
+// every request, before the tenant is known; while the database is unreachable they fail fast
+// with txn.ErrUnavailable instead of holding the request.
+const lookupTimeout = time.Second
+
+// preAuth bounds a pre-authentication query and classifies its failure.
+func preAuth(ctx context.Context, what string, q func(ctx context.Context) error) error {
+	qctx, cancel := context.WithTimeout(ctx, lookupTimeout)
+	defer cancel()
+	err := q(qctx)
+	if err == nil || errors.Is(err, pgx.ErrNoRows) {
+		return err
+	}
+	if ctx.Err() == nil && (db.Unreachable(err) || qctx.Err() != nil) {
+		return fmt.Errorf("%s: %w: %w", what, txn.ErrUnavailable, err)
+	}
+	return fmt.Errorf("%s: %w", what, err)
+}
+
 // New returns a Store. pool is used only for Lookup; everything else runs in the tenant
 // transaction carried by the context.
 func New(pool Querier) Store { return Store{pool: pool} }
@@ -50,15 +70,17 @@ func New(pool Querier) Store { return Store{pool: pool} }
 func (s Store) Lookup(ctx context.Context, lookup string) (*LookupResult, error) {
 	var r LookupResult
 	var env string
-	err := s.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, environment_id, environment_kind, secret_hash, scopes, expires_at, revoked_at, tenant_status
-		 FROM auth_lookup_api_key($1)`, lookup,
-	).Scan(&r.ID, &r.TenantID, &r.EnvironmentID, &env, &r.SecretHash, &r.Scopes, &r.ExpiresAt, &r.RevokedAt, &r.TenantStatus)
+	err := preAuth(ctx, "look up api key", func(ctx context.Context) error {
+		return s.pool.QueryRow(ctx,
+			`SELECT id, tenant_id, environment_id, environment_kind, secret_hash, scopes, expires_at, revoked_at, tenant_status
+			 FROM auth_lookup_api_key($1)`, lookup,
+		).Scan(&r.ID, &r.TenantID, &r.EnvironmentID, &env, &r.SecretHash, &r.Scopes, &r.ExpiresAt, &r.RevokedAt, &r.TenantStatus)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil //nolint:nilnil // "no such key" is a normal outcome, not an error
 	}
 	if err != nil {
-		return nil, fmt.Errorf("look up api key: %w", err)
+		return nil, err
 	}
 	r.Environment = tenancy.EnvironmentKind(env)
 	return &r, nil

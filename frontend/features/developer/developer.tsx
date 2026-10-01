@@ -3,8 +3,8 @@
 import Link from "next/link";
 import { useState } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input } from "@/components/instrument/field";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
 import {
   CodeBlock,
   KeyValues,
@@ -14,22 +14,22 @@ import {
   TabPanel,
   Tabs,
   Tag,
-} from "@/components/instrument/misc";
-import { Drawer, Modal } from "@/components/instrument/overlay";
+} from "@/components/ui/misc";
+import { Confirm, Drawer, Modal } from "@/components/ui/overlay";
 import {
   PageHeader,
   Panel,
   PanelBody,
   PanelHeader,
-} from "@/components/instrument/panel";
+} from "@/components/ui/panel";
 import {
   Empty,
   ErrorState,
   Loading,
   Notice,
   SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+} from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { formatAge, formatTimestamp, humanize } from "@/lib/format";
@@ -66,7 +66,7 @@ function SecretOnce({
         Shown once. Store it in a secrets manager now; RiskOS cannot show it
         again.
       </Notice>
-      <p className="legend">{label}</p>
+      <p className="text-label text-text-muted">{label}</p>
       <CodeBlock value={secret} />
       <div className="flex gap-2">
         <Button
@@ -188,13 +188,13 @@ function ApiKeys() {
             <Tr key={k.id}>
               <Td className="text-body-sm">
                 {k.name}
-                <span className="mono block text-legend text-ink-3">
+                <span className="mono block text-label text-text-muted">
                   {k.id}
                 </span>
               </Td>
               <DataCell>{k.prefix}</DataCell>
               <Td
-                className="mono text-legend text-ink-2"
+                className="mono text-label text-text-secondary"
                 title={k.scopes.join(", ")}
               >
                 {k.scopes.length} scopes
@@ -204,7 +204,7 @@ function ApiKeys() {
                   {humanize(k.status)}
                 </Status>
               </Td>
-              <DataCell className="text-ink-3">
+              <DataCell className="text-text-muted">
                 {formatAge(k.created_at)}
               </DataCell>
               <Td className="text-right whitespace-nowrap">
@@ -272,7 +272,7 @@ function ApiKeys() {
               )}
             </Field>
             <fieldset>
-              <legend className="mb-2 text-label text-ink-2">
+              <legend className="mb-2 text-label text-text-secondary">
                 Scopes (a key can only hold scopes you hold)
               </legend>
               <div className="grid max-h-56 grid-cols-2 gap-1 overflow-y-auto">
@@ -286,7 +286,7 @@ function ApiKeys() {
                       name="scopes"
                       value={p}
                       defaultChecked={p === "events:write"}
-                      className="accent-[var(--signal-ink)]"
+                      className="accent-accent"
                     />
                     <span className="mono text-data">{p}</span>
                   </label>
@@ -407,17 +407,17 @@ function Webhooks() {
               <Td>
                 <Link
                   href={`/developer/webhooks/${w.id}` as "/developer"}
-                  className="mono block text-data hover:text-signal-ink"
+                  className="mono block text-data hover:text-accent"
                 >
                   {w.url}
                 </Link>
                 {w.description ? (
-                  <span className="text-body-sm text-ink-3">
+                  <span className="text-body-sm text-text-muted">
                     {w.description}
                   </span>
                 ) : null}
               </Td>
-              <Td className="mono text-legend text-ink-2">
+              <Td className="mono text-label text-text-secondary">
                 {w.event_types.join(" ")}
               </Td>
               <Td>
@@ -429,7 +429,7 @@ function Webhooks() {
                   <Status tone="error">Disabled</Status>
                 )}
               </Td>
-              <DataCell className="text-ink-3">
+              <DataCell className="text-text-muted">
                 {formatAge(w.created_at)}
               </DataCell>
             </Tr>
@@ -498,7 +498,9 @@ function Webhooks() {
               {(p) => <Input {...p} name="description" maxLength={500} />}
             </Field>
             <fieldset>
-              <legend className="mb-2 text-label text-ink-2">Events</legend>
+              <legend className="mb-2 text-label text-text-secondary">
+                Events
+              </legend>
               {WEBHOOK_EVENTS.map((ev) => (
                 <label
                   key={ev}
@@ -509,7 +511,7 @@ function Webhooks() {
                     name="events"
                     value={ev}
                     defaultChecked
-                    className="accent-[var(--signal-ink)]"
+                    className="accent-accent"
                   />
                   <span className="mono text-data">{ev}</span>
                 </label>
@@ -535,6 +537,7 @@ export function WebhookDetail({ id }: { id: string }) {
   const [openDelivery, setOpenDelivery] = useState<string>();
   const [secret, setSecret] = useState<string>();
   const [rotating, setRotating] = useState(false);
+  const [disabling, setDisabling] = useState(false);
   const update = useAction(
     async (body: Schemas["UpdateWebhookRequest"]) =>
       unwrap(
@@ -589,7 +592,7 @@ export function WebhookDetail({ id }: { id: string }) {
               {w.status === "active" ? (
                 <Button
                   variant="danger"
-                  onClick={() => void update.run({ status: "disabled" })}
+                  onClick={() => setDisabling(true)}
                   disabled={update.busy}
                 >
                   Disable
@@ -606,6 +609,24 @@ export function WebhookDetail({ id }: { id: string }) {
             </>
           ) : null
         }
+      />
+      <Confirm
+        open={disabling}
+        onOpenChange={setDisabling}
+        title="Disable this endpoint?"
+        description={
+          <>
+            No events will be delivered to{" "}
+            <span className="mono text-data">{w.url}</span> until you enable it
+            again. Events published meanwhile are not queued for it.
+          </>
+        }
+        confirmLabel="Disable endpoint"
+        busy={update.busy}
+        onConfirm={async () => {
+          const r = await update.run({ status: "disabled" });
+          if (r) setDisabling(false);
+        }}
       />
       <div className="mb-4 flex flex-col gap-2">
         {update.error || test.error ? (
@@ -693,7 +714,7 @@ export function WebhookDetail({ id }: { id: string }) {
               >
                 <Td>
                   <span className="mono block text-data">{d.event_type}</span>
-                  <span className="mono text-legend text-ink-3">
+                  <span className="mono text-label text-text-muted">
                     {d.event_id}
                   </span>
                 </Td>
@@ -711,10 +732,10 @@ export function WebhookDetail({ id }: { id: string }) {
                   </Status>
                 </Td>
                 <DataCell className="text-right">{d.attempts}</DataCell>
-                <DataCell className="text-ink-2">
+                <DataCell className="text-text-secondary">
                   {d.last_status_code ?? d.last_error ?? "—"}
                 </DataCell>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatAge(d.created_at)}
                 </DataCell>
               </Tr>
@@ -857,7 +878,7 @@ function DeliveryDrawer({
             ]}
           />
           <section>
-            <h3 className="mb-2 text-heading">Attempts</h3>
+            <h3 className="mb-2 text-heading-2">Attempts</h3>
             <Table>
               <thead>
                 <tr>
@@ -871,7 +892,7 @@ function DeliveryDrawer({
                 {d.attempts.map((a) => (
                   <Tr key={`${a.attempt}-${a.started_at}`} density="compact">
                     <DataCell>{a.attempt}</DataCell>
-                    <DataCell className="text-ink-2">
+                    <DataCell className="text-text-secondary">
                       {formatTimestamp(a.started_at)}
                     </DataCell>
                     <DataCell className="text-right">
@@ -886,7 +907,7 @@ function DeliveryDrawer({
             </Table>
           </section>
           <section>
-            <h3 className="mb-2 text-heading">Payload</h3>
+            <h3 className="mb-2 text-heading-2">Payload</h3>
             <CodeBlock value={d.payload} />
           </section>
           <Tag>Signed with HMAC-SHA256 over id, timestamp and body</Tag>

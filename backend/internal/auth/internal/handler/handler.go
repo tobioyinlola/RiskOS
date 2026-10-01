@@ -47,7 +47,7 @@ func writeAuthError(w http.ResponseWriter, r *http.Request, logger *slog.Logger,
 			"This account is not active.", err))
 	default:
 		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusServiceUnavailable, httpx.CodeServiceUnavailable,
-			"Authentication is temporarily unavailable.", err))
+			"Authentication is temporarily unavailable.", err).WithHeader("Retry-After", "1"))
 	}
 }
 

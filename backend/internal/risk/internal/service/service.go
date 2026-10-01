@@ -8,10 +8,13 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
@@ -77,11 +80,15 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			return err
 		}
 		out := s.engine.Evaluate(ctx, ev, write, cfg.settings, cfg.rules)
+		denied := cfg.deny.Match(denyRefs(ev))
+		for _, m := range denied {
+			out.Signals = append(out.Signals, m.Signal())
+		}
 		score := domain.Score(out.Signals)
 		level := domain.LevelForScore(score, cfg.settings.Thresholds)
 		policy := domain.Decide(domain.PolicyInput{
 			EventType: ev.Type, Level: level, Signals: out.Signals, Degraded: out.Degraded,
-			HighValue: highValue(ev, cfg.settings), Settings: cfg.settings,
+			HighValue: highValue(ev, cfg.settings), Settings: cfg.settings, DenyListed: len(denied) > 0,
 		})
 		id := ids.NewV7()
 		res = domain.Result{
@@ -118,6 +125,28 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		return domain.Result{}, err
 	}
 	return res, nil
+}
+
+// denyRefs are the identifiers of an event that deny lists can name.
+func denyRefs(e features.Event) []domain.DenyMatch {
+	refs := []domain.DenyMatch{
+		{Kind: domain.DenyUser, Value: e.Actor.UserID},
+		{Kind: domain.DenyAccount, Value: e.Actor.AccountID},
+		{Kind: domain.DenyDevice, Value: e.Actor.DeviceID},
+		{Kind: domain.DenyCountry, Value: e.Context.Country},
+	}
+	if a, err := netip.ParseAddr(e.Context.IP); err == nil {
+		refs = append(refs, domain.DenyMatch{Kind: domain.DenyIP, Value: a.Unmap().String()})
+	}
+	if e.Transaction != nil {
+		refs = append(refs, domain.DenyMatch{Kind: domain.DenyBeneficiary, Value: e.Transaction.BeneficiaryID})
+	}
+	if e.Beneficiary != nil {
+		refs = append(refs,
+			domain.DenyMatch{Kind: domain.DenyBeneficiary, Value: e.Beneficiary.BeneficiaryID},
+			domain.DenyMatch{Kind: domain.DenyCountry, Value: e.Beneficiary.Country})
+	}
+	return refs
 }
 
 func highValue(e features.Event, s domain.Settings) bool {
@@ -159,7 +188,11 @@ func (s *Service) load(ctx context.Context) (config, error) {
 		}
 		compiled = append(compiled, engine.CompiledRule{Rule: r, Condition: c})
 	}
-	return config{settings: settings, rules: compiled}, nil
+	deny, err := s.store.ActiveDenyList(ctx, s.clock.Now())
+	if err != nil {
+		return config{}, err
+	}
+	return config{settings: settings, rules: compiled, deny: deny}, nil
 }
 
 // scopeKey identifies an environment in caches.
@@ -183,4 +216,18 @@ func nonNilStrings(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// TopSignals counts how often each signal fired in events since since. Requires events:read.
+func (s *Service) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCount, error) {
+	if err := authz.Require(ctx, authz.EventsRead); err != nil {
+		return nil, err
+	}
+	var out []domain.SignalCount
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		var err error
+		out, err = s.store.TopSignals(ctx, since)
+		return err
+	})
+	return out, err
 }

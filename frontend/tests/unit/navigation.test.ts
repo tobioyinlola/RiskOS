@@ -10,10 +10,15 @@ describe("navigation", () => {
   it("lists the built console sections in their groups", () => {
     expect(navSections.map((s) => s.label)).toEqual([
       "Overview",
-      "Events",
+      "Live monitor",
       "Alerts",
       "Cases",
+      "Events",
+      "Transactions",
+      "Entities",
+      "Analytics",
       "Rules",
+      "Deny lists",
       "Risk settings",
       "Developer",
       "Team",
@@ -31,7 +36,18 @@ describe("navigation", () => {
       "cases:write",
     ]);
     const labels = visibleSections((p) => analyst.has(p)).map((s) => s.label);
-    expect(labels).toEqual(["Overview", "Events", "Alerts", "Cases", "Rules"]);
+    expect(labels).toEqual([
+      "Overview",
+      "Live monitor",
+      "Alerts",
+      "Cases",
+      "Events",
+      "Transactions",
+      "Entities",
+      "Analytics",
+      "Rules",
+      "Deny lists",
+    ]);
     expect(visibleSections(() => false)).toEqual([]);
   });
 

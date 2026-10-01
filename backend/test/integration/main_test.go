@@ -141,6 +141,7 @@ func (e *env) connect(ctx context.Context) error {
 	e.redisCfg = config.Redis{
 		Addr: redisEndpoint, PoolSize: 5, DialTimeout: time.Second,
 		ReadTimeout: 500 * time.Millisecond, WriteTimeout: 500 * time.Millisecond, CheckTimeout: time.Second,
+		BreakerCooldown: time.Second,
 	}
 	if e.pool, err = db.NewPool(ctx, e.pgCfg); err != nil {
 		return err
@@ -148,7 +149,7 @@ func (e *env) connect(ctx context.Context) error {
 	if e.owner, err = db.NewPool(ctx, poolConfig(ownerDSN)); err != nil {
 		return err
 	}
-	if e.rdb, err = redisx.New(ctx, e.redisCfg); err != nil {
+	if e.rdb, err = redisx.New(ctx, e.redisCfg, slog.New(slog.DiscardHandler)); err != nil {
 		return err
 	}
 	return nil

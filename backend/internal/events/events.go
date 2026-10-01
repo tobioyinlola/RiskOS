@@ -20,6 +20,8 @@ type IngestHandlers interface {
 	ListEvents(ctx context.Context, req apigen.ListEventsRequestObject) (apigen.ListEventsResponseObject, error)
 	GetEvent(ctx context.Context, req apigen.GetEventRequestObject) (apigen.GetEventResponseObject, error)
 	TestRule(ctx context.Context, req apigen.TestRuleRequestObject) (apigen.TestRuleResponseObject, error)
+	GetEntityProfile(ctx context.Context, req apigen.GetEntityProfileRequestObject) (apigen.GetEntityProfileResponseObject, error)
+	GetAnalytics(ctx context.Context, req apigen.GetAnalyticsRequestObject) (apigen.GetAnalyticsResponseObject, error)
 }
 
 // Module is the events module.

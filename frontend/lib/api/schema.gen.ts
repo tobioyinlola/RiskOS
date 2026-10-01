@@ -164,7 +164,8 @@ export interface paths {
         };
         /**
          * List events of the caller's environment
-         * @description Requires scope `events:read`. Newest first.
+         * @description Requires scope `events:read`. Newest first. Every filter is optional. `after` returns
+         *     only events newer than the given event (the live monitor polls with it).
          */
         get: operations["listEvents"];
         put?: never;
@@ -177,6 +178,49 @@ export interface paths {
          *     card-number-like values are rejected.
          */
         post: operations["ingestEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{kind}/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's, account's or device's profile
+         * @description Requires scope `events:read`. Built from the entity's most recent 5,000 events: activity,
+         *     scores, decisions, and the users, accounts, devices, countries and IP addresses seen with
+         *     it. 404 when the environment has no events for it.
+         */
+        get: operations["getEntityProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Decisions, scores and signals over time
+         * @description Requires scope `events:read`. Events per bucket (hourly for 24h and 7d, daily for 30d),
+         *     the highest-risk users and the signals that fired most, over the window.
+         */
+        get: operations["getAnalytics"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -310,6 +354,8 @@ export interface paths {
          *     on live traffic and recorded, but do not change decisions until switched to `active`.
          *     Returns 409 when the code is taken or the environment already has 200 rules (disabled
          *     rules count; rules are disabled, never deleted).
+         *     In a production environment the change is proposed instead (202) and applies only when
+         *     another person approves it.
          */
         post: operations["createRule"];
         delete?: never;
@@ -340,6 +386,8 @@ export interface paths {
          * @description Requires scope `rules:write`. Audited. Only the given fields change. Every change creates a
          *     new version; earlier versions are kept and can be restored. A change that alters nothing
          *     creates no version.
+         *     In a production environment the change is proposed instead (202) and applies only when
+         *     another person approves it.
          */
         patch: operations["updateRule"];
         trace?: never;
@@ -377,6 +425,8 @@ export interface paths {
          * Restore an earlier version (one-step rollback)
          * @description Requires scope `rules:write`. Audited. Adds a new version with the content of the given
          *     version; history is never rewritten.
+         *     In a production environment the change is proposed instead (202) and applies only when
+         *     another person approves it.
          */
         post: operations["rollbackRule"];
         delete?: never;
@@ -402,6 +452,139 @@ export interface paths {
          *     condition uses.
          */
         post: operations["testRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deny-list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List the deny list
+         * @description Requires `rules:read` or `risk:configure`. Newest first, at most 1,000. Events whose user,
+         *     account, device, IP address, beneficiary or country is listed (and not expired) are
+         *     blocked, whatever their score.
+         */
+        get: operations["listDenyEntries"];
+        put?: never;
+        /**
+         * Add an identifier to the deny list
+         * @description Requires `risk:configure`. Audited. Takes effect within seconds. IP addresses are stored
+         *     in canonical form and countries upper-case; other identifiers must match exactly what you
+         *     send in events. 409 when the identifier is already listed or the environment has 10,000
+         *     entries.
+         */
+        post: operations["createDenyEntry"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/deny-list/{entry_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove an identifier from the deny list
+         * @description Requires `risk:configure`. Audited. Takes effect within seconds.
+         */
+        delete: operations["deleteDenyEntry"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List proposed rule changes
+         * @description Requires scope `rules:read`. Newest first, at most 200.
+         */
+        get: operations["listRuleChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes/{change_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a proposed rule change
+         * @description Requires scope `rules:read`.
+         */
+        get: operations["getRuleChange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes/{change_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a proposed rule change (applies it)
+         * @description Requires the `rules:approve` permission, which only people hold (never API keys), and a
+         *     recent second factor in the console. The approver must not be the person who proposed
+         *     the change. Applies the change as the rule's next version; returns 409 if the rule has
+         *     changed since the proposal (propose again) or the change is already decided. Audited.
+         */
+        post: operations["approveRuleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes/{change_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject or withdraw a proposed rule change
+         * @description Requires `rules:approve`, or `rules:write` for the person or key that proposed the change
+         *     (withdrawing it). Nothing changes on the rule. Audited.
+         */
+        post: operations["rejectRuleChange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1469,10 +1652,11 @@ export interface components {
         /** @enum {string} */
         Environment: "test" | "production";
         /**
-         * @description A permission an API key holds.
+         * @description A permission. API keys can hold any except `rules:approve`, which only people hold (a
+         *     second person approves production rule changes).
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -1737,6 +1921,7 @@ export interface components {
         };
         RiskPolicy: {
             engine_version: string;
+            auto_block: components["schemas"]["AutoBlockStatus"];
             thresholds: components["schemas"]["RiskThresholds"];
             /** @description True when the environment's thresholds differ from the defaults. */
             custom_calibration: boolean;
@@ -1749,8 +1934,42 @@ export interface components {
                 default_decision: components["schemas"]["Decision"];
             }[];
         };
-        /** @enum {string} */
+        /**
+         * @description `block` is produced only for Critical scores in an environment that switched automatic
+         *     blocking on (see AutoBlockStatus).
+         * @enum {string}
+         */
         Decision: "allow" | "review" | "step_up" | "block";
+        /**
+         * @description `off`: Critical scores get REVIEW. `shadow`: they still get REVIEW, and the evaluation is
+         *     marked `would_block` in its policy reasons, to gather evidence. `on`: they get BLOCK
+         *     (possible only after 14 days in shadow). Switching to `off` or `shadow` takes effect at
+         *     once: it is the kill switch.
+         * @enum {string}
+         */
+        AutoBlockMode: "off" | "shadow" | "on";
+        AutoBlock: {
+            mode: components["schemas"]["AutoBlockMode"];
+            /**
+             * Format: date-time
+             * @description When shadow evidence started (kept while blocking is on). Set by the server; ignored in a PUT.
+             */
+            shadow_since?: string | null;
+        };
+        AutoBlockStatus: {
+            mode: components["schemas"]["AutoBlockMode"];
+            /** Format: date-time */
+            shadow_since: string | null;
+            /** @description Days in shadow mode before blocking can be switched on. */
+            shadow_days_required: number;
+            /**
+             * Format: date-time
+             * @description From when blocking can be switched on (null when not in shadow or on).
+             */
+            eligible_at: string | null;
+            /** @description Evaluations in the last 14 days that blocking would have blocked. */
+            would_block_last_14_days: number;
+        };
         Signal: {
             /** @example new_device */
             code: string;
@@ -1791,6 +2010,100 @@ export interface components {
             risk_score: number;
             risk_level: components["schemas"]["RiskLevel"];
             decision: components["schemas"]["Decision"];
+            actor?: components["schemas"]["EventActorRefs"];
+            country?: string | null;
+            transaction?: components["schemas"]["TransactionSummary"];
+        };
+        EventActorRefs: {
+            user_id: string;
+            account_id?: string | null;
+            device_id?: string | null;
+        };
+        /** @description For transactions, the fields an analyst scans for. */
+        TransactionSummary: {
+            /**
+             * Format: int64
+             * @description Minor units.
+             */
+            amount: number;
+            currency: string;
+            direction: string;
+            beneficiary_id?: string | null;
+            channel?: string | null;
+        } | null;
+        LinkedEntity: {
+            ref: string;
+            events: number;
+            /** Format: date-time */
+            last_seen: string;
+        };
+        DecisionCounts: {
+            allow: number;
+            step_up: number;
+            review: number;
+            block: number;
+        };
+        EntityProfile: {
+            /** @enum {string} */
+            kind: "user" | "account" | "device";
+            ref: string;
+            /** @description Events in the profile (at most the most recent 5,000). */
+            event_count: number;
+            /** Format: date-time */
+            first_seen: string;
+            /** Format: date-time */
+            last_seen: string;
+            max_score: number;
+            mean_score: number;
+            decisions: components["schemas"]["DecisionCounts"];
+            linked: components["schemas"]["EntityLinks"];
+        };
+        EntityLinks: {
+            users: components["schemas"]["LinkedEntity"][];
+            accounts: components["schemas"]["LinkedEntity"][];
+            devices: components["schemas"]["LinkedEntity"][];
+            countries: components["schemas"]["LinkedEntity"][];
+            ips: components["schemas"]["LinkedEntity"][];
+        };
+        Analytics: {
+            /** @enum {string} */
+            window: "24h" | "7d" | "30d";
+            /** @enum {string} */
+            bucket: "hour" | "day";
+            /** Format: date-time */
+            since: string;
+            series: components["schemas"]["AnalyticsPoint"][];
+            top_users: components["schemas"]["TopUser"][];
+            top_signals: components["schemas"]["SignalCount"][];
+        };
+        AnalyticsPoint: {
+            /** Format: date-time */
+            at: string;
+            events: number;
+            mean_score: number;
+            decisions: components["schemas"]["DecisionCounts"];
+            bands: components["schemas"]["BandCounts"];
+        };
+        BandCounts: {
+            minimal: number;
+            low: number;
+            elevated: number;
+            high: number;
+            critical: number;
+        };
+        TopUser: {
+            user_id: string;
+            max_score: number;
+            events: number;
+            /** @description Events that got Review or Block. */
+            flagged: number;
+            /** Format: date-time */
+            last_seen: string;
+        };
+        SignalCount: {
+            code: string;
+            label: string;
+            hits: number;
         };
         EventList: {
             data: components["schemas"]["EventSummary"][];
@@ -1871,6 +2184,8 @@ export interface components {
              * @description When the current version was created.
              */
             updated_at: string;
+            /** @description A proposed change awaiting approval (production), if any. */
+            pending_change_id?: string | null;
         };
         RuleList: {
             data: components["schemas"]["Rule"][];
@@ -1908,6 +2223,74 @@ export interface components {
             created_at: string;
             created_by: string;
             restored_from?: number | null;
+        };
+        /** @enum {string} */
+        DenyKind: "user" | "account" | "device" | "ip" | "beneficiary" | "country";
+        DenyEntry: {
+            /** @example dny_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            kind: components["schemas"]["DenyKind"];
+            value: string;
+            reason: string;
+            /** Format: date-time */
+            expires_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+        };
+        DenyEntryList: {
+            data: components["schemas"]["DenyEntry"][];
+            /** @description Entries in the environment, including those not listed here. */
+            total: number;
+            /** @description The most entries an environment can have. */
+            limit: number;
+        };
+        CreateDenyEntryRequest: {
+            kind: components["schemas"]["DenyKind"];
+            value: string;
+            reason?: string;
+            /** Format: date-time */
+            expires_at?: string | null;
+        };
+        RuleChange: {
+            /** @example rch_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            /** @description The rule changed, or for a new rule the ID it gets when approved. */
+            rule_id: string;
+            code: string;
+            /** @enum {string} */
+            kind: "create" | "update" | "rollback";
+            /** @description The rule's version when proposed (null for a new rule). */
+            base_version: number | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            proposed: components["schemas"]["RuleContent"];
+            proposed_by: string;
+            /** Format: date-time */
+            proposed_at: string;
+            decided_by: string | null;
+            /** Format: date-time */
+            decided_at: string | null;
+            /** @description Why it was rejected, when given. */
+            reason: string | null;
+            /** @description The version approval created. */
+            applied_version: number | null;
+        };
+        RuleContent: {
+            name: string;
+            description: string;
+            severity: components["schemas"]["Severity"];
+            weight: number;
+            mode: components["schemas"]["RuleMode"];
+            enabled: boolean;
+            condition: components["schemas"]["RuleCondition"];
+            restored_from: number | null;
+        };
+        RuleChangeList: {
+            data: components["schemas"]["RuleChange"][];
+        };
+        RejectRuleChangeRequest: {
+            reason?: string;
         };
         RuleVersionList: {
             rule_id: string;
@@ -1971,6 +2354,11 @@ export interface components {
              * @enum {string}
              */
             alert_min_decision: "step_up" | "review";
+            /**
+             * @description Automatic blocking of Critical scores. Always present in responses; when omitted from
+             *     a PUT, the current mode is kept. Switching it on requires 14 days in shadow mode.
+             */
+            auto_block?: components["schemas"]["AutoBlock"];
         };
         RiskCatalog: {
             engine_version: string;
@@ -2316,6 +2704,17 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description The `next_cursor` of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
+                /** @description Only events newer than this event ID. */
+                after?: string;
+                type?: components["schemas"]["EventType"];
+                decision?: components["schemas"]["Decision"];
+                risk_level?: components["schemas"]["RiskLevel"];
+                /** @description Only events of this user (actor.user_id). */
+                user?: string;
+                /** @description Only events of this account (actor.account_id). */
+                account?: string;
+                /** @description Only events from this device (actor.device_id). */
+                device?: string;
             };
             header?: never;
             path?: never;
@@ -2367,6 +2766,61 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getEntityProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "user" | "account" | "device";
+                /** @description The identifier you send as actor.user_id, account_id or device_id. */
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityProfile"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAnalytics: {
+        parameters: {
+            query?: {
+                window?: "24h" | "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The analytics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analytics"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };
@@ -2566,13 +3020,26 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The created rule (version 1). */
+            /** @description The created rule (version 1). Test environments apply changes at once. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Rule"];
+                };
+            };
+            /**
+             * @description Production environments: the change was proposed and awaits approval by another person
+             *     (two-person rule). Nothing has changed yet; approve it with
+             *     `POST /api/v1/rule-changes/{change_id}/approve`.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
                 };
             };
             400: components["responses"]["InvalidRequest"];
@@ -2632,6 +3099,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Rule"];
+                };
+            };
+            /**
+             * @description Production environments: the change was proposed and awaits approval by another person
+             *     (two-person rule). Nothing has changed yet; approve it with
+             *     `POST /api/v1/rule-changes/{change_id}/approve`.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
                 };
             };
             400: components["responses"]["InvalidRequest"];
@@ -2694,6 +3174,19 @@ export interface operations {
                     "application/json": components["schemas"]["Rule"];
                 };
             };
+            /**
+             * @description Production environments: the change was proposed and awaits approval by another person
+             *     (two-person rule). Nothing has changed yet; approve it with
+             *     `POST /api/v1/rule-changes/{change_id}/approve`.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
@@ -2732,6 +3225,201 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listDenyEntries: {
+        parameters: {
+            query?: {
+                kind?: components["schemas"]["DenyKind"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The entries. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenyEntryList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createDenyEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["CreateDenyEntryRequest"];
+            };
+        };
+        responses: {
+            /** @description The entry. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DenyEntry"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deleteDenyEntry: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                entry_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listRuleChanges: {
+        parameters: {
+            query?: {
+                /** @description Only changes in this state (default pending). */
+                status?: "pending" | "approved" | "rejected" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChangeList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The approved change, with the version it created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RejectRuleChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description The rejected change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

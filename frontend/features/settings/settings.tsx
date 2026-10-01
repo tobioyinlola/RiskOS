@@ -2,21 +2,23 @@
 
 import { useState } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input, Select } from "@/components/instrument/field";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select } from "@/components/ui/field";
+import { KeyValues } from "@/components/ui/misc";
 import {
   PageHeader,
   Panel,
   PanelBody,
   PanelHeader,
-} from "@/components/instrument/panel";
-import { Ruler } from "@/components/instrument/risk-score";
-import { ErrorState, Loading, Notice } from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+} from "@/components/ui/panel";
+import { RiskMeter } from "@/components/ui/risk-score";
+import { ErrorState, Loading, Notice } from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
-import { formatAmount, humanize } from "@/lib/format";
-import { useCatalog, useRiskSettings } from "@/lib/queries";
+import { formatAmount, formatTimestamp, humanize } from "@/lib/format";
+import { useCatalog, useRiskPolicy, useRiskSettings } from "@/lib/queries";
+import { useSession } from "@/lib/session";
 import { DEFAULT_THRESHOLDS, type Thresholds } from "@/lib/risk";
 
 type Settings = Schemas["RiskSettings"];
@@ -43,8 +45,13 @@ function SettingsForm({ initial }: { initial: Settings }) {
   const [s, setS] = useState<Settings>(initial);
   const [saved, setSaved] = useState(false);
   const save = useAction(
+    // Automatic blocking has its own controls; leaving it out keeps the current mode.
     async (body: Settings) =>
-      unwrap(await api().PUT("/api/v1/risk/settings", { body })),
+      unwrap(
+        await api().PUT("/api/v1/risk/settings", {
+          body: { ...body, auto_block: undefined },
+        }),
+      ),
     {
       invalidate: ["risk-settings", "risk-policy", "risk-catalog"],
       onSuccess: () => setSaved(true),
@@ -84,9 +91,9 @@ function SettingsForm({ initial }: { initial: Settings }) {
       </div>
       <div className="grid grid-cols-1 gap-4 xl:grid-cols-2">
         <Panel>
-          <PanelHeader title="Bands" legend="calibration" />
+          <PanelHeader title="Bands" legend="thresholds" />
           <PanelBody className="flex flex-col gap-4">
-            <Ruler score={0} thresholds={t} animate={false} />
+            <RiskMeter thresholds={t} />
             <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
               {(["low", "elevated", "high", "critical"] as const).map((k) => (
                 <Field key={k} label={`${humanize(k)} from`}>
@@ -123,6 +130,7 @@ function SettingsForm({ initial }: { initial: Settings }) {
             </Button>
           </PanelBody>
         </Panel>
+        <AutoBlockPanel stored={initial} />
         <Panel>
           <PanelHeader title="Alerts" />
           <PanelBody className="flex flex-col gap-4">
@@ -146,7 +154,7 @@ function SettingsForm({ initial }: { initial: Settings }) {
                 </Select>
               )}
             </Field>
-            <p className="text-body-sm text-ink-3">
+            <p className="text-body-sm text-text-muted">
               Evaluations that ran with missing signals always raise a security
               alert.
             </p>
@@ -168,12 +176,12 @@ function SettingsForm({ initial }: { initial: Settings }) {
                 <Tr key={sig.code} density="compact">
                   <Td className="text-body-sm">
                     {sig.label}
-                    <span className="mono block text-legend text-ink-3">
+                    <span className="mono block text-label text-text-muted">
                       {sig.code}
                     </span>
                   </Td>
-                  <Td className="legend">{sig.source}</Td>
-                  <DataCell className="text-right text-ink-3">
+                  <Td className="text-label text-text-muted">{sig.source}</Td>
+                  <DataCell className="text-right text-text-muted">
                     {sig.default_weight}
                   </DataCell>
                   <Td className="text-right">
@@ -202,7 +210,7 @@ function SettingsForm({ initial }: { initial: Settings }) {
           <Panel>
             <PanelHeader title="High value" legend="minor units" />
             <PanelBody className="flex flex-col gap-4">
-              <p className="text-body-sm text-ink-2">
+              <p className="text-body-sm text-text-secondary">
                 While any signal is missing, events at or above this amount get
                 at least Review.
               </p>
@@ -327,5 +335,131 @@ function SettingsForm({ initial }: { initial: Settings }) {
         </div>
       </div>
     </>
+  );
+}
+
+const MODE_TEXT: Record<Schemas["AutoBlockMode"], string> = {
+  off: "Off: Critical scores get Review.",
+  shadow:
+    "Shadow: Critical scores still get Review, and the engine records which ones it would block.",
+  on: "On: Critical scores get Block.",
+};
+
+/**
+ * Automatic blocking: off by default, shadow evidence first, on only after the shadow period,
+ * and a kill switch that takes effect at once (docs/RISK_ENGINE.md).
+ */
+function AutoBlockPanel({ stored }: { stored: Settings }) {
+  const policy = useRiskPolicy();
+  const { environment } = useSession();
+  const status = policy.data?.auto_block;
+  const setMode = useAction(
+    async (mode: Schemas["AutoBlockMode"]) =>
+      unwrap(
+        await api().PUT("/api/v1/risk/settings", {
+          body: { ...stored, auto_block: { mode } },
+        }),
+      ),
+    { invalidate: ["risk-settings", "risk-policy"] },
+  );
+  if (!status) return null;
+  const eligible =
+    status.eligible_at !== null && new Date(status.eligible_at) <= new Date();
+  return (
+    <Panel>
+      <PanelHeader title="Automatic blocking" legend={status.mode} />
+      <PanelBody className="flex flex-col gap-4">
+        {status.mode === "on" ? (
+          <Notice tone="warn">{MODE_TEXT.on}</Notice>
+        ) : (
+          <p className="text-body-sm text-text-secondary">
+            {MODE_TEXT[status.mode]}
+          </p>
+        )}
+        {status.mode === "off" ? (
+          <p className="text-body-sm text-text-muted">
+            Blocking can be switched on after {status.shadow_days_required} days
+            in shadow mode, with the evidence in front of you.
+          </p>
+        ) : (
+          <KeyValues
+            items={[
+              [
+                "Shadow since",
+                status.shadow_since
+                  ? formatTimestamp(status.shadow_since)
+                  : "—",
+              ],
+              [
+                "Would have blocked",
+                <span key="n" className="mono">
+                  {status.would_block_last_14_days} in the last 14 days
+                </span>,
+              ],
+              [
+                "Can switch on",
+                status.mode === "on"
+                  ? "On"
+                  : status.eligible_at
+                    ? eligible
+                      ? "Now"
+                      : `From ${formatTimestamp(status.eligible_at)}`
+                    : "—",
+              ],
+            ]}
+          />
+        )}
+        {setMode.error ? <Notice tone="error">{setMode.error}</Notice> : null}
+        <div className="flex flex-wrap gap-2">
+          {status.mode === "off" ? (
+            <Button
+              onClick={() => void setMode.run("shadow")}
+              disabled={setMode.busy}
+            >
+              Start shadow mode
+            </Button>
+          ) : null}
+          {status.mode === "shadow" ? (
+            <>
+              <Button
+                variant="primary"
+                onClick={() => void setMode.run("on")}
+                disabled={setMode.busy || !eligible}
+              >
+                Switch blocking on
+              </Button>
+              <Button
+                onClick={() => void setMode.run("off")}
+                disabled={setMode.busy}
+              >
+                Turn off
+              </Button>
+            </>
+          ) : null}
+          {status.mode === "on" ? (
+            <>
+              <Button
+                variant="primary"
+                onClick={() => void setMode.run("shadow")}
+                disabled={setMode.busy}
+              >
+                Stop blocking
+              </Button>
+              <Button
+                onClick={() => void setMode.run("off")}
+                disabled={setMode.busy}
+              >
+                Turn off
+              </Button>
+            </>
+          ) : null}
+        </div>
+        {environment === "production" && status.mode !== "on" ? (
+          <p className="text-body-sm text-text-muted">
+            Decisions stay advisory: your own flow decides what a Block does.
+          </p>
+        ) : null}
+      </PanelBody>
+    </Panel>
   );
 }

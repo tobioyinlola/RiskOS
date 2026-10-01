@@ -26,6 +26,8 @@ type (
 	Input = domain.Input
 	// Result is a stored evaluation.
 	Result = domain.Result
+	// SignalCount is how often a signal fired over a window.
+	SignalCount = domain.SignalCount
 	// Signal is one explained reason contributing to the score.
 	Signal = domain.Signal
 	// Level is the risk level.
@@ -44,6 +46,8 @@ var ErrNotFound = service.ErrNotFound
 type Evaluator interface {
 	Evaluate(ctx context.Context, in Input) (Result, error)
 	Get(ctx context.Context, id uuid.UUID) (Result, error)
+	// TopSignals counts how often each signal fired in events since a time (analytics).
+	TopSignals(ctx context.Context, since time.Time) ([]SignalCount, error)
 }
 
 // RuleTester evaluates a rule against a normalized event without side effects. The events
@@ -64,6 +68,13 @@ type RuleHandlers interface {
 	UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestObject) (apigen.UpdateRuleResponseObject, error)
 	ListRuleVersions(ctx context.Context, req apigen.ListRuleVersionsRequestObject) (apigen.ListRuleVersionsResponseObject, error)
 	RollbackRule(ctx context.Context, req apigen.RollbackRuleRequestObject) (apigen.RollbackRuleResponseObject, error)
+	ListRuleChanges(ctx context.Context, req apigen.ListRuleChangesRequestObject) (apigen.ListRuleChangesResponseObject, error)
+	GetRuleChange(ctx context.Context, req apigen.GetRuleChangeRequestObject) (apigen.GetRuleChangeResponseObject, error)
+	ApproveRuleChange(ctx context.Context, req apigen.ApproveRuleChangeRequestObject) (apigen.ApproveRuleChangeResponseObject, error)
+	RejectRuleChange(ctx context.Context, req apigen.RejectRuleChangeRequestObject) (apigen.RejectRuleChangeResponseObject, error)
+	ListDenyEntries(ctx context.Context, req apigen.ListDenyEntriesRequestObject) (apigen.ListDenyEntriesResponseObject, error)
+	CreateDenyEntry(ctx context.Context, req apigen.CreateDenyEntryRequestObject) (apigen.CreateDenyEntryResponseObject, error)
+	DeleteDenyEntry(ctx context.Context, req apigen.DeleteDenyEntryRequestObject) (apigen.DeleteDenyEntryResponseObject, error)
 }
 
 // Config configures the risk module.

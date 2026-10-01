@@ -8,9 +8,7 @@ import (
 	"fmt"
 	"log/slog"
 	"math"
-	"net"
 	"net/http"
-	"net/netip"
 	"slices"
 	"strconv"
 	"strings"
@@ -22,6 +20,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/requestctx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 )
 
@@ -196,15 +195,13 @@ func (h *ConsoleHandlers) cookie(token string, maxAge time.Duration) string {
 
 type clientKey struct{}
 
-// withClient records where a session request came from (for throttling and session records).
-// The address is the direct peer: behind the console's proxy that is the proxy, so per-IP
-// throttling is coarse there; per-email and per-user throttling still apply.
+// withClient records where a session request came from (for throttling and session records):
+// the client address worked out by httpx.ClientIP, which looks through trusted proxies such as
+// the console's server.
 func withClient(ctx context.Context, r *http.Request) context.Context {
 	cl := service.Client{UserAgent: r.UserAgent()}
-	if host, _, err := net.SplitHostPort(r.RemoteAddr); err == nil {
-		if ip, err := netip.ParseAddr(host); err == nil {
-			cl.IP = &ip
-		}
+	if ip, ok := requestctx.ClientIP(ctx); ok {
+		cl.IP = &ip
 	}
 	return context.WithValue(ctx, clientKey{}, cl)
 }

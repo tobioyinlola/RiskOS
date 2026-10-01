@@ -77,20 +77,52 @@ func validateVersion(v domain.RuleVersion) (json.RawMessage, error) {
 	return compact.Bytes(), nil
 }
 
-// CreateRule creates a rule at version 1. Requires rules:write.
-func (s *Service) CreateRule(ctx context.Context, in RuleInput) (domain.Rule, error) {
+// RuleResult is the outcome of a rule change: the rule as it now is and, in a production
+// environment, the proposed change awaiting approval instead (nothing applied yet).
+type RuleResult struct {
+	Rule   domain.Rule
+	Change *domain.RuleChange
+}
+
+// needsApproval reports whether rule changes in the scope's environment wait for a second
+// person: production does, test applies them at once.
+func needsApproval(scope tenancy.Scope) bool {
+	return scope.EnvironmentKind == tenancy.EnvironmentProduction
+}
+
+func checkRuleLimit(ctx context.Context, st interface {
+	CountRules(context.Context) (int64, error)
+},
+) error {
+	n, err := st.CountRules(ctx)
+	if err != nil {
+		return err
+	}
+	if n >= domain.MaxRulesPerEnvironment {
+		return fmt.Errorf("%w: an environment can have at most %d rules; disable or edit existing ones",
+			domain.ErrRuleLimit, domain.MaxRulesPerEnvironment)
+	}
+	return nil
+}
+
+// CreateRule creates a rule at version 1, or in production proposes it for approval. Requires
+// rules:write.
+func (s *Service) CreateRule(ctx context.Context, in RuleInput) (RuleResult, error) {
 	if err := authz.Require(ctx, authz.RulesWrite); err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
 	scope, err := tenancy.FromContext(ctx)
 	if err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
 	if !codePattern.MatchString(in.Code) {
-		return domain.Rule{}, fmt.Errorf("%w: code must match %s", domain.ErrRuleInvalid, codePattern)
+		return RuleResult{}, fmt.Errorf("%w: code must match %s", domain.ErrRuleInvalid, codePattern)
+	}
+	if in.Code == domain.SignalDenyList {
+		return RuleResult{}, fmt.Errorf("%w: code %q is reserved for deny lists", domain.ErrRuleInvalid, in.Code)
 	}
 	if _, builtin := domain.BuiltinSignal(in.Code); builtin {
-		return domain.Rule{}, fmt.Errorf("%w: code %q is a built-in signal", domain.ErrRuleInvalid, in.Code)
+		return RuleResult{}, fmt.Errorf("%w: code %q is a built-in signal", domain.ErrRuleInvalid, in.Code)
 	}
 	v := domain.RuleVersion{
 		Version: 1, Name: strings.TrimSpace(in.Name), Description: in.Description, Severity: in.Severity,
@@ -98,17 +130,16 @@ func (s *Service) CreateRule(ctx context.Context, in RuleInput) (domain.Rule, er
 		CreatedBy: scope.Principal.ID, CreatedAt: s.clock.Now(),
 	}
 	if v.Condition, err = validateVersion(v); err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
 	r := domain.Rule{ID: ids.NewV7(), Code: in.Code, CreatedAt: v.CreatedAt, Current: v}
+	if needsApproval(scope) {
+		c := domain.RuleChange{ID: ids.NewV7(), RuleID: r.ID, Code: in.Code, Kind: domain.ChangeCreate, Proposed: v}
+		return s.propose(ctx, scope, domain.Rule{}, c)
+	}
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		n, err := s.store.CountRules(ctx)
-		if err != nil {
+		if err := checkRuleLimit(ctx, s.store); err != nil {
 			return err
-		}
-		if n >= domain.MaxRulesPerEnvironment {
-			return fmt.Errorf("%w: an environment can have at most %d rules; disable or edit existing ones",
-				domain.ErrRuleLimit, domain.MaxRulesPerEnvironment)
 		}
 		if err := s.store.InsertRule(ctx, r.ID, r.Code, v); err != nil {
 			return err
@@ -119,16 +150,16 @@ func (s *Service) CreateRule(ctx context.Context, in RuleInput) (domain.Rule, er
 		})
 	})
 	if err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
 	s.config.invalidate(ctx)
-	return r, nil
+	return RuleResult{Rule: r}, nil
 }
 
-// UpdateRule applies patch as a new version. A patch that changes nothing returns the rule
-// unchanged and records nothing. Requires rules:write.
-func (s *Service) UpdateRule(ctx context.Context, id uuid.UUID, patch RulePatch) (domain.Rule, error) {
-	return s.newVersion(ctx, id, "rule.updated", func(_ context.Context, cur domain.RuleVersion) (domain.RuleVersion, error) {
+// UpdateRule applies patch as a new version (in production: proposes it). A patch that changes
+// nothing returns the rule unchanged and records nothing. Requires rules:write.
+func (s *Service) UpdateRule(ctx context.Context, id uuid.UUID, patch RulePatch) (RuleResult, error) {
+	return s.newVersion(ctx, id, domain.ChangeUpdate, func(_ context.Context, cur domain.RuleVersion) (domain.RuleVersion, error) {
 		next := cur
 		next.RestoredFrom = nil
 		if patch.Name != nil {
@@ -156,10 +187,10 @@ func (s *Service) UpdateRule(ctx context.Context, id uuid.UUID, patch RulePatch)
 	})
 }
 
-// RollbackRule restores an earlier version as a new version (history is never rewritten).
-// Requires rules:write.
-func (s *Service) RollbackRule(ctx context.Context, id uuid.UUID, toVersion int) (domain.Rule, error) {
-	return s.newVersion(ctx, id, "rule.rolled_back", func(ctx context.Context, cur domain.RuleVersion) (domain.RuleVersion, error) {
+// RollbackRule restores an earlier version as a new version (history is never rewritten); in
+// production it proposes the rollback. Requires rules:write.
+func (s *Service) RollbackRule(ctx context.Context, id uuid.UUID, toVersion int) (RuleResult, error) {
+	return s.newVersion(ctx, id, domain.ChangeRollback, func(ctx context.Context, cur domain.RuleVersion) (domain.RuleVersion, error) {
 		if toVersion == cur.Version {
 			return domain.RuleVersion{}, fmt.Errorf("%w: version %d is already current", domain.ErrRuleInvalid, toVersion)
 		}
@@ -175,17 +206,24 @@ func (s *Service) RollbackRule(ctx context.Context, id uuid.UUID, toVersion int)
 	})
 }
 
-func (s *Service) newVersion(ctx context.Context, id uuid.UUID, action string,
+// actions are the audit actions of applied rule changes.
+var actions = map[domain.ChangeKind]string{ //nolint:gochecknoglobals // constant lookup table
+	domain.ChangeCreate: "rule.created", domain.ChangeUpdate: "rule.updated", domain.ChangeRollback: "rule.rolled_back",
+}
+
+func (s *Service) newVersion(ctx context.Context, id uuid.UUID, kind domain.ChangeKind,
 	next func(context.Context, domain.RuleVersion) (domain.RuleVersion, error),
-) (domain.Rule, error) {
+) (RuleResult, error) {
 	if err := authz.Require(ctx, authz.RulesWrite); err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
 	scope, err := tenancy.FromContext(ctx)
 	if err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
 	var r domain.Rule
+	var proposal *domain.RuleChange
+	changed := false
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
 		if r, err = s.store.GetRule(ctx, id); err != nil {
 			return err
@@ -200,26 +238,46 @@ func (s *Service) newVersion(ctx context.Context, id uuid.UUID, action string,
 		if sameContent(v, r.Current) && v.RestoredFrom == nil {
 			return nil // nothing changed
 		}
+		if needsApproval(scope) {
+			base := r.Current.Version
+			proposal = &domain.RuleChange{ID: ids.NewV7(), RuleID: id, Code: r.Code, Kind: kind, BaseVersion: &base, Proposed: v}
+			return nil
+		}
 		v.Version, v.CreatedBy, v.CreatedAt = r.Current.Version+1, scope.Principal.ID, s.clock.Now()
-		if err := s.store.AddVersion(ctx, id, r.Current.Version, v); err != nil {
+		if err := s.applyVersion(ctx, r, v, kind, nil); err != nil {
 			return err
 		}
-		meta := versionMetadata(r.Code, v)
-		meta["previous_version"] = r.Current.Version
-		if v.RestoredFrom != nil {
-			meta["restored_from"] = *v.RestoredFrom
-		}
-		r.Current = v
-		return s.audit.Record(ctx, audit.Entry{
-			Action: action, ResourceType: "rule", ResourceID: ids.Format(ids.PrefixRule, id),
-			Outcome: audit.OutcomeSuccess, Metadata: meta,
-		})
+		r.Current, changed = v, true
+		return nil
 	})
 	if err != nil {
-		return domain.Rule{}, err
+		return RuleResult{}, err
 	}
-	s.config.invalidate(ctx)
-	return r, nil
+	if proposal != nil {
+		return s.propose(ctx, scope, r, *proposal)
+	}
+	if changed {
+		s.config.invalidate(ctx)
+	}
+	return RuleResult{Rule: r}, nil
+}
+
+// applyVersion appends v as the rule's next version and audits it. approval is the change it
+// applies after a second person approved it, if any.
+func (s *Service) applyVersion(ctx context.Context, r domain.Rule, v domain.RuleVersion, kind domain.ChangeKind, approval *domain.RuleChange) error {
+	if err := s.store.AddVersion(ctx, r.ID, r.Current.Version, v); err != nil {
+		return err
+	}
+	meta := versionMetadata(r.Code, v)
+	meta["previous_version"] = r.Current.Version
+	if v.RestoredFrom != nil {
+		meta["restored_from"] = *v.RestoredFrom
+	}
+	approvalMetadata(meta, approval)
+	return s.audit.Record(ctx, audit.Entry{
+		Action: actions[kind], ResourceType: "rule", ResourceID: ids.Format(ids.PrefixRule, r.ID),
+		Outcome: audit.OutcomeSuccess, Metadata: meta,
+	})
 }
 
 func sameContent(a, b domain.RuleVersion) bool {
@@ -242,8 +300,19 @@ func (s *Service) ListRules(ctx context.Context) ([]domain.Rule, error) {
 	var out []domain.Rule
 	err := s.runner.Run(ctx, func(ctx context.Context) error {
 		var err error
-		out, err = s.store.ListRules(ctx)
-		return err
+		if out, err = s.store.ListRules(ctx); err != nil {
+			return err
+		}
+		pending, err := s.store.PendingChanges(ctx)
+		if err != nil {
+			return err
+		}
+		for i := range out {
+			if c, ok := pending[out[i].ID]; ok {
+				out[i].PendingChange = &c
+			}
+		}
+		return nil
 	})
 	return out, err
 }
@@ -256,7 +325,13 @@ func (s *Service) GetRule(ctx context.Context, id uuid.UUID) (domain.Rule, error
 	var r domain.Rule
 	err := s.runner.Run(ctx, func(ctx context.Context) error {
 		var err error
-		r, err = s.store.GetRule(ctx, id)
+		if r, err = s.store.GetRule(ctx, id); err != nil {
+			return err
+		}
+		pending, err := s.store.PendingChanges(ctx)
+		if c, ok := pending[id]; ok {
+			r.PendingChange = &c
+		}
 		return err
 	})
 	return r, err

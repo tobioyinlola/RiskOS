@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -64,10 +65,11 @@ func (h *Handlers) GetRiskCatalog(ctx context.Context, _ apigen.GetRiskCatalogRe
 
 // GetRiskPolicy implements GET /api/v1/risk/policy.
 func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequestObject) (apigen.GetRiskPolicyResponseObject, error) {
-	s, err := h.svc.Policy(ctx)
+	view, err := h.svc.Policy(ctx)
 	if err != nil {
 		return nil, MapError(err)
 	}
+	s := view.Settings
 	t := s.Thresholds
 	bounds := []struct {
 		level    domain.Level
@@ -81,6 +83,10 @@ func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequ
 		EngineVersion: engine.Version, CustomCalibration: t != domain.DefaultThresholds(),
 		AlertMinDecision: apigen.RiskPolicyAlertMinDecision(s.AlertMinDecision),
 		Thresholds:       apigen.RiskThresholds{Low: t.Low, Elevated: t.Elevated, High: t.High, Critical: t.Critical},
+		AutoBlock: apigen.AutoBlockStatus{
+			Mode: apigen.AutoBlockMode(s.AutoBlock), ShadowSince: s.AutoBlockSince, EligibleAt: s.AutoBlockEligibleAt(),
+			ShadowDaysRequired: int(domain.AutoBlockShadowPeriod.Hours() / 24), WouldBlockLast14Days: int(view.WouldBlock),
+		},
 	}
 	for _, b := range bounds {
 		out.Bands = append(out.Bands, struct {
@@ -88,7 +94,7 @@ func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequ
 			DefaultDecision apigen.Decision  `json:"default_decision"`
 			MaxScore        int              `json:"max_score"`
 			MinScore        int              `json:"min_score"`
-		}{Band: apigen.RiskLevel(b.level), DefaultDecision: apigen.Decision(domain.DefaultDecision(b.level)), MaxScore: b.max, MinScore: b.min})
+		}{Band: apigen.RiskLevel(b.level), DefaultDecision: apigen.Decision(s.DecisionFor(b.level)), MaxScore: b.max, MinScore: b.min})
 	}
 	return out, nil
 }
@@ -120,6 +126,9 @@ func (h *Handlers) PutRiskSettings(ctx context.Context, req apigen.PutRiskSettin
 	}
 	if req.Body.AlertMinDecision != nil {
 		in.AlertMinDecision = domain.Decision(*req.Body.AlertMinDecision)
+	}
+	if req.Body.AutoBlock != nil {
+		in.AutoBlock = domain.AutoBlockMode(req.Body.AutoBlock.Mode)
 	}
 	for k, v := range req.Body.FailPolicies {
 		in.FailPolicies[k] = domain.FailPolicy(v)
@@ -164,14 +173,18 @@ func (h *Handlers) CreateRule(ctx context.Context, req apigen.CreateRuleRequestO
 	if b.Description != nil {
 		description = *b.Description
 	}
-	r, err := h.svc.CreateRule(ctx, service.RuleInput{
+	res, err := h.svc.CreateRule(ctx, service.RuleInput{
 		Code: b.Code, Name: b.Name, Description: description, Severity: string(b.Severity),
 		Weight: b.Weight, Mode: domain.RuleMode(b.Mode), Enabled: enabled, Condition: condition,
 	})
 	if err != nil {
 		return nil, MapError(err)
 	}
-	out, err := RuleToAPI(r)
+	if res.Change != nil {
+		c, err := ChangeToAPI(*res.Change)
+		return apigen.CreateRule202JSONResponse(c), err
+	}
+	out, err := RuleToAPI(res.Rule)
 	if err != nil {
 		return nil, err
 	}
@@ -217,11 +230,15 @@ func (h *Handlers) UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestO
 			return nil, fmt.Errorf("encode condition: %w", err)
 		}
 	}
-	r, err := h.svc.UpdateRule(ctx, id, patch)
+	res, err := h.svc.UpdateRule(ctx, id, patch)
 	if err != nil {
 		return nil, MapError(err)
 	}
-	out, err := RuleToAPI(r)
+	if res.Change != nil {
+		c, err := ChangeToAPI(*res.Change)
+		return apigen.UpdateRule202JSONResponse(c), err
+	}
+	out, err := RuleToAPI(res.Rule)
 	if err != nil {
 		return nil, err
 	}
@@ -262,11 +279,15 @@ func (h *Handlers) RollbackRule(ctx context.Context, req apigen.RollbackRuleRequ
 	if req.Body == nil {
 		return nil, httpx.InvalidRequest("A request body is required.", nil)
 	}
-	r, err := h.svc.RollbackRule(ctx, id, req.Body.Version)
+	res, err := h.svc.RollbackRule(ctx, id, req.Body.Version)
 	if err != nil {
 		return nil, MapError(err)
 	}
-	out, err := RuleToAPI(r)
+	if res.Change != nil {
+		c, err := ChangeToAPI(*res.Change)
+		return apigen.RollbackRule202JSONResponse(c), err
+	}
+	out, err := RuleToAPI(res.Rule)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +314,15 @@ func RuleToAPI(r domain.Rule) (apigen.Rule, error) {
 		Id: ids.Format(ids.PrefixRule, r.ID), Code: r.Code, Name: v.Name, Description: v.Description,
 		Severity: apigen.Severity(v.Severity), Weight: v.Weight, Mode: apigen.RuleMode(v.Mode), Enabled: v.Enabled,
 		Condition: cond, Version: v.Version, RestoredFrom: v.RestoredFrom, CreatedAt: r.CreatedAt, UpdatedAt: v.CreatedAt,
+		PendingChangeId: formatID(ids.PrefixRuleChange, r.PendingChange),
 	}, nil
+}
+
+func formatID(prefix string, id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	return new(ids.Format(prefix, *id))
 }
 
 func conditionToAPI(raw json.RawMessage) (apigen.RuleCondition, error) {
@@ -309,6 +338,7 @@ func settingsToAPI(s domain.Settings) apigen.RiskSettings {
 		Weights: s.Weights, HighValueDefault: s.HighValueDefault, HighValueByCurrency: s.HighValueByCurrency,
 		FailPolicies:     map[string]apigen.RiskSettingsFailPolicies{},
 		AlertMinDecision: new(apigen.RiskSettingsAlertMinDecision(s.AlertMinDecision)),
+		AutoBlock:        &apigen.AutoBlock{Mode: apigen.AutoBlockMode(autoBlockMode(s.AutoBlock)), ShadowSince: s.AutoBlockSince},
 		Thresholds: &apigen.RiskThresholds{
 			Low: s.Thresholds.Low, Elevated: s.Thresholds.Elevated, High: s.Thresholds.High, Critical: s.Thresholds.Critical,
 		},
@@ -323,6 +353,13 @@ func settingsToAPI(s domain.Settings) apigen.RiskSettings {
 		out.HighValueByCurrency = map[string]int64{}
 	}
 	return out
+}
+
+func autoBlockMode(m domain.AutoBlockMode) domain.AutoBlockMode {
+	if m == "" {
+		return domain.AutoBlockOff
+	}
+	return m
 }
 
 // MapError translates the risk module's errors to the error contract.
@@ -343,6 +380,18 @@ func MapError(err error) error {
 		return httpx.Conflict("A rule with this code already exists in this environment.", err)
 	case errors.Is(err, domain.ErrRuleConflict):
 		return httpx.Conflict("The rule was changed by another request; reload it and try again.", err)
+	case errors.Is(err, domain.ErrChangeNotFound), errors.Is(err, domain.ErrDenyNotFound):
+		return httpx.NotFound(err)
+	case errors.Is(err, domain.ErrDenyInvalid):
+		return httpx.InvalidRequest(capitalizeSentence(detail(domain.ErrDenyInvalid)), err)
+	case errors.Is(err, domain.ErrDenyDuplicate):
+		return httpx.Conflict("This identifier is already on the deny list.", err)
+	case errors.Is(err, domain.ErrDenyLimit):
+		return httpx.Conflict(capitalizeSentence(detail(domain.ErrDenyLimit)), err)
+	case errors.Is(err, domain.ErrChangePending), errors.Is(err, domain.ErrChangeDecided), errors.Is(err, domain.ErrChangeStale):
+		return httpx.Conflict(capitalizeSentence(err.Error()), err)
+	case errors.Is(err, domain.ErrSelfApproval), errors.Is(err, domain.ErrApproverNotPerson):
+		return httpx.NewError(http.StatusForbidden, httpx.CodeForbidden, capitalizeSentence(err.Error()), err)
 	default:
 		return err
 	}

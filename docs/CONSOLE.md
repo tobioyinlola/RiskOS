@@ -2,7 +2,7 @@
 
 The RiskOS console is the dashboard where a tenant's people triage alerts, work cases, write
 rules, tune risk settings and manage keys, webhooks and their team. It is a Next.js app in
-`frontend/` built on the generated API client, and it follows the Instrument design system
+`frontend/` built on the generated API client, and it follows the RiskOS design system
 ([design-system.md](design-system.md)). Sign-in, sessions and team management are described in
 [CONSOLE_AUTH.md](CONSOLE_AUTH.md).
 
@@ -11,11 +11,16 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 | Section | Path | Needs | What it does |
 |---|---|---|---|
 | Overview | `/` | `events:read` or `alerts:read` | Open alerts and cases, the risk distribution and decisions of recent events |
-| Events | `/events` | `events:read` | Event explorer with filters; the drawer shows the evaluation: score, band, decision, reasons, raw and normalized payloads |
+| Live monitor | `/live` | `events:read` | Events as they arrive (checked every 2 seconds). New events wait above the table while you hover it, have an event open or pause, so rows never move under you; arrivals are announced politely to screen readers |
+| Events | `/events` | `events:read` | Event explorer filtered by type, band, decision and user (in the URL, so a view can be shared); the drawer shows the evaluation (score, band, decision, reasons), links to the user, account and device, and the raw and normalized payloads |
+| Transactions | `/transactions` | `events:read` | Transaction events with amount, direction, beneficiary and channel |
+| Entities | `/entities`, `/entities/{kind}/{ref}` | `events:read` | Look up a user, account or device. Its profile shows activity, highest and mean score, decisions, and the users, accounts, devices, countries and IP addresses seen with it (from its most recent 5,000 events), then its events. Users in alerts, cases, events and transactions link here |
+| Analytics | `/analytics` | `events:read` | Over 24 hours, 7 days or 30 days: events per hour or day by risk band (with a table view), mean score, decisions, highest-risk users and the signals that fired most |
 | Alerts | `/alerts` | `alerts:read` | The triage queue, ordered by band, then score, then oldest first; the drawer shows each evaluation's reasons, the activity timeline and actions |
 | Cases | `/cases`, `/cases/{id}` | `cases:read` | Investigations: linked alerts, notes, assignment, resolution |
-| Rules | `/rules`, `/rules/new`, `/rules/{id}` | `rules:read` | Rules with versions, shadow mode, a test bench and rollback |
-| Risk settings | `/settings` | `risk:configure` | Band thresholds, signal weights, high-value amounts, fail policies, the alert threshold |
+| Rules | `/rules`, `/rules/new`, `/rules/{id}` | `rules:read` | Rules with versions, shadow mode, a test bench and rollback. In production, saving proposes a change; proposals awaiting approval are listed above the rules, and anyone with `rules:approve` other than the proposer can review the difference and approve or reject it |
+| Deny lists | `/deny-lists` | `rules:read` or `risk:configure` | Identifiers whose events are always blocked: add with a reason and an optional expiry, filter by kind, remove. User, account and device profiles can add their identifier directly |
+| Risk settings | `/settings` | `risk:configure` | Band thresholds, signal weights, high-value amounts, fail policies, the alert threshold, automatic blocking (shadow evidence, switch on, kill switch) |
 | Developer | `/developer`, `/developer/webhooks/{id}` | `api_keys:read` or `webhooks:read` | API keys (create, rotate, revoke), webhook endpoints, delivery logs, test deliveries and redelivery |
 | Team | `/team` | `team:read` | Members, roles, invites |
 | Audit log | `/audit-logs` | `audit_logs:read` | The tenant's audit trail |
@@ -24,8 +29,8 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 A section appears in the navigation only when the user holds one of its permissions; the API
 enforces the same permissions on every request.
 
-Not built yet: the live risk monitor, entity pages (users, accounts, devices, transactions)
-and analytics beyond the overview's counts. TODO(phase-8).
+Analytics are computed from the events when you open the page. TODO(phase-9): precompute
+hourly rollups if 30-day windows become slow at production volumes.
 
 ## Environments
 
@@ -34,9 +39,27 @@ every request carries it in the `RiskOS-Environment` header, and every cached qu
 it, so switching never shows one environment's data under the other. The choice is remembered
 per browser. In production the console shows a PRODUCTION banner across the top.
 
+## Layout and preferences
+
+- **Navigation.** The left navigation (240px) collapses to an icon rail with the button at its
+  foot or with `[`. In the rail, each section's name shows on hover or focus. Narrow screens get
+  a drawer instead.
+- **Command palette.** `Ctrl+K` (`⌘K` on a Mac), or the search box in the top bar, opens the
+  palette. Type to find a section or an action (switch environment, theme, row density,
+  navigation, shortcuts, sign out), then press Enter.
+- **Preferences.** The theme (dark Console by default, light Daylight), table row density
+  (Default 40px or Compact 32px) and the navigation state are kept per browser. The top bar has
+  buttons for theme and density. The theme is applied before the page paints, so it never
+  flashes.
+- **Evidence.** IDs in drawers and headers have a copy button, and code and payload blocks can
+  be copied in one click.
+- **Danger actions.** Revoking a key, disabling a webhook endpoint and removing a passkey each
+  open a confirmation that names the object.
+
 ## Keyboard
 
-`?` lists the shortcuts on every screen. `g` then a letter moves between sections (`g a` alerts,
+`?` lists the shortcuts on every screen. `Ctrl+K` opens the command palette; `[` collapses or
+expands the navigation. `g` then a letter moves between sections (`g a` alerts,
 `g e` events, `g c` cases, `g r` rules, `g o` overview). In the alert queue: `j`/`k` move,
 `Enter` opens, `i` marks investigating, `f` false positive, `x` resolves, `c` opens a case.
 Shortcuts are ignored while typing in a field.
@@ -44,12 +67,15 @@ Shortcuts are ignored while typing in a field.
 ## High-impact actions
 
 Creating, rotating or revoking API keys, changing webhook endpoints or their secrets, changing
-rules and risk settings, inviting people and changing members require a second factor within the last 10 minutes.
+rules, risk settings and deny lists, approving rule changes, inviting people and changing members require a
+second factor within the last 10 minutes.
 When the API answers `REAUTH_REQUIRED`, the console asks for a passkey, authenticator code or
 recovery code and retries the action once.
 
-The console never offers a Block action: the engine does not return BLOCK until auto-block
-ships (build step 8).
+Analysts never block single events by hand. BLOCK comes from the deny list (for identifiers a
+risk manager has listed) or from automatic blocking, which the Risk settings page controls:
+- start shadow mode, see how many events it would have blocked, and switch it on after 14 days;
+- stop blocking at once (the kill switch).
 
 ## How it talks to the API
 

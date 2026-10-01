@@ -549,11 +549,11 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
 2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
 3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
-4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval, auto-block and hard-block deferred (Appendix B).
+4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval and automatic blocking added in build step 8 (A.11); deny-list hard blocks added after build step 8.
 5. Alerts, cases, notes, resolution. **Done** (Appendix A.7); alerts reach customers by webhook in step 6.
 6. Webhooks with signing and delivery logs. **Done** (Appendix A.8); egress proxy and per-tenant delivery queues deferred (Appendix B).
 7. Dashboard on the generated client.
-8. Security hardening, load and failure testing, restore drill.
+8. Security hardening, load and failure testing, restore drill. **Done for the application** (Appendix A.11); the parts that need deployment infrastructure are listed in Appendix B.
 
 The first milestone is the thin vertical slice: tenant, API key, event, validation, normalization, evaluation, alert, case, resolution and audit log, with a measured latency result against the section 5 budget.
 
@@ -561,7 +561,7 @@ The first milestone is the thin vertical slice: tenant, API key, event, validati
 
 ## Appendix A. Implementation status
 
-What exists in the repository today (build steps 1-7). Everything above that is not listed
+What exists in the repository today (build steps 1-8). Everything above that is not listed
 here is designed but not yet built.
 
 ### A.1 Repository layout
@@ -647,12 +647,24 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
+### A.11 Hardening and drills (build step 8)
+
+| Area | What is built |
+|---|---|
+| Failure drill | `make failure-drill`: ingest under load while Redis, PostgreSQL, the worker and the API fail; checks that no event is lost or duplicated, no degraded transaction is allowed, every alert and webhook arrives ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) |
+| Restore drill | `make restore-drill`: backup, restore into a fresh server, then row counts, audit chains, isolation and a live API on the copy |
+| Automatic blocking | Per environment: off, shadow (Critical evaluations marked `would_block`, counted as evidence), on after 14 days of shadow (Critical gets BLOCK); the kill switch works at once |
+| Rule approval | Production rule changes are proposals until a second person with `rules:approve` (people only) approves them |
+| Abuse limits | Failed authentications per client address, read through trusted proxies only; per-tenant limits on sensitive operations; breached-password check for console passwords |
+| Failing fast | Redis circuit breaker; bounded rate-limit checks; a 1 s deadline to get a database connection, then 503 with `Retry-After`; jobs of a killed worker retried after the job timeout plus a minute |
+| Schedule | Both drills run weekly in CI (`.github/workflows/drills.yml`) |
+
 ### A.10 Console (build step 7)
 
 | Area | What is built |
 |---|---|
 | Screens | Overview, events, alerts queue, cases, rules, risk settings, developer center (keys, webhooks, delivery logs), team, audit log, account security ([CONSOLE.md](CONSOLE.md)) |
-| Design | The Instrument design system: tokens for both themes, risk bands from the environment's policy, keyboard-first triage ([design-system.md](design-system.md)) |
+| Design | The RiskOS design system: dark and light themes, IBM Plex, risk bands from the environment's policy, keyboard-first triage, a collapsible navigation and a command palette ([design-system.md](design-system.md)) |
 | Environments | One sign-in for test and production, a switch, a PRODUCTION banner; every request and cached query carries the environment |
 | Browser security | Same-origin API proxy, nonce-based CSP, HSTS, frame denial; re-authentication prompts for high-impact actions |
 | Tests | Component tests; browser tests with a mocked API (desktop and mobile, virtual passkey authenticator, CSP); a browser test against the running stack with no mocks |
@@ -693,7 +705,7 @@ password.
 |---|---|
 | Signals | Ten built-in signals: the spec's five at its weights plus failed-login bursts, shared devices, recent credential changes, beneficiary fan-in and a cold-start `new_user` signal ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 | Feature store | Redis, one pipelined round trip per evaluation within `RISKOS_FEATURE_TIMEOUT`; identifiers HMAC-keyed per tenant (`RISKOS_FEATURE_HASH_KEY`); seen sets, velocity buckets, HyperLogLogs, amount baselines that high-risk events never update |
-| Policy | Score capped at 100, levels, STEP_UP for MEDIUM with strengthenable signals, REVIEW for HIGH where step-up is impossible; per-event-type fail-open/closed; REVIEW floor for high-value events while degraded; BLOCK never produced |
+| Policy | Score capped at 100, levels, STEP_UP for MEDIUM with strengthenable signals, REVIEW for HIGH where step-up is impossible; per-event-type fail-open/closed; REVIEW floor for high-value events while degraded; BLOCK only through automatic blocking (build step 8) |
 | Rules | Typed JSON conditions (no code, no regex), bounded (depth 6, 50 nodes, 200 rules per environment), versioned insert-only with rollback, shadow mode, test endpoint, audited; cached per environment for 5 s |
 | Settings | Per-environment signal weights (0-50), high-value thresholds (default 1,000,000 minor units, per-currency overrides), fail policies; audited (`risk:configure`) |
 | Reproducibility | Evaluations store rule versions, facts, shadow signals and policy reasons |
@@ -706,14 +718,15 @@ password.
 | OpenAPI 3.1 | OpenAPI 3.0.3 until oapi-codegen fully supports 3.1 | [ADR-0004](adr/ADR-0004-openapi-3-0.md) |
 | IDs are type-prefixed UUIDv7 | Domain IDs follow the design. Request correlation IDs stay `req_` + 128-bit random base32: they are not stored entities and need no time ordering | This appendix |
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
-| Console screens for the live risk monitor, entity pages (users, accounts, devices, transactions) and analytics beyond counts | Not built; the console covers triage, investigation, configuration and administration ([CONSOLE.md](CONSOLE.md)) | TODO(phase-8) |
-| Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no breached-password check, SSO or email delivery yet | TODO(phase-8) |
-| Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
+| Analytics from a separate store (section 6) | Analytics query the events table per request, with indexes on time and entity; no rollups or separate store yet ([CONSOLE.md](CONSOLE.md)) | TODO(phase-9) |
+| Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no SSO or email delivery yet | TODO(phase-8) |
+| Redis state is rebuildable (section 12) | A total loss of Redis state makes every user look new; history signals go silent without being reported as degraded ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md#losing-redis-state)) | TODO(phase-8) |
+| Rate limits per tenant, key, IP and endpoint (section 9) | Per key, per tenant, failed authentications per client address, and per tenant for sensitive operations are built ([SECURITY.md](SECURITY.md)). A per-address limit on all traffic belongs at the gateway, since customers' servers share addresses. The limiter fails open if Redis is down | TODO(phase-8) |
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
-| Rules: four-eyes promotion to production (sections 10, 16) | Rules can be created, tested, versioned and rolled back; a `rules:write` key changes production rules directly (audited). Approval before a production change applies comes with the other four-eyes controls | TODO(phase-8) |
-| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Not built: the engine never returns BLOCK. Auto-block needs shadow evidence and a kill switch; hard-block needs deny-lists | TODO(phase-8) |
+| Four-eyes approval for tenant suspension, support access, key-pepper rotation and audit or retention configuration (section 16) | Production rule changes need a second person's approval ([RISK_ENGINE.md](RISK_ENGINE.md)). The other approvals belong to the internal admin realm, which is not built | TODO(phase-8) |
+| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Automatic blocking is built: off by default, 14 days of shadow evidence before it can be switched on, and a kill switch ([RISK_ENGINE.md](RISK_ENGINE.md#automatic-blocking)). Hard blocks come from tenant deny lists of users, accounts, devices, IP addresses, beneficiaries and countries ([RISK_ENGINE.md](RISK_ENGINE.md#deny-lists)), not from rules: rules only add weight | Resolved |
 | Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
 | Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |
 | Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |
@@ -721,4 +734,4 @@ password.
 | Webhook egress through a proxy with an allow policy (section 9) | Not built; the resolved-IP dialer check is the SSRF control until deployment infrastructure exists | TODO(phase-8) |
 | Per-tenant webhook queues (section 14) | One `webhooks` queue with global concurrency, separate from other jobs; per-tenant fairness is not built | TODO(phase-8) |
 | Webhook secrets derived from a master secret in the secrets manager (section 16) | Derived from `RISKOS_WEBHOOK_SIGNING_KEY`, an environment variable locally; the secrets manager comes with deployment | TODO(phase-8) |
-| CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), govulncheck, Trivy, gitleaks and SBOMs are in CI. Static analysis with CodeQL and image signing arrive with the deployment pipeline | TODO(phase-7) |
+| CI gates include Semgrep or CodeQL; signed images and provenance | gosec (in golangci-lint), CodeQL (Go and TypeScript, failing on high-severity findings), govulncheck, Trivy, gitleaks and SBOMs are in CI. Image signing and provenance arrive with the deployment pipeline and its registry | TODO(phase-8) |

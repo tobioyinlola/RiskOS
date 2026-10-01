@@ -12,6 +12,23 @@ import (
 	"github.com/google/uuid"
 )
 
+const countDenyEntries = `-- name: CountDenyEntries :one
+SELECT count(*) FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2
+`
+
+type CountDenyEntriesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+func (q *Queries) CountDenyEntries(ctx context.Context, arg CountDenyEntriesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countDenyEntries, arg.TenantID, arg.EnvironmentID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countRules = `-- name: CountRules :one
 SELECT count(*) FROM rules
 `
@@ -21,6 +38,85 @@ func (q *Queries) CountRules(ctx context.Context) (int64, error) {
 	var count int64
 	err := row.Scan(&count)
 	return count, err
+}
+
+const countWouldBlock = `-- name: CountWouldBlock :one
+SELECT count(*) FROM evaluations
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3
+  AND NOT dry_run AND 'would_block' = ANY (policy_reasons)
+`
+
+type CountWouldBlockParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+}
+
+// Evaluations since @since that automatic blocking would have blocked (shadow evidence).
+func (q *Queries) CountWouldBlock(ctx context.Context, arg CountWouldBlockParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWouldBlock, arg.TenantID, arg.EnvironmentID, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const decideRuleChange = `-- name: DecideRuleChange :execrows
+UPDATE rule_changes
+SET status = $1, decided_by = $2, decided_at = $3, reason = $4,
+    applied_version = $5
+WHERE tenant_id = $6 AND environment_id = $7 AND id = $8 AND status = 'pending'
+`
+
+type DecideRuleChangeParams struct {
+	Status         string
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	Reason         *string
+	AppliedVersion *int32
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+}
+
+func (q *Queries) DecideRuleChange(ctx context.Context, arg DecideRuleChangeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, decideRuleChange,
+		arg.Status,
+		arg.DecidedBy,
+		arg.DecidedAt,
+		arg.Reason,
+		arg.AppliedVersion,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteDenyEntry = `-- name: DeleteDenyEntry :one
+DELETE FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+RETURNING kind, value
+`
+
+type DeleteDenyEntryParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+type DeleteDenyEntryRow struct {
+	Kind  string
+	Value string
+}
+
+func (q *Queries) DeleteDenyEntry(ctx context.Context, arg DeleteDenyEntryParams) (DeleteDenyEntryRow, error) {
+	row := q.db.QueryRow(ctx, deleteDenyEntry, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i DeleteDenyEntryRow
+	err := row.Scan(&i.Kind, &i.Value)
+	return i, err
 }
 
 const getCurrentRule = `-- name: GetCurrentRule :one
@@ -77,7 +173,8 @@ func (q *Queries) GetCurrentRule(ctx context.Context, arg GetCurrentRuleParams) 
 }
 
 const getRiskSettings = `-- name: GetRiskSettings :one
-SELECT weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds, updated_at, updated_by
+SELECT weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds,
+       auto_block_mode, auto_block_shadow_since, updated_at, updated_by
 FROM risk_settings
 WHERE tenant_id = $1 AND environment_id = $2
 `
@@ -88,14 +185,16 @@ type GetRiskSettingsParams struct {
 }
 
 type GetRiskSettingsRow struct {
-	Weights             []byte
-	HighValueDefault    int64
-	HighValueByCurrency []byte
-	FailPolicies        []byte
-	AlertMinDecision    string
-	Thresholds          []byte
-	UpdatedAt           time.Time
-	UpdatedBy           string
+	Weights              []byte
+	HighValueDefault     int64
+	HighValueByCurrency  []byte
+	FailPolicies         []byte
+	AlertMinDecision     string
+	Thresholds           []byte
+	AutoBlockMode        string
+	AutoBlockShadowSince *time.Time
+	UpdatedAt            time.Time
+	UpdatedBy            string
 }
 
 func (q *Queries) GetRiskSettings(ctx context.Context, arg GetRiskSettingsParams) (GetRiskSettingsRow, error) {
@@ -108,8 +207,51 @@ func (q *Queries) GetRiskSettings(ctx context.Context, arg GetRiskSettingsParams
 		&i.FailPolicies,
 		&i.AlertMinDecision,
 		&i.Thresholds,
+		&i.AutoBlockMode,
+		&i.AutoBlockShadowSince,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+	)
+	return i, err
+}
+
+const getRuleChange = `-- name: GetRuleChange :one
+SELECT tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity, weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+`
+
+type GetRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+func (q *Queries) GetRuleChange(ctx context.Context, arg GetRuleChangeParams) (RuleChange, error) {
+	row := q.db.QueryRow(ctx, getRuleChange, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i RuleChange
+	err := row.Scan(
+		&i.TenantID,
+		&i.EnvironmentID,
+		&i.ID,
+		&i.RuleID,
+		&i.Code,
+		&i.Kind,
+		&i.BaseVersion,
+		&i.Name,
+		&i.Description,
+		&i.Severity,
+		&i.Weight,
+		&i.Mode,
+		&i.Enabled,
+		&i.Condition,
+		&i.RestoredFrom,
+		&i.Status,
+		&i.ProposedBy,
+		&i.ProposedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.Reason,
+		&i.AppliedVersion,
 	)
 	return i, err
 }
@@ -165,6 +307,38 @@ func (q *Queries) GetRuleVersion(ctx context.Context, arg GetRuleVersionParams) 
 	return i, err
 }
 
+const insertDenyEntry = `-- name: InsertDenyEntry :exec
+INSERT INTO deny_list_entries (tenant_id, environment_id, id, kind, value, reason, expires_at, created_at, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+`
+
+type InsertDenyEntryParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	Value         string
+	Reason        string
+	ExpiresAt     *time.Time
+	CreatedAt     time.Time
+	CreatedBy     string
+}
+
+func (q *Queries) InsertDenyEntry(ctx context.Context, arg InsertDenyEntryParams) error {
+	_, err := q.db.Exec(ctx, insertDenyEntry,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+		arg.Kind,
+		arg.Value,
+		arg.Reason,
+		arg.ExpiresAt,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
+	return err
+}
+
 const insertRule = `-- name: InsertRule :exec
 
 INSERT INTO rules (tenant_id, environment_id, id, code, current_version, created_by)
@@ -187,6 +361,61 @@ func (q *Queries) InsertRule(ctx context.Context, arg InsertRuleParams) error {
 		arg.ID,
 		arg.Code,
 		arg.CreatedBy,
+	)
+	return err
+}
+
+const insertRuleChange = `-- name: InsertRuleChange :exec
+
+INSERT INTO rule_changes (
+  tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity,
+  weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+  $11, $12, $13, $14, $15, 'pending', $16, $17
+)
+`
+
+type InsertRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	RuleID        uuid.UUID
+	Code          string
+	Kind          string
+	BaseVersion   *int32
+	Name          string
+	Description   string
+	Severity      string
+	Weight        int16
+	Mode          string
+	Enabled       bool
+	Condition     []byte
+	RestoredFrom  *int32
+	ProposedBy    string
+	ProposedAt    time.Time
+}
+
+// Rule changes awaiting two-person approval (production) -------------------------------------
+func (q *Queries) InsertRuleChange(ctx context.Context, arg InsertRuleChangeParams) error {
+	_, err := q.db.Exec(ctx, insertRuleChange,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+		arg.RuleID,
+		arg.Code,
+		arg.Kind,
+		arg.BaseVersion,
+		arg.Name,
+		arg.Description,
+		arg.Severity,
+		arg.Weight,
+		arg.Mode,
+		arg.Enabled,
+		arg.Condition,
+		arg.RestoredFrom,
+		arg.ProposedBy,
+		arg.ProposedAt,
 	)
 	return err
 }
@@ -234,6 +463,46 @@ func (q *Queries) InsertRuleVersion(ctx context.Context, arg InsertRuleVersionPa
 		arg.RestoredFrom,
 	)
 	return err
+}
+
+const listActiveDenyEntries = `-- name: ListActiveDenyEntries :many
+
+SELECT kind, value FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2
+  AND (expires_at IS NULL OR expires_at > $3)
+`
+
+type ListActiveDenyEntriesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Now           *time.Time
+}
+
+type ListActiveDenyEntriesRow struct {
+	Kind  string
+	Value string
+}
+
+// Deny lists ------------------------------------------------------------------------------
+// The entries evaluation applies (cached per environment).
+func (q *Queries) ListActiveDenyEntries(ctx context.Context, arg ListActiveDenyEntriesParams) ([]ListActiveDenyEntriesRow, error) {
+	rows, err := q.db.Query(ctx, listActiveDenyEntries, arg.TenantID, arg.EnvironmentID, arg.Now)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveDenyEntriesRow
+	for rows.Next() {
+		var i ListActiveDenyEntriesRow
+		if err := rows.Scan(&i.Kind, &i.Value); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCurrentRules = `-- name: ListCurrentRules :many
@@ -291,6 +560,154 @@ func (q *Queries) ListCurrentRules(ctx context.Context, arg ListCurrentRulesPara
 			&i.VersionCreatedAt,
 			&i.VersionCreatedBy,
 			&i.RestoredFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listDenyEntries = `-- name: ListDenyEntries :many
+SELECT tenant_id, environment_id, id, kind, value, reason, expires_at, created_at, created_by FROM deny_list_entries
+WHERE tenant_id = $1 AND environment_id = $2
+  AND ($3::text IS NULL OR kind = $3::text)
+ORDER BY id DESC
+LIMIT $4
+`
+
+type ListDenyEntriesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Kind          *string
+	Lim           int32
+}
+
+func (q *Queries) ListDenyEntries(ctx context.Context, arg ListDenyEntriesParams) ([]DenyListEntry, error) {
+	rows, err := q.db.Query(ctx, listDenyEntries,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Kind,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []DenyListEntry
+	for rows.Next() {
+		var i DenyListEntry
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.Kind,
+			&i.Value,
+			&i.Reason,
+			&i.ExpiresAt,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listPendingRuleChanges = `-- name: ListPendingRuleChanges :many
+SELECT rule_id, id FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND status = 'pending'
+`
+
+type ListPendingRuleChangesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+type ListPendingRuleChangesRow struct {
+	RuleID uuid.UUID
+	ID     uuid.UUID
+}
+
+func (q *Queries) ListPendingRuleChanges(ctx context.Context, arg ListPendingRuleChangesParams) ([]ListPendingRuleChangesRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRuleChanges, arg.TenantID, arg.EnvironmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingRuleChangesRow
+	for rows.Next() {
+		var i ListPendingRuleChangesRow
+		if err := rows.Scan(&i.RuleID, &i.ID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRuleChanges = `-- name: ListRuleChanges :many
+SELECT tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity, weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2
+  AND ($3::text IS NULL OR status = $3::text)
+ORDER BY id DESC
+LIMIT $4
+`
+
+type ListRuleChangesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Status        *string
+	Lim           int32
+}
+
+func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams) ([]RuleChange, error) {
+	rows, err := q.db.Query(ctx, listRuleChanges,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Status,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RuleChange
+	for rows.Next() {
+		var i RuleChange
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.RuleID,
+			&i.Code,
+			&i.Kind,
+			&i.BaseVersion,
+			&i.Name,
+			&i.Description,
+			&i.Severity,
+			&i.Weight,
+			&i.Mode,
+			&i.Enabled,
+			&i.Condition,
+			&i.RestoredFrom,
+			&i.Status,
+			&i.ProposedBy,
+			&i.ProposedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.Reason,
+			&i.AppliedVersion,
 		); err != nil {
 			return nil, err
 		}
@@ -361,6 +778,67 @@ func (q *Queries) ListRuleVersions(ctx context.Context, arg ListRuleVersionsPara
 	return items, nil
 }
 
+const lockRuleChange = `-- name: LockRuleChange :one
+SELECT tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity, weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+FOR UPDATE
+`
+
+type LockRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+func (q *Queries) LockRuleChange(ctx context.Context, arg LockRuleChangeParams) (RuleChange, error) {
+	row := q.db.QueryRow(ctx, lockRuleChange, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i RuleChange
+	err := row.Scan(
+		&i.TenantID,
+		&i.EnvironmentID,
+		&i.ID,
+		&i.RuleID,
+		&i.Code,
+		&i.Kind,
+		&i.BaseVersion,
+		&i.Name,
+		&i.Description,
+		&i.Severity,
+		&i.Weight,
+		&i.Mode,
+		&i.Enabled,
+		&i.Condition,
+		&i.RestoredFrom,
+		&i.Status,
+		&i.ProposedBy,
+		&i.ProposedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.Reason,
+		&i.AppliedVersion,
+	)
+	return i, err
+}
+
+const ruleCodeExists = `-- name: RuleCodeExists :one
+SELECT EXISTS (
+  SELECT 1 FROM rules WHERE tenant_id = $1 AND environment_id = $2 AND code = $3
+)
+`
+
+type RuleCodeExistsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Code          string
+}
+
+func (q *Queries) RuleCodeExists(ctx context.Context, arg RuleCodeExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, ruleCodeExists, arg.TenantID, arg.EnvironmentID, arg.Code)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const setRuleCurrentVersion = `-- name: SetRuleCurrentVersion :execrows
 UPDATE rules SET current_version = $1
 WHERE tenant_id = $2 AND environment_id = $3 AND id = $4
@@ -391,8 +869,8 @@ func (q *Queries) SetRuleCurrentVersion(ctx context.Context, arg SetRuleCurrentV
 }
 
 const upsertRiskSettings = `-- name: UpsertRiskSettings :exec
-INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds, updated_at, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds, auto_block_mode, auto_block_shadow_since, updated_at, updated_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   weights = EXCLUDED.weights,
   high_value_default = EXCLUDED.high_value_default,
@@ -400,21 +878,25 @@ ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   fail_policies = EXCLUDED.fail_policies,
   alert_min_decision = EXCLUDED.alert_min_decision,
   thresholds = EXCLUDED.thresholds,
+  auto_block_mode = EXCLUDED.auto_block_mode,
+  auto_block_shadow_since = EXCLUDED.auto_block_shadow_since,
   updated_at = EXCLUDED.updated_at,
   updated_by = EXCLUDED.updated_by
 `
 
 type UpsertRiskSettingsParams struct {
-	TenantID            uuid.UUID
-	EnvironmentID       uuid.UUID
-	Weights             []byte
-	HighValueDefault    int64
-	HighValueByCurrency []byte
-	FailPolicies        []byte
-	AlertMinDecision    string
-	Thresholds          []byte
-	UpdatedAt           time.Time
-	UpdatedBy           string
+	TenantID             uuid.UUID
+	EnvironmentID        uuid.UUID
+	Weights              []byte
+	HighValueDefault     int64
+	HighValueByCurrency  []byte
+	FailPolicies         []byte
+	AlertMinDecision     string
+	Thresholds           []byte
+	AutoBlockMode        string
+	AutoBlockShadowSince *time.Time
+	UpdatedAt            time.Time
+	UpdatedBy            string
 }
 
 func (q *Queries) UpsertRiskSettings(ctx context.Context, arg UpsertRiskSettingsParams) error {
@@ -427,6 +909,8 @@ func (q *Queries) UpsertRiskSettings(ctx context.Context, arg UpsertRiskSettings
 		arg.FailPolicies,
 		arg.AlertMinDecision,
 		arg.Thresholds,
+		arg.AutoBlockMode,
+		arg.AutoBlockShadowSince,
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 	)

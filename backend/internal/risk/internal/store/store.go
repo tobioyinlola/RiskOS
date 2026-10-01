@@ -106,3 +106,20 @@ func nonNilStrings(s []string) []string {
 	}
 	return s
 }
+
+// TopSignals counts how often each signal fired in events since since, most frequent first.
+func (Store) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCount, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.TopSignals(ctx, sqlcgen.TopSignalsParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since})
+	if err != nil {
+		return nil, fmt.Errorf("top signals: %w", err)
+	}
+	out := make([]domain.SignalCount, len(rows))
+	for i, r := range rows {
+		out[i] = domain.SignalCount{Code: r.Code, Label: r.Label, Hits: int(r.Hits)}
+	}
+	return out, nil
+}

@@ -7,6 +7,7 @@ import (
 	"crypto/sha1" //nolint:gosec // RFC 6238 TOTP, as authenticator apps compute it
 	"encoding/base32"
 	"encoding/binary"
+	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"net/http"
@@ -68,7 +69,7 @@ func (b *browser) do(t *testing.T, method, path string, body any) response {
 			b.cookie = c.Value
 		}
 	}
-	return response{status: rec.Code, raw: rec.Body.Bytes()}
+	return response{status: rec.Code, raw: rec.Body.Bytes(), header: rec.Header()}
 }
 
 // refresh reads the session (and its CSRF token).
@@ -348,5 +349,50 @@ func TestConsoleSignInThrottling(t *testing.T) {
 		assert.Contains(t, []int{http.StatusUnauthorized, http.StatusConflict}, r.status, r.String())
 		r = m.b.do(t, http.MethodPost, "/api/v1/auth/mfa/passkeys/login/options", nil)
 		assert.Equal(t, http.StatusConflict, r.status, "no passkey registered")
+	})
+}
+
+// pwnedRange serves the Pwned Passwords range API with the given passwords marked breached.
+func pwnedRange(t *testing.T, breached ...string) *httptest.Server {
+	t.Helper()
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		prefix := strings.TrimPrefix(r.URL.Path, "/range/")
+		for _, p := range breached {
+			sum := sha1.Sum([]byte(p)) //nolint:gosec // the range API is keyed by SHA-1
+			h := strings.ToUpper(hex.EncodeToString(sum[:]))
+			if h[:5] == prefix {
+				fmt.Fprintf(w, "%s:42\n", h[5:])
+			}
+		}
+		fmt.Fprintln(w, "0000000000000000000000000000000000A:0") // padding
+	}))
+	t.Cleanup(srv.Close)
+	return srv
+}
+
+func TestConsoleBreachedPasswords(t *testing.T) {
+	const breached = "correct horse battery staple"
+	pwned := pwnedRange(t, breached)
+	s := newStackWith(t, time.Second, generousLimits(), shared.rdb,
+		withConsole(auth.ConsoleConfig{Breach: auth.PwnedPasswords(pwned.URL, time.Second)}, false))
+	a := s.createTenant(t, "Breached passwords")
+	token := s.inviteToken(t, a, "breach@bank.example", authz.RoleAnalyst)
+
+	r := s.browser().do(t, http.MethodPost, "/api/v1/auth/invites/accept", map[string]any{"token": token, "name": "Bo", "password": breached})
+	assert.Equal(t, http.StatusBadRequest, r.status, r.String())
+	assert.Contains(t, r.String(), "data breach")
+	r = s.browser().do(t, http.MethodPost, "/api/v1/auth/invites/accept", map[string]any{"token": token, "name": "Bo", "password": testPassword})
+	assert.Equal(t, http.StatusOK, r.status, "the invite is still usable after a refused password: %s", r)
+
+	t.Run("an unreachable breach service does not block joining", func(t *testing.T) {
+		down := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, _ *http.Request) { w.WriteHeader(http.StatusBadGateway) }))
+		down.Close()
+		s := newStackWith(t, time.Second, generousLimits(), shared.rdb,
+			withConsole(auth.ConsoleConfig{Breach: auth.PwnedPasswords(down.URL, time.Second)}, false))
+		b := s.createTenant(t, "Breach service down")
+		r := s.browser().do(t, http.MethodPost, "/api/v1/auth/invites/accept", map[string]any{
+			"token": s.inviteToken(t, b, "down@bank.example", authz.RoleAnalyst), "name": "Cy", "password": testPassword,
+		})
+		assert.Equal(t, http.StatusOK, r.status, r.String())
 	})
 }

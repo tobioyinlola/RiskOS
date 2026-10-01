@@ -9,7 +9,8 @@ analysts investigate as cases, and every material action is audited.
 Product specification (source of truth): [`docs/spec/`](docs/spec/RiskOS_Complete_Implementation_Specification.md).
 Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 
-> **Status:** build steps 1-7 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order).
+> **Status:** build steps 1-8 of [the build order](docs/ARCHITECTURE.md#17-decisions-and-build-order),
+> with step 8's infrastructure-dependent parts still open (Appendix B).
 > Built: the platform, tenants, environments, API keys, the hash-chained audit log, RBAC, event
 > ingest with idempotency, strict validation and rate limits, and the risk engine: ten behavioral
 > signals, tenant rules (versioned, shadow mode, testable), tunable weights and a decision policy
@@ -19,8 +20,15 @@ Architecture: [`docs/ARCHITECTURE.md`](docs/ARCHITECTURE.md).
 > alert and case events to customer systems with retries and delivery logs
 > ([docs/WEBHOOKS.md](docs/WEBHOOKS.md)), and the console: sign-in with a mandatory passkey or
 > authenticator app, alert triage, cases, rules, risk settings, keys, webhooks, team and audit log
-> for both environments ([docs/CONSOLE.md](docs/CONSOLE.md)). Next: security hardening, load and
-> failure testing (step 8).
+> for both environments ([docs/CONSOLE.md](docs/CONSOLE.md)). Step 8 added:
+> - failure and restore drills with the fixes they found ([docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md));
+> - per-address and per-operation abuse limits and a breached-password check;
+> - CodeQL scanning;
+> - two-person approval of production rule changes;
+> - opt-in automatic blocking behind shadow evidence.
+>
+> Still open, because they need deployment infrastructure or more product: SSO, the internal admin
+> realm, signed images, managed backups and region failover, and deny-list hard blocks.
 
 ## Prerequisites
 
@@ -112,6 +120,7 @@ make help         # all targets
 | Console against the stack | `frontend/tests/e2e/stack.spec.ts` | `make up && make test-e2e-stack` |
 | Micro-benchmarks | `Benchmark*` in backend | `make bench` |
 | Load (k6) | `backend/test/load` | `make up && make load` (HTTP baseline), `make load-events API_KEY=...` (decision path) |
+| Failure and restore drills | `scripts/failure-drill.sh`, `scripts/restore-drill.sh` | `make up && make failure-drill && make restore-drill` ([docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md)) |
 
 Baseline numbers: [`docs/PERFORMANCE_BASELINE.md`](docs/PERFORMANCE_BASELINE.md).
 

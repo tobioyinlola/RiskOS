@@ -11,10 +11,10 @@ import {
   type ReactNode,
 } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input } from "@/components/instrument/field";
-import { Modal } from "@/components/instrument/overlay";
-import { Notice } from "@/components/instrument/states";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { Modal } from "@/components/ui/overlay";
+import { Notice } from "@/components/ui/states";
 import { api, ApiError, unwrap } from "@/lib/api/client";
 import { SESSION_KEY, useSession } from "@/lib/session";
 import { assertPasskey, passkeysSupported } from "@/lib/webauthn";

@@ -25,7 +25,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Configuration | Fail-fast validation; secrets never echoed; production requires verified Postgres TLS and a Redis password | `platform/config` |
 | Containers | Distroless, nonroot, read-only root filesystem, all capabilities dropped, `no-new-privileges` | Dockerfiles, `docker-compose.yml` |
 | Local networking | PostgreSQL and Redis ports bound to 127.0.0.1 only; Redis requires a password | `docker-compose.yml` |
-| Supply chain | Pinned toolchains, lockfiles, digest-pinned images, SHA-pinned actions, Dependabot, govulncheck, pnpm audit, Trivy, SBOMs | CI |
+| Supply chain | Pinned toolchains, lockfiles, digest-pinned images, SHA-pinned actions, Dependabot, govulncheck, pnpm audit, Trivy, SBOMs, CodeQL (security-extended queries; high-severity findings fail CI unless accepted with a written reason in `.github/codeql-accepted.json`) | CI |
 | Secrets in code | gitleaks in pre-commit and in CI over the full history | `lefthook.yml`, CI |
 | API keys | `rsk_test_`/`rsk_live_` keys; only an HMAC with a server-side pepper is stored; shown once; scoped; rotation with overlap; revocation effective within 5 s; uniform 401 | `internal/auth` |
 | Console sign-in | Argon2id passwords, mandatory passkey or TOTP second factor, recovery codes, throttling, HttpOnly SameSite=Strict session cookies with hashed tokens, CSRF tokens and Origin checks, re-authentication for high-impact actions | `internal/auth` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
@@ -33,14 +33,17 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Tenant isolation | Credential-derived scope, tenant-scoped queries, Postgres RLS under the non-owner `riskos_app` role, uniform 404, cross-tenant test matrix | [TENANCY.md](TENANCY.md) |
 | Audit log | Append-only (grants and trigger), per-tenant hash chain written in the action's transaction, verification detects tampering | `internal/audit`, `riskosctl audit verify` |
 | Strict input validation | Every request validated against the OpenAPI contract before any handler runs; unknown fields rejected | `internal/httpapi/contract.go` |
-| Rate limiting | Per API key and per tenant (GCRA in Redis, atomic across both limits); fails open if Redis is down | `platform/ratelimit` |
+| Rate limiting | Per API key and per tenant (GCRA in Redis, atomic across both limits). Failed authentications per client address: 30 per minute, after which the address gets 429 before any credential lookup. Per tenant and operation for operations that reach outside RiskOS or change access (webhook tests and redeliveries, new endpoints, keys and invites, dry-run evaluations). Every limit fails open if Redis is down, with each check bounded to 50 ms | `platform/ratelimit`, `internal/httpapi/guards.go` |
+| Client addresses | The direct peer, or the right-most `X-Forwarded-For` entry added by a proxy listed in `RISKOS_TRUSTED_PROXIES`; client-written entries are ignored. Production refuses to trust every address | `platform/httpx/clientip.go` |
+| Breached passwords | New console passwords are checked against Pwned Passwords with k-anonymity (5 hash characters leave RiskOS, padded responses); found passwords are refused | `internal/auth/internal/breach` ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
+| Dependency outages | Redis circuit breaker; a 1 s deadline for database connections, then 503 with `Retry-After`; checked under load by the failure drill | [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md) |
 | Data minimization | Card-number-like values are rejected anywhere in an event and never echoed; identifiers are opaque references; profile changes carry field names, not values | `internal/events` |
 | Replay and idempotency | Unique event key per tenant and environment, stored-response replay, payload-hash conflicts, time window | `internal/events` |
 | Pseudonymized features | Identifiers are HMAC-keyed per tenant and environment (`RISKOS_FEATURE_HASH_KEY`) before they reach Redis | `internal/risk` |
-| Decision integrity | Degraded sources are listed, never guessed; fail-closed default for transactions; REVIEW floor for high-value events while degraded; high-risk events never update baselines; BLOCK never produced | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
+| Decision integrity | Degraded sources are listed, never guessed; fail-closed default for transactions; REVIEW floor for high-value events while degraded; high-risk events never update baselines; BLOCK only through automatic blocking, switched on after 14 days of shadow evidence, with a kill switch | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 | Alerts and cases | Raised off the decision path through a transactional outbox; jobs re-check the tenant and hold one system-only permission; RLS, insert-only notes and timelines, audit without free text | `internal/alerts`, `internal/cases` ([ALERTS_AND_CASES.md](ALERTS_AND_CASES.md)) |
 | Webhooks | Signed (HMAC-SHA256, id + timestamp + body), secrets derived and never stored, rotation with overlap, SSRF-safe dialer on the resolved IP, no redirects, dedicated delivery queue, auto-disable of failing endpoints with a security alert | `internal/webhooks` ([WEBHOOKS.md](WEBHOOKS.md)) |
-| Rules | Typed JSON conditions only (no code, no regex), depth, node, list and count bounds, immutable versions, rollback, shadow mode, every change audited | `internal/risk` |
+| Rules | Typed JSON conditions only (no code, no regex), depth, node, list and count bounds, immutable versions, rollback, shadow mode, every change audited. Production changes need a second person's approval (`rules:approve`, people only, never the proposer) | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 
 ## Designed, not yet built
 
@@ -48,14 +51,14 @@ A dedicated disclosure contact and response targets are defined before any produ
 
 | Area | Design | Build step |
 |---|---|---|
-| Authentication realms (remaining) | Breached-password check and SSO for the console; internal admin with SSO, hardware keys and a private access path | 8 |
+| Authentication realms (remaining) | SSO for the console; internal admin with SSO, hardware keys and a private access path | 8 |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |
-| Rate limiting (remaining) | Per IP and per endpoint at the gateway; concurrency caps; load shedding | 8 |
-| Decision integrity (remaining) | Four-eyes approval of production rule changes; an operator-wide view of degradation across tenants; baseline drift alerts; auto-block with shadow evidence and a kill switch | 8 |
+| Rate limiting (remaining) | WAF and per-address limits on all traffic at the gateway; concurrency caps; load shedding | 8 |
+| Decision integrity (remaining) | An operator-wide view of degradation across tenants; baseline drift alerts | 8 |
 | Webhooks (remaining) | Egress proxy with an allow policy; per-tenant delivery queues; signing key in the secrets manager | 8 |
 | Dashboard hardening (remaining) | SSO; step-up for exports once exports exist | 8 |
 | Cryptography | Envelope encryption with per-tenant data keys (crypto-shredding), secrets manager/KMS, TLS 1.2+ everywhere | 8 |
-| Supply chain | CodeQL or Semgrep, signed images, build provenance, deploys refuse unsigned images | 8 |
+| Supply chain (remaining) | Signed images, build provenance, deploys refuse unsigned images (with the deployment pipeline and its registry) | 8 |
 | Assurance | Independent penetration test before the first production customer; `security.txt`; remediation targets (critical 7 days, high 30, assumption) | 8 |

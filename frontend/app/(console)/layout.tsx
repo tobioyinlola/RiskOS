@@ -3,7 +3,7 @@
 import { usePathname, useRouter } from "next/navigation";
 import { useCallback, type ReactNode } from "react";
 
-import { Loading } from "@/components/instrument/states";
+import { Loading } from "@/components/ui/states";
 import { AppShell } from "@/components/shell/app-shell";
 import { ReauthProvider } from "@/components/shell/reauth";
 import { ShortcutsProvider } from "@/components/shell/shortcuts";

@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/netip"
 	"net/url"
 	"strconv"
 	"strings"
@@ -56,6 +57,10 @@ type Console struct {
 	RPID string
 	// CookieSecure sets the Secure attribute on the session cookie. Required in production.
 	CookieSecure bool
+	// BreachedPasswordCheck is "pwned" (check new passwords against the Pwned Passwords range
+	// API, k-anonymity) or "off". BreachedPasswordURL overrides the API's address.
+	BreachedPasswordCheck string
+	BreachedPasswordURL   string
 }
 
 // Validate checks the console settings; call it in binaries that serve the console API or
@@ -64,6 +69,9 @@ func (c Console) Validate(env Environment) error {
 	var errs []error
 	if len(c.Secret) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET: required, at least %d bytes", MinPepperBytes))
+	}
+	if c.BreachedPasswordCheck != "" && c.BreachedPasswordCheck != "pwned" && c.BreachedPasswordCheck != "off" {
+		errs = append(errs, errors.New("RISKOS_BREACHED_PASSWORD_CHECK: must be pwned or off"))
 	}
 	u, err := url.Parse(c.URL)
 	if err != nil || !u.IsAbs() || u.Host == "" {
@@ -143,6 +151,12 @@ type RateLimit struct {
 	KeyBurst        int
 	TenantPerSecond float64
 	TenantBurst     int
+	// Timeout bounds each limit check; past it the request is allowed (limits fail open).
+	Timeout time.Duration
+	// AuthFailuresPerMinute and AuthFailuresBurst limit failed authentications per client
+	// address; past them the address gets 429 before any credential lookup.
+	AuthFailuresPerMinute float64
+	AuthFailuresBurst     int
 }
 
 // Auth configures API key authentication. It is validated only by the binaries that
@@ -194,6 +208,9 @@ type HTTP struct {
 	RequestTimeout    time.Duration
 	MaxHeaderBytes    int
 	MaxBodyBytes      int64
+	// TrustedProxies are the networks of proxies in front of the API (load balancer, the
+	// console's server). Only their X-Forwarded-For is believed; see httpx.ClientIP.
+	TrustedProxies []netip.Prefix
 	// ShutdownDrainDelay is how long readiness reports "unavailable" before the listener closes,
 	// giving load balancers time to stop routing new traffic.
 	ShutdownDrainDelay time.Duration
@@ -214,6 +231,9 @@ type Postgres struct {
 	MaxConnIdleTime time.Duration
 	ConnectTimeout  time.Duration
 	CheckTimeout    time.Duration
+	// AcquireTimeout bounds getting a connection and beginning a transaction. Past it the
+	// request fails with 503 instead of queueing while the database is unreachable.
+	AcquireTimeout time.Duration
 }
 
 // Redis configures the Redis client.
@@ -226,6 +246,9 @@ type Redis struct {
 	ReadTimeout  time.Duration
 	WriteTimeout time.Duration
 	CheckTimeout time.Duration
+	// BreakerCooldown is how long commands fail at once after Redis proves unreachable
+	// (0 disables the circuit breaker).
+	BreakerCooldown time.Duration
 }
 
 // Telemetry configures OpenTelemetry export. When disabled, no-op providers are installed.
@@ -253,10 +276,13 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
 		},
 		RateLimit: RateLimit{
-			KeyPerSecond:    r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),
-			KeyBurst:        r.integer("RISKOS_RATE_LIMIT_KEY_BURST", 200),
-			TenantPerSecond: r.float("RISKOS_RATE_LIMIT_TENANT_PER_SECOND", 500),
-			TenantBurst:     r.integer("RISKOS_RATE_LIMIT_TENANT_BURST", 1000),
+			KeyPerSecond:          r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),
+			KeyBurst:              r.integer("RISKOS_RATE_LIMIT_KEY_BURST", 200),
+			TenantPerSecond:       r.float("RISKOS_RATE_LIMIT_TENANT_PER_SECOND", 500),
+			TenantBurst:           r.integer("RISKOS_RATE_LIMIT_TENANT_BURST", 1000),
+			Timeout:               r.duration("RISKOS_RATE_LIMIT_TIMEOUT", 50*time.Millisecond),
+			AuthFailuresPerMinute: r.float("RISKOS_RATE_LIMIT_AUTH_FAILURES_PER_MINUTE", 30),
+			AuthFailuresBurst:     r.integer("RISKOS_RATE_LIMIT_AUTH_FAILURES_BURST", 30),
 		},
 		Auth: Auth{
 			APIKeyPepper:   r.str("RISKOS_API_KEY_PEPPER", ""),
@@ -267,6 +293,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		LogLevel:    r.logLevel("RISKOS_LOG_LEVEL", slog.LevelInfo),
 		HTTP: HTTP{
 			Addr:               r.str("RISKOS_HTTP_ADDR", ":8080"),
+			TrustedProxies:     r.prefixes("RISKOS_TRUSTED_PROXIES"),
 			ReadHeaderTimeout:  r.duration("RISKOS_HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
 			ReadTimeout:        r.duration("RISKOS_HTTP_READ_TIMEOUT", 10*time.Second),
 			WriteTimeout:       r.duration("RISKOS_HTTP_WRITE_TIMEOUT", 15*time.Second),
@@ -291,16 +318,18 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			MaxConnIdleTime: r.duration("RISKOS_POSTGRES_MAX_CONN_IDLE_TIME", 15*time.Minute),
 			ConnectTimeout:  r.duration("RISKOS_POSTGRES_CONNECT_TIMEOUT", 5*time.Second),
 			CheckTimeout:    r.duration("RISKOS_POSTGRES_CHECK_TIMEOUT", time.Second),
+			AcquireTimeout:  r.duration("RISKOS_POSTGRES_ACQUIRE_TIMEOUT", time.Second),
 		},
 		Redis: Redis{
-			Addr:         r.required("RISKOS_REDIS_ADDR"),
-			Password:     r.str("RISKOS_REDIS_PASSWORD", ""),
-			DB:           r.integer("RISKOS_REDIS_DB", 0),
-			PoolSize:     r.integer("RISKOS_REDIS_POOL_SIZE", 20),
-			DialTimeout:  r.duration("RISKOS_REDIS_DIAL_TIMEOUT", 2*time.Second),
-			ReadTimeout:  r.duration("RISKOS_REDIS_READ_TIMEOUT", 500*time.Millisecond),
-			WriteTimeout: r.duration("RISKOS_REDIS_WRITE_TIMEOUT", 500*time.Millisecond),
-			CheckTimeout: r.duration("RISKOS_REDIS_CHECK_TIMEOUT", time.Second),
+			Addr:            r.required("RISKOS_REDIS_ADDR"),
+			Password:        r.str("RISKOS_REDIS_PASSWORD", ""),
+			DB:              r.integer("RISKOS_REDIS_DB", 0),
+			PoolSize:        r.integer("RISKOS_REDIS_POOL_SIZE", 20),
+			DialTimeout:     r.duration("RISKOS_REDIS_DIAL_TIMEOUT", 2*time.Second),
+			ReadTimeout:     r.duration("RISKOS_REDIS_READ_TIMEOUT", 500*time.Millisecond),
+			WriteTimeout:    r.duration("RISKOS_REDIS_WRITE_TIMEOUT", 500*time.Millisecond),
+			CheckTimeout:    r.duration("RISKOS_REDIS_CHECK_TIMEOUT", time.Second),
+			BreakerCooldown: r.duration("RISKOS_REDIS_BREAKER_COOLDOWN", time.Second),
 		},
 		Telemetry: Telemetry{
 			Enabled:      r.boolean("RISKOS_OTEL_ENABLED", false),
@@ -329,6 +358,14 @@ func (c Config) validate() []error {
 	if strings.TrimSpace(c.ServiceName) == "" {
 		add("RISKOS_SERVICE_NAME: must not be empty")
 	}
+	for _, p := range c.HTTP.TrustedProxies {
+		if p.Bits() == 0 && c.Env == EnvProduction {
+			add("RISKOS_TRUSTED_PROXIES: production must name its proxies, not trust every address")
+		}
+	}
+	if c.RateLimit.AuthFailuresPerMinute < 0 || c.RateLimit.AuthFailuresBurst < 1 {
+		add("RISKOS_RATE_LIMIT_AUTH_FAILURES_PER_MINUTE: must be at least 0 (0 disables), with a burst of at least 1")
+	}
 
 	for name, d := range map[string]time.Duration{
 		"RISKOS_HTTP_READ_HEADER_TIMEOUT":    c.HTTP.ReadHeaderTimeout,
@@ -347,6 +384,8 @@ func (c Config) validate() []error {
 		"RISKOS_REDIS_READ_TIMEOUT":          c.Redis.ReadTimeout,
 		"RISKOS_REDIS_WRITE_TIMEOUT":         c.Redis.WriteTimeout,
 		"RISKOS_REDIS_CHECK_TIMEOUT":         c.Redis.CheckTimeout,
+		"RISKOS_POSTGRES_ACQUIRE_TIMEOUT":    c.Postgres.AcquireTimeout,
+		"RISKOS_RATE_LIMIT_TIMEOUT":          c.RateLimit.Timeout,
 	} {
 		if d <= 0 {
 			add("%s: must be a positive duration", name)
@@ -540,6 +579,32 @@ func (r *reader) duration(key string, def time.Duration) time.Duration {
 	return d
 }
 
+// prefixes reads a comma-separated list of CIDR prefixes (a bare address is a single host).
+func (r *reader) prefixes(key string) []netip.Prefix {
+	v, ok := r.raw(key)
+	if !ok {
+		return nil
+	}
+	var out []netip.Prefix
+	for _, s := range strings.Split(v, ",") {
+		s = strings.TrimSpace(s)
+		if s == "" {
+			continue
+		}
+		p, err := netip.ParsePrefix(s)
+		if err != nil {
+			a, aerr := netip.ParseAddr(s)
+			if aerr != nil {
+				r.errs = append(r.errs, fmt.Errorf("%s: %q is not a CIDR prefix or address", key, s))
+				continue
+			}
+			p = netip.PrefixFrom(a, a.BitLen())
+		}
+		out = append(out, p.Masked())
+	}
+	return out
+}
+
 func (r *reader) logLevel(key string, def slog.Level) slog.Level {
 	v, ok := r.raw(key)
 	if !ok {
@@ -559,6 +624,9 @@ func consoleConfig(r *reader) Console {
 		URL:          strings.TrimRight(r.str("RISKOS_CONSOLE_URL", "http://localhost:3000"), "/"),
 		RPID:         r.str("RISKOS_WEBAUTHN_RP_ID", ""),
 		CookieSecure: r.boolean("RISKOS_SESSION_COOKIE_SECURE", true),
+
+		BreachedPasswordCheck: r.str("RISKOS_BREACHED_PASSWORD_CHECK", "pwned"),
+		BreachedPasswordURL:   r.str("RISKOS_BREACHED_PASSWORD_URL", ""),
 	}
 	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
 		for _, o := range strings.Split(raw, ",") {

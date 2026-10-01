@@ -20,19 +20,28 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | POST | `/api/v1/api-keys/{key_id}/revoke` | Revoke a key (`api_keys:write`) |
 | GET | `/api/v1/audit-logs` | Tenant-level and own-environment audit entries (`audit_logs:read`) |
 | POST | `/api/v1/events` | Ingest an event, get the risk decision; idempotent on `event_id` (`events:write`) |
-| GET | `/api/v1/events` | List events (`events:read`) |
+| GET | `/api/v1/events` | List events; filter by `type`, `decision`, `risk_level`, `user`, `account`, `device`; `after` returns only newer events (`events:read`) |
 | GET | `/api/v1/events/{event_id}` | Event with raw and normalized payloads and its evaluation (`events:read`) |
+| GET | `/api/v1/entities/{kind}/{ref}` | A user's, account's or device's profile from its most recent 5,000 events (`events:read`) |
+| GET | `/api/v1/analytics` | Events per hour or day by band and decision, highest-risk users, most frequent signals; `window` 24h, 7d or 30d (`events:read`) |
 | POST | `/api/v1/risk/evaluate` | Dry-run evaluation; stores no event (`risk:evaluate`) |
 | GET | `/api/v1/risk/policy` | The environment's bands, thresholds and default decisions (any score-reading scope) |
 | GET | `/api/v1/risk/catalog` | Built-in signals with effective weights, and the fields and operators rules can use (`rules:read`) |
 | GET | `/api/v1/risk/settings` | Signal weights, high-value thresholds, fail policies (`risk:configure`) |
 | PUT | `/api/v1/risk/settings` | Replace them; audited (`risk:configure`) |
 | GET | `/api/v1/rules` | List rules with their current versions (`rules:read`) |
-| POST | `/api/v1/rules` | Create a rule; audited (`rules:write`) |
+| POST | `/api/v1/rules` | Create a rule; audited (`rules:write`). In production, rule changes answer 202 with a proposal awaiting approval |
 | GET | `/api/v1/rules/{rule_id}` | A rule's current version (`rules:read`) |
 | PATCH | `/api/v1/rules/{rule_id}` | Change a rule, creating a new version; audited (`rules:write`) |
 | GET | `/api/v1/rules/{rule_id}/versions` | Version history (`rules:read`) |
 | POST | `/api/v1/rules/{rule_id}/rollback` | Restore an earlier version as a new version; audited (`rules:write`) |
+| GET | `/api/v1/rule-changes` | Proposed production rule changes, by `status` (default pending) (`rules:read`) |
+| GET | `/api/v1/rule-changes/{change_id}` | A proposed change (`rules:read`) |
+| POST | `/api/v1/rule-changes/{change_id}/approve` | Apply a change; a person other than the proposer, never a key; audited (`rules:approve`) |
+| POST | `/api/v1/rule-changes/{change_id}/reject` | Reject, or withdraw your own; audited (`rules:approve`, or the proposer) |
+| GET | `/api/v1/deny-list` | Deny-list entries, by `kind`, with the total and the limit (`rules:read` or `risk:configure`) |
+| POST | `/api/v1/deny-list` | List an identifier; events carrying it are blocked; audited (`risk:configure`) |
+| DELETE | `/api/v1/deny-list/{entry_id}` | Remove an entry; audited (`risk:configure`) |
 | GET | `/api/v1/alerts` | List alerts; filter by `status`, `kind` (`alerts:read`) |
 | GET | `/api/v1/alerts/{alert_id}` | Alert with its evaluations and timeline (`alerts:read`) |
 | PATCH | `/api/v1/alerts/{alert_id}` | Triage: status, assignee, note; audited (`alerts:write`) |
@@ -76,17 +85,35 @@ generated code is stale. An operation that is not in the contract cannot be rout
 - Status codes: 400 `INVALID_REQUEST`, 401 `UNAUTHENTICATED` (never says why), 403 `FORBIDDEN`
   or `TENANT_SUSPENDED`, 404 `NOT_FOUND` (also for other tenants' resources), 409 `CONFLICT` or
   `IDEMPOTENCY_CONFLICT`, 413 `PAYLOAD_TOO_LARGE`, 422 `INVALID_EVENT`, `STALE_EVENT` or
-  `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`).
+  `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`), 503 `SERVICE_UNAVAILABLE` (with
+  `Retry-After`; nothing was stored) or `TIMEOUT`.
 - Every request is validated against this contract before it reaches a handler; unknown fields
   are rejected.
-- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`); an ID of the wrong
+- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`, `rch_`); an ID of the wrong
   type is not found.
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.
 
+## Retries
+
+A request that fails with 429, 503, a timeout or a network error can be retried safely:
+
+- Retry an event with the **same `event_id`**. If the first attempt was stored after all, the
+  retry returns the stored decision with `Idempotent-Replay: true`; the event is never stored
+  twice.
+- Wait at least `Retry-After` seconds when it is present, back off exponentially otherwise, and
+  add random jitter so clients do not retry in lockstep after an outage.
+- While the decision is unavailable, apply your own fallback for the transaction (for example,
+  hold it for review). The API fails fast instead of queueing: a database outage answers 503
+  within about a second, and a Redis outage still returns decisions, degraded and failing
+  closed ([RISK_ENGINE.md](RISK_ENGINE.md)).
+
+The failure drill (`make failure-drill`, [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) checks
+that such a client loses no event and stores none twice across Redis, PostgreSQL, worker and API
+restarts.
+
 ## To be designed (TODO(phase-0))
 
 - Remaining operations of spec §7 (entities, analytics).
-- Console session authentication (build step 7).
 - Filtering and sorting conventions for lists (event type, decision, time range).
 - Versioning and deprecation policy.

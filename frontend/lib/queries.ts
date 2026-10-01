@@ -46,18 +46,73 @@ export function useSignalCategories(): (code: string) => string {
   return (code) => map.get(code) ?? "rule";
 }
 
-export function useEvents(limit = 50) {
-  const key = useKey("events", limit);
+/** Filters of GET /api/v1/events (all optional). */
+export type EventFilter = {
+  type?: Schemas["EventType"];
+  decision?: Schemas["Decision"];
+  risk_level?: Schemas["RiskLevel"];
+  user?: string;
+  account?: string;
+  device?: string;
+};
+
+export function useEvents(limit = 50, filter: EventFilter = {}) {
+  const key = useKey("events", limit, filter);
   return useInfiniteQuery({
     queryKey: key,
     initialPageParam: undefined as string | undefined,
     queryFn: async ({ pageParam }) =>
       unwrap(
         await api().GET("/api/v1/events", {
-          params: { query: { limit, cursor: pageParam } },
+          params: { query: { limit, cursor: pageParam, ...filter } },
         }),
       ),
     getNextPageParam: (last) => last.next_cursor ?? undefined,
+  });
+}
+
+export type EntityKind = "user" | "account" | "device";
+
+export function useEntity(kind: EntityKind, ref: string) {
+  const key = useKey("entity", kind, ref);
+  return useQuery({
+    queryKey: key,
+    retry: false,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/entities/{kind}/{ref}", {
+          params: { path: { kind, ref } },
+        }),
+      ),
+  });
+}
+
+export function useDenyList(kind?: Schemas["DenyKind"]) {
+  const key = useKey("deny-list", kind ?? "all");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/deny-list", {
+          params: { query: kind ? { kind } : {} },
+        }),
+      ),
+  });
+}
+
+export type AnalyticsWindow = "24h" | "7d" | "30d";
+
+export function useAnalytics(window: AnalyticsWindow) {
+  const key = useKey("analytics", window);
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/analytics", {
+          params: { query: { window } },
+        }),
+      ),
+    staleTime: 60_000,
   });
 }
 
@@ -169,6 +224,35 @@ export function useRuleVersions(id: string | undefined) {
       unwrap(
         await api().GET("/api/v1/rules/{rule_id}/versions", {
           params: { path: { rule_id: id! } },
+        }),
+      ),
+  });
+}
+
+export function useRuleChanges(
+  status: "pending" | "approved" | "rejected" | "all" = "pending",
+) {
+  const key = useKey("rule-changes", status);
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/rule-changes", {
+          params: { query: { status } },
+        }),
+      ),
+  });
+}
+
+export function useRuleChange(id: string | null | undefined) {
+  const key = useKey("rule-changes", "one", id);
+  return useQuery({
+    queryKey: key,
+    enabled: !!id,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/rule-changes/{change_id}", {
+          params: { path: { change_id: id! } },
         }),
       ),
   });

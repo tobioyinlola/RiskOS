@@ -59,7 +59,7 @@ func run() (err error) {
 	defer pool.Close()
 
 	clk := clock.System{}
-	runner := db.NewTxRunner(pool)
+	runner := db.NewTxRunner(pool, db.WithBeginTimeout(cfg.Postgres.AcquireTimeout))
 	auditModule := audit.New(runner, clk)
 	tenantsModule := tenants.New(runner, auditModule.Recorder())
 	// Jobs publish follow-up jobs (webhook deliveries) inside their own transactions.

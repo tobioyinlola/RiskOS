@@ -62,17 +62,19 @@ type SessionLookup struct {
 // SessionByToken finds a session by its token hash (pre-authentication).
 func (s Store) SessionByToken(ctx context.Context, tokenHash []byte) (*SessionLookup, error) {
 	var r SessionLookup
-	err := s.pool.QueryRow(ctx,
-		`SELECT id, tenant_id, user_id, state, created_at, last_seen_at, expires_at, reauth_at, revoked_at,
-		        user_status, user_role, tenant_status, tenant_name, test_env_id, production_env_id
-		 FROM auth_session_by_token($1)`, tokenHash,
-	).Scan(&r.ID, &r.TenantID, &r.UserID, &r.State, &r.CreatedAt, &r.LastSeenAt, &r.ExpiresAt, &r.ReauthAt,
-		&r.RevokedAt, &r.UserStatus, &r.UserRole, &r.TenantStatus, &r.TenantName, &r.TestEnvID, &r.ProductionEnvID)
+	err := preAuth(ctx, "look up session", func(ctx context.Context) error {
+		return s.pool.QueryRow(ctx,
+			`SELECT id, tenant_id, user_id, state, created_at, last_seen_at, expires_at, reauth_at, revoked_at,
+			        user_status, user_role, tenant_status, tenant_name, test_env_id, production_env_id
+			 FROM auth_session_by_token($1)`, tokenHash,
+		).Scan(&r.ID, &r.TenantID, &r.UserID, &r.State, &r.CreatedAt, &r.LastSeenAt, &r.ExpiresAt, &r.ReauthAt,
+			&r.RevokedAt, &r.UserStatus, &r.UserRole, &r.TenantStatus, &r.TenantName, &r.TestEnvID, &r.ProductionEnvID)
+	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil //nolint:nilnil // unknown session is a normal outcome
 	}
 	if err != nil {
-		return nil, fmt.Errorf("look up session: %w", err)
+		return nil, err
 	}
 	return &r, nil
 }
