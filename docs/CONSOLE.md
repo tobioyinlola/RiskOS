@@ -2,7 +2,7 @@
 
 The RiskOS console is the dashboard where a tenant's people triage alerts, work cases, write
 rules, tune risk settings and manage keys, webhooks and their team. It is a Next.js app in
-`frontend/` built on the generated API client, and it follows the Instrument design system
+`frontend/` built on the generated API client, and it follows the RiskOS design system
 ([design-system.md](design-system.md)). Sign-in, sessions and team management are described in
 [CONSOLE_AUTH.md](CONSOLE_AUTH.md).
 
@@ -34,9 +34,27 @@ every request carries it in the `RiskOS-Environment` header, and every cached qu
 it, so switching never shows one environment's data under the other. The choice is remembered
 per browser. In production the console shows a PRODUCTION banner across the top.
 
+## Layout and preferences
+
+- **Navigation.** The left navigation (240px) collapses to an icon rail with the button at its
+  foot or with `[`. In the rail, each section's name shows on hover or focus. Narrow screens get
+  a drawer instead.
+- **Command palette.** `Ctrl+K` (`⌘K` on a Mac), or the search box in the top bar, opens the
+  palette. Type to find a section or an action (switch environment, theme, row density,
+  navigation, shortcuts, sign out), then press Enter.
+- **Preferences.** The theme (dark Console by default, light Daylight), table row density
+  (Default 40px or Compact 32px) and the navigation state are kept per browser. The top bar has
+  buttons for theme and density. The theme is applied before the page paints, so it never
+  flashes.
+- **Evidence.** IDs in drawers and headers have a copy button, and code and payload blocks can
+  be copied in one click.
+- **Danger actions.** Revoking a key, disabling a webhook endpoint and removing a passkey each
+  open a confirmation that names the object.
+
 ## Keyboard
 
-`?` lists the shortcuts on every screen. `g` then a letter moves between sections (`g a` alerts,
+`?` lists the shortcuts on every screen. `Ctrl+K` opens the command palette; `[` collapses or
+expands the navigation. `g` then a letter moves between sections (`g a` alerts,
 `g e` events, `g c` cases, `g r` rules, `g o` overview). In the alert queue: `j`/`k` move,
 `Enter` opens, `i` marks investigating, `f` false positive, `x` resolves, `c` opens a case.
 Shortcuts are ignored while typing in a field.

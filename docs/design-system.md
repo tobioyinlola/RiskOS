@@ -1,253 +1,498 @@
-# RiskOS Design System — "Instrument"
+# RiskOS Design System
 
-> Spec for Claude Code. Save this as `docs/design-system.md` and add this line to `CLAUDE.md`: "Follow `docs/design-system.md` for all UI work; never hard-code colours, spacing, radii or fonts." The stack is Next.js + TypeScript. Implement the tokens as CSS variables in `app/globals.css`, map them into Tailwind, and build components on an accessible headless layer (Radix or Base UI).
+> Spec for Claude Code. Use this file as the source of truth when building the RiskOS frontend (Next.js + TypeScript). Put it in the repo (e.g. `docs/design-system.md`) and reference it from `CLAUDE.md`. Implement the tokens as CSS variables in `app/globals.css`, map them into the Tailwind theme, and build components on an accessible headless layer (Radix or Base UI). Never hard-code colors, spacing or radii; always use the tokens below.
 
-## Brand book
+## Overview
 
-RiskOS is a precision instrument for money. Events go in and an explainable reading comes out, like a seismograph recording a tremor before the quake. Every design decision follows from that idea: graphite and paper grounds, one live signal colour, rulers and ticks instead of decoration, readouts instead of big numbers, and a trace line that runs through the whole brand.
+RiskOS is an API-first financial risk intelligence platform: events go in, an explainable score and decision come out, and analysts work alerts and cases. This system is built for that job. Its users are fraud analysts, risk ops leads and developers integrating the API. They read dense data for hours, act on it quickly, and must be able to justify every decision later.
 
-### The idea: Instrument
+### Principles
 
-- **Calibrated, not decorated.** Nothing on screen is ornamental. Every line is a measurement: a rule, a tick, a trace or a threshold.
-- **One live signal.** Signal lime (`signal`) is the brand colour and means "this is live, this is ours". It is never a risk colour, never a gradient, and rarely covers more than 5% of a screen.
-- **Readings, then reasons.** A score is shown as a reading on a scale (`RiskScore`), and the reasons come right after it (`ReasonList`). Never show a bare number.
-- **Graphite for operators, paper for records.** The console runs on `dark` (Graphite). Docs, reports, exports and printed case files run on `light` (Paper), which is a warm off-white like chart paper, not pure white.
+1. **The score is never alone.** Every risk score ships with its band word, its decision and its top reasons. Show `RiskScore` with a `ReasonList` next to it, never a bare number.
+2. **Color means risk or it means nothing.** The five `risk-*` tokens are reserved for risk bands. Brand teal (`accent`) is for interaction only. System health uses the `status-*` tokens. No decorative color.
+3. **Never color alone.** Every band, status and decision carries a word, an icon, or both. The risk scale runs grey → blue → amber → orange → rose, so it never depends on telling red from green.
+4. **Density is a setting.** Default to `row-default`; offer Compact (`row-compact`) on queues and event streams. Never go below 32px rows.
+5. **Evidence over decoration.** Show IDs, timestamps and raw payloads in `data` (mono), and make them one click to copy. There are no illustrations in the product UI.
+6. **Dark console, light documents.** The analyst console defaults to the `dark` theme. Docs, reports, exports and printed case files use `light`. Both themes are complete; users can switch.
 
-### Signature elements
+### Voice and content
 
-These four things make RiskOS recognisable. Use them consistently, and don't invent others.
-
-1. **The trace.** A 1.5px (`trace-stroke`) line that stays flat and then spikes. It crosses the symbol, underlines the active tab, sits in `TraceLine` sparklines, and draws the loading state (a flat line that pulses once). On dark, draw it in `signal`. On paper, draw it in `signal-ink`.
-2. **The readout.** Headline scores use the `readout` style, always three digits, with leading zeros in `ink-3` (`087`), set in a `bg-sunken` well with square corners (`radius-0`). It looks like a meter, not a KPI.
-3. **The ruler.** Scales are drawn as rulers: `tick-minor` every 2 points, `tick-major` with a `legend` number every 10, band thresholds in `line-control`. The needle is a 2px `ink` line.
-4. **The band glyph.** The risk band is shown by the number of filled bars (1 to 5, like signal strength) as well as by colour and word. The band stays readable in greyscale, in print and for colour-blind analysts.
-
-### Voice
-
-- Write like an instrument's manual crossed with an analyst's case note: exact, calm, and with units. "Card used in 3 countries in 40 min", not "Suspicious activity detected!"
-- Use sentence case, and "you" for the user. No "we", no exclamation marks, no emoji.
-- Decisions are verbs (**Allow**, **Review**, **Step-up**, **Block**). Bands are adjectives (**Minimal**, **Low**, **Elevated**, **High**, **Critical**).
-- Always give a number with its unit and window: "6× baseline (1h)", "38 ms", "4,500.00 NGN".
-- Uppercase appears only in the mono `legend` style, like the printing on an instrument panel.
-- Taglines are short and physical: "Read the tremor before the quake." "Every score, calibrated." "Risk, measured."
+- Write plainly and precisely, the way a senior analyst writes a case note: "Card used from 3 countries in 40 minutes", not "Suspicious activity detected!"
+- Use sentence case everywhere, including buttons ("Open case", "Mark as fraud"). Use uppercase only in the `overline` style.
+- Speak to the user as "you". The product has no "I" or "we" in the UI. Use no exclamation marks and no emoji.
+- Label decisions with verbs: **Allow**, **Review**, **Block**, **Step-up**. Label bands with adjectives: **Minimal**, **Low**, **Elevated**, **High**, **Critical**.
+- Give numbers with units and scope: "4,500.00 NGN", "6× baseline (1h)", "score 87 / 100". Show relative time with the absolute time in a tooltip.
+- Reasons read as evidence, not blame: "Device first seen 2 minutes ago", not "Fraudulent device".
 
 ### Risk scale
 
-| Band | Score | Bars | Default decision | Colour / wash |
+Scores are integers from 0 to 100. The bands and their default routing are fixed across the API, the UI and exports:
+
+| Band | Score | Default decision | Text / fill | Badge ground |
 |---|---|---|---|---|
-| Minimal | 0–19 | ▮▯▯▯▯ | Allow | `risk-minimal` / `risk-minimal-wash` |
-| Low | 20–49 | ▮▮▯▯▯ | Allow | `risk-low` / `risk-low-wash` |
-| Elevated | 50–69 | ▮▮▮▯▯ | Review | `risk-elevated` / `risk-elevated-wash` |
-| High | 70–89 | ▮▮▮▮▯ | Step-up or Block | `risk-high` / `risk-high-wash` |
-| Critical | 90–100 | ▮▮▮▮▮ | Block + open case | `risk-critical` / `risk-critical-wash` |
+| Minimal | 0–19 | Allow | `risk-minimal` | `risk-minimal-bg` |
+| Low | 20–49 | Allow | `risk-low` | `risk-low-bg` |
+| Elevated | 50–69 | Review | `risk-elevated` | `risk-elevated-bg` |
+| High | 70–89 | Block or Step-up | `risk-high` | `risk-high-bg` |
+| Critical | 90–100 | Block + open case | `risk-critical` | `risk-critical-bg` |
 
-Tenants can move the thresholds. When they do, read them from the policy API, redraw the ruler's threshold ticks, and show "custom calibration" in `legend` beside the scale.
+Tenants can move the thresholds. When they do, the UI reads the thresholds from the tenant's policy, never from hard-coded numbers, and shows a "custom thresholds" note beside the scale.
 
-> **Implementation note (RiskOS engine 2.0.0):** the bands and default thresholds above are the engine's. The engine's defaults are Minimal/Low Allow (Low steps up with a strengthenable signal), Elevated Review, High Step-up (Review where step-up is impossible) and Critical Review. Critical becomes Block only where a tenant switched automatic blocking on, after shadow evidence; analysts never block by hand. Read the environment's actual decisions from `GET /api/v1/risk/policy` ([RISK_ENGINE.md](RISK_ENGINE.md)).
+> **Implementation note (RiskOS engine 2.0.0):** the decisions an environment actually takes come from `GET /api/v1/risk/policy`, not from this table. By default the engine allows Minimal and Low (Low steps up with a strengthenable signal), reviews Elevated, steps up High (Review where step-up is impossible) and reviews Critical. Critical becomes Block only where the tenant switched automatic blocking on after shadow evidence ([RISK_ENGINE.md](RISK_ENGINE.md#automatic-blocking)). Show the decision the policy returns.
 
 ### Visual foundations
 
-**Colour.** Grounds step `bg-canvas` → `bg-surface` → `bg-raised`, with `bg-sunken` for readout wells, code and header strips. Text is `ink`, `ink-2` and `ink-3`; all three pass 4.5:1 on every ground in both themes. Draw hairlines in `line-subtle` and control edges in `line-control` (3:1). Use `signal` only as a fill or as the trace. Use `signal-ink` for signal-coloured text and thin lines, because lime can't sit directly on paper. Primary buttons use `primary-fill` with an `on-primary` label: lime with graphite text in dark, graphite with lime text in light. That inversion is intentional and on-brand. `signal-wash` marks the selected row. There are no gradients, glows or glass effects.
+**Color.** Build screens from `bg-canvas` (page), `bg-surface` (panels) and `bg-raised` (menus, hover, selected row). Use `bg-sunken` for code, JSON and table header strips. Set text in `text-primary`, `text-secondary` and `text-muted`; all three pass 4.5:1 on every background in both themes. Divide with `border-subtle`. Give every input and secondary button a `border-control` edge (3:1). Fill primary actions with `accent` and put `on-accent` text on them. `accent-subtle` marks the selected row and active filters.
 
-**Type.** The interface is Instrument Sans: a tight, slightly condensed grotesk with instrument-like precision, set with negative tracking at large sizes. Every number, ID, legend and readout is JetBrains Mono with `font-variant-numeric: tabular-nums slashed-zero`. The two families split the work: sans is for people, mono is for the machine's readings. Load Instrument Sans 400/500/600 and JetBrains Mono 400/500 from Google Fonts.
+**Type.** Set the UI in IBM Plex Sans and all data in IBM Plex Mono with tabular figures (`font-variant-numeric: tabular-nums`), so amounts and scores line up in columns. Use `body` for the default text. Use `body-sm` in Compact tables. Use `label` for column headers and form labels. Use `score-xl` only for the one headline score on a case or event. Load both families from Google Fonts at weights 400, 500 and 600.
 
-**Grid and spacing.** Everything sits on a 4px grid (`space-1` … `space-8`). Covers, empty states and marketing pages may show grid paper: `line-subtle` lines at `space-4` minor and `space-8` major pitch. The product UI never does. The console layout is a left nav (232px), a filter bar, the queue table, and a 480px right drawer that opens over the table, so the analyst keeps their place.
+**Spacing and layout.** Everything sits on a 4px grid (`space-1` … `space-7`). Pad panels with `space-4`. Leave `space-5` between panels. Use `space-6` for page gutters. The standard layout is a left nav (240px), a filter bar, the main table, and a right drawer (480px) for the selected alert or case. The drawer opens over the table rather than replacing it, so the analyst never loses their place in the queue.
 
-**Shape.** Corners are nearly square: `radius-0` for readouts, rulers and tables, `radius-sm` for badges, `radius-md` for controls and `radius-lg` for panels. Only the live dot and the symbol's ring are round. Panels are flat with a `line-subtle` edge. Only floating layers take `shadow-overlay`.
+**Shape and depth.** Corners are small: `radius-sm` for badges, `radius-md` for controls, `radius-lg` for panels. Panels are flat with a `border-subtle` edge. Only floating layers (menus, popovers, drawers, modals) take `shadow-overlay`. There are no gradients, glows or glass effects.
 
-**Focus and states.** Focus is a 2px solid `focus-ring` outline at 2px offset with square corners. Hover moves a row to `bg-raised`. Selected rows take `signal-wash` plus a 2px `signal-ink` bar at the row's left edge; this is the one place a left-edge bar is allowed, because it works as a needle. Disabled controls sit at 40% opacity. Loading shows a flat trace, or skeleton rows at the real row height.
+**Focus and states.** Every focusable element gets a 2px solid `focus-ring` outline at 2px offset. Hover lifts a row to `bg-raised`. Disabled controls drop to 40% opacity and keep their border. Loading shows skeleton rows at the real row height, not spinners over tables.
 
-**Motion.** Motion is mechanical and brief, 120–180ms with `cubic-bezier(0.2, 0, 0, 1)`. The needle eases to its value once. The trace draws left to right once on load. The live dot pulses at a slow 2s rhythm. New events slide in without moving rows the user is reading, and the stream pauses on hover. With `prefers-reduced-motion`, show all of these without animation.
+**Motion.** Keep motion to 120–200ms ease-out for drawers, menus and row highlight. New events streaming into a table fade in without shifting rows the user is reading: pause the stream while the pointer is over the table. Respect `prefers-reduced-motion`.
 
-**Charts.** Draw series as `trace-stroke` lines, not filled areas. The primary series uses `signal-ink` and comparisons or baselines use `ink-3` dashed. Axes are rulers with `legend` labels. When a chart encodes risk, it uses the `risk-*` tokens in band order. Band thresholds are `line-control` rules. Every chart has a table view.
-
-### Logo
-
-The symbol is a dial ring crossed by a trace spike: the instrument catching a reading. See the Logos asset group for the files and rules. The wordmark is the symbol followed by `riskos` in lowercase Instrument Sans 600 at -0.03em. Write "RiskOS" in running text.
+**Data visualization.** Time series use `accent` for the primary series and `text-muted` for baseline or comparison. When a chart encodes risk, it uses the `risk-*` tokens in band order and nothing else. Score distributions are histograms with the band thresholds drawn as `border-control` rules. Every chart has a table view.
 
 ### Iconography
 
-Use Lucide at a 1.5px stroke (matching `trace-stroke`), square line caps, 16px inline and 20px in nav, inheriting the text colour. Required pairs: activity (trace) for live, gauge for score, shield for policy, fingerprint for device, map-pin for geo, timer for velocity, octagon for block. Don't use filled icons, duotone or emoji.
+Use one outline icon set at a 1.5px stroke, sized `icon-sm` (16px) inline and `icon-md` (20px) in nav. Lucide is the suggested open-source set. Icons inherit the text color of their context. Required pairs: check for success, triangle for warning or elevated, octagon for block or critical, shield for policy, fingerprint for device, map-pin for geo, and clock for velocity. No logo has been supplied yet, so set the wordmark "RiskOS" in IBM Plex Sans 600 until one exists.
+
+### Components
+
+- `RiskBadge`: the band word on its tinted ground, in every table row and header.
+- `RiskScore`: a number plus a 0–100 meter with band ticks, used for the headline score.
+- `ReasonList`: ranked contributing factors with a direction and weight. This is how RiskOS answers "why".
+- `AlertRow`: one row of the alert queue.
+- `Button`: primary (`accent`), secondary (`border-control`), danger (`status-danger`, only for destructive actions like "Block account").
 
 ### Accessibility
 
-Meet WCAG 2.2 AA as the floor. Every band is encoded three ways (bars, word, colour). Every queue action has a keyboard shortcut (`j`/`k` to move, `a` allow, `r` review, `b` block, `Enter` to open), shown in tooltips and in a `?` overlay. The readout exposes `role="meter"` with a spoken label, for example "Risk score 87 of 100, High".
-
-> **Implementation note:** RiskOS queues triage alerts rather than deciding events, so the alert queue's shortcuts are `j`/`k` move, `Enter` open, `i` investigating, `f` false positive, `x` resolve, `c` open case, `?` help. Decisions (allow/review/block) are made by the engine, not by analysts, until manual decisions exist.
+Meet WCAG 2.2 AA everywhere. Every queue action (next alert, allow, review, block, assign) has a keyboard shortcut, shown in the tooltip and in a `?` overlay. Tables use real `<table>` markup with sortable headers announced to screen readers. Live event streams are announced politely and never steal focus.
 
 ## Tokens
 
-There are two themes: `dark` (Graphite, the default for the analyst console) and `light` (Paper, for docs, reports and exports). Set the theme with `data-theme` on `<html>`.
+Themes: `dark` (Console, the default for the analyst app) and `light` (Daylight, for docs, reports and exports). Set the theme with `data-theme` on `<html>`.
 
-### Colour
+### Color
 
-| Token | Graphite (dark) | Paper (light) | Usage |
+| Token | Dark | Light | Usage |
 |---|---|---|---|
-| `bg-canvas` | `#0e100f` | `#f3f1ea` | Page ground. Graphite in the console, warm paper in docs and reports. Carries the grid-paper texture on covers and empty states only. |
-| `bg-surface` | `#151816` | `#fbfaf6` | Panels, tables, drawers. The default ground for every text token. |
-| `bg-raised` | `#1d211f` | `#ffffff` | Menus, popovers, hovered row. |
-| `bg-sunken` | `#090a0a` | `#e8e5da` | Readout wells behind scores, code and JSON, table header strip. |
-| `line-subtle` | `#262b28` | `#dedad0` | Hairlines: row dividers, panel edges, minor ruler ticks, grid-paper lines. Decorative only. |
-| `line-control` | `#68716a` | `#7c7a6c` | Input and secondary-button edges, major ruler ticks, band thresholds on charts. 3:1 on every ground. |
-| `ink` | `#eceee6` | `#151816` | Primary text, scores, the needle, the symbol's ring. On every ground. |
-| `ink-2` | `#a9afa3` | `#474d45` | Secondary text: labels, column headers, descriptions. On every ground. |
-| `ink-3` | `#878e82` | `#5f655b` | Muted text: timestamps, IDs, units, the dimmed leading zeros of a readout. On every ground (4.5:1+). |
-| `signal` | `#c8f03c` | `#c8f03c` | Signal lime, the brand. A FILL: primary button in dark, the live trace, the symbol's trace, the 'live' dot. On paper it only appears inside a graphite element, never directly on paper. |
-| `signal-ink` | `#c8f03c` | `#4a6400` | Signal as TEXT or a thin line: links, active tab underline, selected nav marker, primary trace line on paper. On every ground. |
-| `on-signal` | `#151816` | `#151816` | Text and icons on a signal fill. |
-| `signal-wash` | `#1c2210` | `#eef3d6` | Selected row and active filter chip ground. Text on it stays ink. |
-| `primary-fill` | `#c8f03c` | `#151816` | Primary button fill: lime on graphite, graphite on paper. |
-| `on-primary` | `#151816` | `#c8f03c` | Primary button label: graphite on lime in dark, lime on graphite in light (13.6:1). |
-| `focus-ring` | `#c8f03c` | `#4a6400` | 2px solid outline, 2px offset, square corners, on every focusable element. |
-| `risk-minimal` | `#9aa39a` | `#5f655b` | Score 0-19, band glyph 1 bar. Text, needle zone and bar fill. |
-| `risk-minimal-wash` | `#2a2e2b` | `#eaeae5` | Ground for a Minimal badge; text risk-minimal. |
-| `risk-low` | `#7fb0ff` | `#2a5cc0` | Score 20-49, 2 bars. Blue: the scale never relies on red vs green. |
-| `risk-low-wash` | `#26303b` | `#e4e9f0` | Ground for a Low badge; text risk-low. |
-| `risk-elevated` | `#f2b33d` | `#8f5200` | Score 50-69, 3 bars. Default route: review. |
-| `risk-elevated-wash` | `#38311c` | `#efe8db` | Ground for an Elevated badge; text risk-elevated. |
-| `risk-high` | `#ff8547` | `#b03e0e` | Score 70-89, 4 bars. Default route: block or step-up. |
-| `risk-high-wash` | `#3a291e` | `#f3e5dc` | Ground for a High badge; text risk-high. |
-| `risk-critical` | `#ff5a73` | `#bb1437` | Score 90-100, 5 bars. Block and open a case. The only red in the product. |
-| `risk-critical-wash` | `#3a2325` | `#f4e1e1` | Ground for a Critical badge; text risk-critical. |
-| `status-ok` | alias of `signal-ink` | alias of `signal-ink` | System health (webhook delivered, key active, model healthy) is the signal colour: 'the line is live'. Always with the live dot or a check. |
-| `status-warn` | alias of `risk-elevated` | alias of `risk-elevated` | System warnings (rate limit near, model drift). Always with a warning icon. |
-| `status-error` | alias of `risk-critical` | alias of `risk-critical` | Destructive actions and system errors. Always with an error icon. |
+| `bg-canvas` | `#0b0f14` | `#f5f7f9` | Page background behind every panel. Never put data directly on it in dense views; use bg-surface. |
+| `bg-surface` | `#121821` | `#ffffff` | Panels, tables, cards, the case drawer. The default ground for all text tokens. |
+| `bg-raised` | `#1a222d` | `#ffffff` | Menus, popovers, hovered table rows, the selected row. In light it matches surface and relies on shadow-overlay. |
+| `bg-sunken` | `#070a0e` | `#eceff3` | Code blocks, JSON payloads, table header strip, input wells. |
+| `border-subtle` | `#232d3a` | `#e1e5ea` | Hairline dividers between rows and panels. Decorative only; never the only edge of a control. |
+| `border-control` | `#5f6f83` | `#76859a` | Edges of inputs, selects, checkboxes, secondary buttons. Meets 3:1 on every background. |
+| `text-primary` | `#e7ecf2` | `#0e1620` | Headings, table values, scores. On bg-canvas, bg-surface, bg-raised, bg-sunken. |
+| `text-secondary` | `#a9b4c2` | `#445266` | Labels, column headers, descriptions. On all backgrounds. |
+| `text-muted` | `#8593a5` | `#5b6879` | Timestamps, IDs, helper text, placeholder. On all backgrounds (4.5:1+). |
+| `accent` | `#2dd4bf` | `#0d7066` | RiskOS Signal teal. Primary buttons, links, selected tab, active nav. Never used to mean a risk level. |
+| `accent-hover` | `#5eead4` | `#0a5a52` | Hover and pressed state of accent fills and links. |
+| `on-accent` | `#04201d` | `#ffffff` | Text and icons on an accent fill. |
+| `accent-subtle` | `#123a37` | `#e3f3f1` | Selected row tint, active filter chip background. Text on it stays text-primary. |
+| `focus-ring` | `#5eead4` | `#0d7066` | 2px solid outline, 2px offset, on every focusable element. 3:1+ on all backgrounds. |
+| `risk-minimal` | `#94a3b8` | `#5b6879` | Score 0-19. Text/icon/meter fill on surfaces. Always paired with the word Minimal. |
+| `risk-minimal-bg` | `#272e39` | `#eff0f2` | Badge background for Minimal; text is risk-minimal. |
+| `risk-low` | `#6aa8ff` | `#1f5fd1` | Score 20-49. Blue, not green, so the scale never depends on red/green. Paired with the word Low. |
+| `risk-low-bg` | `#202f45` | `#e9effa` | Badge background for Low; text is risk-low. |
+| `risk-elevated` | `#f5b942` | `#9a5500` | Score 50-69. Default route: review queue. Paired with the word Elevated. |
+| `risk-elevated-bg` | `#363226` | `#f5eee6` | Badge background for Elevated; text is risk-elevated. |
+| `risk-high` | `#ff8a4c` | `#b93d0a` | Score 70-89. Default route: block or step-up. Paired with the word High. |
+| `risk-high-bg` | `#382a28` | `#f8ece6` | Badge background for High; text is risk-high. |
+| `risk-critical` | `#ff5c7a` | `#c0123c` | Score 90-100. Block and open a case. The only red in the product. Paired with the word Critical. |
+| `risk-critical-bg` | `#38232f` | `#f9e7ec` | Badge background for Critical; text is risk-critical. |
+| `status-success` | `#3ecf8e` | `#137a4b` | System health only: webhook delivered, key active, model healthy. Never a risk level. Always with a check icon. |
+| `status-warning` | alias of `risk-elevated` | alias of `risk-elevated` | System warnings (rate limit near, model drift). Always with a warning icon. |
+| `status-danger` | alias of `risk-critical` | alias of `risk-critical` | Destructive actions and system errors. Always with an error icon. |
+| `status-info` | `#6aa8ff` | `#1f5fd1` | Neutral notices and inline tips. |
 
 ### Typography
 
-Load the fonts with `next/font/google`: Instrument Sans (400, 500, 600) and JetBrains Mono (400, 500). Apply `font-variant-numeric: tabular-nums slashed-zero` to every mono style.
+Families (load IBM Plex Sans 400/500/600 and IBM Plex Mono 400/500 via `next/font/google`):
 
-- `sans`: `"Instrument Sans", ui-sans-serif, system-ui, sans-serif`
-- `mono`: `"JetBrains Mono", ui-monospace, "SFMono-Regular", Menlo, monospace`
+- `sans`: `"IBM Plex Sans", ui-sans-serif, system-ui, sans-serif`
+- `mono`: `"IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace`
 
-| Style | Family | Size / line height | Weight | Tracking | Usage |
+Use `font-variant-numeric: tabular-nums` on every mono style.
+
+| Style | Family | Size / line height | Weight | Letter spacing | Usage |
 |---|---|---|---|---|---|
-| `display` | sans | 44px / 44px | 600 | -0.035em | Site, deck and empty-state headlines. Tight and large; one line where possible. |
-| `title` | sans | 24px / 28px | 600 | -0.02em | Page titles. |
-| `heading` | sans | 17px / 24px | 600 | -0.01em | Panel and drawer titles. |
-| `body` | sans | 14px / 20px | 400 | 0 | Default UI text and table cells. |
-| `body-sm` | sans | 13px / 18px | 400 | 0 | Compact tables, helper text. |
-| `label` | sans | 12px / 16px | 500 | 0 | Form labels, badge words. |
-| `readout` | mono | 56px / 56px | 500 | -0.04em | The headline score. Always three digits; leading zeros in ink-3. One per view. |
-| `metric` | mono | 24px / 28px | 500 | -0.02em | KPI tile numbers. |
-| `data` | mono | 13px / 18px | 400 | 0 | IDs, amounts, IPs, timestamps, keys, JSON. Tabular figures. |
-| `legend` | mono | 11px / 14px | 500 | 0.08em | Uppercase instrument legends: column headers, KPI labels, ruler numbers, nav group names. |
+| `display` | sans | 32px / 40px | 600 | -0.01em | Marketing and empty-state headlines only. |
+| `heading-1` | sans | 24px / 32px | 600 | 0 | Page titles. |
+| `heading-2` | sans | 18px / 26px | 600 | 0 | Panel and drawer titles. |
+| `heading-3` | sans | 15px / 22px | 600 | 0 | Section titles inside panels. |
+| `body` | sans | 14px / 20px | 400 | 0 | Default UI text, table cells, form values. |
+| `body-sm` | sans | 13px / 18px | 400 | 0 | Dense tables, helper text, secondary metadata. |
+| `label` | sans | 12px / 16px | 500 | 0 | Form labels, column headers, badge text. |
+| `overline` | sans | 11px / 16px | 600 | 0.06em | Uppercase group labels in nav and KPI tiles. Use sparingly. |
+| `score-xl` | mono | 40px / 44px | 500 | 0 | The headline risk score in a case or event header. |
+| `metric` | mono | 24px / 28px | 500 | 0 | KPI tile numbers. |
+| `data` | mono | 13px / 18px | 400 | 0 | IDs, amounts, hashes, IPs, timestamps, API keys, JSON. Tabular figures. |
 
 ### Spacing (4px grid)
 
 | Token | Value | Usage |
 |---|---|---|
-| `space-1` | `4px` | Tick spacing on small rulers; icon-to-label gap. |
-| `space-2` | `8px` | Gaps inside controls; badge padding. |
-| `space-3` | `12px` | Table cell padding. |
-| `space-4` | `16px` | Panel padding. Grid-paper minor pitch. |
+| `space-1` | `4px` | Icon-to-label gap, badge vertical padding. |
+| `space-2` | `8px` | Gap inside controls and between inline items; badge horizontal padding. |
+| `space-3` | `12px` | Table cell horizontal padding; gap between form fields in compact density. |
+| `space-4` | `16px` | Panel padding; gap between form fields. |
 | `space-5` | `24px` | Gap between panels; drawer padding. |
-| `space-6` | `32px` | Page gutters. |
-| `space-8` | `64px` | Grid-paper major pitch; empty states and page-top spacing. |
+| `space-6` | `32px` | Page gutters on desktop; section breaks. |
+| `space-7` | `48px` | Empty states and page-top spacing only. |
 
 ### Radius
 
 | Token | Value | Usage |
 |---|---|---|
-| `radius-0` | `0px` | Readout wells, rulers, table, focus ring. Instruments have square faces. |
-| `radius-sm` | `2px` | Badges, checkboxes, tags. |
-| `radius-md` | `4px` | Buttons, inputs, menus. |
-| `radius-lg` | `6px` | Panels, drawers, modals. |
-| `radius-full` | `999px` | The live dot and the symbol's ring only. |
+| `radius-sm` | `4px` | Badges, checkboxes, table row selection, tags. |
+| `radius-md` | `6px` | Buttons, inputs, selects, menus. |
+| `radius-lg` | `10px` | Panels, cards, drawers, modals. |
+| `radius-full` | `999px` | Status dots, avatar, toggle track only. |
 
-### Sizes, density and instrument marks
+### Sizes and density
 
 | Token | Value | Usage |
 |---|---|---|
-| `row-compact` | `32px` | Row height, Compact density (queues, event streams). |
-| `row-default` | `40px` | Row height, Default density. |
-| `control-sm` | `28px` | Buttons and inputs inside rows and toolbars. |
+| `row-compact` | `32px` | Table row height in Compact density (alert queues, event streams). |
+| `row-default` | `40px` | Table row height in Default density. |
+| `control-sm` | `28px` | Small button/input height inside table rows and toolbars. |
 | `control-md` | `36px` | Default button, input and select height. |
-| `trace-stroke` | `1.5px` | Stroke of every trace line and chart series. |
-| `tick-minor` | `4px` | Length of minor ruler ticks. |
-| `tick-major` | `10px` | Length of major ruler ticks (every 10 points). |
+| `icon-sm` | `16px` | Inline icons in tables, badges, buttons. |
+| `icon-md` | `20px` | Navigation and panel header icons. |
 
 ### Shadow
 
 | Token | Value | Usage |
 |---|---|---|
-| `shadow-overlay` | dark: `0 12px 32px rgba(0, 0, 0, 0.55)` / light: `0 12px 32px rgba(21, 24, 22, 0.14), 0 0 0 1px rgba(21, 24, 22, 0.08)` | Menus, popovers, drawers, modals only. Panels on the page use line-subtle. |
+| `shadow-overlay` | dark: `0 8px 24px rgba(0, 0, 0, 0.5)` / light: `0 8px 24px rgba(14, 22, 32, 0.12), 0 0 0 1px rgba(14, 22, 32, 0.06)` | Menus, popovers, drawers, modals. Panels on the page use border-subtle, not shadow. |
 
-## Implementation
+## Implementation: `globals.css`
 
-The implementation lives in the frontend:
+Paste into `app/globals.css`:
 
-- Tokens: `frontend/app/globals.css` (CSS variables for both themes, mapped into Tailwind v4 with `@theme inline`, so components never need `dark:` variants).
-- Risk bands: `frontend/lib/risk.ts` (bands, default thresholds, `bandFor`, `readout`), reading the environment's thresholds from `GET /api/v1/risk/policy`.
-- Logo files: `frontend/public/brand/` (`riskos-symbol-on-dark.svg`, `riskos-symbol-on-light.svg`, `riskos-app-icon.svg`).
-- Components: `frontend/components/instrument/` (`RiskScore`, `RiskBadge`, `ReasonList`, `TraceLine`, `Button` and the console primitives: panels, fields, tables with the selected-row needle, drawer, modal, states), on Radix primitives. The alert queue row lives in `frontend/features/alerts/`.
+```css
+:root,
+[data-theme="dark"] {
+  --bg-canvas: #0b0f14;
+  --bg-surface: #121821;
+  --bg-raised: #1a222d;
+  --bg-sunken: #070a0e;
+  --border-subtle: #232d3a;
+  --border-control: #5f6f83;
+  --text-primary: #e7ecf2;
+  --text-secondary: #a9b4c2;
+  --text-muted: #8593a5;
+  --accent: #2dd4bf;
+  --accent-hover: #5eead4;
+  --on-accent: #04201d;
+  --accent-subtle: #123a37;
+  --focus-ring: #5eead4;
+  --risk-minimal: #94a3b8;
+  --risk-minimal-bg: #272e39;
+  --risk-low: #6aa8ff;
+  --risk-low-bg: #202f45;
+  --risk-elevated: #f5b942;
+  --risk-elevated-bg: #363226;
+  --risk-high: #ff8a4c;
+  --risk-high-bg: #382a28;
+  --risk-critical: #ff5c7a;
+  --risk-critical-bg: #38232f;
+  --status-success: #3ecf8e;
+  --status-warning: var(--risk-elevated);
+  --status-danger: var(--risk-critical);
+  --status-info: #6aa8ff;
+  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.5);
+}
 
-The token values in `globals.css` and the logo SVGs follow this document's tables and sources. `lib/risk.ts` implements the risk scale with the environment's thresholds instead of fixed ones. Where code and this document differ, this document wins.
+[data-theme="light"] {
+  --bg-canvas: #f5f7f9;
+  --bg-surface: #ffffff;
+  --bg-raised: #ffffff;
+  --bg-sunken: #eceff3;
+  --border-subtle: #e1e5ea;
+  --border-control: #76859a;
+  --text-primary: #0e1620;
+  --text-secondary: #445266;
+  --text-muted: #5b6879;
+  --accent: #0d7066;
+  --accent-hover: #0a5a52;
+  --on-accent: #ffffff;
+  --accent-subtle: #e3f3f1;
+  --focus-ring: #0d7066;
+  --risk-minimal: #5b6879;
+  --risk-minimal-bg: #eff0f2;
+  --risk-low: #1f5fd1;
+  --risk-low-bg: #e9effa;
+  --risk-elevated: #9a5500;
+  --risk-elevated-bg: #f5eee6;
+  --risk-high: #b93d0a;
+  --risk-high-bg: #f8ece6;
+  --risk-critical: #c0123c;
+  --risk-critical-bg: #f9e7ec;
+  --status-success: #137a4b;
+  --status-warning: var(--risk-elevated);
+  --status-danger: var(--risk-critical);
+  --status-info: #1f5fd1;
+  --shadow-overlay: 0 8px 24px rgba(14, 22, 32, 0.12), 0 0 0 1px rgba(14, 22, 32, 0.06);
+}
 
-## Logo files
+:root {
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-5: 24px;
+  --space-6: 32px;
+  --space-7: 48px;
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+  --row-compact: 32px;
+  --row-default: 40px;
+  --control-sm: 28px;
+  --control-md: 36px;
+  --icon-sm: 16px;
+  --icon-md: 20px;
+  --font-sans: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  --font-mono: "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo, monospace;
+}
 
-The RiskOS symbol is a dial ring with a trace running through it: the instrument reading a spike. The trace always crosses the ring from edge to edge and is never shown without the ring.
+*:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+}
 
-- `riskos-symbol-on-dark.svg`: ring in paper `#eceee6`, trace in signal lime `#c8f03c`. Use it on `bg-canvas` / `bg-surface` in the dark theme.
-- `riskos-symbol-on-light.svg`: ring in graphite `#151816`, trace in olive `#4a6400`. Use it on paper in the light theme. Lime is never used on paper.
-- `riskos-app-icon.svg`: a graphite tile with a paper ring and lime trace. Use it for the favicon, app icon and social avatar.
-- **Wordmark:** the symbol followed by `riskos` in lowercase Instrument Sans 600, letter-spacing -0.03em. Set the symbol height equal to the cap height plus 30%, with a gap of 0.3× the symbol width. Always lowercase in the wordmark, "RiskOS" in running text.
-- Clear space is the ring's radius on every side. Minimum size is 16px (symbol) or 72px wide (wordmark). Don't rotate it, recolor the trace to a risk color, or animate the ring. The trace may draw on once at load.
+.tabular { font-variant-numeric: tabular-nums; }
+```
+
+## Implementation: Tailwind theme
+
+If the project uses Tailwind v3 (`tailwind.config.ts`); for Tailwind v4, declare the same mappings in an `@theme` block:
+
+```ts
+import type { Config } from 'tailwindcss'
+
+export default {
+  darkMode: ['class', '[data-theme="dark"]'],
+  content: ['./app/**/*.{ts,tsx}', './components/**/*.{ts,tsx}'],
+  theme: {
+    extend: {
+      colors: {
+        'bg-canvas': 'var(--bg-canvas)',
+        'bg-surface': 'var(--bg-surface)',
+        'bg-raised': 'var(--bg-raised)',
+        'bg-sunken': 'var(--bg-sunken)',
+        'border-subtle': 'var(--border-subtle)',
+        'border-control': 'var(--border-control)',
+        'text-primary': 'var(--text-primary)',
+        'text-secondary': 'var(--text-secondary)',
+        'text-muted': 'var(--text-muted)',
+        'accent': 'var(--accent)',
+        'accent-hover': 'var(--accent-hover)',
+        'on-accent': 'var(--on-accent)',
+        'accent-subtle': 'var(--accent-subtle)',
+        'focus-ring': 'var(--focus-ring)',
+        'risk-minimal': 'var(--risk-minimal)',
+        'risk-minimal-bg': 'var(--risk-minimal-bg)',
+        'risk-low': 'var(--risk-low)',
+        'risk-low-bg': 'var(--risk-low-bg)',
+        'risk-elevated': 'var(--risk-elevated)',
+        'risk-elevated-bg': 'var(--risk-elevated-bg)',
+        'risk-high': 'var(--risk-high)',
+        'risk-high-bg': 'var(--risk-high-bg)',
+        'risk-critical': 'var(--risk-critical)',
+        'risk-critical-bg': 'var(--risk-critical-bg)',
+        'status-success': 'var(--status-success)',
+        'status-warning': 'var(--status-warning)',
+        'status-danger': 'var(--status-danger)',
+        'status-info': 'var(--status-info)'
+      },
+      spacing: {
+        '1': 'var(--space-1)',
+        '2': 'var(--space-2)',
+        '3': 'var(--space-3)',
+        '4': 'var(--space-4)',
+        '5': 'var(--space-5)',
+        '6': 'var(--space-6)',
+        '7': 'var(--space-7)'
+      },
+      borderRadius: {
+        'sm': 'var(--radius-sm)',
+        'md': 'var(--radius-md)',
+        'lg': 'var(--radius-lg)',
+        'full': 'var(--radius-full)'
+      },
+      fontFamily: {
+        sans: ['var(--font-sans)'],
+        mono: ['var(--font-mono)'],
+      },
+      boxShadow: { overlay: 'var(--shadow-overlay)' },
+    },
+  },
+} satisfies Config
+```
+
+Keep the risk band thresholds in one shared module (e.g. `lib/risk.ts`) and read tenant overrides from the policy API:
+
+```ts
+export type RiskBand = 'minimal' | 'low' | 'elevated' | 'high' | 'critical'
+export const DEFAULT_THRESHOLDS = { low: 20, elevated: 50, high: 70, critical: 90 }
+export function bandFor(score: number, t = DEFAULT_THRESHOLDS): RiskBand {
+  if (score >= t.critical) return 'critical'
+  if (score >= t.high) return 'high'
+  if (score >= t.elevated) return 'elevated'
+  if (score >= t.low) return 'low'
+  return 'minimal'
+}
+```
 
 ## Components
 
-### RiskScore
-
-The headline reading for one event or case: a three-digit readout in a sunken well, the band badge, a 0–100 ruler with the needle at the score, the decision, and the evaluation latency.
-
-- **Provide:** `score`, `decision` (`allow | review | step_up | block`), `policyId`, `latencyMs`, and `thresholds` from the tenant policy (defaults 20/50/70/90).
-- **Tokens:** readout in the `readout` style with leading zeros in `ink-3`, on `bg-sunken` with `radius-0`. On the ruler, minor ticks are `line-subtle`, major ticks and numbers `ink-3` in `legend`, thresholds dashed `line-control`, and the band strip `risk-*` (bands above the score at 30%). The needle is a 2px `ink` line.
-- **Motion:** the needle eases from 0 to the score once, over 180ms. Nothing else moves.
-- **Do** place a `ReasonList` right after it. Use only one per view. In rows, use `RiskBadge` instead.
-- Mark it up as `role="meter"` with a label such as "Risk score 87 of 100, High".
-
 ### RiskBadge
 
-Shows a risk band three ways at once: a 1–5 bar glyph (like signal strength), the band word, and the band colour on its wash, followed by the score.
+Shows a risk band as a word (and optionally the score) on the band's tinted ground.
 
-- **Provide:** `score` (0–100), or `band` (`minimal | low | elevated | high | critical`), plus an optional `showScore` (default true).
-- **Tokens:** text and bars in `risk-<band>` on `risk-<band>-wash`, `radius-sm`, 22px tall, `label` type, with the score in mono.
-- **Do** use it in every row, drawer header and export. The bars keep it readable in greyscale and print.
-- **Don't** use a risk colour for anything that isn't a band, drop the word to save space, or round the corners further.
+- **Provide:** `score` (0–100) or `band` (`minimal | low | elevated | high | critical`), and optional `showScore`.
+- **Tokens:** text `risk-<band>` on `risk-<band>-bg`, `radius-sm`, `label` type, `space-1`/`space-2` padding.
+- **Icon:** circle for Minimal/Low, triangle for Elevated/High, octagon for Critical, so the band reads without color.
+- **Do** use it in every table row and case header. **Don't** use risk colors for anything that isn't a band, and don't abbreviate the band word.
+
+Reference markup (static preview; tokens only):
+
+```html
+<!doctype html><html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{margin:0;background:var(--bg-surface);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;line-height:20px}.wrap{padding:var(--space-4);display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.badge{display:inline-flex;align-items:center;gap:var(--space-1);padding:2px var(--space-2);border-radius:var(--radius-sm);font-size:12px;line-height:16px;font-weight:500}
+.badge svg{width:12px;height:12px;fill:none;stroke:currentColor;stroke-width:2}
+.minimal{color:var(--risk-minimal);background:var(--risk-minimal-bg)}.low{color:var(--risk-low);background:var(--risk-low-bg)}
+.elevated{color:var(--risk-elevated);background:var(--risk-elevated-bg)}.high{color:var(--risk-high);background:var(--risk-high-bg)}
+.critical{color:var(--risk-critical);background:var(--risk-critical-bg)}
+</style></head><body><div class="wrap">
+<span class="badge minimal"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4"/></svg>Minimal · 8</span>
+<span class="badge low"><svg viewBox="0 0 12 12"><circle cx="6" cy="6" r="4"/></svg>Low · 31</span>
+<span class="badge elevated"><svg viewBox="0 0 12 12"><path d="M6 1.5 11 10.5H1Z"/></svg>Elevated · 62</span>
+<span class="badge high"><svg viewBox="0 0 12 12"><path d="M6 1.5 11 10.5H1Z"/></svg>High · 81</span>
+<span class="badge critical"><svg viewBox="0 0 12 12"><path d="M4 1h4l3 3v4l-3 3H4L1 8V4Z"/></svg>Critical · 96</span>
+</div></body></html>
+```
+
+### RiskScore
+
+The headline score for one event or case: the number, its band, a 0–100 meter split at the band thresholds, and the decision taken.
+
+- **Provide:** `score`, `decision` (`allow | review | block | step_up`), `policyId`, and the tenant's `thresholds` (defaults 20/50/70/90).
+- **Tokens:** number in `score-xl` colored `risk-<band>`; meter segments `risk-*` (segments above the score at 35% opacity); marker `text-primary`; legend `text-muted` in `data`.
+- **Do** place a `ReasonList` directly beside or beneath it. **Don't** use it in table rows (use `RiskBadge`), and never show a score without its band word.
+- Expose it as `role="meter"` with an `aria-label` like "Risk score 81, High".
+
+Reference markup (static preview; tokens only):
+
+```html
+<!doctype html><html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{margin:0;background:var(--bg-surface);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;line-height:20px}.wrap{padding:var(--space-4);display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.card{padding:var(--space-4);width:320px}
+.top{display:flex;align-items:baseline;gap:var(--space-2)}
+.num{font-family:var(--font-mono);font-size:40px;line-height:44px;font-weight:500;color:var(--risk-high)}
+.of{color:var(--text-muted);font-family:var(--font-mono);font-size:13px}
+.band{margin-left:auto;font-size:12px;font-weight:500;color:var(--risk-high);background:var(--risk-high-bg);padding:2px 8px;border-radius:var(--radius-sm)}
+.meter{position:relative;display:flex;gap:2px;margin-top:var(--space-3);height:8px}
+.seg{border-radius:2px;opacity:.35}.on{opacity:1}
+.s1{flex:20;background:var(--risk-minimal)}.s2{flex:30;background:var(--risk-low)}.s3{flex:20;background:var(--risk-elevated)}.s4{flex:20;background:var(--risk-high)}.s5{flex:11;background:var(--risk-critical)}
+.pin{position:absolute;left:81%;top:-4px;width:2px;height:16px;background:var(--text-primary)}
+.legend{position:relative;height:16px;margin-top:var(--space-2);font-size:12px;color:var(--text-muted)}.legend span{position:absolute;transform:translateX(-50%)}.legend span:first-child{transform:none}.legend span:last-child{transform:translateX(-100%)}
+.dec{margin-top:var(--space-3);font-size:13px;color:var(--text-secondary)}.dec b{color:var(--text-primary);font-weight:600}
+</style></head><body><div class="card">
+<div class="top"><span class="num">81</span><span class="of">/ 100</span><span class="band">High</span></div>
+<div class="meter" role="meter" aria-valuemin="0" aria-valuemax="100" aria-valuenow="81" aria-label="Risk score 81, High">
+<span class="seg s1 on"></span><span class="seg s2 on"></span><span class="seg s3 on"></span><span class="seg s4 on"></span><span class="seg s5"></span><span class="pin"></span></div>
+<div class="legend mono"><span style="left:0">0</span><span style="left:20%">20</span><span style="left:50%">50</span><span style="left:70%">70</span><span style="left:90%">90</span><span style="left:100%">100</span></div>
+<div class="dec">Decision: <b>Step-up</b> · policy <span class="mono">card_txn_v4</span></div>
+</div></body></html>
+```
 
 ### ReasonList
 
-The factors that moved a score, ranked by contribution and measured in ticks. This is RiskOS's explanation.
+Lists the factors that moved a score, ranked by contribution. This is RiskOS's explainability surface, the equivalent of Stripe's "risk insights".
 
-- **Provide:** `reasons[]` of `{ label, category, contribution }` from the API's explanation payload, plus `limit` (default 5, with "Show all").
-- **Tokens:** ▲ in `risk-high` means a factor raises risk and ▼ in `risk-low` means it lowers it; the arrow carries the meaning. Contribution is a 12-tick bar (`ink-2` on, `line-subtle` off) plus signed points in `data`. Category is in `legend`.
-- **Do** write labels as evidence, with numbers and windows. **Don't** show raw feature names outside the developer "raw" toggle.
+- **Provide:** `reasons[]` of `{ label, category, contribution }` from the API's explanation payload (signed points or SHAP-style weights), plus optional `limit` (default 5, with "Show all").
+- **Tokens:** ▲ in `risk-high` for factors that raise risk, ▼ in `risk-low` for factors that lower it (the arrow carries the meaning, color only reinforces it); weight bar `text-secondary` on `bg-sunken`; weights in `data`.
+- **Do** write labels as evidence in plain language with numbers. **Don't** show raw feature names (`f_vel_1h`) except in a developer "raw" toggle.
 
-### TraceLine
+Reference markup (static preview; tokens only):
 
-The brand's signature line: a thin sparkline, flat until it spikes. Use it for live throughput, per-entity activity in rows, and KPI tiles.
-
-- **Provide:** `points[]`, plus optional `baseline` (a number drawn as a dashed line), `width`, `height` and `live` (adds the pulsing dot and label).
-- **Tokens:** the stroke is `trace-stroke` in `signal-ink`, with miter joins and no fill. The baseline is a 1px dashed `ink-3` line. The live dot is 6px `signal-ink` with `radius-full`.
-- **Motion:** it draws left to right once on mount. A live trace shifts left as points arrive. No easing bounce.
-- **Don't** fill the area under it, smooth it into curves, or colour it by risk. For risk over time, use a chart with `risk-*` bands.
+```html
+<!doctype html><html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{margin:0;background:var(--bg-surface);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;line-height:20px}.wrap{padding:var(--space-4);display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+.list{width:420px;padding:var(--space-4)}
+h3{margin:0 0 var(--space-2);font-size:15px;line-height:22px;font-weight:600}
+.row{display:grid;grid-template-columns:16px 1fr 84px 40px;gap:var(--space-2);align-items:center;padding:6px 0;border-top:1px solid var(--border-subtle)}
+.dir{font-family:var(--font-mono);font-weight:500}.up{color:var(--risk-high)}.down{color:var(--risk-low)}
+.txt{font-size:13px;line-height:18px}.txt small{display:block;color:var(--text-muted);font-size:12px}
+.bar{height:6px;background:var(--bg-sunken);border-radius:3px;overflow:hidden}.bar i{display:block;height:100%;background:var(--text-secondary)}
+.w{font-family:var(--font-mono);font-size:12px;color:var(--text-secondary);text-align:right}
+</style></head><body><div class="list">
+<h3>Why this score</h3>
+<div class="row"><span class="dir up" aria-label="raises risk">▲</span><span class="txt">Card used in 3 countries in 40 min<small>velocity · geo</small></span><span class="bar"><i style="width:92%"></i></span><span class="w">+34</span></div>
+<div class="row"><span class="dir up" aria-label="raises risk">▲</span><span class="txt">Device first seen 2 min ago<small>device</small></span><span class="bar"><i style="width:60%"></i></span><span class="w">+22</span></div>
+<div class="row"><span class="dir up" aria-label="raises risk">▲</span><span class="txt">Amount 6× customer baseline<small>behavior</small></span><span class="bar"><i style="width:45%"></i></span><span class="w">+17</span></div>
+<div class="row"><span class="dir down" aria-label="lowers risk">▼</span><span class="txt">Account age 4 years<small>identity</small></span><span class="bar"><i style="width:20%"></i></span><span class="w">−8</span></div>
+</div></body></html>
+```
 
 ### AlertRow
 
-One row of the alert queue: badge, event ID, evidence summary, a one-hour trace, amount and age.
+One row of the alert queue: band, event ID, a one-line evidence summary, amount and age.
 
-- **Provide:** `alert` as `{ id, score, summary, amount, currency, createdAt, series1h[] }`, plus `selected` and `density` (`default` = `row-default`, `compact` = `row-compact`).
-- **Tokens:** header in `legend` on `bg-sunken`, rows divided by `line-subtle`, hover `bg-raised`. A selected row gets `signal-wash` plus a 2px `signal-ink` needle bar at its left edge. The trace is `TraceLine` at 96×20. IDs, amounts and age are in `data`, with amounts right-aligned.
-- **Do** sort by score, then by age. Support `j`/`k` to move and `Enter` to open the drawer. **Don't** tint the whole row by band.
+- **Provide:** `alert` `{ id, score, summary, amount, currency, createdAt, assignee? }`, `selected`, `density` (`default` = `row-default`, `compact` = `row-compact`).
+- **Tokens:** header `label` on `bg-sunken` in `text-secondary`; rows divided by `border-subtle`; hover `bg-raised`; selected `accent-subtle`; IDs and amounts in `data`, right-aligned amounts; age in `text-muted`.
+- **Do** sort by score then age by default, and keep `j`/`k` for next/previous and `Enter` to open the drawer. **Don't** color the whole row by band; the badge carries it.
+
+Reference markup (static preview; tokens only):
+
+```html
+<!doctype html><html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{margin:0;background:var(--bg-surface);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;line-height:20px}.wrap{padding:var(--space-4);display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+table{border-collapse:collapse;width:100%;font-size:13px}
+th{background:var(--bg-sunken);color:var(--text-secondary);font-size:12px;font-weight:500;text-align:left;padding:0 var(--space-3);height:32px}
+td{padding:0 var(--space-3);height:40px;border-top:1px solid var(--border-subtle)}
+tr.sel td{background:var(--accent-subtle)}tr:hover td{background:var(--bg-raised)}
+.b{font-size:12px;font-weight:500;padding:2px 8px;border-radius:var(--radius-sm)}
+.c{color:var(--risk-critical);background:var(--risk-critical-bg)}.e{color:var(--risk-elevated);background:var(--risk-elevated-bg)}
+.m{color:var(--text-muted)}.r{text-align:right}
+</style></head><body><table>
+<thead><tr><th>Risk</th><th>Event</th><th>Summary</th><th class="r">Amount</th><th>Age</th></tr></thead>
+<tbody><tr class="sel"><td><span class="b c">Critical · 96</span></td><td class="mono">evt_01J9ZK4Q7M</td><td>New device, 3 countries in 40 min</td><td class="mono r">4,500.00 NGN</td><td class="m">12s</td></tr>
+<tr><td><span class="b e">Elevated · 58</span></td><td class="mono">evt_01J9ZJX2PA</td><td>Payee added and paid within 5 min</td><td class="mono r">120,000.00 NGN</td><td class="m">3m</td></tr></tbody></table></body></html>
+```
 
 ### Button
 
-Triggers an action. There are three variants.
+Triggers an action. RiskOS has three variants.
 
-- **Primary** uses `primary-fill` with an `on-primary` label: lime with a graphite label on dark, graphite with a lime label on paper. Use one per view, for the forward action ("Open case", "Create rule").
-- **Secondary** is transparent with a `line-control` edge and an `ink` label. Use it for queue decisions, with the shortcut shown in a `kbd`.
-- **Danger** has a `status-error` edge and label. Use it only for irreversible actions (Block account, Revoke key), and always follow it with a confirm step that names the object.
-- **Provide:** `variant`, `size` (`sm` = `control-sm`, `md` = `control-md`), `shortcut?`, `icon?`, and a sentence-case verb as the label. Corners use `radius-md`. Focus is a 2px square `focus-ring`.
+- **Primary:** `accent` fill, `on-accent` text. Use one per view, for the main forward action ("Open case", "Create rule").
+- **Secondary:** transparent with a `border-control` edge and `text-primary` label. Use it for queue decisions (Allow, Review, Step-up), and show the keyboard shortcut in `data` at `text-muted`.
+- **Danger:** `status-danger` outline and label, reserved for irreversible or customer-impacting actions (Block account, Revoke key). It always opens a confirm step that names the object.
+- **Provide:** `variant`, `size` (`sm` = `control-sm` in tables and toolbars, `md` = `control-md`), `shortcut?`, `icon?`, and a sentence-case verb label.
+- The focus state is a 2px `focus-ring` outline at 2px offset. The disabled state is 40% opacity.
+
+Reference markup (static preview; tokens only):
+
+```html
+<!doctype html><html><head><meta charset="utf-8"><link rel="preconnect" href="https://fonts.googleapis.com"><link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500&family=IBM+Plex+Sans:wght@400;500;600&display=swap" rel="stylesheet"><style>body{margin:0;background:var(--bg-surface);color:var(--text-primary);font-family:var(--font-sans);font-size:14px;line-height:20px}.wrap{padding:var(--space-4);display:flex;flex-wrap:wrap;gap:var(--space-3);align-items:center}.mono{font-family:var(--font-mono);font-variant-numeric:tabular-nums}
+button{font:500 14px/20px var(--font-sans);height:36px;padding:0 var(--space-4);border-radius:var(--radius-md);cursor:pointer;border:1px solid transparent}
+button:focus-visible{outline:2px solid var(--focus-ring);outline-offset:2px}
+.p{background:var(--accent);color:var(--on-accent)}.p:hover{background:var(--accent-hover)}
+.s{background:transparent;color:var(--text-primary);border-color:var(--border-control)}.s:hover{background:var(--bg-raised)}
+.d{background:transparent;color:var(--status-danger);border-color:var(--status-danger)}
+.k{font-family:var(--font-mono);font-size:11px;color:var(--text-muted);margin-left:6px}
+</style></head><body><div class="wrap">
+<button class="p">Open case</button>
+<button class="s">Allow<span class="k">A</span></button>
+<button class="s">Send to review<span class="k">R</span></button>
+<button class="d">Block account</button>
+</div></body></html>
+```
 
 ## Benchmark: security and fintech-risk design systems
 
@@ -255,8 +500,8 @@ This section records what the reference systems teach and what RiskOS takes from
 
 | System (company) | What it is known for | What RiskOS adopts |
 |---|---|---|
-| **Carbon** (IBM, used across IBM Security / QRadar) | Four themes (White, Gray 10, Gray 90, Gray 100). Dark layers step one shade lighter per layer. A single blue is the primary action color. IBM Plex typefaces. | The layered surfaces (`bg-canvas` → `bg-surface` → `bg-raised`), a single interaction colour, and dark as a first-class theme. |
-| **EUI** (Elastic, powers Elastic Security / Kibana) | A formal severity pattern with six levels (Unknown, Success, Neutral, Warning, Risk, Danger). Each level has text and background tokens at three intensities. | A fixed, ordered risk scale with a paired `-wash` token per band. A distinct "minimal/unknown" grey so unscored events are not shown as safe. |
+| **Carbon** (IBM, used across IBM Security / QRadar) | Four themes (White, Gray 10, Gray 90, Gray 100). Dark layers step one shade lighter per layer. A single blue is the primary action color. IBM Plex typefaces. | The layered surfaces (`bg-canvas` → `bg-surface` → `bg-raised`), a single interaction color, IBM Plex Sans and Mono, dark as a first-class theme. |
+| **EUI** (Elastic, powers Elastic Security / Kibana) | A formal severity pattern with six levels (Unknown, Success, Neutral, Warning, Risk, Danger). Each level has text and background tokens at three intensities. | A fixed, ordered risk scale with a paired `-bg` token per band. A distinct "minimal/unknown" grey so unscored events are not shown as safe. |
 | **Radar** (Stripe) | A 0–99 risk score with named levels (normal, elevated, highest). Elevated goes to review and highest is blocked by default. A "risk insights" panel explains the factors behind each score. | Score + band + default decision always shown together. `ReasonList` as the standard explanation. Bands that map directly to routing. |
 | **Odyssey** (Okta) | Accessibility-driven and open source. Every component meets WCAG 2.1 AA. Colors are inspired by currency and "timeless signifiers of identity and security". | AA as the floor for every token pair. A restrained, trust-first palette with no decorative gradients. |
 | **DRUIDS** (Datadog) | 150+ React/TypeScript components treated as the source of truth. Consistency across products ("works one way here, the same way everywhere"). Command-K discovery. | One component per job, shared by console and docs. Keyboard-first navigation and a command palette. |
@@ -273,14 +518,9 @@ This section records what the reference systems teach and what RiskOS takes from
 
 ### Where RiskOS differs on purpose
 
-The references above are strong, but they look alike: cool slate grounds, a blue or teal action colour, and generic grotesks. RiskOS keeps their good habits (layering, a fixed severity scale, explanations next to scores, AA contrast) and takes a different identity:
-
-- **An idea instead of a palette.** "Instrument" (a seismograph for money) drives the type, colour, shapes, motion and logo. None of the benchmarks has a visual metaphor this specific.
-- **Warm graphite and chart paper, not blue-slate and white.** This sets RiskOS apart from Carbon, Splunk and most SOC consoles at a glance.
-- **Signal lime as the only brand colour.** It is rare in fintech, it reads as "live", and it sits outside the risk scale, so it never gets confused with a band. System health reuses it ("the line is live"), so no separate green is needed.
-- **Low risk is blue and every band has a bar count.** This goes further than EUI's colour-only severity chips: bands stay readable in greyscale and for colour-blind analysts.
-- **Readouts, rulers and traces instead of cards, rings and donuts.** The score looks like a meter reading, which fits the claim that RiskOS measures risk precisely.
-- **Instrument Sans with JetBrains Mono,** instead of Plex (Carbon's font) or Inter (everyone's font).
+- **Low risk is blue, not green.** Most fraud tools use green→red, which fails for red-green colorblind analysts. Green is reserved for system health (`status-success`).
+- **Teal brand, not blue.** Blue is taken by the Low band, and purple-blue is the generic fintech default. Signal teal stays clear of every band.
+- **Mono for evidence.** IDs, amounts, IPs and payloads use IBM Plex Mono with tabular figures, because analysts compare values across rows.
 
 ### Sources
 
@@ -291,3 +531,28 @@ The references above are strong, but they look alike: cool slate grounds, a blue
 - [Datadog: DRUIDS](https://datadoghq.com/blog/engineering/druids-the-design-system-that-powers-datadog)
 - [Palantir: scaling product design with Blueprint](https://blog.palantir.com/scaling-product-design-with-blueprint-25492827bb4a)
 - [Cloudflare Kumo: installation](https://kumo-ui.com/installation.md)
+
+## Implementation in RiskOS
+
+How the console (`frontend/`) applies this document. Where code and this document differ, this document wins.
+
+**Files.**
+
+- **Tokens:** `app/globals.css` holds both themes as CSS variables and maps them into Tailwind v4 with `@theme inline`. Utility names follow the token names, so a token becomes `bg-bg-surface`, `text-text-primary`, `border-border-subtle`, `text-accent`, `bg-risk-high-bg` and so on.
+- **Spacing:** `p-1` … `p-7` (and every other spacing utility) resolve to `space-1` … `space-7`.
+- **Sizes:** `h-row-default`, `h-control-md`, `size-icon-sm` and `size-icon-md` map to the size tokens.
+- **Type styles:** `text-display`, `text-heading-1` … `text-heading-3`, `text-body`, `text-body-sm`, `text-label`, `text-score-xl`, `text-metric` and `text-data`. Add `.mono` for IBM Plex Mono with tabular figures. The `overline` style is `text-overline uppercase text-text-secondary`; there is no `.overline` class, because Tailwind's `overline` utility draws a line over the text.
+- **Fonts:** IBM Plex Sans 400/500/600 and IBM Plex Mono 400/500, loaded with `next/font/google` in `app/layout.tsx`.
+- **Components:** `components/ui/` holds `RiskBadge`, `RiskScore`, `ReasonList`, `Button`, the table parts (`Table`, `Th`, `Tr`, `Td`, `DataCell`), `Drawer`, `Modal`, form fields, states and `CopyValue`. They are built on Radix primitives. The alert queue row lives in `features/alerts/`.
+- **Risk scale:** `lib/risk.ts` holds the bands and `bandFor`. The environment's thresholds and decisions come from `GET /api/v1/risk/policy`.
+
+**Console shell** (`components/shell/`):
+
+- **Left navigation:** 240px, collapsible to a 64px icon rail with `[` or the collapse button. Collapsed items show their name in a tooltip. Narrow screens get a drawer instead.
+- **Command palette:** `Ctrl+K` / `⌘K` jumps to any section and runs console actions (switch environment, theme, density, sidebar, sign out).
+- **Preferences:** theme (Console dark by default, Daylight light), table density (Default or Compact) and the sidebar state are kept per browser. The theme is applied before the first paint.
+- **Production banner:** a standing banner whenever the production environment is selected.
+
+**Queue actions.** Analysts triage alerts; the engine makes the decisions. The alert queue's shortcuts are `j`/`k` (move), `Enter` (open), `i` (investigating), `f` (false positive), `x` (resolve), `c` (open case) and `?` (help). There is no manual Allow/Review/Block until manual decisions exist.
+
+**Logo.** None has been supplied, so the console uses the wordmark "RiskOS" in IBM Plex Sans 600 and a plain monogram favicon.

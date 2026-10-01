@@ -664,7 +664,7 @@ password.
 | Area | What is built |
 |---|---|
 | Screens | Overview, events, alerts queue, cases, rules, risk settings, developer center (keys, webhooks, delivery logs), team, audit log, account security ([CONSOLE.md](CONSOLE.md)) |
-| Design | The Instrument design system: tokens for both themes, risk bands from the environment's policy, keyboard-first triage ([design-system.md](design-system.md)) |
+| Design | The RiskOS design system: dark and light themes, IBM Plex, risk bands from the environment's policy, keyboard-first triage, a collapsible navigation and a command palette ([design-system.md](design-system.md)) |
 | Environments | One sign-in for test and production, a switch, a PRODUCTION banner; every request and cached query carries the environment |
 | Browser security | Same-origin API proxy, nonce-based CSP, HSTS, frame denial; re-authentication prompts for high-impact actions |
 | Tests | Component tests; browser tests with a mocked API (desktop and mobile, virtual passkey authenticator, CSP); a browser test against the running stack with no mocks |
