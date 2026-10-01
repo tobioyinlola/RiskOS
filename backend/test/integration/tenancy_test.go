@@ -49,6 +49,7 @@ type stack struct {
 	auth     *auth.Module
 	alerts   *alerts.Module
 	webhooks *webhooks.Module
+	risk     *risk.Module
 }
 
 // stackConfig holds the optional settings of a test stack.
@@ -57,6 +58,13 @@ type stackConfig struct {
 	console  auth.ConsoleConfig
 	// throttle enables console sign-in throttling (in Redis).
 	throttle bool
+	// historyWarmup, when set, enables feature-store reset detection.
+	historyWarmup time.Duration
+}
+
+// withHistoryWarmup enables feature-store reset detection with the given warm-up.
+func withHistoryWarmup(d time.Duration) stackOption {
+	return func(c *stackConfig) { c.historyWarmup = d }
 }
 
 type stackOption func(*stackConfig)
@@ -119,7 +127,11 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
 		Cookie: auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
 	})
-	riskModule := newRisk(featureRedis, runner, auditModule, clk)
+	riskModule := newRisk(featureRedis, runner, auditModule, clk, func(c *risk.Config) {
+		if sc.historyWarmup > 0 {
+			c.StateDB, c.HistoryWarmup = shared.pool, sc.historyWarmup
+		}
+	})
 	queue, err := jobs.NewInserter(shared.pool, shared.logger)
 	require.NoError(t, err)
 	var alertsModule *alerts.Module
@@ -144,6 +156,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		auth:     authModule,
 		alerts:   alertsModule,
 		webhooks: webhooksModule,
+		risk:     riskModule,
 	}
 }
 
@@ -151,10 +164,12 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 const testFeatureKey = "integration-feature-key-0123456789abcdef"
 
 // newRisk returns the risk module wired like cmd/api.
-func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock) *risk.Module {
-	return risk.New(rdb, runner, auditModule.Recorder(), clk, shared.logger, risk.Config{
-		FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond,
-	})
+func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock, opts ...func(*risk.Config)) *risk.Module {
+	cfg := risk.Config{FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	return risk.New(rdb, runner, auditModule.Recorder(), clk, shared.logger, cfg)
 }
 
 type tenantFixture struct {

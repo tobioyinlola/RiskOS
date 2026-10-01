@@ -338,7 +338,7 @@ A duplicate request returns the original stored response and never triggers a se
 
 **Replay protection.** Timestamp skew limits plus the unique key stop old requests from being reprocessed. Behavior on stale events is a per-endpoint policy: reject with `422 STALE_EVENT` for real-time endpoints, accept-without-alerting for batch backfills.
 
-**Response and error contracts** follow the spec exactly: the risk response with `risk_score`, `risk_level`, `decision`, `engine_version` and `signals`, plus `degraded_signals` when optional sources failed; errors return `{error: {code, message, request_id}}`.
+**Response and error contracts** follow the spec exactly: the risk response with `risk_score`, `risk_level`, `decision`, `engine_version` and `signals`, plus `degraded_signals` when optional sources failed and `warming_signals` while behavioural history rebuilds after a feature-store reset; errors return `{error: {code, message, request_id}}`.
 
 ## 12. Failure modes
 

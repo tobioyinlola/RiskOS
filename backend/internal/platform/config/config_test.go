@@ -143,6 +143,7 @@ func TestRiskValidate(t *testing.T) {
 		{"short key", config.Risk{FeatureHashKey: "short", FeatureTimeout: 50 * time.Millisecond}, "RISKOS_FEATURE_HASH_KEY"},
 		{"no timeout", config.Risk{FeatureHashKey: key}, "RISKOS_FEATURE_TIMEOUT"},
 		{"timeout too long", config.Risk{FeatureHashKey: key, FeatureTimeout: 2 * time.Second}, "RISKOS_FEATURE_TIMEOUT"},
+		{"negative warm-up", config.Risk{FeatureHashKey: key, FeatureTimeout: 50 * time.Millisecond, HistoryWarmup: -time.Hour}, "RISKOS_HISTORY_WARMUP"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -202,6 +203,7 @@ func TestLoadRiskDefaults(t *testing.T) {
 	cfg, err := config.Load(lookupFrom(env))
 	require.NoError(t, err)
 	assert.Equal(t, 50*time.Millisecond, cfg.Risk.FeatureTimeout)
+	assert.Equal(t, 7*24*time.Hour, cfg.Risk.HistoryWarmup)
 	require.NoError(t, cfg.Risk.Validate())
 }
 

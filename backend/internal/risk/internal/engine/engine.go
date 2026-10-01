@@ -30,6 +30,7 @@ type Output struct {
 	Signals      []domain.Signal
 	Shadow       []domain.Signal
 	Degraded     []string
+	Warming      []string
 	Facts        rules.Facts
 	RuleVersions []string
 	Values       features.Values
@@ -47,8 +48,8 @@ func New(src FeatureSource) Engine { return Engine{features: src} }
 // change feature state. Rules are evaluated in the order given; disabled rules are skipped.
 func (en Engine) Evaluate(ctx context.Context, e features.Event, write bool, s domain.Settings, rs []CompiledRule) Output {
 	v := en.features.Observe(ctx, e, write)
-	signals, degraded := features.Signals(e, v, s)
-	out := Output{Signals: signals, Degraded: degraded, Facts: features.Facts(e, v), Values: v}
+	signals, degraded, warming := features.Signals(e, v, s)
+	out := Output{Signals: signals, Degraded: degraded, Warming: warming, Facts: features.Facts(e, v), Values: v}
 	for _, r := range rs {
 		cur := r.Rule.Current
 		if !cur.Enabled {

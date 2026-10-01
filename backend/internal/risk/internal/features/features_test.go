@@ -37,7 +37,7 @@ func TestSpecScenario(t *testing.T) {
 		AmountCount: 10, AmountMean: 200000, AmountStd: 50000,
 		AccountTxn1m: 4,
 	}
-	signals, degraded := features.Signals(e, v, domain.DefaultSettings())
+	signals, degraded, _ := features.Signals(e, v, domain.DefaultSettings())
 	assert.Empty(t, degraded)
 	assert.ElementsMatch(t, []string{"new_device", "new_beneficiary", "amount_anomaly", "velocity_anomaly", "geo_anomaly"}, codes(signals))
 	score := domain.Score(signals)
@@ -48,7 +48,7 @@ func TestSpecScenario(t *testing.T) {
 func TestColdStart(t *testing.T) {
 	e := parse(t, debit)
 	v := features.Values{NewUser: true, NewDevice: true, NewBeneficiary: true, NewCountry: true}
-	signals, degraded := features.Signals(e, v, domain.DefaultSettings())
+	signals, degraded, _ := features.Signals(e, v, domain.DefaultSettings())
 	assert.Empty(t, degraded)
 	assert.Equal(t, []string{"new_user"}, codes(signals), "no anomaly signals without history")
 }
@@ -66,7 +66,7 @@ func TestAmountAnomalyNeedsHistoryAndMagnitude(t *testing.T) {
 		{"far outside", features.Values{AmountCount: 10, AmountMean: 100000, AmountStd: 50000}, true},
 	}
 	for _, c := range cases {
-		signals, _ := features.Signals(e, c.v, domain.DefaultSettings())
+		signals, _, _ := features.Signals(e, c.v, domain.DefaultSettings())
 		assert.Equal(t, c.want, assert.ObjectsAreEqual(true, contains(codes(signals), "amount_anomaly")), c.name)
 	}
 }
@@ -82,18 +82,18 @@ func contains(list []string, s string) bool {
 
 func TestAccountTakeoverSignals(t *testing.T) {
 	login := parse(t, `{"type":"login","occurred_at":"2026-09-30T12:00:00Z","actor":{"user_id":"u","device_id":"d"},"context":{},"data":{"outcome":"failure","method":"password"}}`)
-	signals, _ := features.Signals(login, features.Values{FailedLogins15m: 5, DeviceUsers: 7}, domain.DefaultSettings())
+	signals, _, _ := features.Signals(login, features.Values{FailedLogins15m: 5, DeviceUsers: 7}, domain.DefaultSettings())
 	assert.ElementsMatch(t, []string{"failed_login_burst", "shared_device"}, codes(signals))
 
 	e := parse(t, debit)
-	signals, _ = features.Signals(e, features.Values{RecentCredentialChange: true, BeneficiarySenders24h: 12}, domain.DefaultSettings())
+	signals, _, _ = features.Signals(e, features.Values{RecentCredentialChange: true, BeneficiarySenders24h: 12}, domain.DefaultSettings())
 	assert.ElementsMatch(t, []string{"recent_credential_change", "beneficiary_fan_in"}, codes(signals))
 }
 
 func TestDegradedSourcesAreReportedNotGuessed(t *testing.T) {
 	e := parse(t, debit)
 	v := features.Values{Degraded: []string{domain.SourceHistory, domain.SourceVelocity, domain.SourceNetwork}, NewDevice: true, AccountTxn1m: 99}
-	signals, degraded := features.Signals(e, v, domain.DefaultSettings())
+	signals, degraded, _ := features.Signals(e, v, domain.DefaultSettings())
 	assert.Empty(t, signals, "no signal is computed from an unavailable source")
 	assert.ElementsMatch(t, []string{
 		"new_user", "new_device", "new_beneficiary", "geo_anomaly", "amount_anomaly", "recent_credential_change",
@@ -108,7 +108,7 @@ func TestDegradedSourcesAreReportedNotGuessed(t *testing.T) {
 func TestZeroWeightDisablesASignal(t *testing.T) {
 	s := domain.DefaultSettings()
 	s.Weights[domain.SignalNewDevice] = 0
-	signals, _ := features.Signals(parse(t, debit), features.Values{NewDevice: true}, s)
+	signals, _, _ := features.Signals(parse(t, debit), features.Values{NewDevice: true}, s)
 	assert.NotContains(t, codes(signals), "new_device")
 }
 
@@ -120,4 +120,18 @@ func TestFacts(t *testing.T) {
 	assert.Equal(t, 3.0, f["feature.account_txn_1h"])
 	assert.Equal(t, 2.0, f["feature.amount_to_mean_ratio"])
 	assert.NotContains(t, f, "login.outcome")
+}
+
+func TestWarmingHoldsBackHistorySignals(t *testing.T) {
+	e := parse(t, debit)
+	v := features.Values{NewDevice: true, NewCountry: true, RecentCredentialChange: true, Warming: true}
+	signals, degraded, warming := features.Signals(e, v, domain.DefaultSettings())
+	assert.Empty(t, degraded)
+	assert.ElementsMatch(t, []string{"new_device", "new_beneficiary", "geo_anomaly", "amount_anomaly", "new_user"}, warming)
+	codes := make([]string, 0, len(signals))
+	for _, s := range signals {
+		codes = append(codes, s.Code)
+	}
+	assert.Equal(t, []string{"recent_credential_change"}, codes,
+		"a signal that needs a fresh observation still fires")
 }

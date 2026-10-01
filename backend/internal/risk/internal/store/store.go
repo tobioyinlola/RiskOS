@@ -60,6 +60,7 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 		Signals: signals, DegradedSignals: nonNilStrings(r.DegradedSignals), RequestID: r.RequestID,
 		DurationUs:    int32(us), //nolint:gosec // clamped above
 		PolicyReasons: nonNilStrings(r.PolicyReasons), ShadowSignals: shadow,
+		WarmingSignals: nonNilStrings(r.WarmingSignals),
 	}); err != nil {
 		return fmt.Errorf("insert evaluation: %w", err)
 	}

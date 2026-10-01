@@ -128,6 +128,9 @@ type Risk struct {
 	FeatureHashKey string
 	// FeatureTimeout bounds the feature-store round trip on the decision path.
 	FeatureTimeout time.Duration
+	// HistoryWarmup is how long history signals are held back after the feature store lost its
+	// state (DISASTER_RECOVERY.md). Zero detects and records resets without holding back.
+	HistoryWarmup time.Duration
 }
 
 // Validate checks the risk settings; call it in binaries that evaluate events.
@@ -138,6 +141,9 @@ func (r Risk) Validate() error {
 	}
 	if r.FeatureTimeout <= 0 || r.FeatureTimeout > time.Second {
 		errs = append(errs, errors.New("RISKOS_FEATURE_TIMEOUT: must be between 1ms and 1s"))
+	}
+	if r.HistoryWarmup < 0 || r.HistoryWarmup > 90*24*time.Hour {
+		errs = append(errs, errors.New("RISKOS_HISTORY_WARMUP: must be between 0 and 90 days"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
@@ -274,6 +280,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		Risk: Risk{
 			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
 			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
+			HistoryWarmup:  r.duration("RISKOS_HISTORY_WARMUP", 7*24*time.Hour),
 		},
 		RateLimit: RateLimit{
 			KeyPerSecond:          r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),

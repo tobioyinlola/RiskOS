@@ -3805,7 +3805,9 @@ components:
       description: |
         The risk response (spec §7). risk_score is the sum of the listed signal weights, capped at
         100. degraded_signals lists sources that could not be evaluated for this event.
-      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals]
+        warming_signals lists history signals held back while behavioural history rebuilds after
+        RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
+      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals, warming_signals]
       properties:
         request_id:
           type: string
@@ -3834,6 +3836,10 @@ components:
           items:
             $ref: "#/components/schemas/Signal"
         degraded_signals:
+          type: array
+          items:
+            type: string
+        warming_signals:
           type: array
           items:
             type: string

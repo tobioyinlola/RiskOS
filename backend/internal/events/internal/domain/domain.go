@@ -198,6 +198,8 @@ type Outcome struct {
 	EngineVersion   string     `json:"engine_version"`
 	Signals         []Signal   `json:"signals"`
 	DegradedSignals []string   `json:"degraded_signals"`
+	// WarmingSignals is absent from outcomes stored before it existed.
+	WarmingSignals []string `json:"warming_signals,omitempty"`
 }
 
 // Signal mirrors the risk module's signal in the stored outcome.

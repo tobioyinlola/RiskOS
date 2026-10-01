@@ -159,6 +159,11 @@ queue ([ALERTS_AND_CASES.md](ALERTS_AND_CASES.md)), since degradation may be att
 Tested by pointing the engine at an unreachable Redis (`TestDegradedFeatureStore`) and by
 flushing Redis's script cache mid-run (`TestFeatureStoreRecoversFromScriptCacheLoss`).
 
+**History warm-up.** If Redis loses its state, or the feature hash key changes, history signals
+that would mislead are held back for a warm-up period and listed in `warming_signals` instead
+([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md#losing-redis-state)). Unlike degradation, warming
+does not trigger the fail policy.
+
 ## Alerts
 
 Ingested decisions at or above the environment's alert threshold (`alert_min_decision`: REVIEW by

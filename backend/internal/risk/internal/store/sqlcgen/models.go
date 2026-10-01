@@ -191,6 +191,7 @@ type Evaluation struct {
 	DurationUs      int32
 	PolicyReasons   []string
 	ShadowSignals   []byte
+	WarmingSignals  []string
 }
 
 type Event struct {
@@ -225,6 +226,14 @@ type EventIdempotency struct {
 	EventID       uuid.UUID
 	Response      *string
 	CreatedAt     time.Time
+}
+
+type FeatureStoreState struct {
+	ID             int16
+	Epoch          string
+	KeyFingerprint string
+	StartedAt      time.Time
+	ResetAt        *time.Time
 }
 
 type RiskSetting struct {

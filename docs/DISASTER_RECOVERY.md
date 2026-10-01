@@ -142,12 +142,27 @@ If the state itself is lost:
 - velocity windows restart;
 - every user's history ("new device", "new beneficiary", amount baselines) starts again.
 
-With no history, the engine treats each user as new, and history signals stay silent
-([RISK_ENGINE.md](RISK_ENGINE.md)). Risk coverage is lower until history rebuilds, and nothing in
-a decision says so.
+Changing `RISKOS_FEATURE_HASH_KEY` has the same effect: every stored history becomes unreachable.
 
-TODO(phase-8): detect a state reset (an epoch marker kept in both stores), and report history
-signals as degraded until history has rebuilt.
+**Detection.** An epoch marker is kept in Redis (`rk:epoch`, never expires) and in PostgreSQL
+(`feature_store_state`), with a fingerprint of the hash key (a keyed hash, never the key). Each
+API instance compares them at start-up and every 30 seconds, in the background. A missing marker
+or a different fingerprint is recorded as a reset (`reset_at`), and an error is logged:
+`feature store state was reset; history signals are warming up`.
+
+**Warm-up.** For `RISKOS_HISTORY_WARMUP` after a reset (default 7 days, an assumption to tune
+against how often customers' users return), the history signals that would mislead are held
+back: `new_user`, `new_device`, `new_beneficiary`, `geo_anomaly` and `amount_anomaly`. Without the
+history, every returning user's device, beneficiary and country would look new. The decision
+response lists them in `warming_signals`, so customers can see that coverage is lower. Warming is
+not degradation: fail policies do not apply, because a reset is not something a caller can cause
+event by event. Velocity, network and credential-change signals keep working: they need only
+recent observations.
+
+Restoring PostgreSQL from a backup taken before the last reset also counts as a reset (the epochs
+differ), which errs towards holding signals back.
+
+Tested by flushing Redis and changing the recorded fingerprint (`TestFeatureStoreReset`).
 
 ## Not built yet
 

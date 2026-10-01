@@ -135,7 +135,10 @@ func run() (err error) {
 	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
 		FeatureHashKey: []byte(cfg.Risk.FeatureHashKey),
 		FeatureTimeout: cfg.Risk.FeatureTimeout,
+		StateDB:        pool,
+		HistoryWarmup:  cfg.Risk.HistoryWarmup,
 	})
+	riskModule.WatchFeatureState(ctx)
 	// The API only inserts jobs (in the decision transaction); the worker runs them.
 	queue, err := jobs.NewInserter(pool, logger)
 	if err != nil {

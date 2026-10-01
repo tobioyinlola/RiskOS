@@ -1980,6 +1980,8 @@ export interface components {
         /**
          * @description The risk response (spec §7). risk_score is the sum of the listed signal weights, capped at
          *     100. degraded_signals lists sources that could not be evaluated for this event.
+         *     warming_signals lists history signals held back while behavioural history rebuilds after
+         *     RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
          */
         RiskDecision: {
             /** @description The request that produced this decision (for replays, the original request). */
@@ -1998,6 +2000,7 @@ export interface components {
             engine_version: string;
             signals: components["schemas"]["Signal"][];
             degraded_signals: string[];
+            warming_signals: string[];
         };
         EventSummary: {
             id: string;
