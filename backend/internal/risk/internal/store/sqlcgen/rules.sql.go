@@ -23,6 +23,26 @@ func (q *Queries) CountRules(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const countWouldBlock = `-- name: CountWouldBlock :one
+SELECT count(*) FROM evaluations
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3
+  AND NOT dry_run AND 'would_block' = ANY (policy_reasons)
+`
+
+type CountWouldBlockParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+}
+
+// Evaluations since @since that automatic blocking would have blocked (shadow evidence).
+func (q *Queries) CountWouldBlock(ctx context.Context, arg CountWouldBlockParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countWouldBlock, arg.TenantID, arg.EnvironmentID, arg.Since)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const decideRuleChange = `-- name: DecideRuleChange :execrows
 UPDATE rule_changes
 SET status = $1, decided_by = $2, decided_at = $3, reason = $4,
@@ -112,7 +132,8 @@ func (q *Queries) GetCurrentRule(ctx context.Context, arg GetCurrentRuleParams) 
 }
 
 const getRiskSettings = `-- name: GetRiskSettings :one
-SELECT weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds, updated_at, updated_by
+SELECT weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds,
+       auto_block_mode, auto_block_shadow_since, updated_at, updated_by
 FROM risk_settings
 WHERE tenant_id = $1 AND environment_id = $2
 `
@@ -123,14 +144,16 @@ type GetRiskSettingsParams struct {
 }
 
 type GetRiskSettingsRow struct {
-	Weights             []byte
-	HighValueDefault    int64
-	HighValueByCurrency []byte
-	FailPolicies        []byte
-	AlertMinDecision    string
-	Thresholds          []byte
-	UpdatedAt           time.Time
-	UpdatedBy           string
+	Weights              []byte
+	HighValueDefault     int64
+	HighValueByCurrency  []byte
+	FailPolicies         []byte
+	AlertMinDecision     string
+	Thresholds           []byte
+	AutoBlockMode        string
+	AutoBlockShadowSince *time.Time
+	UpdatedAt            time.Time
+	UpdatedBy            string
 }
 
 func (q *Queries) GetRiskSettings(ctx context.Context, arg GetRiskSettingsParams) (GetRiskSettingsRow, error) {
@@ -143,6 +166,8 @@ func (q *Queries) GetRiskSettings(ctx context.Context, arg GetRiskSettingsParams
 		&i.FailPolicies,
 		&i.AlertMinDecision,
 		&i.Thresholds,
+		&i.AutoBlockMode,
+		&i.AutoBlockShadowSince,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
 	)
@@ -681,8 +706,8 @@ func (q *Queries) SetRuleCurrentVersion(ctx context.Context, arg SetRuleCurrentV
 }
 
 const upsertRiskSettings = `-- name: UpsertRiskSettings :exec
-INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds, updated_at, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+INSERT INTO risk_settings (tenant_id, environment_id, weights, high_value_default, high_value_by_currency, fail_policies, alert_min_decision, thresholds, auto_block_mode, auto_block_shadow_since, updated_at, updated_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   weights = EXCLUDED.weights,
   high_value_default = EXCLUDED.high_value_default,
@@ -690,21 +715,25 @@ ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   fail_policies = EXCLUDED.fail_policies,
   alert_min_decision = EXCLUDED.alert_min_decision,
   thresholds = EXCLUDED.thresholds,
+  auto_block_mode = EXCLUDED.auto_block_mode,
+  auto_block_shadow_since = EXCLUDED.auto_block_shadow_since,
   updated_at = EXCLUDED.updated_at,
   updated_by = EXCLUDED.updated_by
 `
 
 type UpsertRiskSettingsParams struct {
-	TenantID            uuid.UUID
-	EnvironmentID       uuid.UUID
-	Weights             []byte
-	HighValueDefault    int64
-	HighValueByCurrency []byte
-	FailPolicies        []byte
-	AlertMinDecision    string
-	Thresholds          []byte
-	UpdatedAt           time.Time
-	UpdatedBy           string
+	TenantID             uuid.UUID
+	EnvironmentID        uuid.UUID
+	Weights              []byte
+	HighValueDefault     int64
+	HighValueByCurrency  []byte
+	FailPolicies         []byte
+	AlertMinDecision     string
+	Thresholds           []byte
+	AutoBlockMode        string
+	AutoBlockShadowSince *time.Time
+	UpdatedAt            time.Time
+	UpdatedBy            string
 }
 
 func (q *Queries) UpsertRiskSettings(ctx context.Context, arg UpsertRiskSettingsParams) error {
@@ -717,6 +746,8 @@ func (q *Queries) UpsertRiskSettings(ctx context.Context, arg UpsertRiskSettings
 		arg.FailPolicies,
 		arg.AlertMinDecision,
 		arg.Thresholds,
+		arg.AutoBlockMode,
+		arg.AutoBlockShadowSince,
 		arg.UpdatedAt,
 		arg.UpdatedBy,
 	)

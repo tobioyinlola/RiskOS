@@ -198,7 +198,10 @@ func (Store) GetSettings(ctx context.Context) (domain.Settings, error) {
 	if err != nil {
 		return domain.Settings{}, fmt.Errorf("get risk settings: %w", err)
 	}
-	s := domain.Settings{HighValueDefault: row.HighValueDefault, AlertMinDecision: domain.Decision(row.AlertMinDecision)}
+	s := domain.Settings{
+		HighValueDefault: row.HighValueDefault, AlertMinDecision: domain.Decision(row.AlertMinDecision),
+		AutoBlock: domain.AutoBlockMode(row.AutoBlockMode), AutoBlockSince: row.AutoBlockShadowSince,
+	}
 	for dst, raw := range map[any][]byte{
 		&s.Weights: row.Weights, &s.HighValueByCurrency: row.HighValueByCurrency, &s.FailPolicies: row.FailPolicies,
 		&s.Thresholds: row.Thresholds,
@@ -224,9 +227,23 @@ func (Store) PutSettings(ctx context.Context, s domain.Settings, by string, at t
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID,
 		Weights: enc(s.Weights), HighValueDefault: s.HighValueDefault,
 		HighValueByCurrency: enc(s.HighValueByCurrency), FailPolicies: enc(s.FailPolicies),
-		AlertMinDecision: string(s.AlertMinDecision), Thresholds: enc(s.Thresholds), UpdatedAt: at, UpdatedBy: by,
+		AlertMinDecision: string(s.AlertMinDecision), Thresholds: enc(s.Thresholds),
+		AutoBlockMode: string(s.AutoBlock), AutoBlockShadowSince: s.AutoBlockSince, UpdatedAt: at, UpdatedBy: by,
 	}); err != nil {
 		return fmt.Errorf("store risk settings: %w", err)
 	}
 	return nil
+}
+
+// CountWouldBlock counts evaluations since since that automatic blocking would have blocked.
+func (Store) CountWouldBlock(ctx context.Context, since time.Time) (int64, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return 0, err
+	}
+	n, err := q.CountWouldBlock(ctx, sqlcgen.CountWouldBlockParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since})
+	if err != nil {
+		return 0, fmt.Errorf("count would-block evaluations: %w", err)
+	}
+	return n, nil
 }

@@ -1828,6 +1828,7 @@ export interface components {
         };
         RiskPolicy: {
             engine_version: string;
+            auto_block: components["schemas"]["AutoBlockStatus"];
             thresholds: components["schemas"]["RiskThresholds"];
             /** @description True when the environment's thresholds differ from the defaults. */
             custom_calibration: boolean;
@@ -1840,8 +1841,42 @@ export interface components {
                 default_decision: components["schemas"]["Decision"];
             }[];
         };
-        /** @enum {string} */
+        /**
+         * @description `block` is produced only for Critical scores in an environment that switched automatic
+         *     blocking on (see AutoBlockStatus).
+         * @enum {string}
+         */
         Decision: "allow" | "review" | "step_up" | "block";
+        /**
+         * @description `off`: Critical scores get REVIEW. `shadow`: they still get REVIEW, and the evaluation is
+         *     marked `would_block` in its policy reasons, to gather evidence. `on`: they get BLOCK
+         *     (possible only after 14 days in shadow). Switching to `off` or `shadow` takes effect at
+         *     once: it is the kill switch.
+         * @enum {string}
+         */
+        AutoBlockMode: "off" | "shadow" | "on";
+        AutoBlock: {
+            mode: components["schemas"]["AutoBlockMode"];
+            /**
+             * Format: date-time
+             * @description When shadow evidence started (kept while blocking is on). Set by the server; ignored in a PUT.
+             */
+            shadow_since?: string | null;
+        };
+        AutoBlockStatus: {
+            mode: components["schemas"]["AutoBlockMode"];
+            /** Format: date-time */
+            shadow_since: string | null;
+            /** @description Days in shadow mode before blocking can be switched on. */
+            shadow_days_required: number;
+            /**
+             * Format: date-time
+             * @description From when blocking can be switched on (null when not in shadow or on).
+             */
+            eligible_at: string | null;
+            /** @description Evaluations in the last 14 days that blocking would have blocked. */
+            would_block_last_14_days: number;
+        };
         Signal: {
             /** @example new_device */
             code: string;
@@ -2104,6 +2139,11 @@ export interface components {
              * @enum {string}
              */
             alert_min_decision: "step_up" | "review";
+            /**
+             * @description Automatic blocking of Critical scores. Always present in responses; when omitted from
+             *     a PUT, the current mode is kept. Switching it on requires 14 days in shadow mode.
+             */
+            auto_block?: components["schemas"]["AutoBlock"];
         };
         RiskCatalog: {
             engine_version: string;

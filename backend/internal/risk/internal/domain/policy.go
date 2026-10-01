@@ -1,6 +1,9 @@
 package domain
 
-import "slices"
+import (
+	"slices"
+	"time"
+)
 
 // decisionRank orders decisions by severity.
 func decisionRank(d Decision) int {
@@ -33,6 +36,23 @@ const (
 	FailClosed FailPolicy = "closed" // at least REVIEW
 )
 
+// AutoBlockMode is a tenant environment's automatic blocking (ARCHITECTURE.md decision 12).
+type AutoBlockMode string
+
+// Automatic blocking modes.
+const (
+	// AutoBlockOff: Critical scores get REVIEW (the default).
+	AutoBlockOff AutoBlockMode = "off"
+	// AutoBlockShadow: Critical scores get REVIEW and are marked would_block, as evidence.
+	AutoBlockShadow AutoBlockMode = "shadow"
+	// AutoBlockOn: Critical scores get BLOCK.
+	AutoBlockOn AutoBlockMode = "on"
+)
+
+// AutoBlockShadowPeriod is how long an environment gathers shadow evidence before blocking can
+// be switched on (an assumption to confirm with customers, decision 12).
+const AutoBlockShadowPeriod = 14 * 24 * time.Hour
+
 // Settings are a tenant environment's risk configuration.
 type Settings struct {
 	// Weights overrides built-in signal weights (0..MaxSignalWeight).
@@ -48,6 +68,28 @@ type Settings struct {
 	AlertMinDecision Decision
 	// Thresholds are the band boundaries.
 	Thresholds Thresholds
+	// AutoBlock is the automatic blocking mode; AutoBlockSince is when shadow evidence started
+	// (nil when off). An empty mode in an update keeps the current one.
+	AutoBlock      AutoBlockMode
+	AutoBlockSince *time.Time
+}
+
+// AutoBlockEligibleAt returns when blocking can be switched on, or nil when it is off.
+func (s Settings) AutoBlockEligibleAt() *time.Time {
+	if s.AutoBlockSince == nil {
+		return nil
+	}
+	t := s.AutoBlockSince.Add(AutoBlockShadowPeriod)
+	return &t
+}
+
+// DecisionFor returns the decision a level gets before any override: the default table, with
+// BLOCK for Critical when automatic blocking is on.
+func (s Settings) DecisionFor(l Level) Decision {
+	if l == LevelCritical && s.AutoBlock == AutoBlockOn {
+		return DecisionBlock
+	}
+	return DefaultDecision(l)
 }
 
 // RaisesAlert reports whether decision d reaches the environment's alert threshold.
@@ -73,6 +115,7 @@ func DefaultSettings() Settings {
 		FailPolicies:        map[string]FailPolicy{"transaction": FailClosed, "login": FailOpen},
 		AlertMinDecision:    DecisionReview,
 		Thresholds:          DefaultThresholds(),
+		AutoBlock:           AutoBlockOff,
 	}
 }
 
@@ -131,10 +174,11 @@ type PolicyResult struct {
 //   - MEDIUM with a strengthenable signal: STEP-UP;
 //   - HIGH on an event type that cannot be stepped up: REVIEW;
 //   - degraded evaluation: the event type's fail policy (closed: at least REVIEW);
-//   - degraded and high-value: at least REVIEW whatever the fail policy (induced-degradation guard).
+//   - degraded and high-value: at least REVIEW whatever the fail policy (induced-degradation guard);
+//   - CRITICAL with automatic blocking in shadow: REVIEW, marked would_block; on: BLOCK.
 //
-// BLOCK is never produced: automatic blocking is a per-tenant opt-in behind shadow-mode evidence
-// (decision 12) and arrives with its guardrails in build step 8.
+// BLOCK is produced only by automatic blocking, a per-environment opt-in behind 14 days of
+// shadow evidence with a kill switch (decision 12). The named signals explain it.
 func Decide(in PolicyInput) PolicyResult {
 	d := DefaultDecision(in.Level)
 	var reasons []string
@@ -165,6 +209,16 @@ func Decide(in PolicyInput) PolicyResult {
 		if in.HighValue && decisionRank(d) < decisionRank(DecisionReview) {
 			d = DecisionReview
 			reasons = append(reasons, "degraded_high_value_floor")
+		}
+	}
+	if in.Level == LevelCritical {
+		switch in.Settings.AutoBlock {
+		case AutoBlockShadow:
+			reasons = append(reasons, "would_block")
+		case AutoBlockOn:
+			d = DecisionBlock
+			reasons = append(reasons, "auto_block")
+		case AutoBlockOff:
 		}
 	}
 	slices.Sort(reasons)

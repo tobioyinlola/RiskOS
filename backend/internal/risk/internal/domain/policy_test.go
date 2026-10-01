@@ -45,6 +45,30 @@ func TestDecide(t *testing.T) {
 	}
 }
 
+func TestAutoBlock(t *testing.T) {
+	in := func(mode domain.AutoBlockMode, l domain.Level) domain.PolicyInput {
+		st := domain.DefaultSettings()
+		st.AutoBlock = mode
+		return domain.PolicyInput{EventType: "transaction", Level: l, Settings: st}
+	}
+	shadow := domain.Decide(in(domain.AutoBlockShadow, domain.LevelCritical))
+	assert.Equal(t, domain.DecisionReview, shadow.Decision, "shadow mode changes no decision")
+	assert.Equal(t, []string{"would_block"}, shadow.Reasons)
+
+	on := domain.Decide(in(domain.AutoBlockOn, domain.LevelCritical))
+	assert.Equal(t, domain.DecisionBlock, on.Decision)
+	assert.Equal(t, []string{"auto_block"}, on.Reasons)
+
+	for _, l := range []domain.Level{domain.LevelMinimal, domain.LevelLow, domain.LevelElevated, domain.LevelHigh} {
+		assert.NotEqual(t, domain.DecisionBlock, domain.Decide(in(domain.AutoBlockOn, l)).Decision, "only Critical blocks")
+	}
+	st := domain.DefaultSettings()
+	assert.Equal(t, domain.DecisionReview, st.DecisionFor(domain.LevelCritical))
+	st.AutoBlock = domain.AutoBlockOn
+	assert.Equal(t, domain.DecisionBlock, st.DecisionFor(domain.LevelCritical))
+}
+
+// TestDecideNeverBlocks: without automatic blocking switched on, no input produces BLOCK.
 func TestDecideNeverBlocks(t *testing.T) {
 	for _, l := range []domain.Level{domain.LevelMinimal, domain.LevelLow, domain.LevelElevated, domain.LevelHigh, domain.LevelCritical} {
 		for _, typ := range []string{"login", "transaction", "profile_change"} {

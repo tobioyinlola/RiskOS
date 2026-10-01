@@ -65,10 +65,11 @@ func (h *Handlers) GetRiskCatalog(ctx context.Context, _ apigen.GetRiskCatalogRe
 
 // GetRiskPolicy implements GET /api/v1/risk/policy.
 func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequestObject) (apigen.GetRiskPolicyResponseObject, error) {
-	s, err := h.svc.Policy(ctx)
+	view, err := h.svc.Policy(ctx)
 	if err != nil {
 		return nil, MapError(err)
 	}
+	s := view.Settings
 	t := s.Thresholds
 	bounds := []struct {
 		level    domain.Level
@@ -82,6 +83,10 @@ func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequ
 		EngineVersion: engine.Version, CustomCalibration: t != domain.DefaultThresholds(),
 		AlertMinDecision: apigen.RiskPolicyAlertMinDecision(s.AlertMinDecision),
 		Thresholds:       apigen.RiskThresholds{Low: t.Low, Elevated: t.Elevated, High: t.High, Critical: t.Critical},
+		AutoBlock: apigen.AutoBlockStatus{
+			Mode: apigen.AutoBlockMode(s.AutoBlock), ShadowSince: s.AutoBlockSince, EligibleAt: s.AutoBlockEligibleAt(),
+			ShadowDaysRequired: int(domain.AutoBlockShadowPeriod.Hours() / 24), WouldBlockLast14Days: int(view.WouldBlock),
+		},
 	}
 	for _, b := range bounds {
 		out.Bands = append(out.Bands, struct {
@@ -89,7 +94,7 @@ func (h *Handlers) GetRiskPolicy(ctx context.Context, _ apigen.GetRiskPolicyRequ
 			DefaultDecision apigen.Decision  `json:"default_decision"`
 			MaxScore        int              `json:"max_score"`
 			MinScore        int              `json:"min_score"`
-		}{Band: apigen.RiskLevel(b.level), DefaultDecision: apigen.Decision(domain.DefaultDecision(b.level)), MaxScore: b.max, MinScore: b.min})
+		}{Band: apigen.RiskLevel(b.level), DefaultDecision: apigen.Decision(s.DecisionFor(b.level)), MaxScore: b.max, MinScore: b.min})
 	}
 	return out, nil
 }
@@ -121,6 +126,9 @@ func (h *Handlers) PutRiskSettings(ctx context.Context, req apigen.PutRiskSettin
 	}
 	if req.Body.AlertMinDecision != nil {
 		in.AlertMinDecision = domain.Decision(*req.Body.AlertMinDecision)
+	}
+	if req.Body.AutoBlock != nil {
+		in.AutoBlock = domain.AutoBlockMode(req.Body.AutoBlock.Mode)
 	}
 	for k, v := range req.Body.FailPolicies {
 		in.FailPolicies[k] = domain.FailPolicy(v)
@@ -330,6 +338,7 @@ func settingsToAPI(s domain.Settings) apigen.RiskSettings {
 		Weights: s.Weights, HighValueDefault: s.HighValueDefault, HighValueByCurrency: s.HighValueByCurrency,
 		FailPolicies:     map[string]apigen.RiskSettingsFailPolicies{},
 		AlertMinDecision: new(apigen.RiskSettingsAlertMinDecision(s.AlertMinDecision)),
+		AutoBlock:        &apigen.AutoBlock{Mode: apigen.AutoBlockMode(autoBlockMode(s.AutoBlock)), ShadowSince: s.AutoBlockSince},
 		Thresholds: &apigen.RiskThresholds{
 			Low: s.Thresholds.Low, Elevated: s.Thresholds.Elevated, High: s.Thresholds.High, Critical: s.Thresholds.Critical,
 		},
@@ -344,6 +353,13 @@ func settingsToAPI(s domain.Settings) apigen.RiskSettings {
 		out.HighValueByCurrency = map[string]int64{}
 	}
 	return out
+}
+
+func autoBlockMode(m domain.AutoBlockMode) domain.AutoBlockMode {
+	if m == "" {
+		return domain.AutoBlockOff
+	}
+	return m
 }
 
 // MapError translates the risk module's errors to the error contract.

@@ -6,6 +6,7 @@ import (
 	"maps"
 	"regexp"
 	"slices"
+	"time"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
@@ -50,20 +51,73 @@ func (s *Service) CatalogSettings(ctx context.Context) (domain.Settings, error) 
 	return out, err
 }
 
+// PolicyView is the environment's decision policy with the evidence for automatic blocking.
+type PolicyView struct {
+	Settings domain.Settings
+	// WouldBlock counts evaluations in the last AutoBlockShadowPeriod that blocking would have
+	// blocked (zero when it is off).
+	WouldBlock int64
+}
+
 // Policy returns the environment's settings for displaying bands and decisions. Readable by
 // anyone who can see scores (events, alerts, cases, rules or evaluations).
-func (s *Service) Policy(ctx context.Context) (domain.Settings, error) {
+func (s *Service) Policy(ctx context.Context) (PolicyView, error) {
 	if err := authz.RequireAny(ctx, authz.EventsRead, authz.AlertsRead, authz.CasesRead, authz.RulesRead,
 		authz.RiskEvaluate, authz.RiskConfigure); err != nil {
-		return domain.Settings{}, err
+		return PolicyView{}, err
 	}
-	var out domain.Settings
+	var out PolicyView
 	err := s.runner.Run(ctx, func(ctx context.Context) error {
 		cfg, err := s.config.get(ctx, s.load)
-		out = cfg.settings
+		if err != nil {
+			return err
+		}
+		out.Settings = cfg.settings
+		if out.Settings.AutoBlock != domain.AutoBlockOff {
+			out.WouldBlock, err = s.store.CountWouldBlock(ctx, s.clock.Now().Add(-domain.AutoBlockShadowPeriod))
+		}
 		return err
 	})
 	return out, err
+}
+
+// autoBlockTransition applies a requested automatic blocking mode to the current settings:
+// shadow evidence starts when leaving off and is kept while blocking is on; blocking can be
+// switched on only after AutoBlockShadowPeriod of it. Off and shadow are always allowed (the
+// kill switch). An empty mode keeps the current one.
+func autoBlockTransition(before domain.Settings, want domain.AutoBlockMode, now time.Time) (domain.AutoBlockMode, *time.Time, error) {
+	cur := before.AutoBlock
+	if cur == "" {
+		cur = domain.AutoBlockOff
+	}
+	if want == "" {
+		want = cur
+	}
+	switch want {
+	case domain.AutoBlockOff:
+		return want, nil, nil
+	case domain.AutoBlockShadow:
+		if cur == domain.AutoBlockOff || before.AutoBlockSince == nil {
+			return want, &now, nil
+		}
+		return want, before.AutoBlockSince, nil
+	case domain.AutoBlockOn:
+		if cur == domain.AutoBlockOn {
+			return want, before.AutoBlockSince, nil
+		}
+		eligible := before.AutoBlockEligibleAt()
+		if cur != domain.AutoBlockShadow || eligible == nil {
+			return "", nil, fmt.Errorf("%w: automatic blocking needs %d days in shadow mode first; switch it to shadow",
+				domain.ErrSettingsInvalid, int(domain.AutoBlockShadowPeriod.Hours()/24))
+		}
+		if now.Before(*eligible) {
+			return "", nil, fmt.Errorf("%w: automatic blocking can be switched on from %s, after %d days in shadow mode",
+				domain.ErrSettingsInvalid, eligible.UTC().Format(time.RFC3339), int(domain.AutoBlockShadowPeriod.Hours()/24))
+		}
+		return want, before.AutoBlockSince, nil
+	default:
+		return "", nil, fmt.Errorf("%w: auto_block mode must be off, shadow or on", domain.ErrSettingsInvalid)
+	}
 }
 
 // PutSettings replaces the environment's risk settings. Weights are bounded (0 to
@@ -85,8 +139,21 @@ func (s *Service) PutSettings(ctx context.Context, in domain.Settings) (domain.S
 		if err != nil {
 			return err
 		}
-		if err := s.store.PutSettings(ctx, in, scope.Principal.ID, s.clock.Now()); err != nil {
+		now := s.clock.Now()
+		if in.AutoBlock, in.AutoBlockSince, err = autoBlockTransition(before, in.AutoBlock, now); err != nil {
 			return err
+		}
+		if err := s.store.PutSettings(ctx, in, scope.Principal.ID, now); err != nil {
+			return err
+		}
+		if before.AutoBlock != in.AutoBlock {
+			if err := s.audit.Record(ctx, audit.Entry{
+				Action: "risk.auto_block_changed", ResourceType: "risk_settings", ResourceID: scope.EnvironmentID.String(),
+				Outcome:  audit.OutcomeSuccess,
+				Metadata: map[string]any{"mode_before": string(before.AutoBlock), "mode_after": string(in.AutoBlock)},
+			}); err != nil {
+				return err
+			}
 		}
 		return s.audit.Record(ctx, audit.Entry{
 			Action: "risk_settings.updated", ResourceType: "risk_settings", ResourceID: scope.EnvironmentID.String(),

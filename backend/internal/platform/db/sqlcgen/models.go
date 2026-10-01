@@ -216,16 +216,18 @@ type EventIdempotency struct {
 }
 
 type RiskSetting struct {
-	TenantID            uuid.UUID
-	EnvironmentID       uuid.UUID
-	Weights             []byte
-	HighValueDefault    int64
-	HighValueByCurrency []byte
-	FailPolicies        []byte
-	UpdatedAt           time.Time
-	UpdatedBy           string
-	AlertMinDecision    string
-	Thresholds          []byte
+	TenantID             uuid.UUID
+	EnvironmentID        uuid.UUID
+	Weights              []byte
+	HighValueDefault     int64
+	HighValueByCurrency  []byte
+	FailPolicies         []byte
+	UpdatedAt            time.Time
+	UpdatedBy            string
+	AlertMinDecision     string
+	Thresholds           []byte
+	AutoBlockMode        string
+	AutoBlockShadowSince *time.Time
 }
 
 type Rule struct {

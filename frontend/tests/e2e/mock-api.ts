@@ -304,6 +304,13 @@ export async function mockApi(page: Page): Promise<MockApi> {
           thresholds: THRESHOLDS,
           custom_calibration: false,
           alert_min_decision: "review",
+          auto_block: {
+            mode: "off",
+            shadow_since: null,
+            shadow_days_required: 14,
+            eligible_at: null,
+            would_block_last_14_days: 0,
+          },
           bands: [
             {
               band: "minimal",
@@ -366,6 +373,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
           fail_policies: {},
           thresholds: THRESHOLDS,
           alert_min_decision: "review",
+          auto_block: { mode: "off" },
         });
       case "/alerts":
         return json(route, { data: [ALERT], next_cursor: null });

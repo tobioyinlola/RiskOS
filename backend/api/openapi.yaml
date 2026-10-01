@@ -3497,10 +3497,12 @@ components:
     RiskPolicy:
       type: object
       additionalProperties: false
-      required: [engine_version, thresholds, custom_calibration, alert_min_decision, bands]
+      required: [engine_version, thresholds, custom_calibration, alert_min_decision, bands, auto_block]
       properties:
         engine_version:
           type: string
+        auto_block:
+          $ref: "#/components/schemas/AutoBlockStatus"
         thresholds:
           $ref: "#/components/schemas/RiskThresholds"
         custom_calibration:
@@ -3527,6 +3529,51 @@ components:
     Decision:
       type: string
       enum: [allow, review, step_up, block]
+      description: |
+        `block` is produced only for Critical scores in an environment that switched automatic
+        blocking on (see AutoBlockStatus).
+    AutoBlockMode:
+      type: string
+      enum: ["off", shadow, "on"]
+      description: |
+        `off`: Critical scores get REVIEW. `shadow`: they still get REVIEW, and the evaluation is
+        marked `would_block` in its policy reasons, to gather evidence. `on`: they get BLOCK
+        (possible only after 14 days in shadow). Switching to `off` or `shadow` takes effect at
+        once: it is the kill switch.
+    AutoBlock:
+      type: object
+      additionalProperties: false
+      required: [mode]
+      properties:
+        mode:
+          $ref: "#/components/schemas/AutoBlockMode"
+        shadow_since:
+          type: string
+          format: date-time
+          nullable: true
+          description: When shadow evidence started (kept while blocking is on). Set by the server; ignored in a PUT.
+    AutoBlockStatus:
+      type: object
+      additionalProperties: false
+      required: [mode, shadow_since, shadow_days_required, eligible_at, would_block_last_14_days]
+      properties:
+        mode:
+          $ref: "#/components/schemas/AutoBlockMode"
+        shadow_since:
+          type: string
+          format: date-time
+          nullable: true
+        shadow_days_required:
+          type: integer
+          description: Days in shadow mode before blocking can be switched on.
+        eligible_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: From when blocking can be switched on (null when not in shadow or on).
+        would_block_last_14_days:
+          type: integer
+          description: Evaluations in the last 14 days that blocking would have blocked.
     Signal:
       type: object
       additionalProperties: false
@@ -3984,6 +4031,11 @@ components:
           description: |
             The least severe decision that raises an alert. Always present in responses; when
             omitted from a PUT, `review` is stored.
+        auto_block:
+          $ref: "#/components/schemas/AutoBlock"
+          description: |
+            Automatic blocking of Critical scores. Always present in responses; when omitted from
+            a PUT, the current mode is kept. Switching it on requires 14 days in shadow mode.
     RiskCatalog:
       type: object
       additionalProperties: false
