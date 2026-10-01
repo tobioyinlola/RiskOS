@@ -105,6 +105,9 @@ func New(st store.Store, tenants Tenants, tenantErr TenantErrors, runner txn.Run
 	if cfg.RPID == "" {
 		cfg.RPID = "localhost"
 	}
+	if len(cfg.Origins) == 0 {
+		cfg.Origins = []string{"http://localhost:3000"}
+	}
 	wa, err := webauthn.New(&webauthn.Config{RPID: cfg.RPID, RPDisplayName: "RiskOS staff", RPOrigins: cfg.Origins})
 	if err != nil {
 		return nil, fmt.Errorf("admin: configure passkeys: %w", err)

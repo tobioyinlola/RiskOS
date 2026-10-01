@@ -29,7 +29,7 @@ func staffApp(ctx context.Context, cfg config.Config) (*admin.Module, func(), er
 	clk := clock.System{}
 	runner := db.NewTxRunner(pool)
 	rec := audit.New(runner, clk).Recorder()
-	m, err := admin.New(pool, tenants.New(runner, rec), runner, rec, clk, admin.Config{Secret: []byte(cfg.Console.Secret)})
+	m, err := admin.New(pool, tenants.New(runner, rec), runner, rec, clk, admin.Config{Secret: []byte(cfg.Console.Secret), Origins: []string{cfg.Console.URL}})
 	if err != nil {
 		pool.Close()
 		return nil, nil, err
