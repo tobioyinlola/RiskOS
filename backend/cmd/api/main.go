@@ -164,6 +164,10 @@ func run() (err error) {
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
 			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},
+			AuthFailures: ratelimit.Limit{
+				PerSecond: cfg.RateLimit.AuthFailuresPerMinute / 60, Burst: cfg.RateLimit.AuthFailuresBurst,
+			},
+			Operations: httpapi.DefaultOperationLimits(),
 		},
 	})
 	if err != nil {
@@ -189,5 +193,8 @@ func webhookConfig(c config.Webhooks) webhooks.Config {
 func consoleConfig(c config.Console) auth.ConsoleConfig {
 	cc := auth.DefaultConsole()
 	cc.Secret, cc.RPID, cc.Origins = []byte(c.Secret), c.RPID, c.Origins
+	if c.BreachedPasswordCheck == "pwned" {
+		cc.Breach = auth.PwnedPasswords(c.BreachedPasswordURL, 3*time.Second)
+	}
 	return cc
 }

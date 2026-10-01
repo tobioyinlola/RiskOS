@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"net/http/httptest"
 	"strings"
 	"sync"
 	"testing"
@@ -359,4 +360,59 @@ func TestEventsAreInsertOnly(t *testing.T) {
 	assert.ErrorContains(t, err, "insert-only")
 	_, err = shared.owner.Exec(t.Context(), `DELETE FROM evaluations WHERE tenant_id = $1`, a.id)
 	assert.ErrorContains(t, err, "insert-only")
+}
+
+// callFrom sends a request from the given client address (RemoteAddr).
+func (s stack) callFrom(t *testing.T, addr, method, path, key string) *httptest.ResponseRecorder {
+	t.Helper()
+	req := httptest.NewRequestWithContext(t.Context(), method, path, nil)
+	req.RemoteAddr = addr
+	if key != "" {
+		req.Header.Set("Authorization", "Bearer "+key)
+	}
+	rec := httptest.NewRecorder()
+	s.handler.ServeHTTP(rec, req)
+	return rec
+}
+
+func TestAuthFailureLimit(t *testing.T) {
+	limits := generousLimits()
+	limits.AuthFailures = ratelimit.Limit{PerSecond: 1.0 / 60, Burst: 3}
+	s := newStackWithLimits(t, time.Second, limits)
+	a := s.createTenant(t, "Auth failures")
+	const attacker, other = "198.51.100.10:4000", "198.51.100.11:4000"
+	bad := "rsk_test_aaaaaaaaaaaa_" + strings.Repeat("b", 32)
+
+	assert.Equal(t, http.StatusOK, s.callFrom(t, attacker, http.MethodGet, "/api/v1/whoami", a.testKey).Code,
+		"successful requests spend nothing")
+	for range 3 {
+		assert.Equal(t, http.StatusUnauthorized, s.callFrom(t, attacker, http.MethodGet, "/api/v1/whoami", bad).Code)
+	}
+	rec := s.callFrom(t, attacker, http.MethodGet, "/api/v1/whoami", bad)
+	assert.Equal(t, http.StatusTooManyRequests, rec.Code, "the address spent its failure budget")
+	assert.NotEmpty(t, rec.Header().Get("Retry-After"))
+	assert.Equal(t, http.StatusTooManyRequests, s.callFrom(t, attacker, http.MethodGet, "/api/v1/whoami", a.testKey).Code,
+		"refused before any credential lookup, even with a valid key")
+	assert.Equal(t, http.StatusOK, s.callFrom(t, other, http.MethodGet, "/api/v1/whoami", a.testKey).Code,
+		"other addresses are unaffected")
+}
+
+func TestOperationLimits(t *testing.T) {
+	limits := generousLimits()
+	limits.Operations = map[string]ratelimit.Limit{"EvaluateRisk": {PerSecond: 0.01, Burst: 2}}
+	s := newStackWithLimits(t, time.Second, limits)
+	a := s.createTenant(t, "Operation limits A")
+	b := s.createTenant(t, "Operation limits B")
+
+	statuses := make([]int, 3)
+	for i := range statuses {
+		statuses[i] = s.call(t, http.MethodPost, "/api/v1/risk/evaluate", a.testKey, txn("dry")).status
+	}
+	assert.Equal(t, []int{200, 200, http.StatusTooManyRequests}, statuses)
+	r := s.call(t, http.MethodPost, "/api/v1/risk/evaluate", a.testKey, txn("dry"))
+	assert.Equal(t, "RATE_LIMITED", r.errorCode(t))
+	assert.NotEmpty(t, r.header.Get("Retry-After"))
+	assert.Equal(t, http.StatusOK, s.ingest(t, a.testKey, txn("live")).status, "other operations keep their own budget")
+	assert.Equal(t, http.StatusOK, s.call(t, http.MethodPost, "/api/v1/risk/evaluate", b.testKey, txn("dry")).status,
+		"limits are per tenant")
 }

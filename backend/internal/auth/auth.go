@@ -10,6 +10,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/breach"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/service"
@@ -94,6 +95,18 @@ type Config struct {
 	// Limiter throttles sign-in; nil disables throttling (tests).
 	Limiter Limiter
 	Logger  *slog.Logger
+}
+
+// BreachChecker reports whether a password appears in known data breaches.
+type BreachChecker = service.BreachChecker
+
+// PwnedPasswords returns a breach checker on the Pwned Passwords range API at baseURL
+// (breach.DefaultURL in production), with k-anonymity.
+func PwnedPasswords(baseURL string, timeout time.Duration) BreachChecker {
+	if baseURL == "" {
+		baseURL = breach.DefaultURL
+	}
+	return breach.New(baseURL, timeout)
 }
 
 // DefaultConsole returns the dashboard realm defaults (ARCHITECTURE.md §9, §16.7).

@@ -64,9 +64,10 @@ type Deps struct {
 
 // New returns the root handler.
 //
-// Middleware order (outermost first): tracing, request ID, access log, panic recovery, route
-// telemetry, security headers, request timeout, body limit, authentication, rate limiting, then
-// routing and, per operation, contract validation. Tracing wraps everything so the span covers
+// Middleware order (outermost first): tracing, request ID, client address, access log, panic
+// recovery, route telemetry, security headers, request timeout, body limit, the
+// failed-authentication guard, authentication, rate limiting, then routing and, per operation,
+// contract validation, re-authentication and per-operation limits. Tracing wraps everything so the span covers
 // the whole request; recovery sits inside the access log so panics are logged with a 500 status;
 // authentication runs before routing so unknown /api/v1 paths cannot be probed without a key;
 // rate limits apply to authenticated callers only; contract validation needs the matched route.
@@ -78,12 +79,14 @@ func New(d Deps) (http.Handler, error) {
 	r := chi.NewRouter()
 	r.Use(
 		httpx.RequestID,
+		httpx.ClientIP(d.HTTP.TrustedProxies),
 		httpx.AccessLog(d.Logger, d.Clock),
 		httpx.Recover(d.Logger),
 		httpx.RouteTelemetry,
 		httpx.SecurityHeaders,
 		httpx.Timeout(d.HTTP.RequestTimeout),
 		httpx.BodyLimit(d.HTTP.MaxBodyBytes, d.Logger),
+		authFailureGuard(d.Limiter, d.RateLimits.AuthFailures, d.Logger),
 		d.Auth.Middleware(d.Logger),
 		rateLimit(d.Limiter, d.RateLimits, d.Logger),
 	)
@@ -102,7 +105,9 @@ func New(d Deps) (http.Handler, error) {
 		CaseHandlers:       d.Cases.HTTPHandlers(),
 		WebhookHandlers:    d.Webhooks.HTTPHandlers(),
 	}
-	strict := apigen.NewStrictHandlerWithOptions(impl, []apigen.StrictMiddlewareFunc{d.Auth.ReauthMiddleware()}, apigen.StrictHTTPServerOptions{
+	strict := apigen.NewStrictHandlerWithOptions(impl, []apigen.StrictMiddlewareFunc{
+		d.Auth.ReauthMiddleware(), operationLimit(d.Limiter, d.RateLimits.Operations, d.Logger),
+	}, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {
 			writeErr(w, req, httpx.InvalidRequest("The request is invalid.", err))
 		},

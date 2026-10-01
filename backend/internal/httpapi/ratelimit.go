@@ -3,11 +3,8 @@ package httpapi
 import (
 	"context"
 	"log/slog"
-	"math"
 	"net/http"
-	"strconv"
 
-	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 )
@@ -16,11 +13,17 @@ import (
 type RateLimits struct {
 	PerKey    ratelimit.Limit
 	PerTenant ratelimit.Limit
+	// AuthFailures limits failed authentications per client address (zero disables).
+	AuthFailures ratelimit.Limit
+	// Operations limits operations per tenant, keyed by operation name
+	// (DefaultOperationLimits).
+	Operations map[string]ratelimit.Limit
 }
 
 // Allower checks rate limit rules. *ratelimit.Limiter implements it.
 type Allower interface {
 	Allow(ctx context.Context, rules ...ratelimit.Rule) (ratelimit.Decision, error)
+	Peek(ctx context.Context, rule ratelimit.Rule) (ratelimit.Decision, error)
 }
 
 // rateLimit applies per-key and per-tenant limits to authenticated requests (it must run after
@@ -45,9 +48,7 @@ func rateLimit(limiter Allower, limits RateLimits, logger *slog.Logger) func(htt
 			}
 			if !d.Allowed {
 				logger.InfoContext(r.Context(), "rate limit exceeded", slog.String("api_key_id", scope.Principal.ID))
-				w.Header().Set("Retry-After", strconv.Itoa(int(math.Ceil(d.RetryAfter.Seconds()))))
-				httpx.WriteError(w, r, logger, httpx.NewError(http.StatusTooManyRequests, httpx.CodeRateLimited,
-					"Too many requests. Retry after the time given in Retry-After.", nil))
+				tooMany(w, r, logger, d)
 				return
 			}
 			next.ServeHTTP(w, r)

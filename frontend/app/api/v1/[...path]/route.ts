@@ -17,7 +17,9 @@ const HOP_BY_HOP = new Set([
   "content-length",
 ]);
 
-// Only these request headers reach the API: cookies and the console's own headers.
+// Only these request headers reach the API: cookies, the console's own headers, and the
+// client's address chain. The API believes X-Forwarded-For only from proxies it is configured to
+// trust (RISKOS_TRUSTED_PROXIES), and then only the entries those proxies added.
 const FORWARD = [
   "accept",
   "content-type",
@@ -27,6 +29,7 @@ const FORWARD = [
   "x-csrf-token",
   "riskos-environment",
   "x-request-id",
+  "x-forwarded-for",
 ];
 
 function apiBase(): string {

@@ -63,6 +63,13 @@ type ConsoleConfig struct {
 	// RPID and Origins identify the console to passkeys (WebAuthn relying party).
 	RPID    string
 	Origins []string
+	// Breach rejects passwords found in known breaches; nil disables the check.
+	Breach BreachChecker
+}
+
+// BreachChecker reports whether a password appears in known data breaches.
+type BreachChecker interface {
+	Breached(ctx context.Context, password string) (bool, error)
 }
 
 // Session is a resolved console session.
@@ -945,6 +952,9 @@ func (c *Console) AcceptInvite(ctx context.Context, token, name, password string
 	if err := console.ValidatePassword(password, inv.Email); err != nil {
 		return SignIn{}, fmt.Errorf("%w: %s", domain.ErrInvalidInput, strings.TrimPrefix(err.Error(), console.ErrWeakPassword.Error()+": "))
 	}
+	if err := c.checkBreached(ctx, password); err != nil {
+		return SignIn{}, err
+	}
 	taken, err := c.store.EmailTaken(ctx, inv.Email)
 	if err != nil {
 		return SignIn{}, err
@@ -981,6 +991,24 @@ func (c *Console) AcceptInvite(ctx context.Context, token, name, password string
 		return err
 	})
 	return out, err
+}
+
+// checkBreached rejects a password found in known breaches (NIST SP 800-63B §5.1.1.2). When the
+// breach service cannot be reached the password is accepted and the failure logged: an outside
+// outage must not stop people from joining their team.
+func (c *Console) checkBreached(ctx context.Context, password string) error {
+	if c.cfg.Breach == nil {
+		return nil
+	}
+	breached, err := c.cfg.Breach.Breached(ctx, password)
+	if err != nil {
+		c.logger.WarnContext(ctx, "breached-password check unavailable; password accepted", slog.Any("error", err))
+		return nil
+	}
+	if breached {
+		return fmt.Errorf("%w: this password has appeared in a data breach; choose a different one", domain.ErrInvalidInput)
+	}
+	return nil
 }
 
 // Member is a user as the team page shows them.
