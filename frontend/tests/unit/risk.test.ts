@@ -3,9 +3,9 @@ import { describe, expect, it } from "vitest";
 import {
   bandFor,
   bandInfo,
+  bandRanges,
   BANDS,
   DEFAULT_THRESHOLDS,
-  readout,
 } from "@/lib/risk";
 
 describe("risk bands", () => {
@@ -37,15 +37,24 @@ describe("risk bands", () => {
     );
   });
 
-  it("encodes each band with a bar count", () => {
-    expect(BANDS.map((b) => b.bars)).toEqual([1, 2, 3, 4, 5]);
+  it("gives each band a glyph so it reads without color", () => {
+    expect(BANDS.map((b) => b.shape)).toEqual([
+      "circle",
+      "circle",
+      "triangle",
+      "triangle",
+      "octagon",
+    ]);
     expect(bandInfo("elevated").label).toBe("Elevated");
   });
 
-  it("reads out three digits with the leading zeros apart", () => {
-    expect(readout(87)).toEqual({ lead: "0", value: "87" });
-    expect(readout(5)).toEqual({ lead: "00", value: "5" });
-    expect(readout(0)).toEqual({ lead: "00", value: "0" });
-    expect(readout(100)).toEqual({ lead: "", value: "100" });
+  it("splits 0-100 at the thresholds", () => {
+    expect(bandRanges().map((r) => [r.from, r.to])).toEqual([
+      [0, 19],
+      [20, 49],
+      [50, 69],
+      [70, 89],
+      [90, 100],
+    ]);
   });
 });

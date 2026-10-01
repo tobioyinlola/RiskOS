@@ -4,25 +4,25 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useMemo, useState } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input, Select, Textarea } from "@/components/instrument/field";
-import { KeyValues, Tag } from "@/components/instrument/misc";
-import { Modal } from "@/components/instrument/overlay";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
+import { CopyValue, KeyValues, Tag } from "@/components/ui/misc";
+import { Modal } from "@/components/ui/overlay";
 import {
   PageHeader,
   Panel,
   PanelBody,
   PanelHeader,
-} from "@/components/instrument/panel";
-import { RiskBadge } from "@/components/instrument/risk-badge";
+} from "@/components/ui/panel";
+import { RiskBadge } from "@/components/ui/risk-badge";
 import {
   Empty,
   ErrorState,
   Loading,
   Notice,
   SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+} from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { formatAge, formatTimestamp, humanize } from "@/lib/format";
@@ -95,7 +95,7 @@ export function CaseList() {
             role="tab"
             aria-selected={status === s}
             onClick={() => setStatus(s)}
-            className={`h-control-sm rounded-md px-3 text-body-sm ${status === s ? "bg-signal-wash text-ink" : "text-ink-2 hover:bg-bg-raised"}`}
+            className={`h-control-sm rounded-md px-3 text-body-sm ${status === s ? "bg-accent-subtle text-text-primary" : "text-text-secondary hover:bg-bg-raised"}`}
           >
             {s === "all" ? "All" : STATUS_LABEL[s]}
           </button>
@@ -123,22 +123,24 @@ export function CaseList() {
                 <Td>
                   <Link
                     href={`/cases/${c.id}` as "/cases"}
-                    className="block text-body-sm hover:text-signal-ink"
+                    className="block text-body-sm hover:text-accent"
                   >
                     {c.title}
                   </Link>
-                  <span className="mono text-legend text-ink-3">{c.id}</span>
+                  <span className="mono text-label text-text-muted">
+                    {c.id}
+                  </span>
                 </Td>
                 <Td>
                   <Tag>{STATUS_LABEL[c.status]}</Tag>
                 </Td>
-                <Td className="text-body-sm text-ink-2">
+                <Td className="text-body-sm text-text-secondary">
                   {userName(c.assignee)}
                 </Td>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatAge(c.created_at)}
                 </DataCell>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatAge(c.updated_at)}
                 </DataCell>
               </Tr>
@@ -152,7 +154,7 @@ export function CaseList() {
           </Empty>
         ) : null}
         {q.hasNextPage ? (
-          <div className="border-t border-line-subtle p-3">
+          <div className="border-t border-border-subtle p-3">
             <Button size="sm" onClick={() => void q.fetchNextPage()}>
               Load more
             </Button>
@@ -263,7 +265,7 @@ export function CaseWorkspace({ id }: { id: string }) {
     <>
       <PageHeader
         title={c.title}
-        description={<span className="mono text-data text-ink-3">{c.id}</span>}
+        description={<CopyValue value={c.id} className="text-text-muted" />}
         actions={
           writable ? (
             <>
@@ -316,7 +318,7 @@ export function CaseWorkspace({ id }: { id: string }) {
                       <Td>
                         <Link
                           href={`/alerts?status=all&alert=${a.id}` as "/alerts"}
-                          className="text-body-sm hover:text-signal-ink"
+                          className="text-body-sm hover:text-accent"
                         >
                           {a.title}
                         </Link>
@@ -339,16 +341,16 @@ export function CaseWorkspace({ id }: { id: string }) {
               {d.notes.map((n) => (
                 <article
                   key={n.id}
-                  className="border-l-2 border-line-control pl-3"
+                  className="border-l-2 border-border-control pl-3"
                 >
                   <p className="text-body whitespace-pre-wrap">{n.body}</p>
-                  <p className="legend mt-1">
+                  <p className="mt-1 text-label text-text-muted">
                     {userName(n.author)} · {formatTimestamp(n.created_at)}
                   </p>
                 </article>
               ))}
               {d.notes.length === 0 ? (
-                <p className="text-body-sm text-ink-3">No notes yet.</p>
+                <p className="text-body-sm text-text-muted">No notes yet.</p>
               ) : null}
               {can("cases:write") ? (
                 <form
@@ -419,7 +421,7 @@ export function CaseWorkspace({ id }: { id: string }) {
                 ]}
               />
               {c.resolution_note ? (
-                <p className="text-body-sm whitespace-pre-wrap text-ink-2">
+                <p className="text-body-sm whitespace-pre-wrap text-text-secondary">
                   {c.resolution_note}
                 </p>
               ) : null}
@@ -506,7 +508,9 @@ export function CaseWorkspace({ id }: { id: string }) {
         >
           {update.error ? <Notice tone="error">{update.error}</Notice> : null}
           <fieldset className="flex flex-col gap-2">
-            <legend className="mb-1 text-label text-ink-2">Resolution</legend>
+            <legend className="mb-1 text-label text-text-secondary">
+              Resolution
+            </legend>
             {RESOLUTIONS.map((r, i) => (
               <label key={r.value} className="flex gap-2 text-body">
                 <input
@@ -514,11 +518,11 @@ export function CaseWorkspace({ id }: { id: string }) {
                   name="resolution"
                   value={r.value}
                   defaultChecked={i === 0}
-                  className="mt-1 accent-[var(--signal-ink)]"
+                  className="mt-1 accent-accent"
                 />
                 <span>
                   {r.label}
-                  <span className="block text-body-sm text-ink-3">
+                  <span className="block text-body-sm text-text-muted">
                     {r.help}
                   </span>
                 </span>

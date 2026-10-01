@@ -1,9 +1,14 @@
+"use client";
+
 import { cn } from "cn";
 import type { ComponentProps } from "react";
 
+import { usePreferences } from "@/lib/preferences";
+
 /**
- * Tables: header strip in legend on bg-sunken, rows divided by line-subtle, hover bg-raised.
- * A selected row takes signal-wash plus a 2px signal-ink needle at its left edge.
+ * Tables (docs/design-system.md, AlertRow): real <table> markup, a label header strip on
+ * bg-sunken, rows divided by border-subtle, hover bg-raised, the selected row accent-subtle.
+ * Row height follows the density preference (row-default or row-compact) unless set.
  */
 export function Table({ className, ...props }: ComponentProps<"table">) {
   return (
@@ -20,7 +25,7 @@ export function Th({ className, ...props }: ComponentProps<"th">) {
   return (
     <th
       className={cn(
-        "legend h-[30px] bg-bg-sunken px-3 text-left font-medium whitespace-nowrap",
+        "h-8 bg-bg-sunken px-3 text-left text-label whitespace-nowrap text-text-secondary",
         className,
       )}
       {...props}
@@ -31,22 +36,22 @@ export function Th({ className, ...props }: ComponentProps<"th">) {
 export function Tr({
   className,
   selected,
-  density = "default",
+  density,
   ...props
 }: ComponentProps<"tr"> & {
   selected?: boolean;
   density?: "default" | "compact";
 }) {
+  const prefs = usePreferences();
+  const d = density ?? prefs.density;
   return (
     <tr
       data-selected={selected || undefined}
       aria-selected={selected}
       className={cn(
-        "group border-t border-line-subtle",
-        density === "compact" ? "h-row-compact" : "h-row-default",
-        selected
-          ? "bg-signal-wash [&>td:first-child]:shadow-[inset_2px_0_0_var(--signal-ink)]"
-          : "hover:bg-bg-raised",
+        "group border-t border-border-subtle transition-colors duration-150 ease-out",
+        d === "compact" ? "h-row-compact" : "h-row-default",
+        selected ? "bg-accent-subtle" : "hover:bg-bg-raised",
         className,
       )}
       {...props}

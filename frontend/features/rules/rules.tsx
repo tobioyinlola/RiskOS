@@ -4,8 +4,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input, Select, Textarea } from "@/components/instrument/field";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select, Textarea } from "@/components/ui/field";
 import {
   CodeBlock,
   Tab,
@@ -13,21 +13,21 @@ import {
   TabPanel,
   Tabs,
   Tag,
-} from "@/components/instrument/misc";
+} from "@/components/ui/misc";
 import {
   PageHeader,
   Panel,
   PanelBody,
   PanelHeader,
-} from "@/components/instrument/panel";
+} from "@/components/ui/panel";
 import {
   Empty,
   ErrorState,
   Loading,
   Notice,
   SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+} from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { formatAge, formatTimestamp, humanize } from "@/lib/format";
@@ -92,11 +92,13 @@ export function RuleList() {
                 <Td>
                   <Link
                     href={`/rules/${r.id}` as "/rules"}
-                    className="block text-body-sm hover:text-signal-ink"
+                    className="block text-body-sm hover:text-accent"
                   >
                     {r.name}
                   </Link>
-                  <span className="mono text-legend text-ink-3">{r.code}</span>
+                  <span className="mono text-label text-text-muted">
+                    {r.code}
+                  </span>
                 </Td>
                 <Td>
                   <Tag>
@@ -113,7 +115,7 @@ export function RuleList() {
                 <Td className="text-body-sm">{humanize(r.severity)}</Td>
                 <DataCell className="text-right">+{r.weight}</DataCell>
                 <DataCell className="text-right">v{r.version}</DataCell>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatAge(r.updated_at)}
                 </DataCell>
               </Tr>
@@ -185,17 +187,17 @@ function FieldCatalog() {
     <Panel>
       <PanelHeader title="Fields" legend="catalog" />
       <PanelBody className="max-h-[520px] overflow-y-auto">
-        <p className="mb-3 text-body-sm text-ink-2">
+        <p className="mb-3 text-body-sm text-text-secondary">
           A condition is <code className="mono">all</code>,{" "}
           <code className="mono">any</code>, <code className="mono">not</code>{" "}
           or a comparison. A field the event does not have never matches.
         </p>
         <ul>
           {(q.data?.fields ?? []).map((f) => (
-            <li key={f.name} className="border-t border-line-subtle py-1.5">
+            <li key={f.name} className="border-t border-border-subtle py-1.5">
               <code className="mono text-data">{f.name}</code>
-              <span className="legend ml-2">{f.type}</span>
-              <p className="mono text-legend text-ink-3">
+              <span className="ml-2 text-label text-text-muted">{f.type}</span>
+              <p className="mono text-label text-text-muted">
                 {f.operators.join(" ")}
               </p>
             </li>
@@ -426,7 +428,7 @@ export function RuleDetail({ id }: { id: string }) {
       <PageHeader
         title={r.name}
         description={
-          <span className="mono text-data text-ink-3">
+          <span className="mono text-data text-text-muted">
             {r.code} · v{r.version}
           </span>
         }
@@ -542,10 +544,10 @@ function RuleTester({ rule }: { rule: Rule }) {
         <PanelBody>
           {result ? (
             <div className="flex flex-col gap-3">
-              <p className="text-heading">
+              <p className="text-heading-2">
                 {result.matched ? "Matches" : "Does not match"}
               </p>
-              <p className="legend">
+              <p className="text-label text-text-muted">
                 {result.draft
                   ? "Draft condition"
                   : `Version ${result.version ?? ""}`}{" "}
@@ -554,7 +556,7 @@ function RuleTester({ rule }: { rule: Rule }) {
               <CodeBlock value={result.facts} />
             </div>
           ) : (
-            <p className="text-body-sm text-ink-3">
+            <p className="text-body-sm text-text-muted">
               Run a test to see whether the rule matches and which facts it
               read.
             </p>
@@ -603,7 +605,7 @@ function RuleVersions({ rule }: { rule: Rule }) {
               <DataCell>
                 v{v.version}
                 {v.restored_from ? (
-                  <span className="ml-2 text-ink-3">
+                  <span className="ml-2 text-text-muted">
                     restores v{v.restored_from}
                   </span>
                 ) : null}
@@ -612,11 +614,11 @@ function RuleVersions({ rule }: { rule: Rule }) {
                 <Tag>{!v.enabled ? "Disabled" : humanize(v.mode)}</Tag>
               </Td>
               <DataCell className="text-right">+{v.weight}</DataCell>
-              <Td className="text-body-sm text-ink-2">
+              <Td className="text-body-sm text-text-secondary">
                 {userName(v.created_by)}
               </Td>
               <DataCell
-                className="text-ink-3"
+                className="text-text-muted"
                 title={formatTimestamp(v.created_at)}
               >
                 {formatAge(v.created_at)}

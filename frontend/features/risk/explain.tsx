@@ -1,8 +1,8 @@
 "use client";
 
-import { ReasonList, type Reason } from "@/components/instrument/reason-list";
-import { RiskScore } from "@/components/instrument/risk-score";
-import { Notice } from "@/components/instrument/states";
+import { ReasonList, type Reason } from "@/components/ui/reason-list";
+import { RiskScore } from "@/components/ui/risk-score";
+import { Notice } from "@/components/ui/states";
 import type { Schemas } from "@/lib/api/client";
 import { humanize } from "@/lib/format";
 import { useSignalCategories, useThresholds } from "@/lib/queries";

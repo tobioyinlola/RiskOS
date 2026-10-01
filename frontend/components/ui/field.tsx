@@ -2,7 +2,7 @@ import { cn } from "cn";
 import { useId, type ComponentProps, type ReactNode } from "react";
 
 const control =
-  "w-full rounded-md border border-line-control bg-bg-surface px-3 text-body text-ink placeholder:text-ink-3 disabled:opacity-40 aria-invalid:border-status-error";
+  "w-full rounded-md border border-border-control bg-bg-surface px-3 text-body text-text-primary transition-colors duration-150 placeholder:text-text-muted hover:border-text-secondary disabled:opacity-40 aria-invalid:border-status-danger";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return (
@@ -19,7 +19,7 @@ export function Textarea({ className, ...props }: ComponentProps<"textarea">) {
 export function Select({ className, ...props }: ComponentProps<"select">) {
   return (
     <select
-      className={cn(control, "h-control-md pr-8", className)}
+      className={cn(control, "h-control-md pr-7", className)}
       {...props}
     />
   );
@@ -48,8 +48,8 @@ export function Field({
   const errorId = error ? `${id}-error` : undefined;
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
   return (
-    <div className={cn("flex flex-col gap-1.5", className)}>
-      <label htmlFor={id} className="text-label text-ink-2">
+    <div className={cn("flex flex-col gap-1", className)}>
+      <label htmlFor={id} className="text-label text-text-secondary">
         {label}
       </label>
       {children({
@@ -58,12 +58,16 @@ export function Field({
         "aria-invalid": error ? true : undefined,
       })}
       {hint ? (
-        <p id={hintId} className="text-body-sm text-ink-3">
+        <p id={hintId} className="text-body-sm text-text-muted">
           {hint}
         </p>
       ) : null}
       {error ? (
-        <p id={errorId} className="text-body-sm text-status-error" role="alert">
+        <p
+          id={errorId}
+          className="text-body-sm text-status-danger"
+          role="alert"
+        >
           {error}
         </p>
       ) : null}

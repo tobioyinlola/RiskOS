@@ -11,11 +11,9 @@ export interface Reason {
   contribution: number;
 }
 
-const TICKS = 12;
-
 /**
- * ReasonList (docs/design-system.md): the factors behind a score, ranked by contribution and
- * measured in ticks. ▲ raises risk, ▼ lowers it.
+ * ReasonList (docs/design-system.md): the factors behind a score, ranked by contribution.
+ * ▲ raises risk, ▼ lowers it; the arrow carries the meaning, color only reinforces it.
  */
 export function ReasonList({
   reasons,
@@ -34,49 +32,43 @@ export function ReasonList({
   const shown = all ? ranked : ranked.slice(0, limit);
   return (
     <section aria-label={title}>
-      <div className="mb-2 flex items-baseline justify-between">
-        <h3 className="text-heading">{title}</h3>
-        <span className="legend">Contribution</span>
-      </div>
+      <h3 className="mb-2 text-heading-3">{title}</h3>
       {ranked.length === 0 ? (
-        <p className="border-t border-line-subtle py-2 text-body-sm text-ink-2">
+        <p className="border-t border-border-subtle py-2 text-body-sm text-text-secondary">
           No factor moved this score.
         </p>
       ) : (
         <ul>
           {shown.map((r) => {
             const up = r.contribution >= 0;
-            const on = Math.max(
-              1,
-              Math.round((Math.abs(r.contribution) / max) * TICKS),
-            );
+            const width = Math.max(4, (Math.abs(r.contribution) / max) * 100);
             return (
               <li
                 key={`${r.label}-${r.category}`}
-                className="grid grid-cols-[18px_1fr_96px_40px] items-center gap-2 border-t border-line-subtle py-[7px]"
+                className="grid grid-cols-[16px_1fr_84px_40px] items-center gap-2 border-t border-border-subtle py-1.5"
               >
                 <span
-                  className={`mono text-body-sm font-medium ${up ? "text-risk-high" : "text-risk-low"}`}
+                  className={`mono font-medium ${up ? "text-risk-high" : "text-risk-low"}`}
                   aria-label={up ? "raises risk" : "lowers risk"}
                 >
                   {up ? "▲" : "▼"}
                 </span>
                 <span className="text-body-sm">
                   {r.label}
-                  <small className="legend mt-px block">{r.category}</small>
+                  <small className="block text-label font-normal text-text-muted">
+                    {r.category}
+                  </small>
                 </span>
                 <span
-                  className="flex h-2.5 items-stretch gap-0.5"
+                  className="h-1.5 overflow-hidden rounded-full bg-bg-sunken"
                   aria-hidden="true"
                 >
-                  {Array.from({ length: TICKS }, (_, i) => (
-                    <i
-                      key={i}
-                      className={`flex-1 ${i < on ? "bg-ink-2" : "bg-line-subtle"}`}
-                    />
-                  ))}
+                  <i
+                    className="block h-full bg-text-secondary"
+                    style={{ width: `${width}%` }}
+                  />
                 </span>
-                <span className="mono text-right text-label text-ink-2">
+                <span className="mono text-right text-label text-text-secondary">
                   {up ? "+" : "−"}
                   {Math.abs(r.contribution)}
                 </span>

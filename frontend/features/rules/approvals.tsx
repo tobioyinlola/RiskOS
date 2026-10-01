@@ -2,13 +2,13 @@
 
 import { useState, type ReactNode } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input } from "@/components/instrument/field";
-import { CodeBlock, KeyValues, Tag } from "@/components/instrument/misc";
-import { Drawer } from "@/components/instrument/overlay";
-import { Panel, PanelHeader } from "@/components/instrument/panel";
-import { Notice } from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { CodeBlock, KeyValues, Tag } from "@/components/ui/misc";
+import { Drawer } from "@/components/ui/overlay";
+import { Panel, PanelHeader } from "@/components/ui/panel";
+import { Notice } from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { formatAge, formatTimestamp, humanize } from "@/lib/format";
@@ -67,13 +67,15 @@ export function PendingChanges() {
               </Td>
               <Td>
                 <span className="block text-body-sm">{c.proposed.name}</span>
-                <span className="mono text-legend text-ink-3">{c.code}</span>
+                <span className="mono text-label text-text-muted">
+                  {c.code}
+                </span>
               </Td>
-              <Td className="text-body-sm text-ink-2">
+              <Td className="text-body-sm text-text-secondary">
                 {userName(c.proposed_by)}
               </Td>
               <DataCell
-                className="text-ink-3"
+                className="text-text-muted"
                 title={formatTimestamp(c.proposed_at)}
               >
                 {formatAge(c.proposed_at)}
@@ -106,7 +108,7 @@ export function PendingChangeNotice({ rule }: { rule: Rule }) {
         </span>
         <button
           type="button"
-          className="text-signal-ink underline-offset-2 hover:underline"
+          className="text-accent underline-offset-2 hover:underline"
           onClick={() => setOpen(true)}
         >
           Review the change
@@ -221,9 +223,9 @@ function ChangeReview({
               c.kind !== "create" && String(before) !== String(after);
             return (
               <Tr key={label} selected={changed}>
-                <Td className="legend">{label}</Td>
+                <Td className="text-label text-text-muted">{label}</Td>
                 {c.kind !== "create" ? (
-                  <Td className="text-body-sm text-ink-2">{before}</Td>
+                  <Td className="text-body-sm text-text-secondary">{before}</Td>
                 ) : null}
                 <Td className="text-body-sm">{after}</Td>
               </Tr>
@@ -233,7 +235,7 @@ function ChangeReview({
       </Table>
 
       <div className="flex flex-col gap-2">
-        <p className="legend">
+        <p className="text-label text-text-muted">
           Condition{conditionChanged && c.kind !== "create" ? " (changed)" : ""}
         </p>
         <CodeBlock value={JSON.stringify(p.condition, null, 2)} />

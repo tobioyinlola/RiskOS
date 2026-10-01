@@ -1,32 +1,40 @@
 import { render, screen, within } from "@testing-library/react";
 import { describe, expect, it } from "vitest";
 
-import { Button } from "@/components/instrument/button";
-import { ReasonList } from "@/components/instrument/reason-list";
-import { RiskBadge } from "@/components/instrument/risk-badge";
-import { RiskScore } from "@/components/instrument/risk-score";
-import { TraceLine } from "@/components/instrument/trace-line";
+import { Button } from "@/components/ui/button";
+import { ReasonList } from "@/components/ui/reason-list";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { RiskScore } from "@/components/ui/risk-score";
+import { TrendLine } from "@/components/ui/chart";
 import { sortQueue } from "@/features/alerts/alerts";
 import type { Schemas } from "@/lib/api/client";
 
 describe("RiskBadge", () => {
-  it("shows the band three ways: bars, word and score", () => {
+  it("shows the band word, its glyph and the score on the band's ground", () => {
     render(<RiskBadge score={81} />);
     const badge = screen.getByLabelText("High, score 81");
-    expect(badge).toHaveTextContent("High81");
-    expect(badge.querySelectorAll("i.opacity-100")).toHaveLength(4);
+    expect(badge).toHaveTextContent("High · 81");
+    expect(badge).toHaveClass("text-risk-high", "bg-risk-high-bg");
+    expect(badge.querySelector("svg path")).not.toBeNull();
   });
 
-  it("pads the score to two digits", () => {
-    render(<RiskBadge score={8} />);
-    expect(screen.getByLabelText("Minimal, score 8")).toHaveTextContent(
-      "Minimal08",
-    );
+  it("uses an octagon for Critical and a circle for Minimal", () => {
+    render(<RiskBadge score={96} />);
+    render(<RiskBadge score={8} showScore={false} />);
+    expect(
+      screen
+        .getByLabelText("Critical, score 96")
+        .querySelector("path")
+        ?.getAttribute("d"),
+    ).toContain("l3 3v4");
+    expect(
+      screen.getByLabelText("Minimal").querySelector("circle"),
+    ).not.toBeNull();
   });
 });
 
 describe("RiskScore", () => {
-  it("is a meter with a spoken label and a three-digit readout", () => {
+  it("is a meter with a spoken label, the score and its band", () => {
     render(
       <RiskScore
         score={87}
@@ -35,17 +43,15 @@ describe("RiskScore", () => {
         engineVersion="risk-engine-2.0.0"
       />,
     );
-    const meter = screen.getByRole("meter", {
-      name: "Risk score 87 of 100, High",
-    });
-    expect(meter).toHaveTextContent("087");
+    const meter = screen.getByRole("meter", { name: "Risk score 87, High" });
+    expect(meter).toHaveTextContent("87/ 100High");
     expect(meter).toHaveAttribute("aria-valuenow", "87");
     expect(screen.getByText("Step-up")).toBeInTheDocument();
   });
 
   it("marks a custom calibration", () => {
     render(<RiskScore score={20} decision="allow" customCalibration />);
-    expect(screen.getByText("Custom calibration")).toBeInTheDocument();
+    expect(screen.getByText("Custom thresholds")).toBeInTheDocument();
   });
 });
 
@@ -77,14 +83,13 @@ describe("ReasonList", () => {
   });
 });
 
-describe("TraceLine and Button", () => {
-  it("draws a labelled trace", () => {
-    render(<TraceLine points={[1, 1, 5, 1]} label="Scores" />);
-    expect(
-      screen
-        .getByRole("img", { name: "Scores" })
-        .querySelector("polyline.trace"),
-    ).not.toBeNull();
+describe("TrendLine and Button", () => {
+  it("draws the primary series in accent", () => {
+    render(<TrendLine points={[1, 1, 5, 1]} label="Scores" />);
+    const line = screen
+      .getByRole("img", { name: "Scores" })
+      .querySelector('polyline[data-series="primary"]');
+    expect(line).toHaveClass("stroke-accent");
   });
 
   it("shows a shortcut with the label", () => {

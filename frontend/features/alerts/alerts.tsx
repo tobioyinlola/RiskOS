@@ -5,22 +5,22 @@ import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input, Select } from "@/components/instrument/field";
-import { KeyValues, Tag } from "@/components/instrument/misc";
-import { Drawer, Modal } from "@/components/instrument/overlay";
-import { PageHeader, Panel } from "@/components/instrument/panel";
-import { ReasonList } from "@/components/instrument/reason-list";
-import { RiskBadge } from "@/components/instrument/risk-badge";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select } from "@/components/ui/field";
+import { CopyValue, KeyValues, Tag } from "@/components/ui/misc";
+import { Drawer, Modal } from "@/components/ui/overlay";
+import { PageHeader, Panel } from "@/components/ui/panel";
+import { ReasonList } from "@/components/ui/reason-list";
+import { RiskBadge } from "@/components/ui/risk-badge";
 import {
   Empty,
   ErrorState,
   Loading,
   Notice,
   SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
-import { TraceLine } from "@/components/instrument/trace-line";
+} from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
+import { TrendLine } from "@/components/ui/chart";
 import { isTyping, usePageShortcuts } from "@/components/shell/shortcuts";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
@@ -177,7 +177,7 @@ export function AlertQueue() {
                 setCursor(0);
                 setParam("status", t.value);
               }}
-              className={`h-control-sm rounded-md px-3 text-body-sm ${status === t.value ? "bg-signal-wash text-ink" : "text-ink-2 hover:bg-bg-raised"}`}
+              className={`h-control-sm rounded-md px-3 text-body-sm ${status === t.value ? "bg-accent-subtle text-text-primary" : "text-text-secondary hover:bg-bg-raised"}`}
             >
               {t.label}
             </button>
@@ -228,25 +228,27 @@ export function AlertQueue() {
                 </Td>
                 <Td>
                   <span className="block text-body-sm">{a.title}</span>
-                  <span className="mono text-legend text-ink-3">{a.id}</span>
+                  <span className="mono text-label text-text-muted">
+                    {a.id}
+                  </span>
                 </Td>
                 <DataCell>
                   {a.subject.type === "user" ? (
                     a.subject.ref
                   ) : (
-                    <span className="text-ink-2">
+                    <span className="text-text-secondary">
                       {humanize(a.subject.type)}
                     </span>
                   )}
                 </DataCell>
                 <DataCell className="text-right">{a.evaluation_count}</DataCell>
-                <Td className="text-body-sm text-ink-2">
+                <Td className="text-body-sm text-text-secondary">
                   {userName(a.assignee)}
                 </Td>
                 <Td>
                   <Tag>{STATUS_LABEL[a.status]}</Tag>
                 </Td>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatAge(a.last_seen_at)}
                 </DataCell>
               </Tr>
@@ -261,7 +263,7 @@ export function AlertQueue() {
           </Empty>
         ) : null}
         {q.hasNextPage ? (
-          <div className="border-t border-line-subtle p-3">
+          <div className="border-t border-border-subtle p-3">
             <Button
               size="sm"
               onClick={() => void q.fetchNextPage()}
@@ -332,7 +334,7 @@ function AlertDrawer({
       open={!!id}
       onOpenChange={(o) => !o && onClose()}
       title={a ? a.title : "Alert"}
-      subtitle={a ? <span className="mono">{a.id}</span> : undefined}
+      subtitle={a ? <CopyValue value={a.id} /> : undefined}
       footer={
         a && can("alerts:write") ? (
           <>
@@ -382,7 +384,7 @@ function AlertDrawer({
                 </Link>
               </Button>
             ) : (
-              <span className="text-body-sm text-ink-3">
+              <span className="text-body-sm text-text-muted">
                 This alert is closed.
               </span>
             )}
@@ -393,7 +395,7 @@ function AlertDrawer({
       {q.isLoading ? <Loading /> : null}
       {q.isError ? <ErrorState error={q.error} /> : null}
       {a && d ? (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center gap-2">
             <RiskBadge band={a.severity as RiskBand} score={a.max_score} />
             <Tag>{STATUS_LABEL[a.status]}</Tag>
@@ -435,7 +437,7 @@ function AlertDrawer({
                       "Case",
                       <Link
                         key="c"
-                        className="mono text-signal-ink"
+                        className="mono text-accent"
                         href={`/cases/${a.case_id}` as "/cases"}
                       >
                         {a.case_id}
@@ -489,8 +491,10 @@ function AlertDrawer({
           ) : null}
           {scores.length > 1 ? (
             <div>
-              <p className="legend mb-1">Score per evaluation</p>
-              <TraceLine
+              <p className="mb-1 text-label text-text-muted">
+                Score per evaluation
+              </p>
+              <TrendLine
                 points={scores}
                 width={420}
                 height={40}
@@ -510,12 +514,12 @@ function AlertDrawer({
           ) : null}
           {d.evaluations.length ? (
             <section>
-              <h3 className="mb-2 text-heading">Evaluations</h3>
+              <h3 className="mb-2 text-heading-2">Evaluations</h3>
               <ul>
                 {d.evaluations.map((e) => (
                   <li
                     key={e.evaluation_id}
-                    className="flex items-center justify-between gap-2 border-t border-line-subtle py-2"
+                    className="flex items-center justify-between gap-2 border-t border-border-subtle py-2"
                   >
                     <span className="flex items-center gap-2">
                       <RiskBadge
@@ -528,11 +532,11 @@ function AlertDrawer({
                     </span>
                     <Link
                       href={`/events?event=${e.event_id}` as "/events"}
-                      className="mono text-data text-signal-ink"
+                      className="mono text-data text-accent"
                     >
                       {e.event_id}
                     </Link>
-                    <span className="mono text-data text-ink-3">
+                    <span className="mono text-data text-text-muted">
                       {formatAge(e.evaluated_at)}
                     </span>
                   </li>
@@ -551,21 +555,21 @@ export function Timeline({ entries }: { entries: Schemas["ActivityEntry"][] }) {
   const userName = useUserName();
   return (
     <section>
-      <h3 className="mb-2 text-heading">Timeline</h3>
+      <h3 className="mb-2 text-heading-2">Timeline</h3>
       <ol>
         {entries.map((e) => (
           <li
             key={e.id}
-            className="grid grid-cols-[1fr_auto] gap-2 border-t border-line-subtle py-2"
+            className="grid grid-cols-[1fr_auto] gap-2 border-t border-border-subtle py-2"
           >
             <div>
               <p className="text-body-sm">{describeActivity(e)}</p>
-              <p className="legend">
+              <p className="text-label text-text-muted">
                 {e.actor.startsWith("usr_") ? userName(e.actor) : e.actor}
               </p>
             </div>
             <span
-              className="mono text-data text-ink-3"
+              className="mono text-data text-text-muted"
               title={formatTimestamp(e.created_at)}
             >
               {formatAge(e.created_at)}

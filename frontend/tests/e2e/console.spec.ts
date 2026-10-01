@@ -166,6 +166,62 @@ test("a production rule change is approved by a second person", async ({
   expect(api.problems).toEqual([]);
 });
 
+test("the shell: collapsible navigation, command palette, theme and density", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(
+    isMobile,
+    "the navigation rail and palette shortcut are for desktop",
+  );
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/");
+  const nav = page.getByRole("navigation", { name: "Primary" });
+  await expect(nav.getByRole("link", { name: "Alerts" })).toContainText(
+    "Alerts",
+  );
+
+  // Collapse to the icon rail; links keep their names; the choice survives a reload.
+  await page.getByRole("button", { name: "Collapse navigation" }).click();
+  await expect(nav.getByRole("link", { name: "Alerts" })).not.toContainText(
+    "Alerts",
+  );
+  await page.reload();
+  await expect(
+    page.getByRole("button", { name: "Expand navigation" }),
+  ).toBeVisible();
+  await page.keyboard.press("[");
+  await expect(
+    page.getByRole("button", { name: "Collapse navigation" }),
+  ).toBeVisible();
+
+  // The command palette jumps to a section.
+  await page.keyboard.press("Control+k");
+  const palette = page.getByRole("dialog", { name: "Command palette" });
+  await expect(palette).toBeVisible();
+  await page.keyboard.type("audit");
+  await page.keyboard.press("Enter");
+  await expect(page).toHaveURL(/\/audit-logs$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Audit log" }),
+  ).toBeVisible();
+
+  // Theme and density are preferences, applied before first paint after a reload.
+  await page.getByRole("button", { name: "Use light theme" }).click();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await page.getByRole("button", { name: "Use compact rows" }).click();
+  await page.reload();
+  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  await expect(
+    page.getByRole("button", { name: "Use default rows" }),
+  ).toBeVisible();
+
+  expect(api.problems).toEqual([]);
+  expect(csp).toEqual([]);
+});
+
 test("pages carry security headers and a nonce-based CSP", async ({
   request,
 }) => {

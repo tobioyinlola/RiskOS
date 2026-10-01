@@ -2,28 +2,23 @@
 
 import { useMemo, useState } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input, Select } from "@/components/instrument/field";
-import {
-  CodeBlock,
-  KeyValues,
-  Status,
-  Tag,
-} from "@/components/instrument/misc";
-import { Drawer, Modal } from "@/components/instrument/overlay";
+import { Button } from "@/components/ui/button";
+import { Field, Input, Select } from "@/components/ui/field";
+import { CodeBlock, KeyValues, Status, Tag } from "@/components/ui/misc";
+import { Confirm, Drawer, Modal } from "@/components/ui/overlay";
 import {
   PageHeader,
   Panel,
   PanelBody,
   PanelHeader,
-} from "@/components/instrument/panel";
+} from "@/components/ui/panel";
 import {
   Empty,
   ErrorState,
   Notice,
   SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+} from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { formatAge, formatTimestamp, humanize } from "@/lib/format";
@@ -91,10 +86,10 @@ export function AuditLog() {
                 selected={open?.id === e.id}
                 onClick={() => setOpen(e)}
               >
-                <DataCell className="text-right text-ink-3">
+                <DataCell className="text-right text-text-muted">
                   {e.sequence}
                 </DataCell>
-                <DataCell className="text-ink-2">
+                <DataCell className="text-text-secondary">
                   {formatTimestamp(e.occurred_at)}
                 </DataCell>
                 <DataCell>{e.action}</DataCell>
@@ -105,7 +100,9 @@ export function AuditLog() {
                     <span className="mono text-data">{e.actor.id}</span>
                   )}
                 </Td>
-                <DataCell className="text-ink-2">{e.resource.id}</DataCell>
+                <DataCell className="text-text-secondary">
+                  {e.resource.id}
+                </DataCell>
                 <Td>
                   <Status tone={e.outcome === "success" ? "ok" : "error"}>
                     {humanize(e.outcome)}
@@ -117,7 +114,7 @@ export function AuditLog() {
         </Table>
         {q.isError ? <ErrorState error={q.error} className="m-4" /> : null}
         {q.hasNextPage ? (
-          <div className="border-t border-line-subtle p-3">
+          <div className="border-t border-border-subtle p-3">
             <Button size="sm" onClick={() => void q.fetchNextPage()}>
               Load more
             </Button>
@@ -253,8 +250,10 @@ export function Team() {
                 <Tr key={m.id}>
                   <Td className="text-body-sm">
                     {m.name}{" "}
-                    {self ? <span className="text-ink-3">(you)</span> : null}
-                    <span className="mono block text-legend text-ink-3">
+                    {self ? (
+                      <span className="text-text-muted">(you)</span>
+                    ) : null}
+                    <span className="mono block text-label text-text-muted">
                       {m.email}
                     </span>
                   </Td>
@@ -305,7 +304,7 @@ export function Team() {
                       {m.mfa_enabled ? "Enrolled" : "Not yet"}
                     </Status>
                   </Td>
-                  <DataCell className="text-ink-3">
+                  <DataCell className="text-text-muted">
                     {m.last_login_at ? formatAge(m.last_login_at) : "never"}
                   </DataCell>
                 </Tr>
@@ -338,7 +337,7 @@ export function Team() {
                 <Td>
                   <Tag>{humanize(i.status)}</Tag>
                 </Td>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatTimestamp(i.expires_at)}
                 </DataCell>
                 <Td className="text-right">
@@ -415,7 +414,9 @@ export function Team() {
               )}
             </Field>
             <fieldset className="flex flex-col gap-2">
-              <legend className="mb-1 text-label text-ink-2">Role</legend>
+              <legend className="mb-1 text-label text-text-secondary">
+                Role
+              </legend>
               {ROLES.map((r) => (
                 <label key={r.value} className="flex gap-2 text-body">
                   <input
@@ -423,11 +424,11 @@ export function Team() {
                     name="role"
                     value={r.value}
                     defaultChecked={r.value === "analyst"}
-                    className="mt-1 accent-[var(--signal-ink)]"
+                    className="mt-1 accent-accent"
                   />
                   <span>
                     {r.label}
-                    <span className="block text-body-sm text-ink-3">
+                    <span className="block text-body-sm text-text-muted">
                       {r.help}
                     </span>
                   </span>
@@ -453,6 +454,7 @@ export function AccountSecurity() {
   const [codes, setCodes] = useState<string[]>();
   const [addingTotp, setAddingTotp] = useState(false);
   const [error, setError] = useState<string>();
+  const [removing, setRemoving] = useState<{ id: string; name: string }>();
   const remove = useAction(
     async (id: string) =>
       unwrap(
@@ -519,10 +521,10 @@ export function AccountSecurity() {
               {session.mfa.passkeys.map((k) => (
                 <Tr key={k.id}>
                   <Td className="text-body-sm">{k.name}</Td>
-                  <DataCell className="text-ink-3">
+                  <DataCell className="text-text-muted">
                     added {formatAge(k.created_at)} ago
                   </DataCell>
-                  <DataCell className="text-ink-3">
+                  <DataCell className="text-text-muted">
                     {k.last_used_at
                       ? `used ${formatAge(k.last_used_at)} ago`
                       : "not used yet"}
@@ -531,7 +533,7 @@ export function AccountSecurity() {
                     <Button
                       size="sm"
                       variant="danger"
-                      onClick={() => void remove.run(k.id)}
+                      onClick={() => setRemoving({ id: k.id, name: k.name })}
                       disabled={remove.busy}
                     >
                       Remove
@@ -546,6 +548,19 @@ export function AccountSecurity() {
               Sign in with your fingerprint, face or device PIN.
             </Empty>
           ) : null}
+          <Confirm
+            open={!!removing}
+            onOpenChange={(o) => (o ? undefined : setRemoving(undefined))}
+            title={`Remove the passkey “${removing?.name ?? ""}”?`}
+            description="You will no longer be able to sign in with it. Your other second factors keep working."
+            confirmLabel="Remove passkey"
+            busy={remove.busy}
+            onConfirm={async () => {
+              if (!removing) return;
+              const r = await remove.run(removing.id);
+              if (r !== undefined) setRemoving(undefined);
+            }}
+          />
         </Panel>
         <Panel>
           <PanelHeader title="Authenticator app" />
@@ -587,7 +602,7 @@ export function AccountSecurity() {
               />
             ) : (
               <>
-                <p className="text-body-sm text-ink-2">
+                <p className="text-body-sm text-text-secondary">
                   Replacing them makes the old codes stop working.
                 </p>
                 <Button

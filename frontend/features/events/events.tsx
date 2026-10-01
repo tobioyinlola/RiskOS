@@ -3,26 +3,27 @@
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
-import { Button } from "@/components/instrument/button";
+import { Button } from "@/components/ui/button";
 import {
   CodeBlock,
+  CopyValue,
   KeyValues,
   Tab,
   TabList,
   TabPanel,
   Tabs,
   Tag,
-} from "@/components/instrument/misc";
-import { Drawer } from "@/components/instrument/overlay";
-import { PageHeader, Panel } from "@/components/instrument/panel";
-import { RiskBadge } from "@/components/instrument/risk-badge";
+} from "@/components/ui/misc";
+import { Drawer } from "@/components/ui/overlay";
+import { PageHeader, Panel } from "@/components/ui/panel";
+import { RiskBadge } from "@/components/ui/risk-badge";
 import {
   Empty,
   ErrorState,
   Loading,
   SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
+} from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { isTyping, usePageShortcuts } from "@/components/shell/shortcuts";
 import { formatAge, formatTimestamp, humanize } from "@/lib/format";
 import { useEvent, useEvents } from "@/lib/queries";
@@ -107,16 +108,16 @@ export function EventExplorer() {
                 </Td>
                 <DataCell>
                   <span className="block">{e.event_key}</span>
-                  <span className="text-legend text-ink-3">{e.id}</span>
+                  <span className="text-label text-text-muted">{e.id}</span>
                 </DataCell>
                 <Td className="text-body-sm">{humanize(e.type)}</Td>
                 <Td className="text-body-sm">
                   {DECISION_LABEL[e.decision as Decision]}
                 </Td>
-                <DataCell className="text-ink-2">
+                <DataCell className="text-text-secondary">
                   {formatTimestamp(e.occurred_at)}
                 </DataCell>
-                <DataCell className="text-ink-3">
+                <DataCell className="text-text-muted">
                   {formatAge(e.received_at)}
                 </DataCell>
               </Tr>
@@ -131,7 +132,7 @@ export function EventExplorer() {
           </Empty>
         ) : null}
         {q.hasNextPage ? (
-          <div className="border-t border-line-subtle p-3">
+          <div className="border-t border-border-subtle p-3">
             <Button
               size="sm"
               onClick={() => void q.fetchNextPage()}
@@ -161,26 +162,19 @@ export function EventDrawer({
       open={!!id}
       onOpenChange={(o) => !o && onClose()}
       title={e ? humanize(e.type) : "Event"}
-      subtitle={e ? <span className="mono">{e.event_key}</span> : undefined}
+      subtitle={e ? <CopyValue value={e.event_key} /> : undefined}
     >
       {q.isLoading ? <Loading /> : null}
       {q.isError ? <ErrorState error={q.error} /> : null}
       {e ? (
-        <div className="flex flex-col gap-6">
+        <div className="flex flex-col gap-5">
           <DecisionReading decision={e.evaluation} />
           <KeyValues
             items={[
-              [
-                "Event",
-                <span key="i" className="mono">
-                  {e.id}
-                </span>,
-              ],
+              ["Event", <CopyValue key="i" value={e.id} />],
               [
                 "Evaluation",
-                <span key="v" className="mono">
-                  {e.evaluation.evaluation_id}
-                </span>,
+                <CopyValue key="v" value={e.evaluation.evaluation_id} />,
               ],
               [
                 "Occurred",
@@ -197,9 +191,7 @@ export function EventDrawer({
               ["Environment", <Tag key="env">{e.environment}</Tag>],
               [
                 "Request",
-                <span key="q" className="mono">
-                  {e.evaluation.request_id}
-                </span>,
+                <CopyValue key="q" value={e.evaluation.request_id} />,
               ],
             ]}
           />

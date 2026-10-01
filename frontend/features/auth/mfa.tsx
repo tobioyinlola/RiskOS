@@ -3,10 +3,10 @@
 import QRCode from "qrcode";
 import { useEffect, useState, type FormEvent } from "react";
 
-import { Button } from "@/components/instrument/button";
-import { Field, Input } from "@/components/instrument/field";
-import { CodeBlock } from "@/components/instrument/misc";
-import { Notice } from "@/components/instrument/states";
+import { Button } from "@/components/ui/button";
+import { Field, Input } from "@/components/ui/field";
+import { CodeBlock } from "@/components/ui/misc";
+import { Notice } from "@/components/ui/states";
 import { api, ApiError, unwrap, type Schemas } from "@/lib/api/client";
 import {
   assertPasskey,
@@ -81,8 +81,8 @@ export function SecondFactor({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-title">Verify it&apos;s you</h1>
-        <p className="mt-1 text-body text-ink-2">
+        <h1 className="text-heading-1">Verify it&apos;s you</h1>
+        <p className="mt-1 text-body text-text-secondary">
           Your password is correct. Now confirm with your second factor.
         </p>
       </div>
@@ -151,8 +151,8 @@ export function RecoveryCodes({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-title">Save your recovery codes</h1>
-        <p className="mt-1 text-body text-ink-2">
+        <h1 className="text-heading-1">Save your recovery codes</h1>
+        <p className="mt-1 text-body text-text-secondary">
           Each code signs you in once if you lose your second factor. You will
           not see them again. Store them in a password manager.
         </p>
@@ -171,7 +171,7 @@ export function RecoveryCodes({
           type="checkbox"
           checked={saved}
           onChange={(e) => setSaved(e.target.checked)}
-          className="size-4 accent-[var(--signal-ink)]"
+          className="size-4 accent-accent"
         />
         I have saved these codes somewhere safe
       </label>
@@ -206,7 +206,7 @@ export function Enrollment({
         setQr(
           svg
             .replace('fill="#ffffff"', 'class="fill-bg-surface"')
-            .replace('stroke="#000000"', 'class="stroke-ink"'),
+            .replace('stroke="#000000"', 'class="stroke-text-primary"'),
         ),
     );
   }, [totp]);
@@ -264,8 +264,8 @@ export function Enrollment({
   return (
     <div className="flex flex-col gap-4">
       <div>
-        <h1 className="text-title">Add a second factor</h1>
-        <p className="mt-1 text-body text-ink-2">
+        <h1 className="text-heading-1">Add a second factor</h1>
+        <p className="mt-1 text-body text-text-secondary">
           RiskOS requires one. A passkey (your device&apos;s fingerprint, face
           or PIN) is the strongest and fastest.
         </p>
@@ -292,7 +292,7 @@ export function Enrollment({
         </>
       ) : (
         <form onSubmit={(e) => void confirm(e)} className="flex flex-col gap-4">
-          <p className="text-body text-ink-2">
+          <p className="text-body text-text-secondary">
             Scan this with your authenticator app, or enter the key by hand,
             then type the 6-digit code it shows.
           </p>
@@ -306,7 +306,7 @@ export function Enrollment({
             />
           ) : null}
           <div>
-            <p className="legend">Setup key</p>
+            <p className="text-label text-text-muted">Setup key</p>
             <p className="mono text-data break-all">{totp.secret}</p>
           </div>
           <Field label="Code from the app">

@@ -3,23 +3,15 @@
 import Link from "next/link";
 import { useMemo } from "react";
 
-import {
-  Metric,
-  PageHeader,
-  Panel,
-  PanelHeader,
-} from "@/components/instrument/panel";
-import { BandBars, RiskBadge } from "@/components/instrument/risk-badge";
-import {
-  Empty,
-  ErrorState,
-  SkeletonRows,
-} from "@/components/instrument/states";
-import { DataCell, Table, Td, Th, Tr } from "@/components/instrument/table";
-import { TraceLine } from "@/components/instrument/trace-line";
+import { Metric, PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
+import { RiskBadge } from "@/components/ui/risk-badge";
+import { Empty, ErrorState, SkeletonRows } from "@/components/ui/states";
+import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
+import { TrendLine } from "@/components/ui/chart";
 import { formatAge, formatCount, humanize } from "@/lib/format";
 import { useAlerts, useCases, useEvents } from "@/lib/queries";
 import {
+  BAND_FILL,
   BANDS,
   DECISION_LABEL,
   type Decision,
@@ -68,15 +60,15 @@ export function Overview() {
     <>
       <PageHeader
         title="Overview"
-        description={`${session.tenant.name}: what the instrument is reading now.`}
+        description={`${session.tenant.name}: the newest activity in this environment.`}
       />
-      <div className="mb-6 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         <Metric
           label={`Events · last ${SAMPLE}`}
           value={events.isSuccess ? formatCount(sample.length) : "—"}
         >
           {scores.length > 1 ? (
-            <TraceLine
+            <TrendLine
               points={scores}
               width={200}
               height={32}
@@ -86,7 +78,7 @@ export function Overview() {
         </Metric>
         <Metric
           label={`Mean score · last ${SAMPLE}`}
-          value={events.isSuccess ? String(mean).padStart(3, "0") : "—"}
+          value={events.isSuccess ? String(mean) : "—"}
           unit="/ 100"
         />
         <Metric
@@ -102,7 +94,7 @@ export function Overview() {
             )}
           >
             {can("cases:read") ? (
-              <span className="text-body-sm text-ink-2">
+              <span className="text-body-sm text-text-secondary">
                 {count(
                   openCases.data?.pages[0]?.data.length,
                   !!openCases.data?.pages[0]?.next_cursor,
@@ -114,7 +106,7 @@ export function Overview() {
         ) : null}
       </div>
 
-      <div className="mb-6 grid grid-cols-1 gap-4 xl:grid-cols-2">
+      <div className="mb-5 grid grid-cols-1 gap-5 xl:grid-cols-2">
         <Panel>
           <PanelHeader
             title="Risk distribution"
@@ -125,6 +117,7 @@ export function Overview() {
               key: b.band,
               label: <RiskBadge band={b.band} showScore={false} />,
               count: byBand.get(b.band) ?? 0,
+              fill: BAND_FILL[b.band],
             }))}
             total={sample.length}
           />
@@ -150,7 +143,7 @@ export function Overview() {
         <PanelHeader
           title="Recent risk activity"
           actions={
-            <Link href="/events" className="text-body-sm text-signal-ink">
+            <Link href="/events" className="text-body-sm text-accent">
               All events
             </Link>
           }
@@ -181,7 +174,7 @@ export function Overview() {
                   <DataCell>
                     <Link
                       href={`/events?event=${e.id}` as "/events"}
-                      className="hover:text-signal-ink"
+                      className="hover:text-accent"
                     >
                       {e.event_key}
                     </Link>
@@ -190,7 +183,7 @@ export function Overview() {
                   <Td className="text-body-sm">
                     {DECISION_LABEL[e.decision as Decision]}
                   </Td>
-                  <DataCell className="text-ink-3">
+                  <DataCell className="text-text-muted">
                     {formatAge(e.received_at)}
                   </DataCell>
                 </Tr>
@@ -215,7 +208,12 @@ function DistributionTable({
   rows,
   total,
 }: {
-  rows: { key: string; label: React.ReactNode; count: number }[];
+  rows: {
+    key: string;
+    label: React.ReactNode;
+    count: number;
+    fill?: string;
+  }[];
   total: number;
 }) {
   return (
@@ -228,11 +226,11 @@ function DistributionTable({
               <Td className="w-32">{r.label}</Td>
               <Td>
                 <span
-                  className="flex h-2 w-full items-center bg-bg-sunken"
+                  className="flex h-2 w-full items-center overflow-hidden rounded-full bg-bg-sunken"
                   aria-hidden="true"
                 >
                   <span
-                    className="h-2 bg-ink-2"
+                    className={`h-2 rounded-full transition-[width] duration-200 ease-out ${r.fill ?? "bg-text-secondary"}`}
                     style={{ width: `${share * 100}%` }}
                   />
                 </span>
@@ -240,7 +238,7 @@ function DistributionTable({
               <DataCell className="w-16 text-right">
                 {formatCount(r.count)}
               </DataCell>
-              <DataCell className="w-16 text-right text-ink-3">
+              <DataCell className="w-16 text-right text-text-muted">
                 {Math.round(share * 100)}%
               </DataCell>
             </Tr>
@@ -250,5 +248,3 @@ function DistributionTable({
     </Table>
   );
 }
-
-export { BandBars };

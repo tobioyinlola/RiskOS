@@ -1,15 +1,17 @@
 import type { ReactNode } from "react";
 
-import { Wordmark } from "@/components/instrument/symbol";
+import { Wordmark } from "@/components/ui/wordmark";
 
-/** Sign-in pages: a cover on grid paper, one panel. */
+/** Sign-in pages: one panel on the canvas. */
 export default function AuthLayout({ children }: { children: ReactNode }) {
   return (
-    <main className="grid-paper flex min-h-dvh items-center justify-center px-4 py-16">
-      <div className="w-full max-w-md rounded-lg border border-line-subtle bg-bg-surface p-8 shadow-overlay">
-        <div className="mb-8 flex items-center justify-between">
+    <main className="flex min-h-dvh items-center justify-center bg-bg-canvas px-4 py-7">
+      <div className="w-full max-w-md rounded-lg border border-border-subtle bg-bg-surface p-6 shadow-overlay">
+        <div className="mb-6 flex items-center justify-between">
           <Wordmark />
-          <span className="legend">Risk, measured.</span>
+          <span className="text-label text-text-muted">
+            Explainable risk decisions
+          </span>
         </div>
         {children}
       </div>

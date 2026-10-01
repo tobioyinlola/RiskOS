@@ -1,12 +1,12 @@
 import { cn } from "cn";
 import type { ComponentProps, ReactNode } from "react";
 
-/** A flat panel with a line-subtle edge (no shadow: only floating layers take one). */
+/** A flat panel with a border-subtle edge (no shadow: only floating layers take one). */
 export function Panel({ className, ...props }: ComponentProps<"section">) {
   return (
     <section
       className={cn(
-        "rounded-lg border border-line-subtle bg-bg-surface",
+        "rounded-lg border border-border-subtle bg-bg-surface",
         className,
       )}
       {...props}
@@ -21,6 +21,7 @@ export function PanelHeader({
   className,
 }: {
   title: ReactNode;
+  /** A short secondary label next to the title (a count, a unit). */
   legend?: ReactNode;
   actions?: ReactNode;
   className?: string;
@@ -28,13 +29,15 @@ export function PanelHeader({
   return (
     <header
       className={cn(
-        "flex flex-wrap items-center justify-between gap-2 border-b border-line-subtle px-4 py-3",
+        "flex flex-wrap items-center justify-between gap-2 border-b border-border-subtle px-4 py-3",
         className,
       )}
     >
       <div className="flex items-baseline gap-3">
-        <h2 className="text-heading">{title}</h2>
-        {legend ? <span className="legend">{legend}</span> : null}
+        <h2 className="text-heading-3">{title}</h2>
+        {legend ? (
+          <span className="text-label text-text-muted">{legend}</span>
+        ) : null}
       </div>
       {actions ? (
         <div className="flex items-center gap-2">{actions}</div>
@@ -47,7 +50,7 @@ export function PanelBody({ className, ...props }: ComponentProps<"div">) {
   return <div className={cn("p-4", className)} {...props} />;
 }
 
-/** Page header: title, an optional description and actions. */
+/** Page header: heading-1 title, an optional description and actions. */
 export function PageHeader({
   title,
   description,
@@ -58,11 +61,11 @@ export function PageHeader({
   actions?: ReactNode;
 }) {
   return (
-    <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
+    <header className="mb-5 flex flex-wrap items-end justify-between gap-4">
       <div className="max-w-2xl">
-        <h1 className="text-title">{title}</h1>
+        <h1 className="text-heading-1">{title}</h1>
         {description ? (
-          <p className="mt-1 text-body text-ink-2">{description}</p>
+          <p className="mt-1 text-body text-text-secondary">{description}</p>
         ) : null}
       </div>
       {actions ? (
@@ -72,7 +75,7 @@ export function PageHeader({
   );
 }
 
-/** A KPI tile: a legend label, a metric reading and an optional trace or note. */
+/** A KPI tile: an overline label, a metric reading and an optional chart or note. */
 export function Metric({
   label,
   value,
@@ -85,12 +88,12 @@ export function Metric({
   children?: ReactNode;
 }) {
   return (
-    <div className="flex min-w-0 flex-col gap-1.5 rounded-lg border border-line-subtle bg-bg-surface p-4">
-      <span className="legend">{label}</span>
+    <div className="flex min-w-0 flex-col gap-1 rounded-lg border border-border-subtle bg-bg-surface p-4">
+      <span className="text-overline uppercase text-text-secondary">{label}</span>
       <span className="mono text-metric">
         {value}
         {unit ? (
-          <span className="ml-1 text-body-sm text-ink-3">{unit}</span>
+          <span className="ml-1 text-body-sm text-text-muted">{unit}</span>
         ) : null}
       </span>
       {children}
