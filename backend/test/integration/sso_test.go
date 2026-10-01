@@ -24,9 +24,9 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 )
 
-// mockIdP is a minimal OpenID Connect provider: discovery, keys, and a token endpoint that
+// mockIDP is a minimal OpenID Connect provider: discovery, keys, and a token endpoint that
 // checks the PKCE verifier and issues the ID token a test prepared for a code.
-type mockIdP struct {
+type mockIDP struct {
 	srv  *httptest.Server
 	key  *rsa.PrivateKey
 	mu   sync.Mutex
@@ -38,11 +38,11 @@ type idpGrant struct {
 	claims    map[string]any
 }
 
-func newMockIdP(t *testing.T) *mockIdP {
+func newMockIDP(t *testing.T) *mockIDP {
 	t.Helper()
 	key, err := rsa.GenerateKey(rand.Reader, 2048)
 	require.NoError(t, err)
-	m := &mockIdP{key: key, code: map[string]idpGrant{}}
+	m := &mockIDP{key: key, code: map[string]idpGrant{}}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /.well-known/openid-configuration", func(w http.ResponseWriter, _ *http.Request) {
 		writeJSON(w, map[string]any{
@@ -82,7 +82,7 @@ func writeJSON(w http.ResponseWriter, v any) {
 	_ = json.NewEncoder(w).Encode(v)
 }
 
-func (m *mockIdP) sign(t *testing.T, claims map[string]any) string {
+func (m *mockIDP) sign(t *testing.T, claims map[string]any) string {
 	t.Helper()
 	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: jose.JSONWebKey{Key: m.key, KeyID: "k1"}}, nil)
 	require.NoError(t, err)
@@ -98,7 +98,7 @@ func (m *mockIdP) sign(t *testing.T, claims map[string]any) string {
 // authorize plays the person signing in at the provider: it reads the authorization URL and
 // prepares a code whose ID token carries claims (plus the standard ones and, unless overridden,
 // the request's nonce). It returns the code and the state to send back.
-func (m *mockIdP) authorize(t *testing.T, authURL string, claims map[string]any) (code, state string) {
+func (m *mockIDP) authorize(t *testing.T, authURL string, claims map[string]any) (code, state string) {
 	t.Helper()
 	u, err := url.Parse(authURL)
 	require.NoError(t, err)
@@ -122,7 +122,7 @@ func (m *mockIdP) authorize(t *testing.T, authURL string, claims map[string]any)
 
 // TestSingleSignOn covers OIDC sign-in end to end against a mock provider.
 func TestSingleSignOn(t *testing.T) {
-	idp := newMockIdP(t)
+	idp := newMockIDP(t)
 	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, withConsole(auth.ConsoleConfig{SSOAllowPrivate: true}, false))
 	tenant := s.createTenant(t, "SSO Co")
 	admin := s.onboard(t, tenant, "admin@sso.example", authz.RoleCustomerAdmin)
