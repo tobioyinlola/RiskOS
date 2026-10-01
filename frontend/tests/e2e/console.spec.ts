@@ -1,7 +1,7 @@
 import { expect, test, type Page } from "@playwright/test";
 
 import { navSections } from "../../lib/navigation";
-import { mockApi } from "./mock-api";
+import { eventSummary, mockApi } from "./mock-api";
 
 const PASSWORD = "correct horse battery staple";
 
@@ -217,6 +217,63 @@ test("the shell: collapsible navigation, command palette, theme and density", as
   await expect(
     page.getByRole("button", { name: "Use default rows" }),
   ).toBeVisible();
+
+  expect(api.problems).toEqual([]);
+  expect(csp).toEqual([]);
+});
+
+test("investigate: live monitor, transactions, entity profile, analytics", async ({
+  page,
+  isMobile,
+}) => {
+  test.skip(isMobile, "hover holds are a desktop interaction");
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.events = [eventSummary(12, "usr_1001")];
+
+  // The live monitor shows arrivals; while the pointer is over the table they wait.
+  await page.goto("/live");
+  const table = page.getByRole("table", { name: "Live events" });
+  await expect(table.getByText("usr_1001")).toBeVisible();
+  api.events.unshift(eventSummary(81));
+  await expect(table.getByText("usr_4812")).toBeVisible({ timeout: 6000 });
+  await table.hover();
+  api.events.unshift(eventSummary(55, "usr_2002"));
+  await expect(
+    page.getByRole("button", { name: "Show 1 new event" }),
+  ).toBeVisible({ timeout: 6000 });
+  await expect(table.getByText("usr_2002")).toHaveCount(0);
+  await page.getByRole("button", { name: "Show 1 new event" }).click();
+  await expect(table.getByText("usr_2002")).toBeVisible();
+
+  // Transactions show the amount; the user opens their profile.
+  await page.goto("/transactions");
+  const txns = page.getByRole("table", { name: "Transactions" });
+  await expect(txns.getByText("4,500.00 NGN").first()).toBeVisible();
+  await txns.getByRole("link", { name: "usr_4812" }).first().click();
+  await expect(page).toHaveURL(/\/entities\/user\/usr_4812$/);
+  await expect(
+    page.getByRole("heading", { level: 1, name: "User profile" }),
+  ).toBeVisible();
+  await expect(
+    page
+      .getByRole("table", { name: "Devices" })
+      .getByRole("link", { name: "dev_2" }),
+  ).toBeVisible();
+
+  // Analytics: a chart with a table view.
+  await page.goto("/analytics");
+  await expect(
+    page.getByRole("img", { name: /Events per bucket by risk band/ }),
+  ).toBeVisible();
+  await page.getByRole("tab", { name: "Table" }).click();
+  await expect(
+    page.getByRole("table", { name: "Events per bucket" }),
+  ).toContainText("12");
+  await expect(
+    page.getByRole("table", { name: "Signals that fired most" }),
+  ).toContainText("New device for this user");
 
   expect(api.problems).toEqual([]);
   expect(csp).toEqual([]);

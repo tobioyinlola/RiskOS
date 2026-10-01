@@ -41,6 +41,8 @@ import {
 } from "@/lib/risk";
 import { useSession } from "@/lib/session";
 
+import { EntityLink } from "../entities/link";
+
 type Alert = Schemas["Alert"];
 
 const STATUS_TABS: { value: AlertFilter["status"] | "all"; label: string }[] = [
@@ -234,7 +236,7 @@ export function AlertQueue() {
                 </Td>
                 <DataCell>
                   {a.subject.type === "user" ? (
-                    a.subject.ref
+                    <EntityLink kind="user" refId={a.subject.ref} />
                   ) : (
                     <span className="text-text-secondary">
                       {humanize(a.subject.type)}
@@ -407,9 +409,11 @@ function AlertDrawer({
               [
                 "Subject",
                 <span key="s" className="mono">
-                  {a.subject.type === "user"
-                    ? a.subject.ref
-                    : humanize(a.subject.ref)}
+                  {a.subject.type === "user" ? (
+                    <EntityLink kind="user" refId={a.subject.ref} />
+                  ) : (
+                    humanize(a.subject.ref)
+                  )}
                 </span>,
               ],
               [

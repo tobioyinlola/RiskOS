@@ -144,8 +144,11 @@ func (Store) List(ctx context.Context, p domain.Page) ([]domain.Summary, error) 
 	if err != nil {
 		return nil, err
 	}
+	f := p.Filter
 	rows, err := q.ListEvents(ctx, sqlcgen.ListEventsParams{
-		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, BeforeID: p.Before,
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, BeforeID: p.Before, AfterID: f.After,
+		EventType: optional(f.Type), Decision: optional(f.Decision), RiskLevel: optional(f.Level),
+		UserRef: optional(f.User), AccountRef: optional(f.Account), DeviceRef: optional(f.Device),
 		RowLimit: int32(p.Limit), //nolint:gosec // limit validated to 1..101
 	})
 	if err != nil {
@@ -156,6 +159,12 @@ func (Store) List(ctx context.Context, p domain.Page) ([]domain.Summary, error) 
 		out[i] = domain.Summary{
 			ID: r.ID, Key: r.EventKey, Type: r.Type, OccurredAt: r.OccurredAt, ReceivedAt: r.ReceivedAt,
 			Score: int(r.RiskScore), Level: r.RiskLevel, Decision: r.Decision,
+			User: r.UserRef, Account: r.AccountRef, Device: r.DeviceRef, Country: r.Country,
+		}
+		if r.Type == "transaction" {
+			out[i].Txn = &domain.TxnSummary{
+				Amount: r.Amount, Currency: r.Currency, Direction: r.Direction, Beneficiary: r.Beneficiary, Channel: r.Channel,
+			}
 		}
 	}
 	return out, nil

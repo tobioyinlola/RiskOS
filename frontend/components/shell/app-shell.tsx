@@ -4,6 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { cn } from "cn";
 import {
   Activity,
+  ChartColumn,
+  Fingerprint,
+  Radio,
+  Receipt,
   ChevronsLeft,
   ChevronsRight,
   Code,
@@ -59,6 +63,10 @@ import { isTyping, useShortcuts } from "./shortcuts";
 
 const ICONS: Record<NavSection["icon"], typeof Gauge> = {
   gauge: Gauge,
+  radio: Radio,
+  receipt: Receipt,
+  fingerprint: Fingerprint,
+  chart: ChartColumn,
   activity: Activity,
   alert: TriangleAlert,
   folder: FolderOpen,
@@ -69,7 +77,7 @@ const ICONS: Record<NavSection["icon"], typeof Gauge> = {
   scroll: ScrollText,
 };
 
-const GROUPS = ["Monitor", "Configure", "Organization"] as const;
+const GROUPS = ["Monitor", "Investigate", "Configure", "Organization"] as const;
 
 function NavLinks({
   collapsed = false,

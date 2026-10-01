@@ -164,7 +164,8 @@ export interface paths {
         };
         /**
          * List events of the caller's environment
-         * @description Requires scope `events:read`. Newest first.
+         * @description Requires scope `events:read`. Newest first. Every filter is optional. `after` returns
+         *     only events newer than the given event (the live monitor polls with it).
          */
         get: operations["listEvents"];
         put?: never;
@@ -177,6 +178,49 @@ export interface paths {
          *     card-number-like values are rejected.
          */
         post: operations["ingestEvent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/entities/{kind}/{ref}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A user's, account's or device's profile
+         * @description Requires scope `events:read`. Built from the entity's most recent 5,000 events: activity,
+         *     scores, decisions, and the users, accounts, devices, countries and IP addresses seen with
+         *     it. 404 when the environment has no events for it.
+         */
+        get: operations["getEntityProfile"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/analytics": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Decisions, scores and signals over time
+         * @description Requires scope `events:read`. Events per bucket (hourly for 24h and 7d, daily for 30d),
+         *     the highest-risk users and the signals that fired most, over the window.
+         */
+        get: operations["getAnalytics"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1917,6 +1961,100 @@ export interface components {
             risk_score: number;
             risk_level: components["schemas"]["RiskLevel"];
             decision: components["schemas"]["Decision"];
+            actor?: components["schemas"]["EventActorRefs"];
+            country?: string | null;
+            transaction?: components["schemas"]["TransactionSummary"];
+        };
+        EventActorRefs: {
+            user_id: string;
+            account_id?: string | null;
+            device_id?: string | null;
+        };
+        /** @description For transactions, the fields an analyst scans for. */
+        TransactionSummary: {
+            /**
+             * Format: int64
+             * @description Minor units.
+             */
+            amount: number;
+            currency: string;
+            direction: string;
+            beneficiary_id?: string | null;
+            channel?: string | null;
+        } | null;
+        LinkedEntity: {
+            ref: string;
+            events: number;
+            /** Format: date-time */
+            last_seen: string;
+        };
+        DecisionCounts: {
+            allow: number;
+            step_up: number;
+            review: number;
+            block: number;
+        };
+        EntityProfile: {
+            /** @enum {string} */
+            kind: "user" | "account" | "device";
+            ref: string;
+            /** @description Events in the profile (at most the most recent 5,000). */
+            event_count: number;
+            /** Format: date-time */
+            first_seen: string;
+            /** Format: date-time */
+            last_seen: string;
+            max_score: number;
+            mean_score: number;
+            decisions: components["schemas"]["DecisionCounts"];
+            linked: components["schemas"]["EntityLinks"];
+        };
+        EntityLinks: {
+            users: components["schemas"]["LinkedEntity"][];
+            accounts: components["schemas"]["LinkedEntity"][];
+            devices: components["schemas"]["LinkedEntity"][];
+            countries: components["schemas"]["LinkedEntity"][];
+            ips: components["schemas"]["LinkedEntity"][];
+        };
+        Analytics: {
+            /** @enum {string} */
+            window: "24h" | "7d" | "30d";
+            /** @enum {string} */
+            bucket: "hour" | "day";
+            /** Format: date-time */
+            since: string;
+            series: components["schemas"]["AnalyticsPoint"][];
+            top_users: components["schemas"]["TopUser"][];
+            top_signals: components["schemas"]["SignalCount"][];
+        };
+        AnalyticsPoint: {
+            /** Format: date-time */
+            at: string;
+            events: number;
+            mean_score: number;
+            decisions: components["schemas"]["DecisionCounts"];
+            bands: components["schemas"]["BandCounts"];
+        };
+        BandCounts: {
+            minimal: number;
+            low: number;
+            elevated: number;
+            high: number;
+            critical: number;
+        };
+        TopUser: {
+            user_id: string;
+            max_score: number;
+            events: number;
+            /** @description Events that got Review or Block. */
+            flagged: number;
+            /** Format: date-time */
+            last_seen: string;
+        };
+        SignalCount: {
+            code: string;
+            label: string;
+            hits: number;
         };
         EventList: {
             data: components["schemas"]["EventSummary"][];
@@ -2489,6 +2627,17 @@ export interface operations {
                 limit?: components["parameters"]["Limit"];
                 /** @description The `next_cursor` of the previous page. */
                 cursor?: components["parameters"]["Cursor"];
+                /** @description Only events newer than this event ID. */
+                after?: string;
+                type?: components["schemas"]["EventType"];
+                decision?: components["schemas"]["Decision"];
+                risk_level?: components["schemas"]["RiskLevel"];
+                /** @description Only events of this user (actor.user_id). */
+                user?: string;
+                /** @description Only events of this account (actor.account_id). */
+                account?: string;
+                /** @description Only events from this device (actor.device_id). */
+                device?: string;
             };
             header?: never;
             path?: never;
@@ -2540,6 +2689,61 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getEntityProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                kind: "user" | "account" | "device";
+                /** @description The identifier you send as actor.user_id, account_id or device_id. */
+                ref: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EntityProfile"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAnalytics: {
+        parameters: {
+            query?: {
+                window?: "24h" | "7d" | "30d";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The analytics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Analytics"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

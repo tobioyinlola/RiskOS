@@ -217,6 +217,12 @@ type Summary struct {
 	Score      int
 	Level      string
 	Decision   string
+	User       string
+	Account    *string
+	Device     *string
+	Country    *string
+	// Txn is set for transactions.
+	Txn *TxnSummary
 }
 
 // Detail is a stored event with its payloads and evaluation.
@@ -236,4 +242,5 @@ type Detail struct {
 type Page struct {
 	Limit  int
 	Before *uuid.UUID
+	Filter Filter
 }

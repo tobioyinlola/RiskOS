@@ -122,3 +122,46 @@ func (q *Queries) InsertEvaluation(ctx context.Context, arg InsertEvaluationPara
 	)
 	return err
 }
+
+const topSignals = `-- name: TopSignals :many
+SELECT (sig->>'code')::text AS code, coalesce(max(sig->>'label'), '')::text AS label, count(*)::bigint AS hits
+FROM evaluations, jsonb_array_elements(signals) AS sig
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3
+  AND NOT dry_run
+GROUP BY sig->>'code'
+ORDER BY count(*) DESC
+LIMIT 15
+`
+
+type TopSignalsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+}
+
+type TopSignalsRow struct {
+	Code  string
+	Label string
+	Hits  int64
+}
+
+// Analytics: how often each signal fired in events since @since.
+func (q *Queries) TopSignals(ctx context.Context, arg TopSignalsParams) ([]TopSignalsRow, error) {
+	rows, err := q.db.Query(ctx, topSignals, arg.TenantID, arg.EnvironmentID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopSignalsRow
+	for rows.Next() {
+		var i TopSignalsRow
+		if err := rows.Scan(&i.Code, &i.Label, &i.Hits); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

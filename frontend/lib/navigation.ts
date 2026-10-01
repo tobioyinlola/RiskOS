@@ -11,9 +11,13 @@ type Scope = Schemas["Scope"];
 export interface NavSection {
   href: Route;
   label: string;
-  group: "Monitor" | "Configure" | "Organization";
+  group: "Monitor" | "Investigate" | "Configure" | "Organization";
   icon:
     | "gauge"
+    | "radio"
+    | "receipt"
+    | "fingerprint"
+    | "chart"
     | "activity"
     | "alert"
     | "folder"
@@ -34,10 +38,10 @@ export const navSections = [
     anyOf: ["events:read", "alerts:read"],
   },
   {
-    href: "/events",
-    label: "Events",
+    href: "/live",
+    label: "Live monitor",
     group: "Monitor",
-    icon: "activity",
+    icon: "radio",
     anyOf: ["events:read"],
   },
   {
@@ -53,6 +57,34 @@ export const navSections = [
     group: "Monitor",
     icon: "folder",
     anyOf: ["cases:read"],
+  },
+  {
+    href: "/events",
+    label: "Events",
+    group: "Investigate",
+    icon: "activity",
+    anyOf: ["events:read"],
+  },
+  {
+    href: "/transactions",
+    label: "Transactions",
+    group: "Investigate",
+    icon: "receipt",
+    anyOf: ["events:read"],
+  },
+  {
+    href: "/entities",
+    label: "Entities",
+    group: "Investigate",
+    icon: "fingerprint",
+    anyOf: ["events:read"],
+  },
+  {
+    href: "/analytics",
+    label: "Analytics",
+    group: "Investigate",
+    icon: "chart",
+    anyOf: ["events:read"],
   },
   {
     href: "/rules",

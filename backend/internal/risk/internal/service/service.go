@@ -8,10 +8,12 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"time"
 
 	"github.com/google/uuid"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
@@ -183,4 +185,18 @@ func nonNilStrings(s []string) []string {
 		return []string{}
 	}
 	return s
+}
+
+// TopSignals counts how often each signal fired in events since since. Requires events:read.
+func (s *Service) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCount, error) {
+	if err := authz.Require(ctx, authz.EventsRead); err != nil {
+		return nil, err
+	}
+	var out []domain.SignalCount
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		var err error
+		out, err = s.store.TopSignals(ctx, since)
+		return err
+	})
+	return out, err
 }

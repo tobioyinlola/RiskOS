@@ -61,7 +61,100 @@ export interface MockApi {
   signedIn: boolean;
   hasPasskey: boolean;
   changeStatus: "pending" | "approved";
+  /** Events the console can list, newest first; tests push to it to simulate arrivals. */
+  events: ReturnType<typeof eventSummary>[];
 }
+
+let eventSeq = 0;
+
+/** A transaction event summary as GET /api/v1/events returns it. */
+export function eventSummary(score: number, user = "usr_4812") {
+  eventSeq += 1;
+  const level =
+    score >= 90
+      ? "critical"
+      : score >= 70
+        ? "high"
+        : score >= 50
+          ? "elevated"
+          : score >= 20
+            ? "low"
+            : "minimal";
+  return {
+    id: `evt_${String(eventSeq).padStart(4, "0")}`,
+    event_key: `txn-${eventSeq}`,
+    type: "transaction",
+    occurred_at: new Date().toISOString(),
+    received_at: new Date().toISOString(),
+    risk_score: score,
+    risk_level: level,
+    decision: score >= 50 ? "review" : "allow",
+    actor: { user_id: user, account_id: "acc_1", device_id: "dev_1" },
+    country: "NG",
+    transaction: {
+      amount: 450000,
+      currency: "NGN",
+      direction: "debit",
+      beneficiary_id: "ben_9",
+      channel: "bank_transfer",
+    },
+  };
+}
+
+function hourAgo(h: number): string {
+  return (
+    new Date(Date.now() - h * 3600_000).toISOString().slice(0, 13) +
+    ":00:00.000Z"
+  );
+}
+
+const ANALYTICS = {
+  window: "24h",
+  bucket: "hour",
+  since: hourAgo(24),
+  series: [
+    {
+      at: hourAgo(1),
+      events: 12,
+      mean_score: 31,
+      decisions: { allow: 9, step_up: 1, review: 2, block: 0 },
+      bands: { minimal: 5, low: 4, elevated: 1, high: 2, critical: 0 },
+    },
+  ],
+  top_users: [
+    {
+      user_id: "usr_4812",
+      max_score: 81,
+      events: 7,
+      flagged: 2,
+      last_seen: NOW,
+    },
+  ],
+  top_signals: [
+    { code: "new_device", label: "New device for this user", hits: 4 },
+  ],
+};
+
+const PROFILE = {
+  kind: "user",
+  ref: "usr_4812",
+  event_count: 7,
+  first_seen: NOW,
+  last_seen: NOW,
+  max_score: 81,
+  mean_score: 34,
+  decisions: { allow: 5, step_up: 0, review: 2, block: 0 },
+  linked: {
+    users: [{ ref: "usr_4812", events: 7, last_seen: NOW }],
+    accounts: [{ ref: "acc_1", events: 7, last_seen: NOW }],
+    devices: [
+      { ref: "dev_1", events: 5, last_seen: NOW },
+      { ref: "dev_2", events: 2, last_seen: NOW },
+    ],
+    countries: [{ ref: "NG", events: 7, last_seen: NOW }],
+    ips: [{ ref: "203.0.113.7", events: 7, last_seen: NOW }],
+  },
+};
 
 const RULE_CHANGE_ID = "rch_01";
 
@@ -99,6 +192,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     signedIn: false,
     hasPasskey: false,
     changeStatus: "pending",
+    events: [],
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -377,7 +471,21 @@ export async function mockApi(page: Page): Promise<MockApi> {
         });
       case "/alerts":
         return json(route, { data: [ALERT], next_cursor: null });
-      case "/events":
+      case "/events": {
+        const after = url.searchParams.get("after");
+        const user = url.searchParams.get("user");
+        let data = state.events;
+        if (after) {
+          const i = data.findIndex((e) => e.id === after);
+          data = i === -1 ? data : data.slice(0, i);
+        }
+        if (user) data = data.filter((e) => e.actor.user_id === user);
+        return json(route, { data, next_cursor: null });
+      }
+      case "/analytics":
+        return json(route, ANALYTICS);
+      case "/entities/user/usr_4812":
+        return json(route, PROFILE);
       case "/cases":
       case "/audit-logs":
       case "/api-keys":

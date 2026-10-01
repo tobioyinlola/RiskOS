@@ -16,3 +16,13 @@ INSERT INTO evaluations (
 SELECT id, created_at, event_id, engine_version, risk_score, risk_level, decision, signals, degraded_signals, request_id
 FROM evaluations
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at = @created_at AND id = @id;
+
+-- name: TopSignals :many
+-- Analytics: how often each signal fired in events since @since.
+SELECT (sig->>'code')::text AS code, coalesce(max(sig->>'label'), '')::text AS label, count(*)::bigint AS hits
+FROM evaluations, jsonb_array_elements(signals) AS sig
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since
+  AND NOT dry_run
+GROUP BY sig->>'code'
+ORDER BY count(*) DESC
+LIMIT 15;

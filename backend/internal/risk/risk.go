@@ -26,6 +26,8 @@ type (
 	Input = domain.Input
 	// Result is a stored evaluation.
 	Result = domain.Result
+	// SignalCount is how often a signal fired over a window.
+	SignalCount = domain.SignalCount
 	// Signal is one explained reason contributing to the score.
 	Signal = domain.Signal
 	// Level is the risk level.
@@ -44,6 +46,8 @@ var ErrNotFound = service.ErrNotFound
 type Evaluator interface {
 	Evaluate(ctx context.Context, in Input) (Result, error)
 	Get(ctx context.Context, id uuid.UUID) (Result, error)
+	// TopSignals counts how often each signal fired in events since a time (analytics).
+	TopSignals(ctx context.Context, since time.Time) ([]SignalCount, error)
 }
 
 // RuleTester evaluates a rule against a normalized event without side effects. The events

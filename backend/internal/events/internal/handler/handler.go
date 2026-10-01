@@ -73,18 +73,18 @@ func (h *Handlers) ListEvents(ctx context.Context, req apigen.ListEventsRequestO
 	if err != nil {
 		return nil, err
 	}
-	rows, err := h.svc.List(ctx, domain.Page{Limit: page.Limit + 1, Before: page.Before})
+	filter, err := listFilter(req.Params)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := h.svc.List(ctx, domain.Page{Limit: page.Limit + 1, Before: page.Before, Filter: filter})
 	if err != nil {
 		return nil, mapError(err)
 	}
 	rows, next := httpx.NextCursor(rows, page.Limit, ids.PrefixEvent, func(s domain.Summary) uuid.UUID { return s.ID })
 	data := make([]apigen.EventSummary, len(rows))
 	for i, s := range rows {
-		data[i] = apigen.EventSummary{
-			Id: ids.Format(ids.PrefixEvent, s.ID), EventKey: s.Key, Type: apigen.EventType(s.Type),
-			OccurredAt: s.OccurredAt, ReceivedAt: s.ReceivedAt, RiskScore: s.Score,
-			RiskLevel: apigen.RiskLevel(s.Level), Decision: apigen.Decision(s.Decision),
-		}
+		data[i] = summaryToAPI(s)
 	}
 	return apigen.ListEvents200JSONResponse{Data: data, NextCursor: next}, nil
 }

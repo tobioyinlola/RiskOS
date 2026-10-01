@@ -32,6 +32,8 @@ import { useSession } from "@/lib/session";
 
 import { Timeline } from "../alerts/alerts";
 
+import { EntityLink } from "../entities/link";
+
 const STATUS_LABEL: Record<Schemas["CaseStatus"], string> = {
   open: "Open",
   investigating: "Investigating",
@@ -323,7 +325,13 @@ export function CaseWorkspace({ id }: { id: string }) {
                           {a.title}
                         </Link>
                       </Td>
-                      <DataCell>{a.subject.ref}</DataCell>
+                      <DataCell>
+                        {a.subject.type === "user" ? (
+                          <EntityLink kind="user" refId={a.subject.ref} />
+                        ) : (
+                          a.subject.ref
+                        )}
+                      </DataCell>
                       <Td>
                         <Tag>{humanize(a.status)}</Tag>
                       </Td>
