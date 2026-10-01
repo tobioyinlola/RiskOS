@@ -9,6 +9,7 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"net/mail"
 	"net/netip"
 	"net/url"
 	"strconv"
@@ -42,6 +43,7 @@ type Config struct {
 	Risk      Risk
 	Webhooks  Webhooks
 	Console   Console
+	SMTP      SMTP
 }
 
 // Console configures the dashboard realm (console sign-in and sessions).
@@ -61,6 +63,9 @@ type Console struct {
 	// API, k-anonymity) or "off". BreachedPasswordURL overrides the API's address.
 	BreachedPasswordCheck string
 	BreachedPasswordURL   string
+	// SSOAllowPrivate lets single sign-on identity providers be http and on private addresses:
+	// local development and tests only (refused in production).
+	SSOAllowPrivate bool
 }
 
 // Validate checks the console settings; call it in binaries that serve the console API or
@@ -69,6 +74,9 @@ func (c Console) Validate(env Environment) error {
 	var errs []error
 	if len(c.Secret) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET: required, at least %d bytes", MinPepperBytes))
+	}
+	if c.SSOAllowPrivate && env == EnvProduction {
+		errs = append(errs, errors.New("RISKOS_SSO_ALLOW_PRIVATE: not allowed in production"))
 	}
 	if c.BreachedPasswordCheck != "" && c.BreachedPasswordCheck != "pwned" && c.BreachedPasswordCheck != "off" {
 		errs = append(errs, errors.New("RISKOS_BREACHED_PASSWORD_CHECK: must be pwned or off"))
@@ -128,6 +136,9 @@ type Risk struct {
 	FeatureHashKey string
 	// FeatureTimeout bounds the feature-store round trip on the decision path.
 	FeatureTimeout time.Duration
+	// HistoryWarmup is how long history signals are held back after the feature store lost its
+	// state (DISASTER_RECOVERY.md). Zero detects and records resets without holding back.
+	HistoryWarmup time.Duration
 }
 
 // Validate checks the risk settings; call it in binaries that evaluate events.
@@ -138,6 +149,55 @@ func (r Risk) Validate() error {
 	}
 	if r.FeatureTimeout <= 0 || r.FeatureTimeout > time.Second {
 		errs = append(errs, errors.New("RISKOS_FEATURE_TIMEOUT: must be between 1ms and 1s"))
+	}
+	if r.HistoryWarmup < 0 || r.HistoryWarmup > 90*24*time.Hour {
+		errs = append(errs, errors.New("RISKOS_HISTORY_WARMUP: must be between 0 and 90 days"))
+	}
+	if len(errs) > 0 {
+		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
+	}
+	return nil
+}
+
+// SMTP configures outgoing email (invites). Email is off when Host is empty.
+type SMTP struct {
+	Host     string
+	Port     int
+	Username string
+	Password string
+	// From is the sender, e.g. "RiskOS <no-reply@example.com>".
+	From string
+	// TLS is starttls (default), tls (implicit, port 465) or none (local catchers only).
+	TLS     string
+	Timeout time.Duration
+}
+
+// Enabled reports whether email is configured.
+func (s SMTP) Enabled() bool { return s.Host != "" }
+
+// Validate checks the email settings when email is enabled.
+func (s SMTP) Validate(env Environment) error {
+	if !s.Enabled() {
+		return nil
+	}
+	var errs []error
+	if s.Port < 1 || s.Port > 65535 {
+		errs = append(errs, errors.New("RISKOS_SMTP_PORT: must be a port number"))
+	}
+	if addr, err := mail.ParseAddress(s.From); err != nil || addr.Address == "" {
+		errs = append(errs, errors.New("RISKOS_SMTP_FROM: required, e.g. RiskOS <no-reply@example.com>"))
+	}
+	switch s.TLS {
+	case "starttls", "tls":
+	case "none":
+		if env == EnvProduction {
+			errs = append(errs, errors.New("RISKOS_SMTP_TLS: production requires starttls or tls"))
+		}
+	default:
+		errs = append(errs, errors.New("RISKOS_SMTP_TLS: must be starttls, tls or none"))
+	}
+	if s.Timeout <= 0 || s.Timeout > time.Minute {
+		errs = append(errs, errors.New("RISKOS_SMTP_TIMEOUT: must be between 1ms and 1m"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
@@ -265,6 +325,15 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 
 	cfg := Config{
 		Console: consoleConfig(&r),
+		SMTP: SMTP{
+			Host:     r.str("RISKOS_SMTP_HOST", ""),
+			Port:     r.integer("RISKOS_SMTP_PORT", 587),
+			Username: r.str("RISKOS_SMTP_USERNAME", ""),
+			Password: r.str("RISKOS_SMTP_PASSWORD", ""),
+			From:     r.str("RISKOS_SMTP_FROM", ""),
+			TLS:      r.str("RISKOS_SMTP_TLS", "starttls"),
+			Timeout:  r.duration("RISKOS_SMTP_TIMEOUT", 10*time.Second),
+		},
 		Webhooks: Webhooks{
 			SigningKey:       r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
 			Timeout:          r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
@@ -274,6 +343,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		Risk: Risk{
 			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
 			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
+			HistoryWarmup:  r.duration("RISKOS_HISTORY_WARMUP", 7*24*time.Hour),
 		},
 		RateLimit: RateLimit{
 			KeyPerSecond:          r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),
@@ -627,6 +697,7 @@ func consoleConfig(r *reader) Console {
 
 		BreachedPasswordCheck: r.str("RISKOS_BREACHED_PASSWORD_CHECK", "pwned"),
 		BreachedPasswordURL:   r.str("RISKOS_BREACHED_PASSWORD_URL", ""),
+		SSOAllowPrivate:       r.boolean("RISKOS_SSO_ALLOW_PRIVATE", false),
 	}
 	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
 		for _, o := range strings.Split(raw, ",") {

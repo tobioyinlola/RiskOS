@@ -61,6 +61,10 @@ apikey: .env ## Issue a key: make apikey TENANT=ten_... ENV=production NAME=ci O
 invite: .env ## Invite a console user: make invite TENANT=ten_... EMAIL=ada@example.com OPERATOR=you@example.com [ROLE=customer_admin]
 	$(RISKOSCTL) user invite --operator "$(OPERATOR)" --tenant "$(TENANT)" --email "$(EMAIL)" --role "$(or $(ROLE),customer_admin)"
 
+.PHONY: staff
+staff: .env ## Create a RiskOS staff account: make staff EMAIL=ops@riskos.example NAME="Ops" OPERATOR=you@example.com [ROLE=operations_admin]
+	$(RISKOSCTL) staff create --operator "$(OPERATOR)" --email "$(EMAIL)" --name "$(NAME)" --role "$(or $(ROLE),operations_admin)"
+
 .PHONY: audit-verify
 audit-verify: .env ## Verify a tenant's audit hash chain: make audit-verify TENANT=ten_...
 	$(RISKOSCTL) audit verify --tenant "$(TENANT)"
@@ -73,10 +77,11 @@ audit-verify: .env ## Verify a tenant's audit hash chain: make audit-verify TENA
 .PHONY: generate
 generate: ## Regenerate server stubs, SQL code and the TypeScript API client
 	$(BACKEND) $(GO_TOOL) oapi-codegen -config api/oapi-codegen.yaml api/openapi.yaml
+	$(BACKEND) $(GO_TOOL) oapi-codegen -config api/oapi-codegen-admin.yaml api/admin.yaml
 	$(BACKEND) $(GO_TOOL) sqlc generate
 	$(FRONTEND) pnpm --silent generate:api
 
-GENERATED := backend/internal/apigen backend/internal/platform/db/sqlcgen frontend/lib/api/schema.gen.ts
+GENERATED := backend/internal/apigen backend/internal/adminapi backend/internal/platform/db/sqlcgen frontend/lib/api/schema.gen.ts frontend/lib/api/admin.gen.ts
 
 .PHONY: generate-check
 generate-check: generate ## Fail if generated code is not up to date with its sources

@@ -277,6 +277,7 @@ test("investigate: live monitor, transactions, entity profile, analytics", async
   await expect(deny).toContainText("Confirmed mule");
   await deny.getByRole("button", { name: "Remove" }).click();
   await page.getByRole("button", { name: "Remove from deny list" }).click();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByText("Nothing on the deny list")).toBeVisible();
 
   // Analytics: a chart with a table view.
@@ -292,6 +293,26 @@ test("investigate: live monitor, transactions, entity profile, analytics", async
     page.getByRole("table", { name: "Signals that fired most" }),
   ).toContainText("New device for this user");
 
+  expect(api.problems).toEqual([]);
+  expect(csp).toEqual([]);
+});
+
+test("single sign-on: the provider round trip ends signed in", async ({
+  page,
+}) => {
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  await page.goto("/login");
+  await page
+    .getByRole("button", { name: "Sign in with single sign-on" })
+    .click();
+  await page.getByLabel("Work email").fill("ada@example.com");
+  await page.getByRole("button", { name: "Continue" }).click();
+  await expect(page).not.toHaveURL(/\/(login|sso)/);
+  expect(api.calls).toContain("POST /auth/sso/callback");
+  expect(api.calls.filter((c) => c === "POST /auth/sso/callback")).toHaveLength(
+    1,
+  );
   expect(api.problems).toEqual([]);
   expect(csp).toEqual([]);
 });

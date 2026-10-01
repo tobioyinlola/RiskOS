@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "generate:api": "openapi-typescript ../backend/api/openapi.yaml --output lib/api/schema.gen.ts"
+    "generate:api": "openapi-typescript ../backend/api/openapi.yaml --output lib/api/schema.gen.ts && openapi-typescript ../backend/api/admin.yaml --output lib/api/admin.gen.ts"
   },
   "dependencies": {
     "@tanstack/react-query": "5.104.0",

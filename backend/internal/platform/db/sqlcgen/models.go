@@ -191,6 +191,7 @@ type Evaluation struct {
 	DurationUs      int32
 	PolicyReasons   []string
 	ShadowSignals   []byte
+	WarmingSignals  []string
 }
 
 type Event struct {
@@ -225,6 +226,14 @@ type EventIdempotency struct {
 	EventID       uuid.UUID
 	Response      *string
 	CreatedAt     time.Time
+}
+
+type FeatureStoreState struct {
+	ID             int16
+	Epoch          string
+	KeyFingerprint string
+	StartedAt      time.Time
+	ResetAt        *time.Time
 }
 
 type RiskSetting struct {
@@ -294,6 +303,97 @@ type RuleVersion struct {
 	RestoredFrom  *int32
 }
 
+type SsoConnection struct {
+	TenantID        uuid.UUID
+	Issuer          string
+	ClientID        string
+	ClientSecretEnc []byte
+	Enabled         bool
+	UpdatedAt       time.Time
+	UpdatedBy       string
+}
+
+type SsoLogin struct {
+	StateHash   []byte
+	BrowserHash []byte
+	TenantID    uuid.UUID
+	UserID      uuid.UUID
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+}
+
+type Staff struct {
+	ID              uuid.UUID
+	Email           string
+	Name            string
+	Role            string
+	Status          string
+	EnrollTokenHash []byte
+	EnrollExpiresAt *time.Time
+	CreatedAt       time.Time
+	CreatedBy       string
+}
+
+type StaffAuditLog struct {
+	ID         uuid.UUID
+	OccurredAt time.Time
+	Actor      string
+	Action     string
+	TenantID   *uuid.UUID
+	ResourceID string
+	Outcome    string
+	Metadata   []byte
+}
+
+type StaffCeremony struct {
+	IDHash    []byte
+	Kind      string
+	StaffID   *uuid.UUID
+	Data      []byte
+	ExpiresAt time.Time
+}
+
+type StaffPasskey struct {
+	ID              []byte
+	StaffID         uuid.UUID
+	Name            string
+	PublicKey       []byte
+	AttestationType string
+	Aaguid          []byte
+	SignCount       int64
+	Transports      []string
+	Flags           []byte
+	CreatedAt       time.Time
+	LastUsedAt      *time.Time
+}
+
+type StaffSession struct {
+	ID         uuid.UUID
+	StaffID    uuid.UUID
+	TokenHash  []byte
+	CreatedAt  time.Time
+	LastSeenAt time.Time
+	ExpiresAt  time.Time
+	RevokedAt  *time.Time
+	Ip         *netip.Addr
+	UserAgent  string
+}
+
+type SupportAccess struct {
+	ID              uuid.UUID
+	TenantID        uuid.UUID
+	RequestedBy     uuid.UUID
+	Reason          string
+	DurationMinutes int32
+	Status          string
+	CreatedAt       time.Time
+	DecidedBy       *uuid.UUID
+	DecidedAt       *time.Time
+	ExpiresAt       *time.Time
+	RevokedBy       *uuid.UUID
+	RevokedAt       *time.Time
+}
+
 type Tenant struct {
 	ID        uuid.UUID
 	Name      string
@@ -317,19 +417,21 @@ type User struct {
 	CreatedBy      string
 	UpdatedAt      time.Time
 	LastLoginAt    *time.Time
+	SsoSubject     *string
 }
 
 type UserInvite struct {
-	ID         uuid.UUID
-	TenantID   uuid.UUID
-	Email      string
-	Role       string
-	TokenHash  []byte
-	CreatedAt  time.Time
-	CreatedBy  string
-	ExpiresAt  time.Time
-	AcceptedAt *time.Time
-	RevokedAt  *time.Time
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	Email       string
+	Role        string
+	TokenHash   []byte
+	CreatedAt   time.Time
+	CreatedBy   string
+	ExpiresAt   time.Time
+	AcceptedAt  *time.Time
+	RevokedAt   *time.Time
+	EmailSentAt *time.Time
 }
 
 type WebauthnCredential struct {

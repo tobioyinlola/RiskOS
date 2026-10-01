@@ -129,7 +129,9 @@ type Result struct {
 	Decision        Decision
 	Signals         []Signal
 	DegradedSignals []string
-	RequestID       string
+	// WarmingSignals were held back while history rebuilds after a feature-store reset.
+	WarmingSignals []string
+	RequestID      string
 	// Explainability and reproducibility (stored, not returned to the customer).
 	PolicyReasons []string
 	ShadowSignals []Signal

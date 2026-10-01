@@ -100,6 +100,13 @@ export function useDenyList(kind?: Schemas["DenyKind"]) {
   });
 }
 
+export function useSSO() {
+  return useQuery({
+    queryKey: ["sso"],
+    queryFn: async () => unwrap(await api().GET("/api/v1/sso")),
+  });
+}
+
 export type AnalyticsWindow = "24h" | "7d" | "30d";
 
 export function useAnalytics(window: AnalyticsWindow) {

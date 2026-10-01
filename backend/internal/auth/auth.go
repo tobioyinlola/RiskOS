@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
@@ -15,8 +16,10 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 )
@@ -43,7 +46,14 @@ var (
 	ErrTenantSuspended = domain.ErrTenantSuspended
 	ErrInvalidInput    = domain.ErrInvalidInput
 	ErrEmailTaken      = domain.ErrEmailTaken
+	// ErrStaffUnauthenticated and ErrSupportDenied are what a SupportResolver returns when the
+	// staff session is missing or the support access cannot be used.
+	ErrStaffUnauthenticated = domain.ErrStaffUnauthenticated
+	ErrSupportDenied        = domain.ErrSupportDenied
 )
+
+// SupportResolver authorizes RiskOS staff's read-only support access to a tenant.
+type SupportResolver = handler.SupportResolver
 
 // CredentialHandlers are the auth operations of the public API.
 type CredentialHandlers interface {
@@ -70,6 +80,11 @@ type ConsoleHandlers interface {
 	DeletePasskey(ctx context.Context, req apigen.DeletePasskeyRequestObject) (apigen.DeletePasskeyResponseObject, error)
 	RegenerateRecoveryCodes(ctx context.Context, req apigen.RegenerateRecoveryCodesRequestObject) (apigen.RegenerateRecoveryCodesResponseObject, error)
 	AcceptInvite(ctx context.Context, req apigen.AcceptInviteRequestObject) (apigen.AcceptInviteResponseObject, error)
+	StartSSO(ctx context.Context, req apigen.StartSSORequestObject) (apigen.StartSSOResponseObject, error)
+	FinishSSO(ctx context.Context, req apigen.FinishSSORequestObject) (apigen.FinishSSOResponseObject, error)
+	GetSSO(ctx context.Context, req apigen.GetSSORequestObject) (apigen.GetSSOResponseObject, error)
+	PutSSO(ctx context.Context, req apigen.PutSSORequestObject) (apigen.PutSSOResponseObject, error)
+	DeleteSSO(ctx context.Context, req apigen.DeleteSSORequestObject) (apigen.DeleteSSOResponseObject, error)
 	ListTeamMembers(ctx context.Context, req apigen.ListTeamMembersRequestObject) (apigen.ListTeamMembersResponseObject, error)
 	UpdateTeamMember(ctx context.Context, req apigen.UpdateTeamMemberRequestObject) (apigen.UpdateTeamMemberResponseObject, error)
 	ListInvites(ctx context.Context, req apigen.ListInvitesRequestObject) (apigen.ListInvitesResponseObject, error)
@@ -95,7 +110,12 @@ type Config struct {
 	// Limiter throttles sign-in; nil disables throttling (tests).
 	Limiter Limiter
 	Logger  *slog.Logger
+	// InviteEmails queues an email for each new invite; nil when email is not configured.
+	InviteEmails jobs.Enqueuer
 }
+
+// InviteEmailArgs is the job that emails an invite's link.
+type InviteEmailArgs = service.InviteEmailArgs
 
 // BreachChecker reports whether a password appears in known data breaches.
 type BreachChecker = service.BreachChecker
@@ -124,7 +144,16 @@ type Module struct {
 	console *service.Console
 	cookie  CookieConfig
 	clock   clock.Clock
+	support SupportResolver
 }
+
+// PasskeyRP returns the console's passkey relying party ID and allowed origins; the admin realm
+// uses the same.
+func (m *Module) PasskeyRP() (string, []string) { return m.console.PasskeyRP() }
+
+// SetSupport lets RiskOS staff with approved support access read a tenant through the customer
+// API (the admin module). Call before Middleware.
+func (m *Module) SetSupport(s SupportResolver) { m.support = s }
 
 type noLimit struct{}
 
@@ -136,6 +165,9 @@ func (noLimit) Allow(context.Context, ...ratelimit.Rule) (ratelimit.Decision, er
 func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg Config) *Module {
 	st := store.New(pool)
 	cc := withConsoleDefaults(cfg.Console)
+	if cc.SSORedirectURL == "" && cfg.Cookie.ConsoleURL != "" {
+		cc.SSORedirectURL = strings.TrimRight(cfg.Cookie.ConsoleURL, "/") + "/sso/callback"
+	}
 	if cfg.Limiter == nil {
 		cfg.Limiter = noLimit{}
 	}
@@ -148,6 +180,9 @@ func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg 
 		// Only an invalid relying party configuration can fail here, and configuration
 		// validation rejects it before this point.
 		panic(fmt.Sprintf("auth: console configuration: %v", err))
+	}
+	if cfg.InviteEmails != nil {
+		con.SetInviteEmails(cfg.InviteEmails)
 	}
 	cookie := cfg.Cookie
 	if cookie.Name == "" {
@@ -190,7 +225,7 @@ func withConsoleDefaults(c ConsoleConfig) ConsoleConfig {
 
 // Middleware authenticates /api/v1 requests (API key or console session) and sets the scope.
 func (m *Module) Middleware(logger *slog.Logger) func(http.Handler) http.Handler {
-	return handler.Middleware(m.svc, m.console, m.cookie, logger)
+	return handler.Middleware(m.svc, m.console, m.cookie, m.support, logger)
 }
 
 // ReauthOperations are the operations a console user may only perform shortly after verifying
@@ -199,7 +234,7 @@ func (m *Module) Middleware(logger *slog.Logger) func(http.Handler) http.Handler
 func ReauthOperations() []string {
 	return []string{
 		"CreateAPIKey", "RotateAPIKey", "RevokeAPIKey", "CreateWebhook", "UpdateWebhook", "RotateWebhookSecret",
-		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember",
+		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember", "PutSSO", "DeleteSSO",
 	}
 }
 
@@ -230,6 +265,40 @@ func (m *Module) Invite(ctx context.Context, email string, role Role) (string, e
 		return "", err
 	}
 	return handler.InviteURL(m.cookie.ConsoleURL, inv.Token), nil
+}
+
+// InviteEmailJob returns the worker handler for InviteEmailArgs. Invites accepted, revoked or
+// expired before the job runs are skipped. Delivery is at least once: a retry after a send whose
+// confirmation was lost sends the same link again.
+func (m *Module) InviteEmailJob(sender mail.Sender) func(context.Context, InviteEmailArgs) error {
+	return func(ctx context.Context, a InviteEmailArgs) error {
+		inv, err := m.console.PendingInviteForEmail(ctx, a)
+		if err != nil || inv == nil {
+			return err
+		}
+		if err := sender.Send(ctx, inviteMessage(inv, handler.InviteURL(m.cookie.ConsoleURL, inv.Token))); err != nil {
+			return err
+		}
+		return m.console.InviteEmailed(ctx, a)
+	}
+}
+
+func inviteMessage(inv *service.PendingInvite, link string) mail.Message {
+	role := strings.ReplaceAll(string(inv.Role), "_", " ")
+	return mail.Message{
+		To:      inv.Email,
+		Subject: "You're invited to " + oneLine(inv.TenantName) + " on RiskOS",
+		Text: "You have been invited to join " + oneLine(inv.TenantName) + " on RiskOS as " + role + ".\n\n" +
+			"Accept the invite and choose a password:\n" + link + "\n\n" +
+			"The link works once and expires on " + inv.ExpiresAt.UTC().Format("2 January 2006 at 15:04 UTC") + ".\n" +
+			"You will also set up a passkey or an authenticator app when you first sign in.\n\n" +
+			"If you did not expect this invite, ignore this email.\n",
+	}
+}
+
+// oneLine keeps a tenant-chosen name on one line in a subject.
+func oneLine(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // DefaultCacheTTL is the default lookup cache TTL: the revocation staleness bound.

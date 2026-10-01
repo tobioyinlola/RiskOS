@@ -23,8 +23,10 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/console"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -65,6 +67,11 @@ type ConsoleConfig struct {
 	Origins []string
 	// Breach rejects passwords found in known breaches; nil disables the check.
 	Breach BreachChecker
+	// SSORedirectURL is the console's SSO callback, registered at identity providers.
+	SSORedirectURL string
+	// SSOAllowPrivate lets identity providers be http and on private addresses (local
+	// development and tests only; configuration refuses it in production).
+	SSOAllowPrivate bool
 }
 
 // BreachChecker reports whether a password appears in known data breaches.
@@ -106,7 +113,23 @@ type Console struct {
 	wa      *webauthn.WebAuthn
 	cfg     ConsoleConfig
 	logger  *slog.Logger
+	// inviteKey derives invite tokens (console.InviteToken).
+	inviteKey []byte
+	// emails queues invite emails; nil when email is not configured.
+	emails jobs.Enqueuer
+	// sso talks to identity providers; ssoKey derives each request's PKCE verifier and nonce.
+	sso    *sso.Client
+	ssoKey []byte
 }
+
+// PasskeyRP returns the passkey relying party ID and allowed origins.
+func (c *Console) PasskeyRP() (string, []string) { return c.cfg.RPID, c.cfg.Origins }
+
+// SetInviteEmails makes new invites queue an email through q.
+func (c *Console) SetInviteEmails(q jobs.Enqueuer) { c.emails = q }
+
+// ssoTimeout bounds each request to an identity provider.
+const ssoTimeout = 5 * time.Second
 
 // NewConsole returns the dashboard realm service.
 func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock.Clock, limiter Limiter, cfg ConsoleConfig, logger *slog.Logger) (*Console, error) {
@@ -116,13 +139,18 @@ func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock
 	}
 	csrf := hmac.New(sha256.New, cfg.Secret)
 	csrf.Write([]byte("riskos-csrf-key"))
+	invite := hmac.New(sha256.New, cfg.Secret)
+	invite.Write([]byte("riskos-invite-key"))
+	ssoKey := hmac.New(sha256.New, cfg.Secret)
+	ssoKey.Write([]byte("riskos-sso-key"))
 	wa, err := webauthn.New(&webauthn.Config{RPID: cfg.RPID, RPDisplayName: "RiskOS", RPOrigins: cfg.Origins})
 	if err != nil {
 		return nil, fmt.Errorf("configure passkeys: %w", err)
 	}
 	return &Console{
 		store: st, runner: runner, audit: rec, clock: clk, limiter: limiter, sealer: sealer,
-		csrfKey: csrf.Sum(nil), wa: wa, cfg: cfg, logger: logger,
+		csrfKey: csrf.Sum(nil), wa: wa, cfg: cfg, logger: logger, inviteKey: invite.Sum(nil),
+		sso: sso.New(ssoTimeout, cfg.SSOAllowPrivate), ssoKey: ssoKey.Sum(nil),
 	}, nil
 }
 
@@ -828,6 +856,27 @@ type Invite struct {
 	Email     string
 	Role      authz.Role
 	ExpiresAt time.Time
+	// Emailed is set when an email with the link was queued.
+	Emailed bool
+}
+
+// InviteEmailArgs is the job that emails an invite's link. It carries no token and no address:
+// the worker derives the token and reads the invite. Kind is stable across releases.
+type InviteEmailArgs struct {
+	TenantID uuid.UUID `json:"tenant_id"`
+	InviteID uuid.UUID `json:"invite_id"`
+}
+
+// Kind implements jobs.Args.
+func (InviteEmailArgs) Kind() string { return "auth_invite_email" }
+
+// PendingInvite is an invite ready to be emailed.
+type PendingInvite struct {
+	Token      string
+	Email      string
+	Role       authz.Role
+	ExpiresAt  time.Time
+	TenantName string
 }
 
 func validRole(r authz.Role) bool {
@@ -872,12 +921,11 @@ func (c *Console) CreateInvite(ctx context.Context, rawEmail string, role authz.
 	if taken {
 		return Invite{}, domain.ErrEmailTaken
 	}
-	token, hash, err := console.NewToken()
-	if err != nil {
-		return Invite{}, err
-	}
 	now := c.clock.Now()
-	inv := Invite{ID: ids.NewV7(), Token: token, Email: email, Role: role, ExpiresAt: now.Add(c.cfg.InviteTTL)}
+	id := ids.NewV7()
+	token := console.InviteToken(c.inviteKey, id)
+	hash := console.HashToken(token)
+	inv := Invite{ID: id, Token: token, Email: email, Role: role, ExpiresAt: now.Add(c.cfg.InviteTTL), Emailed: c.emails != nil}
 	tctx := tenantCtx(ctx, scope.TenantID, scope.Principal)
 	err = c.runner.Run(tctx, func(ctx context.Context) error {
 		if err := c.store.InsertInvite(ctx, sqlcgen.InsertInviteParams{
@@ -885,12 +933,59 @@ func (c *Console) CreateInvite(ctx context.Context, rawEmail string, role authz.
 		}); err != nil {
 			return err
 		}
-		return c.record(ctx, "user.invited", "invite", ids.Format(ids.PrefixInvite, inv.ID), audit.OutcomeSuccess, map[string]any{"role": string(role)})
+		if c.emails != nil {
+			// Queued in the same transaction: the email goes out only if the invite exists.
+			if err := c.emails.Enqueue(ctx, InviteEmailArgs{TenantID: scope.TenantID, InviteID: inv.ID}); err != nil {
+				return err
+			}
+		}
+		return c.record(ctx, "user.invited", "invite", ids.Format(ids.PrefixInvite, inv.ID), audit.OutcomeSuccess,
+			map[string]any{"role": string(role), "emailed": inv.Emailed})
 	})
 	if err != nil {
 		return Invite{}, err
 	}
 	return inv, nil
+}
+
+// emailActor names the invite email job in the audit log.
+const emailActor = "system:email"
+
+// PendingInviteForEmail returns the invite of a, or nil when it should not be emailed (accepted,
+// revoked, expired, unknown, or its tenant is not active).
+func (c *Console) PendingInviteForEmail(ctx context.Context, a InviteEmailArgs) (*PendingInvite, error) {
+	token := console.InviteToken(c.inviteKey, a.InviteID)
+	inv, err := c.store.InviteByToken(ctx, console.HashToken(token))
+	if err != nil || inv == nil {
+		return nil, err
+	}
+	if inv.TenantID != a.TenantID || inv.AcceptedAt != nil || inv.RevokedAt != nil ||
+		!c.clock.Now().Before(inv.ExpiresAt) || inv.TenantStatus != "active" {
+		return nil, nil //nolint:nilnil // nothing to send is a normal outcome
+	}
+	p := &PendingInvite{Token: token, Email: inv.Email, Role: authz.Role(inv.Role), ExpiresAt: inv.ExpiresAt}
+	err = c.runner.Run(tenantCtx(ctx, inv.TenantID, emailPrincipal()), func(ctx context.Context) error {
+		p.TenantName, err = c.store.TenantName(ctx)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return p, nil
+}
+
+// InviteEmailed records that the invite's email went out, in its tenant's audit log.
+func (c *Console) InviteEmailed(ctx context.Context, a InviteEmailArgs) error {
+	return c.runner.Run(tenantCtx(ctx, a.TenantID, emailPrincipal()), func(ctx context.Context) error {
+		if err := c.store.MarkInviteEmailed(ctx, a.InviteID, c.clock.Now()); err != nil {
+			return err
+		}
+		return c.record(ctx, "user.invite_emailed", "invite", ids.Format(ids.PrefixInvite, a.InviteID), audit.OutcomeSuccess, nil)
+	})
+}
+
+func emailPrincipal() tenancy.Principal {
+	return tenancy.Principal{Type: tenancy.PrincipalSystem, ID: emailActor}
 }
 
 // ListInvites returns the tenant's invites. Requires team:read.

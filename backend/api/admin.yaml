@@ -1,0 +1,652 @@
+openapi: 3.0.3
+info:
+  title: RiskOS internal admin API
+  version: 1.0.0
+  description: |
+    The internal admin realm for RiskOS staff (docs/ADMIN.md). Not part of the customer API.
+
+    Staff accounts are separate from tenant users, created only by the operator CLI, and sign in
+    with passkeys only. Sessions are short (15 minutes idle, 4 hours at most) and carried by the
+    `riskos_staff` cookie (HttpOnly, SameSite=Strict). Unsafe requests need the session's CSRF
+    token in `X-CSRF-Token` and an allowed `Origin`. Every staff action is recorded in the staff
+    audit log.
+
+    Staff hold no access to tenant data. Support access to one tenant is requested by one staff
+    member and approved by another; it is read-only, lasts at most four hours, and is recorded in
+    the tenant's own audit log. While approved, the requester reads that tenant through the customer
+    API (`GET` only) with the `RiskOS-Support-Grant` header and their staff session.
+servers:
+  - url: /
+security: []
+tags:
+  - name: staff-session
+  - name: staff
+paths:
+  /api/admin/v1/auth/enroll/options:
+    post:
+      operationId: staffEnrollOptions
+      tags: [staff-session]
+      summary: Start registering a staff member's first passkey
+      description: Takes the single-use enrollment token from the link the operator CLI printed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollOptionsRequest"
+      responses:
+        "200":
+          description: WebAuthn creation options and the ceremony to finish.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ceremony"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/enroll:
+    post:
+      operationId: staffEnroll
+      tags: [staff-session]
+      summary: Finish registering the first passkey, and sign in
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EnrollRequest"
+      responses:
+        "200":
+          description: The new session.
+          headers:
+            Set-Cookie:
+              description: The staff session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSession"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/login/options:
+    post:
+      operationId: staffLoginOptions
+      tags: [staff-session]
+      summary: Start signing in with a passkey
+      description: Discoverable credentials, so no email is asked for.
+      responses:
+        "200":
+          description: WebAuthn assertion options and the ceremony to finish.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ceremony"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/login:
+    post:
+      operationId: staffLogin
+      tags: [staff-session]
+      summary: Finish signing in with a passkey
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: The new session.
+          headers:
+            Set-Cookie:
+              description: The staff session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSession"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/session:
+    get:
+      operationId: getStaffSession
+      tags: [staff-session]
+      summary: The current staff session
+      responses:
+        "200":
+          description: The session.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSession"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/logout:
+    post:
+      operationId: staffLogout
+      tags: [staff-session]
+      summary: End the staff session
+      responses:
+        "204":
+          description: Signed out.
+          headers:
+            Set-Cookie:
+              description: Clears the staff session cookie.
+              schema:
+                type: string
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants:
+    get:
+      operationId: listAdminTenants
+      tags: [staff]
+      summary: Tenants (identity and status only)
+      responses:
+        "200":
+          description: Tenants, newest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTenantList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/security:
+    get:
+      operationId: getSecurityOverview
+      tags: [staff]
+      summary: Security signals across tenants
+      description: |
+        Counts per tenant over the last 24 hours (security alerts and disabled webhook endpoints: as
+        of now). Never tenant data.
+      responses:
+        "200":
+          description: The overview.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SecurityOverview"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/support-access:
+    get:
+      operationId: listSupportAccess
+      tags: [staff]
+      summary: Support access requests, newest first
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccessList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: requestSupportAccess
+      tags: [staff]
+      summary: Request read-only access to one tenant
+      description: Another staff member must approve it. Recorded in the tenant's audit log.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SupportAccessRequest"
+      responses:
+        "201":
+          description: The pending request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccess"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/support-access/{access_id}/approve:
+    post:
+      operationId: approveSupportAccess
+      tags: [staff]
+      summary: Approve another staff member's request
+      description: Access starts now and lasts the requested duration. Recorded in the tenant's audit log.
+      parameters:
+        - $ref: "#/components/parameters/AccessID"
+      responses:
+        "200":
+          description: The approved request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccess"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/support-access/{access_id}/reject:
+    post:
+      operationId: rejectSupportAccess
+      tags: [staff]
+      summary: Reject another staff member's request
+      parameters:
+        - $ref: "#/components/parameters/AccessID"
+      responses:
+        "200":
+          description: The rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccess"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/support-access/{access_id}/revoke:
+    post:
+      operationId: revokeSupportAccess
+      tags: [staff]
+      summary: End approved access early, or withdraw a pending request
+      description: Any staff member may revoke. Recorded in the tenant's audit log.
+      parameters:
+        - $ref: "#/components/parameters/AccessID"
+      responses:
+        "200":
+          description: The revoked request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SupportAccess"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/audit-log:
+    get:
+      operationId: listStaffAudit
+      tags: [staff]
+      summary: The staff audit log, newest first
+      parameters:
+        - name: limit
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 200
+            default: 100
+      responses:
+        "200":
+          description: Entries.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAuditList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+components:
+  parameters:
+    AccessID:
+      name: access_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
+  responses:
+    DefaultError:
+      description: Error in the standard RiskOS error contract.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    InvalidRequest:
+      description: The request is invalid.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Unauthenticated:
+      description: No valid staff session (or the passkey did not verify).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Forbidden:
+      description: Not allowed (for example, approving your own request).
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    NotFound:
+      description: Not found.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    Conflict:
+      description: The request is not in a state that allows this.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+    RateLimited:
+      description: Too many attempts.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Error"
+  schemas:
+    Error:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message, request_id]
+          properties:
+            code:
+              type: string
+            message:
+              type: string
+            request_id:
+              type: string
+    WebAuthnOptions:
+      type: object
+      additionalProperties: true
+      description: WebAuthn options, passed to the browser's credentials API as returned.
+    Ceremony:
+      type: object
+      additionalProperties: false
+      required: [ceremony_id, options]
+      properties:
+        ceremony_id:
+          type: string
+        options:
+          $ref: "#/components/schemas/WebAuthnOptions"
+    EnrollOptionsRequest:
+      type: object
+      additionalProperties: false
+      required: [token]
+      properties:
+        token:
+          type: string
+          maxLength: 128
+    EnrollRequest:
+      type: object
+      additionalProperties: false
+      required: [token, ceremony_id, credential]
+      properties:
+        token:
+          type: string
+          maxLength: 128
+        ceremony_id:
+          type: string
+          maxLength: 128
+        name:
+          type: string
+          maxLength: 100
+        credential:
+          type: object
+          additionalProperties: true
+    LoginRequest:
+      type: object
+      additionalProperties: false
+      required: [ceremony_id, credential]
+      properties:
+        ceremony_id:
+          type: string
+          maxLength: 128
+        credential:
+          type: object
+          additionalProperties: true
+    StaffRole:
+      type: string
+      enum: [operations_admin, security_admin]
+    Staff:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role]
+      properties:
+        id:
+          type: string
+          example: stf_01j9x2k7m3q4r5s6t7v8w9x0yz
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/StaffRole"
+    StaffSession:
+      type: object
+      additionalProperties: false
+      required: [staff, csrf_token, expires_at, idle_expires_at]
+      properties:
+        staff:
+          $ref: "#/components/schemas/Staff"
+        csrf_token:
+          type: string
+        expires_at:
+          type: string
+          format: date-time
+          description: The session ends at this time whatever happens.
+        idle_expires_at:
+          type: string
+          format: date-time
+          description: The session ends at this time unless it is used before.
+    AdminTenant:
+      type: object
+      additionalProperties: false
+      required: [id, name, status, created_at]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+        status:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+    AdminTenantList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/AdminTenant"
+    TenantSecurity:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, tenant_name, tenant_status, degraded_evaluations, open_security_alerts, failed_logins, disabled_webhooks]
+      properties:
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        tenant_status:
+          type: string
+        degraded_evaluations:
+          type: integer
+          format: int64
+          description: Evaluations with degraded signals in the window.
+        open_security_alerts:
+          type: integer
+          format: int64
+        failed_logins:
+          type: integer
+          format: int64
+          description: Failed console password, second-factor and SSO attempts in the window.
+        disabled_webhooks:
+          type: integer
+          format: int64
+    SecurityOverview:
+      type: object
+      additionalProperties: false
+      required: [since, data]
+      properties:
+        since:
+          type: string
+          format: date-time
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantSecurity"
+    SupportAccessRequest:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, reason, duration_minutes]
+      properties:
+        tenant_id:
+          type: string
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why access is needed, e.g. the customer's ticket. The tenant sees it in its audit log.
+        duration_minutes:
+          type: integer
+          minimum: 15
+          maximum: 240
+    StaffRef:
+      type: object
+      additionalProperties: false
+      required: [id, name]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+    SupportAccess:
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, tenant_name, requested_by, reason, duration_minutes, status, active, created_at]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        requested_by:
+          $ref: "#/components/schemas/StaffRef"
+        reason:
+          type: string
+        duration_minutes:
+          type: integer
+        status:
+          type: string
+          enum: [pending, approved, rejected, revoked, expired]
+        active:
+          type: boolean
+          description: Approved and not yet expired or revoked.
+        created_at:
+          type: string
+          format: date-time
+        decided_by:
+          $ref: "#/components/schemas/StaffRef"
+        decided_at:
+          type: string
+          format: date-time
+        expires_at:
+          type: string
+          format: date-time
+        revoked_at:
+          type: string
+          format: date-time
+    SupportAccessList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportAccess"
+    StaffAuditEntry:
+      type: object
+      additionalProperties: false
+      required: [id, occurred_at, actor, action, resource_id, outcome, metadata]
+      properties:
+        id:
+          type: string
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          type: string
+        action:
+          type: string
+        tenant_id:
+          type: string
+        resource_id:
+          type: string
+        outcome:
+          type: string
+        metadata:
+          type: object
+          additionalProperties: true
+    StaffAuditList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffAuditEntry"

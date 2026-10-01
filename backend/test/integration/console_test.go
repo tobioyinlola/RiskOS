@@ -31,6 +31,7 @@ import (
 type browser struct {
 	s      stack
 	cookie string
+	sso    string
 	csrf   string
 	env    string
 	origin string
@@ -53,6 +54,9 @@ func (b *browser) do(t *testing.T, method, path string, body any) response {
 	if b.cookie != "" {
 		req.AddCookie(&http.Cookie{Name: "riskos_session", Value: b.cookie})
 	}
+	if b.sso != "" {
+		req.AddCookie(&http.Cookie{Name: "riskos_sso", Value: b.sso})
+	}
 	if b.csrf != "" {
 		req.Header.Set("X-CSRF-Token", b.csrf)
 	}
@@ -65,8 +69,11 @@ func (b *browser) do(t *testing.T, method, path string, body any) response {
 	rec := httptest.NewRecorder()
 	b.s.handler.ServeHTTP(rec, req)
 	for _, c := range rec.Result().Cookies() { //nolint:bodyclose // recorder
-		if c.Name == "riskos_session" {
+		switch c.Name {
+		case "riskos_session":
 			b.cookie = c.Value
+		case "riskos_sso":
+			b.sso = c.Value
 		}
 	}
 	return response{status: rec.Code, raw: rec.Body.Bytes(), header: rec.Header()}

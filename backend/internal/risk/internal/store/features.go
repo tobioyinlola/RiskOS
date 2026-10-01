@@ -46,6 +46,14 @@ type FeatureStore struct {
 	// cache, so Observe can send EVALSHA instead of the whole script body (which costs Redis a
 	// hash and a lookup on every call). Cleared when Redis reports NOSCRIPT (after a restart).
 	scriptsLoaded atomic.Bool
+	// state reports a warm-up after a reset; nil when reset detection is off.
+	state *StateWatcher
+}
+
+// WithState makes observations report a history warm-up while w detects one.
+func (s *FeatureStore) WithState(w *StateWatcher) *FeatureStore {
+	s.state = w
+	return s
 }
 
 // NewFeatureStore returns a store. timeout bounds each observation (one Redis round trip).
@@ -258,7 +266,7 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 		}
 	}
 
-	v := features.Values{}
+	v := features.Values{Warming: s.state.Warming(time.Now())}
 	degrade := func(source string) {
 		for _, d := range v.Degraded {
 			if d == source {

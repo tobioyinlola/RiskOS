@@ -273,6 +273,22 @@ export async function mockApi(page: Page): Promise<MockApi> {
       return route.fulfill({ status: 204 });
     }
 
+    // Single sign-on: the "provider" sends the browser straight back with a code.
+    if (path === "/auth/sso/start") {
+      return json(route, {
+        redirect_url: `${url.origin}/sso/callback?code=code-1&state=state-1`,
+      });
+    }
+    if (path === "/auth/sso/callback") {
+      if (body?.code !== "code-1" || body?.state !== "state-1") {
+        state.problems.push(
+          "SSO callback without the provider's code and state",
+        );
+      }
+      state.signedIn = true;
+      return json(route, { state: "active", mfa_methods: [] });
+    }
+
     // Sign-in and second factors.
     if (path === "/auth/session") {
       return state.signedIn
@@ -493,6 +509,11 @@ export async function mockApi(page: Page): Promise<MockApi> {
       }
       case "/analytics":
         return json(route, ANALYTICS);
+      case "/sso":
+        return json(route, {
+          redirect_uri: `${url.origin}/sso/callback`,
+          connection: null,
+        });
       case "/deny-list":
         if (method === "POST") {
           const entry = {

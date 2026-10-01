@@ -338,7 +338,7 @@ A duplicate request returns the original stored response and never triggers a se
 
 **Replay protection.** Timestamp skew limits plus the unique key stop old requests from being reprocessed. Behavior on stale events is a per-endpoint policy: reject with `422 STALE_EVENT` for real-time endpoints, accept-without-alerting for batch backfills.
 
-**Response and error contracts** follow the spec exactly: the risk response with `risk_score`, `risk_level`, `decision`, `engine_version` and `signals`, plus `degraded_signals` when optional sources failed; errors return `{error: {code, message, request_id}}`.
+**Response and error contracts** follow the spec exactly: the risk response with `risk_score`, `risk_level`, `decision`, `engine_version` and `signals`, plus `degraded_signals` when optional sources failed and `warming_signals` while behavioural history rebuilds after a feature-store reset; errors return `{error: {code, message, request_id}}`.
 
 ## 12. Failure modes
 
@@ -673,7 +673,7 @@ password.
 
 | Area | What is built |
 |---|---|
-| Accounts | Users per tenant with roles; invites as single-use links (operator CLI for the first administrator, the console for the rest) ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
+| Accounts | Users per tenant with roles; invites as single-use links (operator CLI for the first administrator, the console for the rest), emailed over SMTP when configured; single sign-on with each tenant's OpenID Connect provider ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
 | Sign-in | Password (Argon2id) plus a mandatory passkey or authenticator-app code; recovery codes; throttling; uniform failures |
 | Sessions | Hashed tokens in HttpOnly SameSite=Strict cookies, CSRF tokens and Origin checks, 12 h absolute / 30 min idle, environment chosen per request, re-authentication for high-impact actions |
 | Team | Role and status changes (ending sessions), last-administrator and self-change guards, invite management, all audited |
@@ -725,9 +725,9 @@ password.
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
-| Four-eyes approval for tenant suspension, support access, key-pepper rotation and audit or retention configuration (section 16) | Production rule changes need a second person's approval ([RISK_ENGINE.md](RISK_ENGINE.md)). The other approvals belong to the internal admin realm, which is not built | TODO(phase-8) |
+| Four-eyes approval for tenant suspension, support access, key-pepper rotation and audit or retention configuration (section 16) | Production rule changes and support access need a second person's approval ([RISK_ENGINE.md](RISK_ENGINE.md), [ADMIN.md](ADMIN.md)). Tenant suspension, key-pepper rotation and audit or retention configuration have no staff operation yet | TODO(phase-9) |
 | BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Automatic blocking is built: off by default, 14 days of shadow evidence before it can be switched on, and a kill switch ([RISK_ENGINE.md](RISK_ENGINE.md#automatic-blocking)). Hard blocks come from tenant deny lists of users, accounts, devices, IP addresses, beneficiaries and countries ([RISK_ENGINE.md](RISK_ENGINE.md#deny-lists)), not from rules: rules only add weight | Resolved |
-| Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
+| Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue, and the staff console's Security page counts them across tenants ([ADMIN.md](ADMIN.md)) | Resolved |
 | Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |
 | Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |
 | Rule pattern matching with RE2 (section 10) | No pattern matching at all in rule conditions: equality, comparison and set membership only | This appendix |

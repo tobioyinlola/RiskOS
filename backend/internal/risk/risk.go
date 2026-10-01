@@ -84,7 +84,15 @@ type Config struct {
 	// FeatureTimeout bounds the feature store round trip on the decision path; beyond it the
 	// affected signals are reported as degraded.
 	FeatureTimeout time.Duration
+	// StateDB enables feature-store reset detection (DISASTER_RECOVERY.md): the application
+	// pool, used for the platform-wide state row only. Nil disables it.
+	StateDB StateDB
+	// HistoryWarmup is how long history signals are held back after a reset.
+	HistoryWarmup time.Duration
 }
+
+// StateDB runs the reset detector's statements; *pgxpool.Pool satisfies it.
+type StateDB = store.StateDB
 
 // Redis holds the behavioral feature store. *redis.Client connected to the shared instance
 // satisfies it.
@@ -92,13 +100,39 @@ type Redis = store.Redis
 
 // Module is the risk module.
 type Module struct {
-	svc *service.Service
+	svc   *service.Service
+	state *store.StateWatcher
 }
 
 // New returns the risk module.
 func New(rdb Redis, runner txn.Runner, rec audit.Recorder, clk clock.Clock, logger *slog.Logger, cfg Config) *Module {
 	fs := store.NewFeatureStore(rdb, cfg.FeatureHashKey, cfg.FeatureTimeout)
-	return &Module{svc: service.New(fs, runner, rec, clk, logger)}
+	m := &Module{}
+	if cfg.StateDB != nil {
+		m.state = store.NewStateWatcher(rdb, cfg.StateDB, cfg.FeatureHashKey, cfg.HistoryWarmup, clk, logger)
+		fs.WithState(m.state)
+	}
+	m.svc = service.New(fs, runner, rec, clk, logger)
+	return m
+}
+
+// stateCheckInterval is how often the reset detector compares epochs.
+const stateCheckInterval = 30 * time.Second
+
+// WatchFeatureState runs reset detection in the background until ctx ends. A no-op without
+// Config.StateDB.
+func (m *Module) WatchFeatureState(ctx context.Context) {
+	if m.state != nil {
+		go m.state.Run(ctx, stateCheckInterval)
+	}
+}
+
+// CheckFeatureState runs reset detection once (tests and tooling).
+func (m *Module) CheckFeatureState(ctx context.Context) error {
+	if m.state == nil {
+		return nil
+	}
+	return m.state.Check(ctx)
 }
 
 // Evaluator returns the module's evaluator.

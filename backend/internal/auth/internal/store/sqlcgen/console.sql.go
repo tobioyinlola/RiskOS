@@ -78,7 +78,7 @@ func (q *Queries) GetSessionCeremony(ctx context.Context, arg GetSessionCeremony
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at FROM users WHERE tenant_id = $1 AND id = $2
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 AND id = $2
 `
 
 type GetUserParams struct {
@@ -104,12 +104,13 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (User, error) 
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.SsoSubject,
 	)
 	return i, err
 }
 
 const getUserForUpdate = `-- name: GetUserForUpdate :one
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE
 `
 
 type GetUserForUpdateParams struct {
@@ -135,6 +136,7 @@ func (q *Queries) GetUserForUpdate(ctx context.Context, arg GetUserForUpdatePara
 		&i.CreatedBy,
 		&i.UpdatedAt,
 		&i.LastLoginAt,
+		&i.SsoSubject,
 	)
 	return i, err
 }
@@ -312,19 +314,20 @@ func (q *Queries) ListCredentials(ctx context.Context, arg ListCredentialsParams
 }
 
 const listInvites = `-- name: ListInvites :many
-SELECT id, email, role, created_at, created_by, expires_at, accepted_at, revoked_at
+SELECT id, email, role, created_at, created_by, expires_at, accepted_at, revoked_at, email_sent_at
 FROM user_invites WHERE tenant_id = $1 ORDER BY created_at DESC LIMIT 200
 `
 
 type ListInvitesRow struct {
-	ID         uuid.UUID
-	Email      string
-	Role       string
-	CreatedAt  time.Time
-	CreatedBy  string
-	ExpiresAt  time.Time
-	AcceptedAt *time.Time
-	RevokedAt  *time.Time
+	ID          uuid.UUID
+	Email       string
+	Role        string
+	CreatedAt   time.Time
+	CreatedBy   string
+	ExpiresAt   time.Time
+	AcceptedAt  *time.Time
+	RevokedAt   *time.Time
+	EmailSentAt *time.Time
 }
 
 func (q *Queries) ListInvites(ctx context.Context, tenantID uuid.UUID) ([]ListInvitesRow, error) {
@@ -345,6 +348,7 @@ func (q *Queries) ListInvites(ctx context.Context, tenantID uuid.UUID) ([]ListIn
 			&i.ExpiresAt,
 			&i.AcceptedAt,
 			&i.RevokedAt,
+			&i.EmailSentAt,
 		); err != nil {
 			return nil, err
 		}
@@ -357,7 +361,7 @@ func (q *Queries) ListInvites(ctx context.Context, tenantID uuid.UUID) ([]ListIn
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at FROM users WHERE tenant_id = $1 ORDER BY created_at, id
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, error) {
@@ -384,6 +388,7 @@ func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, er
 			&i.CreatedBy,
 			&i.UpdatedAt,
 			&i.LastLoginAt,
+			&i.SsoSubject,
 		); err != nil {
 			return nil, err
 		}
@@ -393,6 +398,21 @@ func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, er
 		return nil, err
 	}
 	return items, nil
+}
+
+const markInviteEmailed = `-- name: MarkInviteEmailed :exec
+UPDATE user_invites SET email_sent_at = $1::timestamptz WHERE tenant_id = $2 AND id = $3
+`
+
+type MarkInviteEmailedParams struct {
+	Now      time.Time
+	TenantID uuid.UUID
+	ID       uuid.UUID
+}
+
+func (q *Queries) MarkInviteEmailed(ctx context.Context, arg MarkInviteEmailedParams) error {
+	_, err := q.db.Exec(ctx, markInviteEmailed, arg.Now, arg.TenantID, arg.ID)
+	return err
 }
 
 const revokeInvite = `-- name: RevokeInvite :execrows
@@ -563,6 +583,17 @@ func (q *Queries) SetUserTOTP(ctx context.Context, arg SetUserTOTPParams) error 
 		arg.ID,
 	)
 	return err
+}
+
+const tenantName = `-- name: TenantName :one
+SELECT name FROM tenants WHERE id = $1
+`
+
+func (q *Queries) TenantName(ctx context.Context, tenantID uuid.UUID) (string, error) {
+	row := q.db.QueryRow(ctx, tenantName, tenantID)
+	var name string
+	err := row.Scan(&name)
+	return name, err
 }
 
 const touchLogin = `-- name: TouchLogin :exec

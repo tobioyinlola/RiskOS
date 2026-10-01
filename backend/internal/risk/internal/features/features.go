@@ -137,6 +137,20 @@ type Values struct {
 	AmountStd   float64
 	// Degraded lists feature sources (domain.Source*) that could not be read.
 	Degraded []string
+	// Warming is set while history rebuilds after the feature store lost its state
+	// (DISASTER_RECOVERY.md): every user looks new, so history signals would mislead.
+	Warming bool
+}
+
+// warms reports the signals held back while history warms up: with the history gone they would fire
+// for known users ("new device") or judge amounts against a baseline of a few events.
+func warms(code domain.SignalCode) bool {
+	switch code {
+	case domain.SignalNewUser, domain.SignalNewDevice, domain.SignalNewBeneficiary,
+		domain.SignalGeoAnomaly, domain.SignalAmountAnomaly:
+		return true
+	}
+	return false
 }
 
 func (v Values) available(source string) bool { return !slices.Contains(v.Degraded, source) }
@@ -151,8 +165,8 @@ func AmountRatio(e Event, v Values) float64 {
 
 // Signals derives built-in signals. A user with no history gets only the new_user signal from
 // history-based checks (cold start, ARCHITECTURE.md §10). Signals whose source is degraded are
-// returned in degraded instead.
-func Signals(e Event, v Values, s domain.Settings) (signals []domain.Signal, degraded []string) {
+// returned in degraded instead, and history signals held back during a warm-up in warming.
+func Signals(e Event, v Values, s domain.Settings) (signals []domain.Signal, degraded, warming []string) {
 	add := func(code domain.SignalCode) {
 		spec, _ := domain.BuiltinSignal(code)
 		if w := s.Weight(spec); w > 0 {
@@ -166,6 +180,10 @@ func Signals(e Event, v Values, s domain.Settings) (signals []domain.Signal, deg
 		spec, _ := domain.BuiltinSignal(code)
 		if !v.available(spec.Source) {
 			degraded = append(degraded, code)
+			return
+		}
+		if v.Warming && warms(code) {
+			warming = append(warming, code)
 			return
 		}
 		if fires {
@@ -188,7 +206,7 @@ func Signals(e Event, v Values, s domain.Settings) (signals []domain.Signal, deg
 	check(domain.SignalSharedDevice, e.Actor.DeviceID != "", v.DeviceUsers >= domain.SharedDeviceMinUsers)
 	check(domain.SignalBeneficiaryFanIn, e.Transaction != nil && e.BeneficiaryID() != "",
 		v.BeneficiarySenders24h >= domain.FanInMinSenders)
-	return signals, degraded
+	return signals, degraded, warming
 }
 
 func amountAnomaly(e Event, v Values) bool {

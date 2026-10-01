@@ -248,6 +248,7 @@ func toOutcome(r risk.Result) domain.Outcome {
 		RequestID: r.RequestID, EventID: r.EventID, EvaluationID: r.ID,
 		Score: r.Score, Level: string(r.Level), Decision: string(r.Decision),
 		EngineVersion: r.EngineVersion, Signals: signals, DegradedSignals: degraded,
+		WarmingSignals: r.WarmingSignals,
 	}
 }
 

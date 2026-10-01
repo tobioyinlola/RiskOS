@@ -253,6 +253,10 @@ func toAPI(o domain.Outcome) apigen.RiskDecision {
 		RequestId: o.RequestID, EvaluationId: ids.Format(ids.PrefixEvaluation, o.EvaluationID),
 		RiskScore: o.Score, RiskLevel: apigen.RiskLevel(o.Level), Decision: apigen.Decision(o.Decision),
 		EngineVersion: o.EngineVersion, Signals: signals, DegradedSignals: o.DegradedSignals,
+		WarmingSignals: o.WarmingSignals,
+	}
+	if d.WarmingSignals == nil {
+		d.WarmingSignals = []string{}
 	}
 	if o.EventID != nil {
 		d.EventId = new(ids.Format(ids.PrefixEvent, *o.EventID))

@@ -48,6 +48,12 @@ func (m *Module) JobScope(ctx context.Context, tenantID, envID uuid.UUID, actor 
 	return m.svc.JobScope(ctx, tenantID, envID, actor, permissions)
 }
 
+// StaffScope returns ctx scoped to an environment of an active tenant for RiskOS staff with
+// approved support access, holding only permissions. For the admin module only.
+func (m *Module) StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, staffRef string, permissions []string) (context.Context, error) {
+	return m.svc.StaffScope(ctx, tenantID, kind, staffRef, permissions)
+}
+
 // OperatorScope returns ctx scoped to an environment of an active tenant, acting as the named
 // operator tool. For operator tooling only.
 func (m *Module) OperatorScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, actor string) (context.Context, error) {

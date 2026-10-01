@@ -22,7 +22,8 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 | Deny lists | `/deny-lists` | `rules:read` or `risk:configure` | Identifiers whose events are always blocked: add with a reason and an optional expiry, filter by kind, remove. User, account and device profiles can add their identifier directly |
 | Risk settings | `/settings` | `risk:configure` | Band thresholds, signal weights, high-value amounts, fail policies, the alert threshold, automatic blocking (shadow evidence, switch on, kill switch) |
 | Developer | `/developer`, `/developer/webhooks/{id}` | `api_keys:read` or `webhooks:read` | API keys (create, rotate, revoke), webhook endpoints, delivery logs, test deliveries and redelivery |
-| Team | `/team` | `team:read` | Members, roles, invites |
+| Single sign-on | `/sso` | `team:read` | The tenant's OpenID Connect provider: the redirect URI to register, issuer, client ID and secret, on or off, remove |
+| Team | `/team` | `team:read` | Members, roles, invites (emailed when RiskOS has email configured; the link is also shown once to copy) |
 | Audit log | `/audit-logs` | `audit_logs:read` | The tenant's audit trail |
 | Account security | `/account` | signed in | Passkeys, authenticator app, recovery codes |
 

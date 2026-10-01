@@ -70,6 +70,7 @@ curl -s -H "Authorization: Bearer rsk_test_..." -H "Content-Type: application/js
 make apikey TENANT=ten_... ENV=production NAME=ci OPERATOR=you@example.com
 make audit-verify TENANT=ten_...
 make invite TENANT=ten_... EMAIL=you@example.com OPERATOR=you@example.com   # console invite link
+make staff EMAIL=ops@example.com NAME="Ops" OPERATOR=you@example.com        # staff passkey link (/admin)
 ```
 
 If your local database predates build step 2, run `make clean && make up` once (the application

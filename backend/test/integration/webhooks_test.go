@@ -152,6 +152,11 @@ func TestWebhooksEndToEnd(t *testing.T) {
 
 	d := s.decide(t, a.testKey, debit(actor{"u_wh", "acc_wh", "dev_wh"}, "ben", "NG", "NGN", 5000))
 	created := rcv.nextOfType(t, "alert.created")
+	// Under load the evaluation can be degraded, which also raises a security alert; the
+	// alerts arrive in either order.
+	for obj(t, created.event.Data, "alert")["kind"] != "risk" {
+		created = rcv.nextOfType(t, "alert.created")
+	}
 	assert.True(t, verify(t, created, wh.Secret), "signature verifies with the secret")
 	assert.Equal(t, created.event.ID, created.header.Get("RiskOS-Webhook-Id"))
 	assert.Equal(t, "alert.created", created.header.Get("RiskOS-Webhook-Type"))

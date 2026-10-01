@@ -75,11 +75,15 @@ func unsafeMethod(m string) bool {
 // own checks. Every other path needs an API key or an active session; a session request picks
 // its environment with the RiskOS-Environment header. Cookie-authenticated unsafe requests must
 // come from an allowed Origin and carry the session's CSRF token.
-func Middleware(keys *service.Service, con *service.Console, cc CookieConfig, logger *slog.Logger) func(http.Handler) http.Handler {
+func Middleware(keys *service.Service, con *service.Console, cc CookieConfig, support SupportResolver, logger *slog.Logger) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			if !strings.HasPrefix(r.URL.Path, ProtectedPrefix) {
 				next.ServeHTTP(w, r)
+				return
+			}
+			if grant := r.Header.Get(SupportGrantHeader); grant != "" {
+				supportRequest(w, r, next, support, grant, logger)
 				return
 			}
 			if r.Header.Get("Authorization") != "" {
@@ -143,6 +147,55 @@ func Middleware(keys *service.Service, con *service.Console, cc CookieConfig, lo
 			ctx := WithSession(tenancy.WithScope(r.Context(), scope), sess)
 			next.ServeHTTP(w, r.WithContext(ctx))
 		})
+	}
+}
+
+// SupportGrantHeader names approved support access on a customer API request by RiskOS staff.
+const SupportGrantHeader = "RiskOS-Support-Grant"
+
+// staffCookie is the admin realm's session cookie.
+const staffCookie = "riskos_staff"
+
+// SupportResolver authorizes RiskOS staff's read-only support access (the admin module).
+type SupportResolver interface {
+	SupportScope(ctx context.Context, staffToken, grant string, kind tenancy.EnvironmentKind, request string) (tenancy.Scope, error)
+}
+
+// supportRequest serves a customer API request made by RiskOS staff with approved support
+// access: read-only (GET), never session or credential endpoints, scoped to the access's tenant
+// with read permissions only, and recorded in the tenant's audit log by the resolver.
+func supportRequest(w http.ResponseWriter, r *http.Request, next http.Handler, support SupportResolver, grant string, logger *slog.Logger) {
+	if support == nil || r.Header.Get("Authorization") != "" || strings.HasPrefix(r.URL.Path, sessionPathPrefix) ||
+		(r.Method != http.MethodGet && r.Method != http.MethodHead) {
+		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusForbidden, httpx.CodeForbidden,
+			"Support access is read-only and covers the customer API's GET requests only.", nil))
+		return
+	}
+	var token string
+	if c, err := r.Cookie(staffCookie); err == nil {
+		token = c.Value
+	}
+	kind := tenancy.EnvironmentKind(r.Header.Get(EnvironmentHeader))
+	switch kind {
+	case "":
+		kind = tenancy.EnvironmentTest
+	case tenancy.EnvironmentTest, tenancy.EnvironmentProduction:
+	default:
+		httpx.WriteError(w, r, logger, httpx.InvalidRequest("RiskOS-Environment must be test or production.", nil))
+		return
+	}
+	scope, err := support.SupportScope(r.Context(), token, grant, kind, r.Method+" "+r.URL.Path)
+	switch {
+	case err == nil:
+		next.ServeHTTP(w, r.WithContext(tenancy.WithScope(r.Context(), scope)))
+	case errors.Is(err, domain.ErrStaffUnauthenticated):
+		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusUnauthorized, httpx.CodeUnauthenticated, "Sign in to the admin console.", err))
+	case errors.Is(err, domain.ErrSupportDenied):
+		logger.WarnContext(r.Context(), "support access refused")
+		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusForbidden, httpx.CodeForbidden,
+			"This support access is not approved, has ended or is not yours.", err))
+	default:
+		writeAuthError(w, r, logger, err)
 	}
 }
 
@@ -590,6 +643,7 @@ func (h *ConsoleHandlers) ListInvites(ctx context.Context, _ apigen.ListInvitesR
 		out.Data[i] = apigen.Invite{
 			Id: ids.Format(ids.PrefixInvite, v.ID), Email: v.Email, Role: apigen.Role(v.Role), CreatedAt: v.CreatedAt,
 			CreatedBy: v.CreatedBy, ExpiresAt: v.ExpiresAt, Status: inviteStatus(now, v.AcceptedAt, v.RevokedAt, v.ExpiresAt),
+			EmailSentAt: v.EmailSentAt,
 		}
 	}
 	return out, nil
@@ -613,7 +667,8 @@ func (h *ConsoleHandlers) CreateInvite(ctx context.Context, req apigen.CreateInv
 			Id: ids.Format(ids.PrefixInvite, inv.ID), Email: inv.Email, Role: apigen.Role(inv.Role), Status: "pending",
 			CreatedAt: time.Now(), CreatedBy: scope.Principal.ID, ExpiresAt: inv.ExpiresAt,
 		},
-		InviteUrl: InviteURL(h.cc.ConsoleURL, inv.Token),
+		InviteUrl:   InviteURL(h.cc.ConsoleURL, inv.Token),
+		EmailQueued: inv.Emailed,
 	}, nil
 }
 

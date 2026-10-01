@@ -11,12 +11,13 @@ import (
 	"fmt"
 	"net/netip"
 	"net/url"
-	"slices"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/egress"
 )
 
 // Errors.
@@ -155,29 +156,10 @@ func ValidateURL(raw string, p URLPolicy) error {
 	return nil
 }
 
-var blockedPrefixes = func() []netip.Prefix { //nolint:gochecknoglobals // constant table
-	var out []netip.Prefix
-	for _, s := range []string{
-		"0.0.0.0/8", "100.64.0.0/10", "192.0.0.0/24", "192.0.2.0/24", "198.18.0.0/15",
-		"198.51.100.0/24", "203.0.113.0/24", "240.0.0.0/4", "255.255.255.255/32",
-		"64:ff9b::/96", "64:ff9b:1::/48", "100::/64", "2001:db8::/32", "2002::/16",
-	} {
-		out = append(out, netip.MustParsePrefix(s))
-	}
-	return out
-}()
-
 // Blocked reports whether a webhook may not connect to ip: loopback, private, link-local
 // (including cloud metadata at 169.254.169.254), multicast, unspecified, carrier-grade NAT,
 // documentation, benchmarking, reserved, and IPv6 translation ranges that could reach them.
-func Blocked(ip netip.Addr) bool {
-	ip = ip.Unmap()
-	if !ip.IsValid() || ip.IsLoopback() || ip.IsPrivate() || ip.IsLinkLocalUnicast() ||
-		ip.IsLinkLocalMulticast() || ip.IsInterfaceLocalMulticast() || ip.IsMulticast() || ip.IsUnspecified() {
-		return true
-	}
-	return slices.ContainsFunc(blockedPrefixes, func(p netip.Prefix) bool { return p.Contains(ip) })
-}
+func Blocked(ip netip.Addr) bool { return egress.Blocked(ip) }
 
 // Secret derives an endpoint's signing secret. Secrets are never stored: they are recomputed
 // from the server-side key, the endpoint ID and the secret version.

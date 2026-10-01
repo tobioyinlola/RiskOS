@@ -4,11 +4,13 @@
 INSERT INTO evaluations (
   tenant_id, environment_id, id, created_at, event_id, event_key, dry_run,
   engine_version, rule_versions, features, risk_score, risk_level, decision,
-  signals, degraded_signals, request_id, duration_us, policy_reasons, shadow_signals
+  signals, degraded_signals, request_id, duration_us, policy_reasons, shadow_signals,
+  warming_signals
 ) VALUES (
   @tenant_id, @environment_id, @id, @created_at, @event_id, @event_key, @dry_run,
   @engine_version, @rule_versions, @features, @risk_score, @risk_level, @decision,
-  @signals, @degraded_signals, @request_id, @duration_us, @policy_reasons, @shadow_signals
+  @signals, @degraded_signals, @request_id, @duration_us, @policy_reasons, @shadow_signals,
+  @warming_signals
 );
 
 -- name: GetEvaluation :one

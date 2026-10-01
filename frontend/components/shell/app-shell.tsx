@@ -5,6 +5,7 @@ import { cn } from "cn";
 import {
   Activity,
   Ban,
+  KeyRound,
   ChartColumn,
   Fingerprint,
   Radio,
@@ -69,6 +70,7 @@ const ICONS: Record<NavSection["icon"], typeof Gauge> = {
   fingerprint: Fingerprint,
   chart: ChartColumn,
   ban: Ban,
+  key: KeyRound,
   activity: Activity,
   alert: TriangleAlert,
   folder: FolderOpen,

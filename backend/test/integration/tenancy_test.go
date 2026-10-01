@@ -18,6 +18,7 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
@@ -49,6 +50,8 @@ type stack struct {
 	auth     *auth.Module
 	alerts   *alerts.Module
 	webhooks *webhooks.Module
+	risk     *risk.Module
+	admin    *admin.Module
 }
 
 // stackConfig holds the optional settings of a test stack.
@@ -57,6 +60,27 @@ type stackConfig struct {
 	console  auth.ConsoleConfig
 	// throttle enables console sign-in throttling (in Redis).
 	throttle bool
+	// historyWarmup, when set, enables feature-store reset detection.
+	historyWarmup time.Duration
+	// inviteEmails, when set, queues invite emails.
+	inviteEmails jobs.Enqueuer
+	// admin enables the internal admin realm.
+	admin bool
+}
+
+// withAdmin enables the internal admin realm and support access.
+func withAdmin() stackOption {
+	return func(c *stackConfig) { c.admin = true }
+}
+
+// withInviteEmails makes new invites queue an email job on q.
+func withInviteEmails(q jobs.Enqueuer) stackOption {
+	return func(c *stackConfig) { c.inviteEmails = q }
+}
+
+// withHistoryWarmup enables feature-store reset detection with the given warm-up.
+func withHistoryWarmup(d time.Duration) stackOption {
+	return func(c *stackConfig) { c.historyWarmup = d }
 }
 
 type stackOption func(*stackConfig)
@@ -117,15 +141,28 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{
 		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
-		Cookie: auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
+		InviteEmails: sc.inviteEmails,
+		Cookie:       auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
 	})
-	riskModule := newRisk(featureRedis, runner, auditModule, clk)
+	riskModule := newRisk(featureRedis, runner, auditModule, clk, func(c *risk.Config) {
+		if sc.historyWarmup > 0 {
+			c.StateDB, c.HistoryWarmup = shared.pool, sc.historyWarmup
+		}
+	})
 	queue, err := jobs.NewInserter(shared.pool, shared.logger)
 	require.NoError(t, err)
 	var alertsModule *alerts.Module
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, sc.webhooks, webhooks.NotifierFunc(
 		func(ctx context.Context, id uuid.UUID) error { return alertsModule.WebhookEndpointDisabled(ctx, id) }), shared.logger)
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), shared.logger)
+	var adminModule *admin.Module
+	if sc.admin {
+		rpid, origins := authModule.PasskeyRP()
+		adminModule, err = admin.New(shared.pool, tenants.New(runner, auditModule.Recorder()), runner, auditModule.Recorder(), clk,
+			admin.Config{Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger})
+		require.NoError(t, err)
+		authModule.SetSupport(adminModule)
+	}
 	h, err := httpapi.New(httpapi.Deps{
 		Logger: shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
@@ -135,6 +172,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		Alerts:   alertsModule,
 		Cases:    cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher()),
 		Webhooks: webhooksModule,
+		Admin:    adminModule,
 		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
 	})
 	require.NoError(t, err)
@@ -144,6 +182,8 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		auth:     authModule,
 		alerts:   alertsModule,
 		webhooks: webhooksModule,
+		risk:     riskModule,
+		admin:    adminModule,
 	}
 }
 
@@ -151,10 +191,12 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 const testFeatureKey = "integration-feature-key-0123456789abcdef"
 
 // newRisk returns the risk module wired like cmd/api.
-func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock) *risk.Module {
-	return risk.New(rdb, runner, auditModule.Recorder(), clk, shared.logger, risk.Config{
-		FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond,
-	})
+func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock, opts ...func(*risk.Config)) *risk.Module {
+	cfg := risk.Config{FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond}
+	for _, o := range opts {
+		o(&cfg)
+	}
+	return risk.New(rdb, runner, auditModule.Recorder(), clk, shared.logger, cfg)
 }
 
 type tenantFixture struct {

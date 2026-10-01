@@ -400,6 +400,31 @@ func (Store) AcceptInvite(ctx context.Context, id uuid.UUID, now time.Time) (boo
 	return n == 1, nil
 }
 
+// MarkInviteEmailed records that the invite's email was sent.
+func (Store) MarkInviteEmailed(ctx context.Context, id uuid.UUID, now time.Time) error {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return err
+	}
+	if err := q.MarkInviteEmailed(ctx, sqlcgen.MarkInviteEmailedParams{TenantID: scope.TenantID, ID: id, Now: now}); err != nil {
+		return fmt.Errorf("mark invite emailed: %w", err)
+	}
+	return nil
+}
+
+// TenantName returns the name of the scope's tenant.
+func (Store) TenantName(ctx context.Context) (string, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return "", err
+	}
+	name, err := q.TenantName(ctx, scope.TenantID)
+	if err != nil {
+		return "", fmt.Errorf("tenant name: %w", err)
+	}
+	return name, nil
+}
+
 // RevokeInvite revokes a pending invite; false if it was not pending.
 func (Store) RevokeInvite(ctx context.Context, id uuid.UUID, now time.Time) (bool, error) {
 	q, scope, err := scoped(ctx)

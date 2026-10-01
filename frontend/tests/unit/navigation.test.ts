@@ -22,6 +22,7 @@ describe("navigation", () => {
       "Risk settings",
       "Developer",
       "Team",
+      "Single sign-on",
       "Audit log",
     ]);
   });

@@ -64,12 +64,18 @@ INSERT INTO user_invites (id, tenant_id, email, role, token_hash, created_at, cr
 VALUES (@id, @tenant_id, @email, @role, @token_hash, @now, @created_by, @expires_at);
 
 -- name: ListInvites :many
-SELECT id, email, role, created_at, created_by, expires_at, accepted_at, revoked_at
+SELECT id, email, role, created_at, created_by, expires_at, accepted_at, revoked_at, email_sent_at
 FROM user_invites WHERE tenant_id = @tenant_id ORDER BY created_at DESC LIMIT 200;
 
 -- name: AcceptInvite :execrows
 UPDATE user_invites SET accepted_at = @now
 WHERE tenant_id = @tenant_id AND id = @id AND accepted_at IS NULL AND revoked_at IS NULL AND expires_at > @now;
+
+-- name: MarkInviteEmailed :exec
+UPDATE user_invites SET email_sent_at = @now::timestamptz WHERE tenant_id = @tenant_id AND id = @id;
+
+-- name: TenantName :one
+SELECT name FROM tenants WHERE id = @tenant_id;
 
 -- name: RevokeInvite :execrows
 UPDATE user_invites SET revoked_at = @now

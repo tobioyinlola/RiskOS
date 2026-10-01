@@ -124,6 +124,15 @@ func NewToken() (token string, hash []byte, err error) {
 	return token, HashToken(token), nil
 }
 
+// InviteToken derives an invite's token from its ID with key, so the worker can email the link
+// without the token ever being stored or queued. 256 bits, like random tokens.
+func InviteToken(key []byte, id [16]byte) string {
+	m := hmac.New(sha256.New, key)
+	m.Write([]byte("riskos invite token v1"))
+	m.Write(id[:])
+	return hex.EncodeToString(m.Sum(nil))
+}
+
 // HashToken hashes a session, CSRF, invite or recovery token for storage and lookup.
 func HashToken(token string) []byte {
 	h := sha256.Sum256([]byte(token))

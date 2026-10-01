@@ -2244,8 +2244,8 @@ paths:
       summary: Invite a person
       description: |
         Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
-        Audited. Returns a single-use link, valid for 72 hours and shown once; share it with the person
-        directly (RiskOS does not send email yet).
+        Audited. Returns a single-use link, valid for 72 hours and shown once. When RiskOS has email
+        configured, the link is also emailed to the person (`email_queued`).
       requestBody:
         required: true
         content:
@@ -2289,6 +2289,167 @@ paths:
       responses:
         "204":
           description: Revoked.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/sso/start:
+    post:
+      operationId: startSSO
+      tags: [session]
+      summary: Start signing in with the tenant's identity provider
+      security: []
+      description: |
+        For a person whose tenant uses single sign-on (OpenID Connect). Returns the provider's
+        authorization URL to send the browser to, and sets a short-lived cookie binding the request to
+        this browser. Unknown emails, disabled accounts and tenants without SSO all get 404
+        `SSO_NOT_CONFIGURED`. Throttled per email and per IP (429). SSO signs in existing accounts only,
+        and RiskOS still asks for its own second factor afterwards.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SSOStartRequest"
+      responses:
+        "200":
+          description: Where to send the browser.
+          headers:
+            Set-Cookie:
+              description: The request's browser binding (HttpOnly, SameSite=Lax, ten minutes).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOStart"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/sso/callback:
+    post:
+      operationId: finishSSO
+      tags: [session]
+      summary: Finish signing in with the tenant's identity provider
+      security: []
+      description: |
+        Called by the console's callback page with the provider's `code` and `state`. The request must
+        have been started in this browser within ten minutes, and the provider's ID token must verify.
+        The first SSO sign-in also needs the provider to confirm the account's email
+        (`email_verified`); it binds the provider's subject to the account, and later sign-ins must
+        present the same subject. Starts a console session exactly like `login`: the response says
+        which second factor is needed next. Failures get 401 `SSO_FAILED`.
+      parameters:
+        - name: riskos_sso
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SSOCallbackRequest"
+      responses:
+        "200":
+          description: The session's next step.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/sso:
+    get:
+      operationId: getSSO
+      tags: [team]
+      summary: The tenant's single sign-on connection
+      description: |
+        Requires `team:read`. `connection` is null when SSO is not set up. The client secret is never
+        returned.
+      responses:
+        "200":
+          description: The redirect URI to register at the provider, and the connection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOSettings"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: putSSO
+      tags: [team]
+      summary: Set up or change single sign-on
+      description: |
+        Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+        Audited (without the secret). RiskOS reads the issuer's OpenID Connect discovery document
+        first and refuses an issuer it cannot read (400). `client_secret` is required the first time;
+        leave it out to keep the stored one. Changing the issuer forgets the provider subjects bound
+        to accounts.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SSOConnectionInput"
+      responses:
+        "200":
+          description: The connection.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOConnection"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: deleteSSO
+      tags: [team]
+      summary: Remove single sign-on
+      description: |
+        Requires `team:write` and, from the console, re-authentication. Audited. People sign in with
+        their password again.
+      responses:
+        "204":
+          description: Removed.
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -2399,6 +2560,81 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    SSOStartRequest:
+      type: object
+      additionalProperties: false
+      required: [email]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+    SSOStart:
+      type: object
+      additionalProperties: false
+      required: [redirect_url]
+      properties:
+        redirect_url:
+          type: string
+          description: The identity provider's authorization URL.
+    SSOCallbackRequest:
+      type: object
+      additionalProperties: false
+      required: [code, state]
+      properties:
+        code:
+          type: string
+          maxLength: 2048
+        state:
+          type: string
+          maxLength: 256
+    SSOConnection:
+      type: object
+      additionalProperties: false
+      required: [issuer, client_id, enabled, updated_at, updated_by]
+      properties:
+        issuer:
+          type: string
+          example: https://login.example.com
+        client_id:
+          type: string
+        enabled:
+          type: boolean
+          description: When false, the connection is kept but nobody can sign in with it.
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+    SSOSettings:
+      type: object
+      additionalProperties: false
+      required: [redirect_uri, connection]
+      properties:
+        redirect_uri:
+          type: string
+          description: The callback to register at the identity provider.
+        connection:
+          allOf:
+            - $ref: "#/components/schemas/SSOConnection"
+          nullable: true
+    SSOConnectionInput:
+      type: object
+      additionalProperties: false
+      required: [issuer, client_id, enabled]
+      properties:
+        issuer:
+          type: string
+          maxLength: 512
+        client_id:
+          type: string
+          maxLength: 256
+        client_secret:
+          type: string
+          maxLength: 1024
+          writeOnly: true
+          description: Required the first time; leave out to keep the stored secret.
+        enabled:
+          type: boolean
     LoginRequest:
       type: object
       additionalProperties: false
@@ -2648,6 +2884,11 @@ components:
         expires_at:
           type: string
           format: date-time
+        email_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When RiskOS emailed the link; absent or null if it has not.
     InviteList:
       type: object
       additionalProperties: false
@@ -2670,13 +2911,16 @@ components:
     CreatedInvite:
       type: object
       additionalProperties: false
-      required: [invite, invite_url]
+      required: [invite, invite_url, email_queued]
       properties:
         invite:
           $ref: "#/components/schemas/Invite"
         invite_url:
           type: string
           description: Single-use link, shown only in this response.
+        email_queued:
+          type: boolean
+          description: True when the link is also being emailed to the invitee (RiskOS has email configured).
     WebhookEventType:
       type: string
       enum: [alert.created, alert.updated, case.created, case.resolved]
@@ -3374,7 +3618,10 @@ components:
           properties:
             type:
               type: string
-              enum: [api_key, system, user]
+              enum: [api_key, system, user, staff]
+              description: |
+                `staff` is RiskOS staff reading this tenant with support access that the tenant's
+                log also shows being requested and approved by two different staff members.
             id:
               type: string
         action:
@@ -3805,7 +4052,9 @@ components:
       description: |
         The risk response (spec §7). risk_score is the sum of the listed signal weights, capped at
         100. degraded_signals lists sources that could not be evaluated for this event.
-      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals]
+        warming_signals lists history signals held back while behavioural history rebuilds after
+        RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
+      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals, warming_signals]
       properties:
         request_id:
           type: string
@@ -3834,6 +4083,10 @@ components:
           items:
             $ref: "#/components/schemas/Signal"
         degraded_signals:
+          type: array
+          items:
+            type: string
+        warming_signals:
           type: array
           items:
             type: string
