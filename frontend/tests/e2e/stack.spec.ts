@@ -134,7 +134,12 @@ test("staff: passkeys, four-eyes support access, read-only view", async ({
 
   // A requests access; A cannot approve it, B can.
   await a.getByRole("link", { name: "Support access" }).click();
-  await a.getByLabel("Tenant").selectOption(tenantID);
+  // Wait for the page itself: until it renders, the overview's "Security across tenants" table
+  // is still there, and a loose "Tenant" label match finds it instead of the form field.
+  await expect(
+    a.getByRole("heading", { level: 1, name: "Support access" }),
+  ).toBeVisible();
+  await a.getByLabel("Tenant", { exact: true }).selectOption(tenantID);
   await a.getByLabel("Reason").fill("Stack test: checking the read-only view");
   await a.getByRole("button", { name: "Request access" }).click();
   const mine = a.getByRole("table", { name: "Support access requests" });
