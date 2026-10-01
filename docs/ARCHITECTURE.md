@@ -549,11 +549,11 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
 2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
 3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
-4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval added in build step 8 (A.11); auto-block and hard-block deferred (Appendix B).
+4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval and automatic blocking added in build step 8 (A.11); hard-block deferred (Appendix B).
 5. Alerts, cases, notes, resolution. **Done** (Appendix A.7); alerts reach customers by webhook in step 6.
 6. Webhooks with signing and delivery logs. **Done** (Appendix A.8); egress proxy and per-tenant delivery queues deferred (Appendix B).
 7. Dashboard on the generated client.
-8. Security hardening, load and failure testing, restore drill.
+8. Security hardening, load and failure testing, restore drill. **Done for the application** (Appendix A.11); the parts that need deployment infrastructure are listed in Appendix B.
 
 The first milestone is the thin vertical slice: tenant, API key, event, validation, normalization, evaluation, alert, case, resolution and audit log, with a measured latency result against the section 5 budget.
 
@@ -561,7 +561,7 @@ The first milestone is the thin vertical slice: tenant, API key, event, validati
 
 ## Appendix A. Implementation status
 
-What exists in the repository today (build steps 1-7). Everything above that is not listed
+What exists in the repository today (build steps 1-8). Everything above that is not listed
 here is designed but not yet built.
 
 ### A.1 Repository layout
@@ -647,7 +647,7 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
-### A.11 Hardening and drills (build step 8, in progress)
+### A.11 Hardening and drills (build step 8)
 
 | Area | What is built |
 |---|---|
