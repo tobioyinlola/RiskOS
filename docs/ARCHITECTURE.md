@@ -549,7 +549,7 @@ This design closes the spec's gaps with sixteen decisions; the only inputs still
 1. Foundation and CI (setup prompt). **Done** (Appendix A).
 2. Tenants, environments, API keys, audit log, RBAC. **Done** for the API realm (Appendix A.4); dashboard login deferred (Appendix B).
 3. Event ingest with idempotency, then a stub evaluation. **Done** (Appendix A.5).
-4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval, auto-block and hard-block deferred (Appendix B).
+4. Risk engine: rules, velocity, scoring, decision policy. **Done** (Appendix A.6); rule approval added in build step 8 (A.11); auto-block and hard-block deferred (Appendix B).
 5. Alerts, cases, notes, resolution. **Done** (Appendix A.7); alerts reach customers by webhook in step 6.
 6. Webhooks with signing and delivery logs. **Done** (Appendix A.8); egress proxy and per-tenant delivery queues deferred (Appendix B).
 7. Dashboard on the generated client.
@@ -653,6 +653,7 @@ password.
 |---|---|
 | Failure drill | `make failure-drill`: ingest under load while Redis, PostgreSQL, the worker and the API fail; checks that no event is lost or duplicated, no degraded transaction is allowed, every alert and webhook arrives ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) |
 | Restore drill | `make restore-drill`: backup, restore into a fresh server, then row counts, audit chains, isolation and a live API on the copy |
+| Rule approval | Production rule changes are proposals until a second person with `rules:approve` (people only) approves them |
 | Abuse limits | Failed authentications per client address, read through trusted proxies only; per-tenant limits on sensitive operations; breached-password check for console passwords |
 | Failing fast | Redis circuit breaker; bounded rate-limit checks; a 1 s deadline to get a database connection, then 503 with `Retry-After`; jobs of a killed worker retried after the job timeout plus a minute |
 | Schedule | Both drills run weekly in CI (`.github/workflows/drills.yml`) |
@@ -723,7 +724,7 @@ password.
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
-| Rules: four-eyes promotion to production (sections 10, 16) | Rules can be created, tested, versioned and rolled back; a `rules:write` key changes production rules directly (audited). Approval before a production change applies comes with the other four-eyes controls | TODO(phase-8) |
+| Four-eyes approval for tenant suspension, support access, key-pepper rotation and audit or retention configuration (section 16) | Production rule changes need a second person's approval ([RISK_ENGINE.md](RISK_ENGINE.md)). The other approvals belong to the internal admin realm, which is not built | TODO(phase-8) |
 | BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Not built: the engine never returns BLOCK. Auto-block needs shadow evidence and a kill switch; hard-block needs deny-lists | TODO(phase-8) |
 | Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
 | Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |

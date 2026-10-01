@@ -28,11 +28,15 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | GET | `/api/v1/risk/settings` | Signal weights, high-value thresholds, fail policies (`risk:configure`) |
 | PUT | `/api/v1/risk/settings` | Replace them; audited (`risk:configure`) |
 | GET | `/api/v1/rules` | List rules with their current versions (`rules:read`) |
-| POST | `/api/v1/rules` | Create a rule; audited (`rules:write`) |
+| POST | `/api/v1/rules` | Create a rule; audited (`rules:write`). In production, rule changes answer 202 with a proposal awaiting approval |
 | GET | `/api/v1/rules/{rule_id}` | A rule's current version (`rules:read`) |
 | PATCH | `/api/v1/rules/{rule_id}` | Change a rule, creating a new version; audited (`rules:write`) |
 | GET | `/api/v1/rules/{rule_id}/versions` | Version history (`rules:read`) |
 | POST | `/api/v1/rules/{rule_id}/rollback` | Restore an earlier version as a new version; audited (`rules:write`) |
+| GET | `/api/v1/rule-changes` | Proposed production rule changes, by `status` (default pending) (`rules:read`) |
+| GET | `/api/v1/rule-changes/{change_id}` | A proposed change (`rules:read`) |
+| POST | `/api/v1/rule-changes/{change_id}/approve` | Apply a change; a person other than the proposer, never a key; audited (`rules:approve`) |
+| POST | `/api/v1/rule-changes/{change_id}/reject` | Reject, or withdraw your own; audited (`rules:approve`, or the proposer) |
 | GET | `/api/v1/alerts` | List alerts; filter by `status`, `kind` (`alerts:read`) |
 | GET | `/api/v1/alerts/{alert_id}` | Alert with its evaluations and timeline (`alerts:read`) |
 | PATCH | `/api/v1/alerts/{alert_id}` | Triage: status, assignee, note; audited (`alerts:write`) |
@@ -80,7 +84,7 @@ generated code is stale. An operation that is not in the contract cannot be rout
   `Retry-After`; nothing was stored) or `TIMEOUT`.
 - Every request is validated against this contract before it reaches a handler; unknown fields
   are rejected.
-- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`); an ID of the wrong
+- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`, `rch_`); an ID of the wrong
   type is not found.
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.

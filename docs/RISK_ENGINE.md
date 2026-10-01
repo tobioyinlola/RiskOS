@@ -3,8 +3,9 @@
 **Purpose:** how signals are produced and combined into an explainable score, mapped to a risk
 level and a decision, and how evaluations stay reproducible. Design:
 [ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **built (build step 4),
-engine `risk-engine-2.0.0` (five bands since build step 7).** The production approval workflow for rules, auto-block and
-hard-block rules are deferred to build step 8 (Appendix B); the engine never returns BLOCK.
+engine `risk-engine-2.0.0` (five bands since build step 7).** Production rule changes need a
+second person's approval (build step 8). Auto-block and hard-block rules are not built
+(Appendix B); the engine never returns BLOCK.
 
 ## Pipeline
 
@@ -152,8 +153,27 @@ Tenants add their own signals as rules (`/api/v1/rules`, scopes `rules:read` / `
 - Rules and settings are cached per environment for 5 seconds; the instance that made a change
   applies it at once, other instances within 5 seconds.
 
-Deferred to build step 8: four-eyes approval before a rule change applies in production (today a
-`rules:write` key changes production rules directly, audited), and rule priority for hard blocks.
+### Two-person approval in production
+
+In a production environment, creating, changing or rolling back a rule does not apply it.
+
+- **Proposals.** The API answers `202` with a proposed change (`rch_…`), and the rule keeps its
+  current version. A rule, and a new rule's code, can each have one pending change at a time.
+- **Approval.** Another person approves it with `POST /api/v1/rule-changes/{id}/approve`:
+  - It applies the change as the rule's next version, credited to the proposer.
+  - It only succeeds if the rule has not changed since the proposal.
+  - Approving needs `rules:approve`, which only people hold (administrators and risk managers).
+    An API key can never be granted it, and nobody can approve their own proposal.
+  - In the console it also needs a recent second factor.
+- **Rejection.** `POST …/reject` rejects a change, with an optional reason. The proposer can
+  withdraw their own change the same way.
+- **Audit.** Proposals, approvals and rejections are audited (`rule.change_proposed`,
+  `rule.change_approved`, `rule.change_rejected`), next to the usual `rule.created`,
+  `rule.updated` and `rule.rolled_back` with `change_id` and `proposed_by`.
+- **Integrity.** The database refuses to change a proposal's content or a decision once made.
+- **Test environments** apply changes at once, for fast iteration.
+
+Not built: rule priority for hard blocks.
 
 ## Feature store
 
