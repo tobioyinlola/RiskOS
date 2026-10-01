@@ -40,7 +40,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Data minimization | Card-number-like values are rejected anywhere in an event and never echoed; identifiers are opaque references; profile changes carry field names, not values | `internal/events` |
 | Replay and idempotency | Unique event key per tenant and environment, stored-response replay, payload-hash conflicts, time window | `internal/events` |
 | Pseudonymized features | Identifiers are HMAC-keyed per tenant and environment (`RISKOS_FEATURE_HASH_KEY`) before they reach Redis | `internal/risk` |
-| Decision integrity | Degraded sources are listed, never guessed; fail-closed default for transactions; REVIEW floor for high-value events while degraded; high-risk events never update baselines; BLOCK never produced | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
+| Decision integrity | Degraded sources are listed, never guessed; fail-closed default for transactions; REVIEW floor for high-value events while degraded; high-risk events never update baselines; BLOCK only through automatic blocking, switched on after 14 days of shadow evidence, with a kill switch | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 | Alerts and cases | Raised off the decision path through a transactional outbox; jobs re-check the tenant and hold one system-only permission; RLS, insert-only notes and timelines, audit without free text | `internal/alerts`, `internal/cases` ([ALERTS_AND_CASES.md](ALERTS_AND_CASES.md)) |
 | Webhooks | Signed (HMAC-SHA256, id + timestamp + body), secrets derived and never stored, rotation with overlap, SSRF-safe dialer on the resolved IP, no redirects, dedicated delivery queue, auto-disable of failing endpoints with a security alert | `internal/webhooks` ([WEBHOOKS.md](WEBHOOKS.md)) |
 | Rules | Typed JSON conditions only (no code, no regex), depth, node, list and count bounds, immutable versions, rollback, shadow mode, every change audited. Production changes need a second person's approval (`rules:approve`, people only, never the proposer) | `internal/risk` ([RISK_ENGINE.md](RISK_ENGINE.md)) |
@@ -56,7 +56,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |
 | Rate limiting (remaining) | WAF and per-address limits on all traffic at the gateway; concurrency caps; load shedding | 8 |
-| Decision integrity (remaining) | An operator-wide view of degradation across tenants; baseline drift alerts; auto-block with shadow evidence and a kill switch | 8 |
+| Decision integrity (remaining) | An operator-wide view of degradation across tenants; baseline drift alerts; hard-block rules on tenant deny-lists | 8 |
 | Webhooks (remaining) | Egress proxy with an allow policy; per-tenant delivery queues; signing key in the secrets manager | 8 |
 | Dashboard hardening (remaining) | SSO; step-up for exports once exports exist | 8 |
 | Cryptography | Envelope encryption with per-tenant data keys (crypto-shredding), secrets manager/KMS, TLS 1.2+ everywhere | 8 |

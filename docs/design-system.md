@@ -43,7 +43,7 @@ These four things make RiskOS recognisable. Use them consistently, and don't inv
 
 Tenants can move the thresholds. When they do, read them from the policy API, redraw the ruler's threshold ticks, and show "custom calibration" in `legend` beside the scale.
 
-> **Implementation note (RiskOS engine 2.0.0):** the bands and default thresholds above are the engine's. Until opt-in auto-block ships (build step 8), the engine's defaults are Minimal/Low Allow (Low steps up with a strengthenable signal), Elevated Review, High Step-up (Review where step-up is impossible) and Critical Review; the console never offers Block. Read the environment's actual decisions from `GET /api/v1/risk/policy` ([RISK_ENGINE.md](RISK_ENGINE.md)).
+> **Implementation note (RiskOS engine 2.0.0):** the bands and default thresholds above are the engine's. The engine's defaults are Minimal/Low Allow (Low steps up with a strengthenable signal), Elevated Review, High Step-up (Review where step-up is impossible) and Critical Review. Critical becomes Block only where a tenant switched automatic blocking on, after shadow evidence; analysts never block by hand. Read the environment's actual decisions from `GET /api/v1/risk/policy` ([RISK_ENGINE.md](RISK_ENGINE.md)).
 
 ### Visual foundations
 

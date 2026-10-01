@@ -653,6 +653,7 @@ password.
 |---|---|
 | Failure drill | `make failure-drill`: ingest under load while Redis, PostgreSQL, the worker and the API fail; checks that no event is lost or duplicated, no degraded transaction is allowed, every alert and webhook arrives ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) |
 | Restore drill | `make restore-drill`: backup, restore into a fresh server, then row counts, audit chains, isolation and a live API on the copy |
+| Automatic blocking | Per environment: off, shadow (Critical evaluations marked `would_block`, counted as evidence), on after 14 days of shadow (Critical gets BLOCK); the kill switch works at once |
 | Rule approval | Production rule changes are proposals until a second person with `rules:approve` (people only) approves them |
 | Abuse limits | Failed authentications per client address, read through trusted proxies only; per-tenant limits on sensitive operations; breached-password check for console passwords |
 | Failing fast | Redis circuit breaker; bounded rate-limit checks; a 1 s deadline to get a database connection, then 503 with `Retry-After`; jobs of a killed worker retried after the job timeout plus a minute |
@@ -704,7 +705,7 @@ password.
 |---|---|
 | Signals | Ten built-in signals: the spec's five at its weights plus failed-login bursts, shared devices, recent credential changes, beneficiary fan-in and a cold-start `new_user` signal ([RISK_ENGINE.md](RISK_ENGINE.md)) |
 | Feature store | Redis, one pipelined round trip per evaluation within `RISKOS_FEATURE_TIMEOUT`; identifiers HMAC-keyed per tenant (`RISKOS_FEATURE_HASH_KEY`); seen sets, velocity buckets, HyperLogLogs, amount baselines that high-risk events never update |
-| Policy | Score capped at 100, levels, STEP_UP for MEDIUM with strengthenable signals, REVIEW for HIGH where step-up is impossible; per-event-type fail-open/closed; REVIEW floor for high-value events while degraded; BLOCK never produced |
+| Policy | Score capped at 100, levels, STEP_UP for MEDIUM with strengthenable signals, REVIEW for HIGH where step-up is impossible; per-event-type fail-open/closed; REVIEW floor for high-value events while degraded; BLOCK only through automatic blocking (build step 8) |
 | Rules | Typed JSON conditions (no code, no regex), bounded (depth 6, 50 nodes, 200 rules per environment), versioned insert-only with rollback, shadow mode, test endpoint, audited; cached per environment for 5 s |
 | Settings | Per-environment signal weights (0-50), high-value thresholds (default 1,000,000 minor units, per-currency overrides), fail policies; audited (`risk:configure`) |
 | Reproducibility | Evaluations store rule versions, facts, shadow signals and policy reasons |
@@ -725,7 +726,7 @@ password.
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
 | Audit hash chain anchored to external write-once storage (section 16.4) | The chain and its verification are built; external anchoring comes with production infrastructure | TODO(phase-8) |
 | Four-eyes approval for tenant suspension, support access, key-pepper rotation and audit or retention configuration (section 16) | Production rule changes need a second person's approval ([RISK_ENGINE.md](RISK_ENGINE.md)). The other approvals belong to the internal admin realm, which is not built | TODO(phase-8) |
-| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Not built: the engine never returns BLOCK. Auto-block needs shadow evidence and a kill switch; hard-block needs deny-lists | TODO(phase-8) |
+| BLOCK via tenant auto-block opt-in or hard-block deny-list rules (section 10) | Automatic blocking is built: off by default, 14 days of shadow evidence before it can be switched on, and a kill switch ([RISK_ENGINE.md](RISK_ENGINE.md#automatic-blocking)). Hard-block rules need tenant deny-lists, which are not built | TODO(phase-8) |
 | Degradation raised as a Security Center event (section 16.8) | Degraded evaluations raise `security` alerts (grouped per environment and hour) in the tenant's alert queue. A RiskOS-operator view across tenants comes with the internal admin realm | TODO(phase-8) |
 | Analysts are dashboard users (spec section 3) | Dashboard users exist (build step 7) and the console assigns alerts and cases to them by user ID; the API still accepts any reference in `assignee` | TODO(phase-8) |
 | Behavioral baselines precomputed asynchronously, rate-capped updates (section 10) | Baselines (amount mean and variance, seen sets) are updated online in Redis on the decision path, with high-risk events excluded and the amount baseline weighted to about the last 500 transactions; no separate update-rate cap | TODO(phase-8) |

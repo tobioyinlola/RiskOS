@@ -4,8 +4,8 @@
 level and a decision, and how evaluations stay reproducible. Design:
 [ARCHITECTURE.md §10 and §12](ARCHITECTURE.md#10-risk-engine). Status: **built (build step 4),
 engine `risk-engine-2.0.0` (five bands since build step 7).** Production rule changes need a
-second person's approval (build step 8). Auto-block and hard-block rules are not built
-(Appendix B); the engine never returns BLOCK.
+second person's approval, and BLOCK is an opt-in per environment behind shadow evidence (build
+step 8). Hard-block rules on tenant deny-lists are not built (Appendix B).
 
 ## Pipeline
 
@@ -94,10 +94,31 @@ use the same five bands.
 | ELEVATED | REVIEW | |
 | HIGH | STEP_UP | REVIEW for event types that cannot be stepped up (only logins and transactions can): `step_up_not_available` |
 | CRITICAL | REVIEW | |
+| CRITICAL, automatic blocking in shadow | REVIEW | marked `would_block` |
+| CRITICAL, automatic blocking on | BLOCK | `auto_block` |
 
-BLOCK is never produced. Auto-block (tenant opt-in after shadow evidence, with a kill switch) and
-hard-block rules on tenant deny-lists are deferred to build step 8, together with the other
-four-eyes controls. Decisions are advisory; the customer's own flow enforces them.
+### Automatic blocking
+
+BLOCK comes only from automatic blocking (ARCHITECTURE.md decision 12). It is set per
+environment in the risk settings (`auto_block.mode`) and is off by default.
+
+- **Off.** Critical scores get REVIEW.
+- **Shadow.** Critical scores still get REVIEW, but each evaluation is marked `would_block`.
+  `GET /api/v1/risk/policy` shows how many evaluations were marked in the last 14 days, since
+  when, and from when blocking can be switched on.
+- **On.** Critical scores get BLOCK, explained by the same named signals as any other decision.
+  It can be switched on only after 14 days in shadow mode (an assumption to confirm with
+  customers). Earlier attempts, or attempts straight from off, are refused.
+- **Kill switch.** Switching back to shadow or off is always allowed and takes effect at once.
+  Off discards the shadow evidence; shadow keeps it.
+- Every mode change is audited (`risk.auto_block_changed`), and in the console it needs a recent
+  second factor.
+- BLOCK decisions raise alerts like REVIEW does.
+
+Decisions stay advisory: the customer's own flow decides what a BLOCK does.
+
+Not built: hard-block rules on tenant deny-lists, which would block regardless of score.
+TODO(phase-8)
 
 ## Degradation
 

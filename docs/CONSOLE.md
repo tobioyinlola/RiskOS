@@ -15,7 +15,7 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 | Alerts | `/alerts` | `alerts:read` | The triage queue, ordered by band, then score, then oldest first; the drawer shows each evaluation's reasons, the activity timeline and actions |
 | Cases | `/cases`, `/cases/{id}` | `cases:read` | Investigations: linked alerts, notes, assignment, resolution |
 | Rules | `/rules`, `/rules/new`, `/rules/{id}` | `rules:read` | Rules with versions, shadow mode, a test bench and rollback. In production, saving proposes a change; proposals awaiting approval are listed above the rules, and anyone with `rules:approve` other than the proposer can review the difference and approve or reject it |
-| Risk settings | `/settings` | `risk:configure` | Band thresholds, signal weights, high-value amounts, fail policies, the alert threshold |
+| Risk settings | `/settings` | `risk:configure` | Band thresholds, signal weights, high-value amounts, fail policies, the alert threshold, automatic blocking (shadow evidence, switch on, kill switch) |
 | Developer | `/developer`, `/developer/webhooks/{id}` | `api_keys:read` or `webhooks:read` | API keys (create, rotate, revoke), webhook endpoints, delivery logs, test deliveries and redelivery |
 | Team | `/team` | `team:read` | Members, roles, invites |
 | Audit log | `/audit-logs` | `audit_logs:read` | The tenant's audit trail |
@@ -49,8 +49,10 @@ second factor within the last 10 minutes.
 When the API answers `REAUTH_REQUIRED`, the console asks for a passkey, authenticator code or
 recovery code and retries the action once.
 
-The console never offers a Block action: the engine does not return BLOCK until auto-block
-ships (build step 8).
+Analysts never block by hand. BLOCK comes only from automatic blocking, which the Risk settings
+page controls:
+- start shadow mode, see how many events it would have blocked, and switch it on after 14 days;
+- stop blocking at once (the kill switch).
 
 ## How it talks to the API
 

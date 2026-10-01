@@ -37,7 +37,8 @@ analyst (API) ─▶ triage alert ─▶ open a case with alerts ─▶ notes �
 
 Severities and case priorities use the five risk bands (minimal, low, elevated, high, critical).
 
-A fail-closed REVIEW caused by degradation raises both. BLOCK is never produced (RISK_ENGINE.md).
+A fail-closed REVIEW caused by degradation raises both. BLOCK, produced only where automatic
+blocking is on, raises a risk alert like REVIEW (RISK_ENGINE.md).
 
 ## Grouping
 
