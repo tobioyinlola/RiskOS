@@ -204,6 +204,9 @@ func TestLoadRiskDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 50*time.Millisecond, cfg.Risk.FeatureTimeout)
 	assert.Equal(t, 7*24*time.Hour, cfg.Risk.HistoryWarmup)
+	assert.False(t, cfg.SMTP.Enabled())
+	assert.Equal(t, 587, cfg.SMTP.Port)
+	assert.Equal(t, "starttls", cfg.SMTP.TLS)
 	require.NoError(t, cfg.Risk.Validate())
 }
 
@@ -214,4 +217,33 @@ func TestLoadAuthDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 5*time.Second, cfg.Auth.APIKeyCacheTTL)
 	require.NoError(t, cfg.Auth.Validate())
+}
+
+func TestSMTPValidate(t *testing.T) {
+	ok := config.SMTP{Host: "smtp.example.com", Port: 587, From: "RiskOS <no-reply@example.com>", TLS: "starttls", Timeout: 10 * time.Second}
+	for _, tc := range []struct {
+		name string
+		mod  func(*config.SMTP)
+		env  config.Environment
+		want string
+	}{
+		{"valid", func(*config.SMTP) {}, config.EnvProduction, ""},
+		{"off", func(s *config.SMTP) { *s = config.SMTP{} }, config.EnvProduction, ""},
+		{"no sender", func(s *config.SMTP) { s.From = "" }, config.EnvDevelopment, "RISKOS_SMTP_FROM"},
+		{"bad port", func(s *config.SMTP) { s.Port = 0 }, config.EnvDevelopment, "RISKOS_SMTP_PORT"},
+		{"plain text locally", func(s *config.SMTP) { s.TLS = "none" }, config.EnvDevelopment, ""},
+		{"plain text in production", func(s *config.SMTP) { s.TLS = "none" }, config.EnvProduction, "RISKOS_SMTP_TLS"},
+		{"unknown tls", func(s *config.SMTP) { s.TLS = "ssl" }, config.EnvDevelopment, "RISKOS_SMTP_TLS"},
+	} {
+		t.Run(tc.name, func(t *testing.T) {
+			c := ok
+			tc.mod(&c)
+			err := c.Validate(tc.env)
+			if tc.want == "" {
+				assert.NoError(t, err)
+				return
+			}
+			assert.ErrorContains(t, err, tc.want)
+		})
+	}
 }

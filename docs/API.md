@@ -62,7 +62,7 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | POST | `/api/v1/auth/invites/accept` | Accept an invite: set name and password |
 | GET | `/api/v1/team/members` | Console users (`team:read`) |
 | PATCH | `/api/v1/team/members/{user_id}` | Change a user's role or status (`team:write`, re-authentication) |
-| GET, POST | `/api/v1/team/invites` | List or create invites (`team:read` / `team:write`, re-authentication) |
+| GET, POST | `/api/v1/team/invites` | List or create invites (`team:read` / `team:write`, re-authentication). With email configured, the link is also emailed (`email_queued`, `email_sent_at`) |
 | POST | `/api/v1/team/invites/{invite_id}/revoke` | Revoke a pending invite (`team:write`) |
 | GET | `/api/v1/webhooks` | List webhook endpoints (`webhooks:read`) |
 | POST | `/api/v1/webhooks` | Register an endpoint; secret returned once; audited (`webhooks:write`) |

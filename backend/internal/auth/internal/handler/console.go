@@ -590,6 +590,7 @@ func (h *ConsoleHandlers) ListInvites(ctx context.Context, _ apigen.ListInvitesR
 		out.Data[i] = apigen.Invite{
 			Id: ids.Format(ids.PrefixInvite, v.ID), Email: v.Email, Role: apigen.Role(v.Role), CreatedAt: v.CreatedAt,
 			CreatedBy: v.CreatedBy, ExpiresAt: v.ExpiresAt, Status: inviteStatus(now, v.AcceptedAt, v.RevokedAt, v.ExpiresAt),
+			EmailSentAt: v.EmailSentAt,
 		}
 	}
 	return out, nil
@@ -613,7 +614,8 @@ func (h *ConsoleHandlers) CreateInvite(ctx context.Context, req apigen.CreateInv
 			Id: ids.Format(ids.PrefixInvite, inv.ID), Email: inv.Email, Role: apigen.Role(inv.Role), Status: "pending",
 			CreatedAt: time.Now(), CreatedBy: scope.Principal.ID, ExpiresAt: inv.ExpiresAt,
 		},
-		InviteUrl: InviteURL(h.cc.ConsoleURL, inv.Token),
+		InviteUrl:   InviteURL(h.cc.ConsoleURL, inv.Token),
+		EmailQueued: inv.Emailed,
 	}, nil
 }
 

@@ -10,12 +10,13 @@ Status: **built (build step 7).** API keys (machine access) are unchanged ([TENA
   Emails are unique across RiskOS; one email signs in to one tenant.
 - Roles: `customer_admin`, `developer`, `risk_manager`, `analyst`, with the same permissions as
   API key scopes (`platform/authz`).
-- **Getting an account.** RiskOS does not send email yet. A tenant's first administrator is
-  invited by an operator (`riskosctl user invite --tenant ten_… --email … --operator …`), and
+- **Getting an account.** A tenant's first administrator is invited by an operator
+  (`riskosctl user invite --tenant ten_… --email … --operator …`, which prints the link), and
   administrators invite others from the console (Team). Either way the result is a single-use
   link, valid for 72 hours, shown once, with the token in the URL fragment so it never reaches
-  server logs or `Referer` headers. The invited person sets their name and password and must then
-  enroll a second factor before they can do anything else.
+  server logs or `Referer` headers. When email is configured, console invites are also emailed
+  ([Invite emails](#invite-emails)). The invited person sets their name and password and must
+  then enroll a second factor before they can do anything else.
 
 ## Sign-in
 
@@ -70,10 +71,38 @@ sign-ins, enrollments, re-authentications and sign-outs are in the tenant's audi
 | `RISKOS_WEBAUTHN_RP_ID` | Passkey relying party ID (default: the URL's host name). |
 | `RISKOS_SESSION_COOKIE_SECURE` | `true` by default and required in production. |
 
+## Invite emails
+
+With `RISKOS_SMTP_HOST` set, each console invite queues a job, in the invite's transaction, that
+the worker runs to email the link. Any SMTP provider works; locally, `docker compose` runs
+Mailpit, which catches every message (inbox at http://localhost:8025).
+
+- **No token in the queue.** Job arguments hold the tenant and invite IDs only. The token is
+  derived from the invite ID with a key derived from `RISKOS_CONSOLE_SECRET` (HMAC-SHA256, 256
+  bits), and the worker derives it again to build the link. The worker therefore needs
+  `RISKOS_CONSOLE_SECRET` when email is on.
+- **Only pending invites.** An invite accepted, revoked or expired before the job runs is not
+  emailed, and neither is one whose tenant is suspended.
+- **At least once.** A failed send is retried by the queue. A send whose confirmation was lost can
+  deliver the same link twice; the link still works only once.
+- **Recorded.** The invite shows when it was emailed (`email_sent_at`), and the tenant's audit log
+  records `user.invite_emailed`.
+- **Plain text** only, so nothing in the message is rendered as HTML. Header values are encoded,
+  so a tenant's name cannot inject headers.
+
+| Setting | Purpose |
+|---|---|
+| `RISKOS_SMTP_HOST` | SMTP server; empty (the default) turns email off. |
+| `RISKOS_SMTP_PORT` | Default 587. |
+| `RISKOS_SMTP_USERNAME`, `RISKOS_SMTP_PASSWORD` | Optional credentials (sent only over TLS, except to localhost). |
+| `RISKOS_SMTP_FROM` | The sender, e.g. `RiskOS <no-reply@example.com>`. Required when email is on. |
+| `RISKOS_SMTP_TLS` | `starttls` (default), `tls` (implicit, port 465) or `none` (local catchers; refused in production). |
+| `RISKOS_SMTP_TIMEOUT` | Bounds one send; default 10 s. |
+
 ## Deviations and pending work
 
 - Single sign-on (OIDC or SAML) for customer administrators is not built. TODO(phase-8).
-- No email delivery: invites are links the administrator passes on. TODO(phase-8).
+- Operator invites (`riskosctl`) print the link and are not emailed.
 - Passkey ceremonies are verified by the go-webauthn library; the integration tests cover their
   request and rejection paths. The stack browser test (`make test-e2e-stack`, in CI) registers a
   passkey with a virtual authenticator and signs in with it against the real API

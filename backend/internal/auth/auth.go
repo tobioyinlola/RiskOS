@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
@@ -15,8 +16,10 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 )
@@ -95,7 +98,12 @@ type Config struct {
 	// Limiter throttles sign-in; nil disables throttling (tests).
 	Limiter Limiter
 	Logger  *slog.Logger
+	// InviteEmails queues an email for each new invite; nil when email is not configured.
+	InviteEmails jobs.Enqueuer
 }
+
+// InviteEmailArgs is the job that emails an invite's link.
+type InviteEmailArgs = service.InviteEmailArgs
 
 // BreachChecker reports whether a password appears in known data breaches.
 type BreachChecker = service.BreachChecker
@@ -148,6 +156,9 @@ func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg 
 		// Only an invalid relying party configuration can fail here, and configuration
 		// validation rejects it before this point.
 		panic(fmt.Sprintf("auth: console configuration: %v", err))
+	}
+	if cfg.InviteEmails != nil {
+		con.SetInviteEmails(cfg.InviteEmails)
 	}
 	cookie := cfg.Cookie
 	if cookie.Name == "" {
@@ -230,6 +241,40 @@ func (m *Module) Invite(ctx context.Context, email string, role Role) (string, e
 		return "", err
 	}
 	return handler.InviteURL(m.cookie.ConsoleURL, inv.Token), nil
+}
+
+// InviteEmailJob returns the worker handler for InviteEmailArgs. Invites accepted, revoked or
+// expired before the job runs are skipped. Delivery is at least once: a retry after a send whose
+// confirmation was lost sends the same link again.
+func (m *Module) InviteEmailJob(sender mail.Sender) func(context.Context, InviteEmailArgs) error {
+	return func(ctx context.Context, a InviteEmailArgs) error {
+		inv, err := m.console.PendingInviteForEmail(ctx, a)
+		if err != nil || inv == nil {
+			return err
+		}
+		if err := sender.Send(ctx, inviteMessage(inv, handler.InviteURL(m.cookie.ConsoleURL, inv.Token))); err != nil {
+			return err
+		}
+		return m.console.InviteEmailed(ctx, a)
+	}
+}
+
+func inviteMessage(inv *service.PendingInvite, link string) mail.Message {
+	role := strings.ReplaceAll(string(inv.Role), "_", " ")
+	return mail.Message{
+		To:      inv.Email,
+		Subject: "You're invited to " + oneLine(inv.TenantName) + " on RiskOS",
+		Text: "You have been invited to join " + oneLine(inv.TenantName) + " on RiskOS as " + role + ".\n\n" +
+			"Accept the invite and choose a password:\n" + link + "\n\n" +
+			"The link works once and expires on " + inv.ExpiresAt.UTC().Format("2 January 2006 at 15:04 UTC") + ".\n" +
+			"You will also set up a passkey or an authenticator app when you first sign in.\n\n" +
+			"If you did not expect this invite, ignore this email.\n",
+	}
+}
+
+// oneLine keeps a tenant-chosen name on one line in a subject.
+func oneLine(s string) string {
+	return strings.Join(strings.Fields(s), " ")
 }
 
 // DefaultCacheTTL is the default lookup cache TTL: the revocation staleness bound.

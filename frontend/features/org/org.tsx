@@ -185,6 +185,7 @@ export function Team() {
   const invites = useInvites();
   const [inviting, setInviting] = useState(false);
   const [link, setLink] = useState<string>();
+  const [emailed, setEmailed] = useState<string>();
   const update = useAction(
     async (id: string, body: Schemas["UpdateTeamMemberRequest"]) =>
       unwrap(
@@ -200,7 +201,10 @@ export function Team() {
       unwrap(await api().POST("/api/v1/team/invites", { body })),
     {
       invalidate: ["invites"],
-      onSuccess: (r) => setLink(r.invite_url),
+      onSuccess: (r) => {
+        setLink(r.invite_url);
+        setEmailed(r.email_queued ? r.invite.email : undefined);
+      },
     },
   );
   const revoke = useAction(
@@ -336,6 +340,14 @@ export function Team() {
                 <Td className="text-body-sm">{roleLabel(i.role)}</Td>
                 <Td>
                   <Tag>{humanize(i.status)}</Tag>
+                  {i.email_sent_at ? (
+                    <span
+                      className="ml-2 text-label text-text-muted"
+                      title={formatTimestamp(i.email_sent_at)}
+                    >
+                      emailed
+                    </span>
+                  ) : null}
                 </Td>
                 <DataCell className="text-text-muted">
                   {formatTimestamp(i.expires_at)}
@@ -365,16 +377,24 @@ export function Team() {
           if (!o) {
             setInviting(false);
             setLink(undefined);
+            setEmailed(undefined);
           }
         }}
         title="Invite a person"
       >
         {link ? (
           <div className="flex flex-col gap-3">
-            <Notice tone="warn">
-              Shown once. Send this link to the person directly; RiskOS does not
-              send email yet.
-            </Notice>
+            {emailed ? (
+              <Notice tone="ok">
+                We&apos;re emailing the link to {emailed}. You can also copy it
+                below; it is shown only once.
+              </Notice>
+            ) : (
+              <Notice tone="warn">
+                Shown once. Send this link to the person directly: email is not
+                configured for this RiskOS installation.
+              </Notice>
+            )}
             <CodeBlock value={link} />
             <div className="flex gap-2">
               <Button
@@ -389,6 +409,7 @@ export function Team() {
                 onClick={() => {
                   setInviting(false);
                   setLink(undefined);
+                  setEmailed(undefined);
                 }}
               >
                 Done

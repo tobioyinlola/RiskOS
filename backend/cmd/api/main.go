@@ -93,6 +93,9 @@ func run() (err error) {
 	if err := cfg.Console.Validate(cfg.Env); err != nil {
 		return err
 	}
+	if err := cfg.SMTP.Validate(cfg.Env); err != nil {
+		return err
+	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-api")
 
 	tel, err := telemetry.Setup(ctx, cfg.Telemetry, cfg.ServiceName+"-api", cfg.Env)
@@ -120,6 +123,15 @@ func run() (err error) {
 
 	clk := clock.System{}
 	runner := db.NewTxRunner(pool, db.WithBeginTimeout(cfg.Postgres.AcquireTimeout))
+	// The API only inserts jobs (in the request's transaction); the worker runs them.
+	queue, err := jobs.NewInserter(pool, logger)
+	if err != nil {
+		return err
+	}
+	var inviteEmails jobs.Enqueuer
+	if cfg.SMTP.Enabled() {
+		inviteEmails = queue
+	}
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
 		Pepper:   []byte(cfg.Auth.APIKeyPepper),
@@ -128,8 +140,9 @@ func run() (err error) {
 		Cookie: auth.CookieConfig{
 			Secure: cfg.Console.CookieSecure, Origins: cfg.Console.Origins, ConsoleURL: cfg.Console.URL,
 		},
-		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout),
-		Logger:  logger,
+		Limiter:      ratelimit.New(rdb, cfg.RateLimit.Timeout),
+		Logger:       logger,
+		InviteEmails: inviteEmails,
 	})
 
 	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
@@ -139,11 +152,6 @@ func run() (err error) {
 		HistoryWarmup:  cfg.Risk.HistoryWarmup,
 	})
 	riskModule.WatchFeatureState(ctx)
-	// The API only inserts jobs (in the decision transaction); the worker runs them.
-	queue, err := jobs.NewInserter(pool, logger)
-	if err != nil {
-		return err
-	}
 	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk)
 	// The API publishes webhook events and manages endpoints; it never delivers (no notifier).
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)

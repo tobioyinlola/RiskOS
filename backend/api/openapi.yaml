@@ -2648,6 +2648,11 @@ components:
         expires_at:
           type: string
           format: date-time
+        email_sent_at:
+          type: string
+          format: date-time
+          nullable: true
+          description: When RiskOS emailed the link; absent or null if it has not.
     InviteList:
       type: object
       additionalProperties: false
@@ -2670,13 +2675,16 @@ components:
     CreatedInvite:
       type: object
       additionalProperties: false
-      required: [invite, invite_url]
+      required: [invite, invite_url, email_queued]
       properties:
         invite:
           $ref: "#/components/schemas/Invite"
         invite_url:
           type: string
           description: Single-use link, shown only in this response.
+        email_queued:
+          type: boolean
+          description: True when the link is also being emailed to the invitee (RiskOS has email configured).
     WebhookEventType:
       type: string
       enum: [alert.created, alert.updated, case.created, case.resolved]

@@ -1366,6 +1366,11 @@ export interface components {
             created_by: string;
             /** Format: date-time */
             expires_at: string;
+            /**
+             * Format: date-time
+             * @description When RiskOS emailed the link; absent or null if it has not.
+             */
+            email_sent_at?: string | null;
         };
         InviteList: {
             data: components["schemas"]["Invite"][];
@@ -1378,6 +1383,8 @@ export interface components {
             invite: components["schemas"]["Invite"];
             /** @description Single-use link, shown only in this response. */
             invite_url: string;
+            /** @description True when the link is also being emailed to the invitee (RiskOS has email configured). */
+            email_queued: boolean;
         };
         /** @enum {string} */
         WebhookEventType: "alert.created" | "alert.updated" | "case.created" | "case.resolved";

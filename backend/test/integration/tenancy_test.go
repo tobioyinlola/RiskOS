@@ -60,6 +60,13 @@ type stackConfig struct {
 	throttle bool
 	// historyWarmup, when set, enables feature-store reset detection.
 	historyWarmup time.Duration
+	// inviteEmails, when set, queues invite emails.
+	inviteEmails jobs.Enqueuer
+}
+
+// withInviteEmails makes new invites queue an email job on q.
+func withInviteEmails(q jobs.Enqueuer) stackOption {
+	return func(c *stackConfig) { c.inviteEmails = q }
 }
 
 // withHistoryWarmup enables feature-store reset detection with the given warm-up.
@@ -125,7 +132,8 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	auditModule := audit.New(runner, clk)
 	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{
 		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
-		Cookie: auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
+		InviteEmails: sc.inviteEmails,
+		Cookie:       auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
 	})
 	riskModule := newRisk(featureRedis, runner, auditModule, clk, func(c *risk.Config) {
 		if sc.historyWarmup > 0 {

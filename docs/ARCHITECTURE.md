@@ -673,7 +673,7 @@ password.
 
 | Area | What is built |
 |---|---|
-| Accounts | Users per tenant with roles; invites as single-use links (operator CLI for the first administrator, the console for the rest) ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
+| Accounts | Users per tenant with roles; invites as single-use links (operator CLI for the first administrator, the console for the rest), emailed over SMTP when configured ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)) |
 | Sign-in | Password (Argon2id) plus a mandatory passkey or authenticator-app code; recovery codes; throttling; uniform failures |
 | Sessions | Hashed tokens in HttpOnly SameSite=Strict cookies, CSRF tokens and Origin checks, 12 h absolute / 30 min idle, environment chosen per request, re-authentication for high-impact actions |
 | Team | Role and status changes (ending sessions), last-administrator and self-change guards, invite management, all audited |

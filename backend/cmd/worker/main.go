@@ -16,11 +16,13 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
@@ -43,6 +45,15 @@ func run() (err error) {
 	}
 	if err := cfg.Webhooks.Validate(); err != nil {
 		return err
+	}
+	if err := cfg.SMTP.Validate(cfg.Env); err != nil {
+		return err
+	}
+	if cfg.SMTP.Enabled() {
+		// Invite links are derived from the console secret and point at the console.
+		if err := cfg.Console.Validate(cfg.Env); err != nil {
+			return err
+		}
 	}
 	logger := logging.New(os.Stdout, cfg.LogLevel, cfg.ServiceName+"-worker")
 
@@ -78,6 +89,22 @@ func run() (err error) {
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 
 	registry := jobs.NewRegistry()
+	if cfg.SMTP.Enabled() {
+		sender, err := mail.NewSMTP(mail.Config{
+			Host: cfg.SMTP.Host, Port: cfg.SMTP.Port, Username: cfg.SMTP.Username, Password: cfg.SMTP.Password,
+			From: cfg.SMTP.From, TLS: cfg.SMTP.TLS, Timeout: cfg.SMTP.Timeout,
+		})
+		if err != nil {
+			return err
+		}
+		cc := auth.DefaultConsole()
+		cc.Secret, cc.RPID, cc.Origins = []byte(cfg.Console.Secret), cfg.Console.RPID, cfg.Console.Origins
+		authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
+			Console: cc, Cookie: auth.CookieConfig{ConsoleURL: cfg.Console.URL}, Logger: logger,
+		})
+		jobs.Register(registry, authModule.InviteEmailJob(sender))
+		logger.InfoContext(ctx, "invite emails enabled", slog.String("smtp_host", cfg.SMTP.Host))
+	}
 	jobs.Register(registry, jobs.NoopHandler(logger))
 	jobs.Register(registry, alertsModule.RaiseJob(tenantsModule))
 	jobs.Register(registry, webhooksModule.DeliverJob(tenantsModule))

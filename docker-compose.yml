@@ -37,6 +37,12 @@ x-webhook-key: &webhook-key ${RISKOS_WEBHOOK_SIGNING_KEY:?set RISKOS_WEBHOOK_SIG
 # Keys console MFA secrets and CSRF tokens; given only to the API.
 x-console-secret: &console-secret ${RISKOS_CONSOLE_SECRET:?set RISKOS_CONSOLE_SECRET in .env}
 
+x-smtp-env: &smtp-env
+  RISKOS_SMTP_HOST: mailpit
+  RISKOS_SMTP_PORT: "1025"
+  RISKOS_SMTP_TLS: none
+  RISKOS_SMTP_FROM: RiskOS <no-reply@riskos.local>
+
 x-hardening: &hardening
   read_only: true
   cap_drop: [ALL]
@@ -86,6 +92,15 @@ services:
       retries: 30
     security_opt: [no-new-privileges:true]
 
+  # Catches every email locally; nothing leaves the machine. Inbox: http://localhost:8025
+  mailpit:
+    image: axllent/mailpit:v1.27.10@sha256:b1f1be18af530d939a11ee8820b379e0c88eeec204d904bfad68862adced3a5a
+    ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"]
+    environment:
+      MP_MAX_MESSAGES: "500"
+    tmpfs: ["/tmp"]
+    <<: *hardening
+
   otel-collector:
     image: otel/opentelemetry-collector-contrib:0.161.0@sha256:fd328de2552466ad78385e1b1289c3f2402b1c45f265b252aab1955b42845ac1
     command: ["--config=/etc/otelcol/config.yaml"]
@@ -111,7 +126,7 @@ services:
     build: { context: ./backend, target: api }
     image: riskos/api:local
     environment:
-      <<: *backend-env
+      <<: [*backend-env, *smtp-env]
       RISKOS_API_KEY_PEPPER: *pepper
       RISKOS_FEATURE_HASH_KEY: *feature-key
       RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
@@ -145,9 +160,12 @@ services:
     build: { context: ./backend, target: worker }
     image: riskos/worker:local
     environment:
-      <<: *backend-env
+      <<: [*backend-env, *smtp-env]
       RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
       RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
+      # Invite emails: links are derived from the console secret and point at the console.
+      RISKOS_CONSOLE_SECRET: *console-secret
+      RISKOS_CONSOLE_URL: http://localhost:${FRONTEND_PORT:-3000}
     depends_on: *backend-deps
     stop_grace_period: 40s
     <<: *hardening
@@ -195,7 +213,7 @@ services:
     image: riskos/backend-dev:local
     command: ["air", "--build.cmd", "go build -o ./tmp/api ./cmd/api", "--build.bin", "./tmp/api", "--build.exclude_dir", "tmp,test"]
     environment:
-      <<: *backend-env
+      <<: [*backend-env, *smtp-env]
       RISKOS_API_KEY_PEPPER: *pepper
       RISKOS_FEATURE_HASH_KEY: *feature-key
       RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
@@ -213,9 +231,11 @@ services:
     image: riskos/backend-dev:local
     command: ["air", "--build.cmd", "go build -o ./tmp/worker ./cmd/worker", "--build.bin", "./tmp/worker", "--build.exclude_dir", "tmp,test"]
     environment:
-      <<: *backend-env
+      <<: [*backend-env, *smtp-env]
       RISKOS_WEBHOOK_SIGNING_KEY: *webhook-key
       RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
+      RISKOS_CONSOLE_SECRET: *console-secret
+      RISKOS_CONSOLE_URL: http://localhost:${FRONTEND_PORT:-3000}
     volumes: ["./backend:/src", "go-mod-cache:/go/pkg/mod", "go-build-cache:/root/.cache/go-build"]
     depends_on: *backend-deps
 

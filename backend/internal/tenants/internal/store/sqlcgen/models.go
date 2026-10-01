@@ -329,16 +329,17 @@ type User struct {
 }
 
 type UserInvite struct {
-	ID         uuid.UUID
-	TenantID   uuid.UUID
-	Email      string
-	Role       string
-	TokenHash  []byte
-	CreatedAt  time.Time
-	CreatedBy  string
-	ExpiresAt  time.Time
-	AcceptedAt *time.Time
-	RevokedAt  *time.Time
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	Email       string
+	Role        string
+	TokenHash   []byte
+	CreatedAt   time.Time
+	CreatedBy   string
+	ExpiresAt   time.Time
+	AcceptedAt  *time.Time
+	RevokedAt   *time.Time
+	EmailSentAt *time.Time
 }
 
 type WebauthnCredential struct {
