@@ -97,7 +97,8 @@ A tenant can connect one OpenID Connect identity provider (Team → Single sign-
   need re-authentication; sign-ins are audited (`user.sso_authenticated`, `user.sso_failed` with a
   reason).
 - **Reaching providers.** Discovery, keys and token requests go through an SSRF-safe client: https
-  only, no private or special-purpose addresses, no redirects, 5-second timeouts. Saving a
+  only, no private or special-purpose addresses, no redirects, 5-second timeouts, and responses
+  capped at 1 MiB. Saving a
   connection reads the issuer's discovery document first and refuses an issuer it cannot read.
   `RISKOS_SSO_ALLOW_PRIVATE=true` allows http and private addresses for local providers; production
   refuses it.

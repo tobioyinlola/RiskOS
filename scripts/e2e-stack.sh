@@ -19,7 +19,18 @@ invite_out=$("${ctl[@]}" user invite --operator "$operator" --tenant "$tenant" -
 invite=$(grep -o 'http[^ ]*accept-invite[^ ]*' <<<"$invite_out" | head -1)
 [[ -n "$invite" ]] || { echo "e2e-stack: could not create an invite" >&2; exit 1; }
 
-echo "e2e-stack: tenant $tenant, user $email"
+# Two staff members for the admin realm (support access needs a second person to approve).
+stamp=$(date +%s)
+staff_link() {
+  "${ctl[@]}" staff create --operator "$operator" --email "$1" --name "$2" 2>/dev/null |
+    grep -o 'http[^ ]*admin/enroll[^ ]*' | head -1
+}
+staff_a=$(staff_link "staff-a-$stamp@riskos.local" "Staff A")
+staff_b=$(staff_link "staff-b-$stamp@riskos.local" "Staff B")
+[[ -n "$staff_a" && -n "$staff_b" ]] || { echo "e2e-stack: could not create staff" >&2; exit 1; }
+
+echo "e2e-stack: tenant $tenant, user $email, two staff members"
 cd frontend
 E2E_STACK_URL="http://localhost:${FRONTEND_PORT:-3000}" E2E_INVITE_URL="$invite" E2E_EMAIL="$email" \
+  E2E_TENANT="$tenant" E2E_STAFF_A_URL="$staff_a" E2E_STAFF_B_URL="$staff_b" \
   pnpm exec playwright test --project desktop

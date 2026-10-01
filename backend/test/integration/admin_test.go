@@ -307,6 +307,47 @@ func TestAdminRealm(t *testing.T) {
 		assert.Equal(t, "staff", viewedBy)
 	})
 
+	t.Run("only while it lasts, never with other credentials", func(t *testing.T) {
+		a.grant = accessID
+		defer func() { a.grant = "" }()
+		// An API key alongside the grant, or a bad environment, is refused outright.
+		r := s.call(t, http.MethodGet, "/api/v1/events", tenant.testKey, nil)
+		require.Equal(t, http.StatusOK, r.status)
+		req := httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/events", nil)
+		req.Header.Set("Authorization", "Bearer "+tenant.testKey)
+		req.Header.Set("RiskOS-Support-Grant", accessID)
+		req.AddCookie(&http.Cookie{Name: "riskos_staff", Value: a.cookie})
+		rec := httptest.NewRecorder()
+		s.handler.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusForbidden, rec.Code, "a grant never combines with an API key")
+
+		req = httptest.NewRequestWithContext(t.Context(), http.MethodGet, "/api/v1/events", nil)
+		req.Header.Set("RiskOS-Support-Grant", accessID)
+		req.Header.Set("RiskOS-Environment", "staging")
+		req.AddCookie(&http.Cookie{Name: "riskos_staff", Value: a.cookie})
+		rec = httptest.NewRecorder()
+		s.handler.ServeHTTP(rec, req)
+		assert.Equal(t, http.StatusBadRequest, rec.Code)
+
+		// A suspended tenant cannot be read.
+		_, err := shared.owner.Exec(t.Context(), `UPDATE tenants SET status = 'suspended' WHERE id = $1`, tenant.id)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusForbidden, a.do(t, http.MethodGet, "/api/v1/events", nil).status, "suspended tenant")
+		_, err = shared.owner.Exec(t.Context(), `UPDATE tenants SET status = 'active' WHERE id = $1`, tenant.id)
+		require.NoError(t, err)
+		require.Equal(t, http.StatusOK, a.do(t, http.MethodGet, "/api/v1/events", nil).status)
+
+		// Past its end, access stops even without a revocation.
+		_, err = shared.owner.Exec(t.Context(), `UPDATE support_access SET expires_at = now() - interval '1 second' WHERE status = 'approved'`)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusForbidden, a.do(t, http.MethodGet, "/api/v1/events", nil).status, "expired access")
+		list := decode[adminapi.SupportAccessList](t, a.do(t, http.MethodGet, "/api/admin/v1/support-access", nil))
+		require.NotEmpty(t, list.Data)
+		assert.Equal(t, adminapi.SupportAccessStatus("expired"), list.Data[0].Status)
+		_, err = shared.owner.Exec(t.Context(), `UPDATE support_access SET expires_at = now() + interval '30 minutes' WHERE status = 'approved'`)
+		require.NoError(t, err)
+	})
+
 	t.Run("revocation and the security view", func(t *testing.T) {
 		r := b.do(t, http.MethodPost, "/api/admin/v1/support-access/"+accessID+"/revoke", nil)
 		require.Equal(t, http.StatusOK, r.status, r.String())
@@ -334,6 +375,15 @@ func TestAdminRealm(t *testing.T) {
 			"support_access.requested", "support_access.approved", "support_access.viewed", "support_access.revoked"} {
 			assert.Contains(t, staffActions, want)
 		}
+	})
+
+	t.Run("signing out ends support access too", func(t *testing.T) {
+		r := b.do(t, http.MethodPost, "/api/admin/v1/auth/logout", nil)
+		require.Equal(t, http.StatusNoContent, r.status, r.String())
+		assert.Equal(t, http.StatusUnauthorized, b.do(t, http.MethodGet, "/api/admin/v1/auth/session", nil).status)
+		b.grant = accessID
+		assert.Equal(t, http.StatusUnauthorized, b.do(t, http.MethodGet, "/api/v1/events", nil).status)
+		b.grant = ""
 	})
 
 	t.Run("disabling a staff member ends their sessions", func(t *testing.T) {

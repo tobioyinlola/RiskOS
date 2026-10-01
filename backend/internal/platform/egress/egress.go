@@ -17,6 +17,10 @@ import (
 	"time"
 )
 
+// MaxResponseBytes caps every response body read through the client: a hostile endpoint cannot
+// exhaust memory with an endless body (libraries such as go-oidc read bodies whole).
+const MaxResponseBytes = 1 << 20
+
 // ErrBlocked is returned when the destination address is not allowed.
 var ErrBlocked = errors.New("destination address is not allowed")
 
@@ -64,7 +68,7 @@ func NewClient(timeout time.Duration, allowPrivate bool) *http.Client {
 	}
 	return &http.Client{
 		Timeout: timeout,
-		Transport: &http.Transport{
+		Transport: capped{&http.Transport{
 			Proxy:                 nil, // an environment proxy would bypass the address check
 			DialContext:           dialer.DialContext,
 			TLSClientConfig:       &tls.Config{MinVersion: tls.VersionTLS12},
@@ -73,9 +77,21 @@ func NewClient(timeout time.Duration, allowPrivate bool) *http.Client {
 			MaxIdleConns:          20,
 			IdleConnTimeout:       60 * time.Second,
 			ForceAttemptHTTP2:     true,
-		},
+		}},
 		CheckRedirect: func(*http.Request, []*http.Request) error {
 			return http.ErrUseLastResponse
 		},
 	}
+}
+
+// capped limits response bodies to MaxResponseBytes; reading past it fails.
+type capped struct{ rt http.RoundTripper }
+
+func (c capped) RoundTrip(r *http.Request) (*http.Response, error) {
+	resp, err := c.rt.RoundTrip(r)
+	if err != nil {
+		return nil, err
+	}
+	resp.Body = http.MaxBytesReader(nil, resp.Body, MaxResponseBytes)
+	return resp, nil
 }
