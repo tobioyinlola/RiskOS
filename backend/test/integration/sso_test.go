@@ -27,10 +27,12 @@ import (
 // mockIDP is a minimal OpenID Connect provider: discovery, keys, and a token endpoint that
 // checks the PKCE verifier and issues the ID token a test prepared for a code.
 type mockIDP struct {
-	srv  *httptest.Server
-	key  *rsa.PrivateKey
-	mu   sync.Mutex
-	code map[string]idpGrant
+	srv *httptest.Server
+	key *rsa.PrivateKey
+	// forge, when set, signs ID tokens with a key the provider does not publish.
+	forge *rsa.PrivateKey
+	mu    sync.Mutex
+	code  map[string]idpGrant
 }
 
 type idpGrant struct {
@@ -84,7 +86,11 @@ func writeJSON(w http.ResponseWriter, v any) {
 
 func (m *mockIDP) sign(t *testing.T, claims map[string]any) string {
 	t.Helper()
-	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: jose.JSONWebKey{Key: m.key, KeyID: "k1"}}, nil)
+	key := m.key
+	if m.forge != nil {
+		key = m.forge
+	}
+	signer, err := jose.NewSigner(jose.SigningKey{Algorithm: jose.RS256, Key: jose.JSONWebKey{Key: key, KeyID: "k1"}}, nil)
 	require.NoError(t, err)
 	raw, err := json.Marshal(claims)
 	require.NoError(t, err)
@@ -207,6 +213,54 @@ func TestSingleSignOn(t *testing.T) {
 			map[string]any{"sub": "idp-analyst", "email": "analyst@sso.example", "email_verified": true, "nonce": "replayed"}), "the nonce must match")
 		assert.Equal(t, http.StatusOK, try("analyst@sso.example",
 			map[string]any{"sub": "idp-analyst", "email": "analyst@sso.example", "email_verified": "true"}))
+	})
+
+	t.Run("tokens and requests must verify", func(t *testing.T) {
+		try := func(claims map[string]any) int {
+			b := s.browser()
+			r := start(b, "admin@sso.example")
+			require.Equal(t, http.StatusOK, r.status, r.String())
+			code, state := idp.authorize(t, decode[apigen.SSOStart](t, r).RedirectUrl, claims)
+			return callback(b, code, state).status
+		}
+		good := func(extra map[string]any) map[string]any {
+			c := map[string]any{"sub": "idp-admin", "email": "admin@sso.example", "email_verified": true}
+			for k, v := range extra {
+				c[k] = v
+			}
+			return c
+		}
+		assert.Equal(t, http.StatusOK, try(good(nil)), "the baseline signs in")
+		assert.Equal(t, http.StatusUnauthorized, try(good(map[string]any{"aud": "another-client"})), "audience")
+		assert.Equal(t, http.StatusUnauthorized, try(good(map[string]any{"exp": time.Now().Add(-time.Minute).Unix()})), "expired token")
+		assert.Equal(t, http.StatusUnauthorized, try(good(map[string]any{"iss": "https://impostor.example"})), "issuer")
+
+		forged, err := rsa.GenerateKey(rand.Reader, 2048)
+		require.NoError(t, err)
+		idp.forge = forged
+		assert.Equal(t, http.StatusUnauthorized, try(good(nil)), "a key the provider does not publish")
+		idp.forge = nil
+
+		// A request that outlived its ten minutes.
+		b := s.browser()
+		r := start(b, "admin@sso.example")
+		require.Equal(t, http.StatusOK, r.status)
+		code, state := idp.authorize(t, decode[apigen.SSOStart](t, r).RedirectUrl, good(nil))
+		_, err = shared.owner.Exec(t.Context(), `UPDATE sso_logins SET expires_at = now() - interval '1 second'`)
+		require.NoError(t, err)
+		assert.Equal(t, http.StatusUnauthorized, callback(b, code, state).status, "expired request")
+
+		// Switching the connection off stops sign-ins already under way.
+		b = s.browser()
+		r = start(b, "admin@sso.example")
+		require.Equal(t, http.StatusOK, r.status)
+		code, state = idp.authorize(t, decode[apigen.SSOStart](t, r).RedirectUrl, good(nil))
+		require.Equal(t, http.StatusOK, admin.b.do(t, http.MethodPut, "/api/v1/sso",
+			map[string]any{"issuer": idp.srv.URL, "client_id": "riskos", "enabled": false}).status)
+		assert.Equal(t, http.StatusUnauthorized, callback(b, code, state).status, "connection switched off")
+		assert.Equal(t, http.StatusNotFound, start(s.browser(), "admin@sso.example").status)
+		require.Equal(t, http.StatusOK, admin.b.do(t, http.MethodPut, "/api/v1/sso",
+			map[string]any{"issuer": idp.srv.URL, "client_id": "riskos", "enabled": true}).status)
 	})
 
 	t.Run("audit and removal", func(t *testing.T) {

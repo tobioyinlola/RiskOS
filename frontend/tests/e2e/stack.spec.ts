@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type BrowserContext, type Page } from "@playwright/test";
 
 import { navSections } from "../../lib/navigation";
 
@@ -23,6 +23,8 @@ test("invite, passkey, every section, and back in", async ({
   isMobile,
 }) => {
   test.skip(isMobile, "one browser is enough against the stack");
+  // A whole journey against the real stack: every section, sign-out and back in.
+  test.setTimeout(90_000);
   const cdp = await page.context().newCDPSession(page);
   await cdp.send("WebAuthn.enable");
   await cdp.send("WebAuthn.addVirtualAuthenticator", {
@@ -79,5 +81,90 @@ test("invite, passkey, every section, and back in", async ({
   await page.getByRole("button", { name: "Use your passkey" }).click();
   await expect(
     page.getByRole("heading", { level: 1, name: "Overview" }),
+  ).toBeVisible();
+});
+
+const staffA = process.env.E2E_STAFF_A_URL ?? "";
+const staffB = process.env.E2E_STAFF_B_URL ?? "";
+const tenantID = process.env.E2E_TENANT ?? "";
+
+/** A page with a virtual passkey authenticator, verified by the real API. */
+async function withAuthenticator(context: BrowserContext): Promise<Page> {
+  const page = await context.newPage();
+  const cdp = await context.newCDPSession(page);
+  await cdp.send("WebAuthn.enable");
+  await cdp.send("WebAuthn.addVirtualAuthenticator", {
+    options: {
+      protocol: "ctap2",
+      transport: "internal",
+      hasResidentKey: true,
+      hasUserVerification: true,
+      isUserVerified: true,
+      automaticPresenceSimulation: true,
+    },
+  });
+  return page;
+}
+
+async function enrollStaff(page: Page, link: string) {
+  await page.goto(`/admin/enroll${new URL(link).hash}`);
+  await page.getByLabel("Passkey name").fill("Virtual key");
+  await page.getByRole("button", { name: "Register passkey" }).click();
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Security across tenants" }),
+  ).toBeVisible();
+}
+
+test("staff: passkeys, four-eyes support access, read-only view", async ({
+  browser,
+  isMobile,
+}) => {
+  test.skip(
+    isMobile || !staffA || !staffB || !tenantID,
+    "set the staff links (make test-e2e-stack)",
+  );
+  test.setTimeout(90_000);
+  const a = await withAuthenticator(await browser.newContext());
+  const b = await withAuthenticator(await browser.newContext());
+  await enrollStaff(a, staffA);
+  await enrollStaff(b, staffB);
+  await expect(
+    a.getByRole("table", { name: "Security across tenants" }),
+  ).toContainText(tenantID);
+
+  // A requests access; A cannot approve it, B can.
+  await a.getByRole("link", { name: "Support access" }).click();
+  await a.getByLabel("Tenant").selectOption(tenantID);
+  await a.getByLabel("Reason").fill("Stack test: checking the read-only view");
+  await a.getByRole("button", { name: "Request access" }).click();
+  const mine = a.getByRole("table", { name: "Support access requests" });
+  await expect(
+    mine.getByText("Awaiting another staff member").first(),
+  ).toBeVisible();
+
+  await b.getByRole("link", { name: "Support access" }).click();
+  const theirs = b.getByRole("table", { name: "Support access requests" });
+  await theirs.getByRole("button", { name: "Approve" }).first().click();
+  await expect(
+    theirs.getByRole("button", { name: "End access" }).first(),
+  ).toBeVisible();
+
+  // A reads the tenant, read-only, through the real customer API.
+  await a.reload();
+  await mine.getByRole("link", { name: "Open read-only view" }).first().click();
+  await expect(a.getByRole("heading", { level: 1 })).toContainText(
+    "(read-only)",
+  );
+  await expect(
+    a.getByRole("table", { name: "Tenant audit log" }),
+  ).toContainText("support_access.approved");
+  await expect(a.getByRole("main").getByRole("alert")).toHaveCount(0);
+
+  // Signing out and back in uses the passkey only (discoverable, no email).
+  await a.getByRole("button", { name: "Sign out" }).click();
+  await expect(a).toHaveURL(/\/admin\/login$/);
+  await a.getByRole("button", { name: "Sign in with passkey" }).click();
+  await expect(
+    a.getByRole("heading", { level: 1, name: "Security across tenants" }),
   ).toBeVisible();
 });
