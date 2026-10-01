@@ -20,8 +20,10 @@ generated code is stale. An operation that is not in the contract cannot be rout
 | POST | `/api/v1/api-keys/{key_id}/revoke` | Revoke a key (`api_keys:write`) |
 | GET | `/api/v1/audit-logs` | Tenant-level and own-environment audit entries (`audit_logs:read`) |
 | POST | `/api/v1/events` | Ingest an event, get the risk decision; idempotent on `event_id` (`events:write`) |
-| GET | `/api/v1/events` | List events (`events:read`) |
+| GET | `/api/v1/events` | List events; filter by `type`, `decision`, `risk_level`, `user`, `account`, `device`; `after` returns only newer events (`events:read`) |
 | GET | `/api/v1/events/{event_id}` | Event with raw and normalized payloads and its evaluation (`events:read`) |
+| GET | `/api/v1/entities/{kind}/{ref}` | A user's, account's or device's profile from its most recent 5,000 events (`events:read`) |
+| GET | `/api/v1/analytics` | Events per hour or day by band and decision, highest-risk users, most frequent signals; `window` 24h, 7d or 30d (`events:read`) |
 | POST | `/api/v1/risk/evaluate` | Dry-run evaluation; stores no event (`risk:evaluate`) |
 | GET | `/api/v1/risk/policy` | The environment's bands, thresholds and default decisions (any score-reading scope) |
 | GET | `/api/v1/risk/catalog` | Built-in signals with effective weights, and the fields and operators rules can use (`rules:read`) |

@@ -11,7 +11,11 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 | Section | Path | Needs | What it does |
 |---|---|---|---|
 | Overview | `/` | `events:read` or `alerts:read` | Open alerts and cases, the risk distribution and decisions of recent events |
-| Events | `/events` | `events:read` | Event explorer with filters; the drawer shows the evaluation: score, band, decision, reasons, raw and normalized payloads |
+| Live monitor | `/live` | `events:read` | Events as they arrive (checked every 2 seconds). New events wait above the table while you hover it, have an event open or pause, so rows never move under you; arrivals are announced politely to screen readers |
+| Events | `/events` | `events:read` | Event explorer filtered by type, band, decision and user (in the URL, so a view can be shared); the drawer shows the evaluation (score, band, decision, reasons), links to the user, account and device, and the raw and normalized payloads |
+| Transactions | `/transactions` | `events:read` | Transaction events with amount, direction, beneficiary and channel |
+| Entities | `/entities`, `/entities/{kind}/{ref}` | `events:read` | Look up a user, account or device. Its profile shows activity, highest and mean score, decisions, and the users, accounts, devices, countries and IP addresses seen with it (from its most recent 5,000 events), then its events. Users in alerts, cases, events and transactions link here |
+| Analytics | `/analytics` | `events:read` | Over 24 hours, 7 days or 30 days: events per hour or day by risk band (with a table view), mean score, decisions, highest-risk users and the signals that fired most |
 | Alerts | `/alerts` | `alerts:read` | The triage queue, ordered by band, then score, then oldest first; the drawer shows each evaluation's reasons, the activity timeline and actions |
 | Cases | `/cases`, `/cases/{id}` | `cases:read` | Investigations: linked alerts, notes, assignment, resolution |
 | Rules | `/rules`, `/rules/new`, `/rules/{id}` | `rules:read` | Rules with versions, shadow mode, a test bench and rollback. In production, saving proposes a change; proposals awaiting approval are listed above the rules, and anyone with `rules:approve` other than the proposer can review the difference and approve or reject it |
@@ -24,8 +28,8 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 A section appears in the navigation only when the user holds one of its permissions; the API
 enforces the same permissions on every request.
 
-Not built yet: the live risk monitor, entity pages (users, accounts, devices, transactions)
-and analytics beyond the overview's counts. TODO(phase-8).
+Analytics are computed from the events when you open the page. TODO(phase-9): precompute
+hourly rollups if 30-day windows become slow at production volumes.
 
 ## Environments
 
