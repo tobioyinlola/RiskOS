@@ -169,7 +169,7 @@ func (s stack) createTenant(t *testing.T, name string) tenantFixture {
 	tn, err := s.tenants.Create(t.Context(), tenants.CreateParams{Name: name, Region: "eu-west-1", Actor: "riskosctl:integration"},
 		func(ctx context.Context, _ tenants.Tenant) error {
 			var err error
-			key, err = s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "bootstrap", Scopes: authz.RolePermissions(authz.RoleCustomerAdmin)})
+			key, err = s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "bootstrap", Scopes: authz.CustomerPermissions()})
 			return err
 		})
 	require.NoError(t, err)
@@ -181,7 +181,7 @@ func (s stack) productionKey(t *testing.T, tenantID uuid.UUID) string {
 	t.Helper()
 	ctx, err := s.tenants.OperatorScope(t.Context(), tenantID, tenancy.EnvironmentProduction, "riskosctl:integration")
 	require.NoError(t, err)
-	key, err := s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "prod", Scopes: authz.RolePermissions(authz.RoleCustomerAdmin)})
+	key, err := s.auth.CreateKey(ctx, auth.CreateKeyInput{Name: "prod", Scopes: authz.CustomerPermissions()})
 	require.NoError(t, err)
 	return key.Secret
 }

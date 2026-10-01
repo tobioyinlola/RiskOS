@@ -12,17 +12,18 @@ import (
 )
 
 func TestRolePermissions(t *testing.T) {
-	assert.ElementsMatch(t, authz.CustomerPermissions(), authz.RolePermissions(authz.RoleCustomerAdmin))
+	assert.ElementsMatch(t, authz.PersonPermissions(), authz.RolePermissions(authz.RoleCustomerAdmin))
+	assert.False(t, authz.IsCustomerPermission(authz.RulesApprove), "API keys can never approve rule changes")
 	assert.NotContains(t, authz.RolePermissions(authz.RoleDeveloper), authz.AuditLogsRead)
 
 	// Internal roles never grant tenant data access; unknown roles grant nothing (deny by default).
 	for _, r := range []authz.Role{authz.RoleOperationsAdmin, authz.RoleSecurityAdmin, "root", ""} {
 		assert.Empty(t, authz.RolePermissions(r), "role %q", r)
 	}
-	// Every role grants only customer permissions.
+	// Every role grants only permissions people can hold.
 	for _, r := range []authz.Role{authz.RoleCustomerAdmin, authz.RoleDeveloper, authz.RoleRiskManager, authz.RoleAnalyst} {
 		for _, p := range authz.RolePermissions(r) {
-			assert.True(t, authz.IsCustomerPermission(p), "%s grants unknown %s", r, p)
+			assert.Contains(t, authz.PersonPermissions(), p, "%s grants unknown %s", r, p)
 		}
 	}
 }

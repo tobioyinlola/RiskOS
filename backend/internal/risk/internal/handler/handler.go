@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"net/http"
 	"slices"
 	"strings"
 
@@ -164,14 +165,18 @@ func (h *Handlers) CreateRule(ctx context.Context, req apigen.CreateRuleRequestO
 	if b.Description != nil {
 		description = *b.Description
 	}
-	r, err := h.svc.CreateRule(ctx, service.RuleInput{
+	res, err := h.svc.CreateRule(ctx, service.RuleInput{
 		Code: b.Code, Name: b.Name, Description: description, Severity: string(b.Severity),
 		Weight: b.Weight, Mode: domain.RuleMode(b.Mode), Enabled: enabled, Condition: condition,
 	})
 	if err != nil {
 		return nil, MapError(err)
 	}
-	out, err := RuleToAPI(r)
+	if res.Change != nil {
+		c, err := ChangeToAPI(*res.Change)
+		return apigen.CreateRule202JSONResponse(c), err
+	}
+	out, err := RuleToAPI(res.Rule)
 	if err != nil {
 		return nil, err
 	}
@@ -217,11 +222,15 @@ func (h *Handlers) UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestO
 			return nil, fmt.Errorf("encode condition: %w", err)
 		}
 	}
-	r, err := h.svc.UpdateRule(ctx, id, patch)
+	res, err := h.svc.UpdateRule(ctx, id, patch)
 	if err != nil {
 		return nil, MapError(err)
 	}
-	out, err := RuleToAPI(r)
+	if res.Change != nil {
+		c, err := ChangeToAPI(*res.Change)
+		return apigen.UpdateRule202JSONResponse(c), err
+	}
+	out, err := RuleToAPI(res.Rule)
 	if err != nil {
 		return nil, err
 	}
@@ -262,11 +271,15 @@ func (h *Handlers) RollbackRule(ctx context.Context, req apigen.RollbackRuleRequ
 	if req.Body == nil {
 		return nil, httpx.InvalidRequest("A request body is required.", nil)
 	}
-	r, err := h.svc.RollbackRule(ctx, id, req.Body.Version)
+	res, err := h.svc.RollbackRule(ctx, id, req.Body.Version)
 	if err != nil {
 		return nil, MapError(err)
 	}
-	out, err := RuleToAPI(r)
+	if res.Change != nil {
+		c, err := ChangeToAPI(*res.Change)
+		return apigen.RollbackRule202JSONResponse(c), err
+	}
+	out, err := RuleToAPI(res.Rule)
 	if err != nil {
 		return nil, err
 	}
@@ -293,7 +306,15 @@ func RuleToAPI(r domain.Rule) (apigen.Rule, error) {
 		Id: ids.Format(ids.PrefixRule, r.ID), Code: r.Code, Name: v.Name, Description: v.Description,
 		Severity: apigen.Severity(v.Severity), Weight: v.Weight, Mode: apigen.RuleMode(v.Mode), Enabled: v.Enabled,
 		Condition: cond, Version: v.Version, RestoredFrom: v.RestoredFrom, CreatedAt: r.CreatedAt, UpdatedAt: v.CreatedAt,
+		PendingChangeId: formatID(ids.PrefixRuleChange, r.PendingChange),
 	}, nil
+}
+
+func formatID(prefix string, id *uuid.UUID) *string {
+	if id == nil {
+		return nil
+	}
+	return new(ids.Format(prefix, *id))
 }
 
 func conditionToAPI(raw json.RawMessage) (apigen.RuleCondition, error) {
@@ -343,6 +364,12 @@ func MapError(err error) error {
 		return httpx.Conflict("A rule with this code already exists in this environment.", err)
 	case errors.Is(err, domain.ErrRuleConflict):
 		return httpx.Conflict("The rule was changed by another request; reload it and try again.", err)
+	case errors.Is(err, domain.ErrChangeNotFound):
+		return httpx.NotFound(err)
+	case errors.Is(err, domain.ErrChangePending), errors.Is(err, domain.ErrChangeDecided), errors.Is(err, domain.ErrChangeStale):
+		return httpx.Conflict(capitalizeSentence(err.Error()), err)
+	case errors.Is(err, domain.ErrSelfApproval), errors.Is(err, domain.ErrApproverNotPerson):
+		return httpx.NewError(http.StatusForbidden, httpx.CodeForbidden, capitalizeSentence(err.Error()), err)
 	default:
 		return err
 	}

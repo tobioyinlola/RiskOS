@@ -174,6 +174,35 @@ export function useRuleVersions(id: string | undefined) {
   });
 }
 
+export function useRuleChanges(
+  status: "pending" | "approved" | "rejected" | "all" = "pending",
+) {
+  const key = useKey("rule-changes", status);
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/rule-changes", {
+          params: { query: { status } },
+        }),
+      ),
+  });
+}
+
+export function useRuleChange(id: string | null | undefined) {
+  const key = useKey("rule-changes", "one", id);
+  return useQuery({
+    queryKey: key,
+    enabled: !!id,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/rule-changes/{change_id}", {
+          params: { path: { change_id: id! } },
+        }),
+      ),
+  });
+}
+
 export function useRiskSettings() {
   const key = useKey("risk-settings");
   return useQuery({

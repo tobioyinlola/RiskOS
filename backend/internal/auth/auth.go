@@ -199,7 +199,7 @@ func (m *Module) Middleware(logger *slog.Logger) func(http.Handler) http.Handler
 func ReauthOperations() []string {
 	return []string{
 		"CreateAPIKey", "RotateAPIKey", "RevokeAPIKey", "CreateWebhook", "UpdateWebhook", "RotateWebhookSecret",
-		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "CreateInvite", "UpdateTeamMember",
+		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateInvite", "UpdateTeamMember",
 	}
 }
 

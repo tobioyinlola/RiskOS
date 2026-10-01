@@ -65,3 +65,45 @@ ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
 
 -- name: CountRules :one
 SELECT count(*) FROM rules;
+
+-- Rule changes awaiting two-person approval (production) -------------------------------------
+
+-- name: InsertRuleChange :exec
+INSERT INTO rule_changes (
+  tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity,
+  weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at
+) VALUES (
+  @tenant_id, @environment_id, @id, @rule_id, @code, @kind, @base_version, @name, @description, @severity,
+  @weight, @mode, @enabled, @condition, @restored_from, 'pending', @proposed_by, @proposed_at
+);
+
+-- name: GetRuleChange :one
+SELECT * FROM rule_changes
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id;
+
+-- name: LockRuleChange :one
+SELECT * FROM rule_changes
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id
+FOR UPDATE;
+
+-- name: ListRuleChanges :many
+SELECT * FROM rule_changes
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id
+  AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
+ORDER BY id DESC
+LIMIT @lim;
+
+-- name: ListPendingRuleChanges :many
+SELECT rule_id, id FROM rule_changes
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND status = 'pending';
+
+-- name: DecideRuleChange :execrows
+UPDATE rule_changes
+SET status = @status, decided_by = @decided_by, decided_at = @decided_at, reason = @reason,
+    applied_version = @applied_version
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id AND status = 'pending';
+
+-- name: RuleCodeExists :one
+SELECT EXISTS (
+  SELECT 1 FROM rules WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND code = @code
+);

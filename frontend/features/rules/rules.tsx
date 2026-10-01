@@ -40,19 +40,30 @@ import {
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
+import {
+  isChange,
+  PendingChangeNotice,
+  PendingChanges,
+  type RuleChange,
+} from "./approvals";
+
 type Rule = Schemas["Rule"];
 
 const SEVERITIES: Schemas["Severity"][] = ["low", "medium", "high", "critical"];
 
 export function RuleList() {
   const q = useRules();
-  const { can } = useSession();
+  const { can, environment } = useSession();
   const rules = q.data?.data ?? [];
   return (
     <>
       <PageHeader
         title="Rules"
-        description="Your own signals: typed conditions that add weight to a score. Versioned; every change can be rolled back."
+        description={
+          environment === "production"
+            ? "Your own signals: typed conditions that add weight to a score. In production every change needs a second person's approval."
+            : "Your own signals: typed conditions that add weight to a score. Versioned; every change can be rolled back."
+        }
         actions={
           can("rules:write") ? (
             <Button variant="primary" asChild>
@@ -61,6 +72,7 @@ export function RuleList() {
           ) : null
         }
       />
+      <PendingChanges />
       <Panel className="overflow-hidden">
         <Table aria-label="Rules">
           <thead>
@@ -94,6 +106,9 @@ export function RuleList() {
                         ? "Shadow"
                         : "Active"}
                   </Tag>
+                  {r.pending_change_id ? (
+                    <Tag className="ml-1">Awaiting approval</Tag>
+                  ) : null}
                 </Td>
                 <Td className="text-body-sm">{humanize(r.severity)}</Td>
                 <DataCell className="text-right">+{r.weight}</DataCell>
@@ -196,8 +211,9 @@ function RuleForm({
   onSaved,
 }: {
   rule?: Rule;
-  onSaved: (r: Rule) => void;
+  onSaved: (r: Rule | RuleChange) => void;
 }) {
+  const { environment } = useSession();
   const [d, setD] = useState<Draft>(() => toDraft(rule));
   const [conditionError, setConditionError] = useState<string>();
   const set = <K extends keyof Draft>(k: K, v: Draft[K]) =>
@@ -228,7 +244,10 @@ function RuleForm({
             }),
           );
     },
-    { invalidate: ["rules", "rule", "rule-versions"], onSuccess: onSaved },
+    {
+      invalidate: ["rules", "rule", "rule-versions", "rule-changes"],
+      onSuccess: onSaved,
+    },
   );
   return (
     <form
@@ -348,13 +367,23 @@ function RuleForm({
           />
         )}
       </Field>
+      {environment === "production" ? (
+        <Notice>
+          Production: saving proposes the change. It applies when another person
+          with approval rights approves it.
+        </Notice>
+      ) : null}
       <Button
         type="submit"
         variant="primary"
         className="self-start"
-        disabled={save.busy}
+        disabled={save.busy || !!rule?.pending_change_id}
       >
-        {rule ? "Save as a new version" : "Create rule"}
+        {environment === "production"
+          ? "Propose for approval"
+          : rule
+            ? "Save as a new version"
+            : "Create rule"}
       </Button>
     </form>
   );
@@ -372,7 +401,11 @@ export function NewRule() {
         <Panel>
           <PanelBody>
             <RuleForm
-              onSaved={(r) => router.push(`/rules/${r.id}` as "/rules")}
+              onSaved={(r) =>
+                router.push(
+                  isChange(r) ? "/rules" : (`/rules/${r.id}` as "/rules"),
+                )
+              }
             />
           </PanelBody>
         </Panel>
@@ -398,6 +431,7 @@ export function RuleDetail({ id }: { id: string }) {
           </span>
         }
       />
+      <PendingChangeNotice rule={r} />
       <Tabs defaultValue={can("rules:write") ? "edit" : "test"}>
         <TabList className="mb-4">
           {can("rules:write") ? <Tab value="edit">Edit</Tab> : null}
@@ -543,7 +577,7 @@ function RuleVersions({ rule }: { rule: Rule }) {
           body: { version },
         }),
       ),
-    { invalidate: ["rule", "rules", "rule-versions"] },
+    { invalidate: ["rule", "rules", "rule-versions", "rule-changes"] },
   );
   return (
     <Panel className="overflow-hidden">
@@ -588,7 +622,9 @@ function RuleVersions({ rule }: { rule: Rule }) {
                 {formatAge(v.created_at)}
               </DataCell>
               <Td className="text-right">
-                {can("rules:write") && v.version !== q.data?.current_version ? (
+                {can("rules:write") &&
+                !rule.pending_change_id &&
+                v.version !== q.data?.current_version ? (
                   <Button
                     size="sm"
                     onClick={() => void rollback.run(v.version)}

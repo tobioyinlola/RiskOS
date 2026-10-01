@@ -526,6 +526,8 @@ paths:
         on live traffic and recorded, but do not change decisions until switched to `active`.
         Returns 409 when the code is taken or the environment already has 200 rules (disabled
         rules count; rules are disabled, never deleted).
+        In a production environment the change is proposed instead (202) and applies only when
+        another person approves it.
       requestBody:
         required: true
         content:
@@ -534,11 +536,20 @@ paths:
               $ref: "#/components/schemas/CreateRuleRequest"
       responses:
         "201":
-          description: The created rule (version 1).
+          description: The created rule (version 1). Test environments apply changes at once.
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/Rule"
+        "202":
+          description: |
+            Production environments: the change was proposed and awaits approval by another person
+            (two-person rule). Nothing has changed yet; approve it with
+            `POST /api/v1/rule-changes/{change_id}/approve`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "409":
@@ -590,6 +601,8 @@ paths:
         Requires scope `rules:write`. Audited. Only the given fields change. Every change creates a
         new version; earlier versions are kept and can be restored. A change that alters nothing
         creates no version.
+        In a production environment the change is proposed instead (202) and applies only when
+        another person approves it.
       parameters:
         - name: rule_id
           in: path
@@ -610,6 +623,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Rule"
+        "202":
+          description: |
+            Production environments: the change was proposed and awaits approval by another person
+            (two-person rule). Nothing has changed yet; approve it with
+            `POST /api/v1/rule-changes/{change_id}/approve`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "404":
@@ -664,6 +686,8 @@ paths:
       description: |
         Requires scope `rules:write`. Audited. Adds a new version with the content of the given
         version; history is never rewritten.
+        In a production environment the change is proposed instead (202) and applies only when
+        another person approves it.
       parameters:
         - name: rule_id
           in: path
@@ -684,6 +708,15 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Rule"
+        "202":
+          description: |
+            Production environments: the change was proposed and awaits approval by another person
+            (two-person rule). Nothing has changed yet; approve it with
+            `POST /api/v1/rule-changes/{change_id}/approve`.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
         "400":
           $ref: "#/components/responses/InvalidRequest"
         "404":
@@ -735,6 +768,146 @@ paths:
           $ref: "#/components/responses/NotFound"
         "422":
           $ref: "#/components/responses/Unprocessable"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes:
+    get:
+      operationId: listRuleChanges
+      tags: [rules]
+      summary: List proposed rule changes
+      description: Requires scope `rules:read`. Newest first, at most 200.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          description: Only changes in this state (default pending).
+          schema:
+            type: string
+            enum: [pending, approved, rejected, all]
+            default: pending
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChangeList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes/{change_id}:
+    get:
+      operationId: getRuleChange
+      tags: [rules]
+      summary: Get a proposed rule change
+      description: Requires scope `rules:read`.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes/{change_id}/approve:
+    post:
+      operationId: approveRuleChange
+      tags: [rules]
+      summary: Approve a proposed rule change (applies it)
+      description: |
+        Requires the `rules:approve` permission, which only people hold (never API keys), and a
+        recent second factor in the console. The approver must not be the person who proposed
+        the change. Applies the change as the rule's next version; returns 409 if the rule has
+        changed since the proposal (propose again) or the change is already decided. Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+      responses:
+        "200":
+          description: The approved change, with the version it created.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+
+  /api/v1/rule-changes/{change_id}/reject:
+    post:
+      operationId: rejectRuleChange
+      tags: [rules]
+      summary: Reject or withdraw a proposed rule change
+      description: |
+        Requires `rules:approve`, or `rules:write` for the person or key that proposed the change
+        (withdrawing it). Nothing changes on the rule. Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RejectRuleChangeRequest"
+      responses:
+        "200":
+          description: The rejected change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleChange"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         "401":
           $ref: "#/components/responses/Unauthenticated"
         "403":
@@ -2848,8 +3021,10 @@ components:
       enum: [test, production]
     Scope:
       type: string
-      description: A permission an API key holds.
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
+      description: |
+        A permission. API keys can hold any except `rules:approve`, which only people hold (a
+        second person approves production rule changes).
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
     Whoami:
       type: object
       additionalProperties: false
@@ -3535,6 +3710,10 @@ components:
           type: string
           format: date-time
           description: When the current version was created.
+        pending_change_id:
+          type: string
+          nullable: true
+          description: A proposed change awaiting approval (production), if any.
     RuleList:
       type: object
       additionalProperties: false
@@ -3625,6 +3804,89 @@ components:
         restored_from:
           type: integer
           nullable: true
+    RuleChange:
+      type: object
+      additionalProperties: false
+      required: [id, rule_id, code, kind, base_version, status, proposed, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version]
+      properties:
+        id:
+          type: string
+          example: rch_01j9x2k7m3q4r5s6t7v8w9x0yz
+        rule_id:
+          type: string
+          description: The rule changed, or for a new rule the ID it gets when approved.
+        code:
+          type: string
+        kind:
+          type: string
+          enum: [create, update, rollback]
+        base_version:
+          type: integer
+          nullable: true
+          description: The rule's version when proposed (null for a new rule).
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        proposed:
+          $ref: "#/components/schemas/RuleContent"
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        decided_by:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        reason:
+          type: string
+          nullable: true
+          description: Why it was rejected, when given.
+        applied_version:
+          type: integer
+          nullable: true
+          description: The version approval created.
+    RuleContent:
+      type: object
+      additionalProperties: false
+      required: [name, description, severity, weight, mode, enabled, condition, restored_from]
+      properties:
+        name:
+          type: string
+        description:
+          type: string
+        severity:
+          $ref: "#/components/schemas/Severity"
+        weight:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/RuleMode"
+        enabled:
+          type: boolean
+        condition:
+          $ref: "#/components/schemas/RuleCondition"
+        restored_from:
+          type: integer
+          nullable: true
+    RuleChangeList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleChange"
+    RejectRuleChangeRequest:
+      type: object
+      additionalProperties: false
+      properties:
+        reason:
+          type: string
+          maxLength: 500
     RuleVersionList:
       type: object
       additionalProperties: false

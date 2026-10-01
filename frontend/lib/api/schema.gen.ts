@@ -310,6 +310,8 @@ export interface paths {
          *     on live traffic and recorded, but do not change decisions until switched to `active`.
          *     Returns 409 when the code is taken or the environment already has 200 rules (disabled
          *     rules count; rules are disabled, never deleted).
+         *     In a production environment the change is proposed instead (202) and applies only when
+         *     another person approves it.
          */
         post: operations["createRule"];
         delete?: never;
@@ -340,6 +342,8 @@ export interface paths {
          * @description Requires scope `rules:write`. Audited. Only the given fields change. Every change creates a
          *     new version; earlier versions are kept and can be restored. A change that alters nothing
          *     creates no version.
+         *     In a production environment the change is proposed instead (202) and applies only when
+         *     another person approves it.
          */
         patch: operations["updateRule"];
         trace?: never;
@@ -377,6 +381,8 @@ export interface paths {
          * Restore an earlier version (one-step rollback)
          * @description Requires scope `rules:write`. Audited. Adds a new version with the content of the given
          *     version; history is never rewritten.
+         *     In a production environment the change is proposed instead (202) and applies only when
+         *     another person approves it.
          */
         post: operations["rollbackRule"];
         delete?: never;
@@ -402,6 +408,90 @@ export interface paths {
          *     condition uses.
          */
         post: operations["testRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * List proposed rule changes
+         * @description Requires scope `rules:read`. Newest first, at most 200.
+         */
+        get: operations["listRuleChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes/{change_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get a proposed rule change
+         * @description Requires scope `rules:read`.
+         */
+        get: operations["getRuleChange"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes/{change_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a proposed rule change (applies it)
+         * @description Requires the `rules:approve` permission, which only people hold (never API keys), and a
+         *     recent second factor in the console. The approver must not be the person who proposed
+         *     the change. Applies the change as the rule's next version; returns 409 if the rule has
+         *     changed since the proposal (propose again) or the change is already decided. Audited.
+         */
+        post: operations["approveRuleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rule-changes/{change_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject or withdraw a proposed rule change
+         * @description Requires `rules:approve`, or `rules:write` for the person or key that proposed the change
+         *     (withdrawing it). Nothing changes on the rule. Audited.
+         */
+        post: operations["rejectRuleChange"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1469,10 +1559,11 @@ export interface components {
         /** @enum {string} */
         Environment: "test" | "production";
         /**
-         * @description A permission an API key holds.
+         * @description A permission. API keys can hold any except `rules:approve`, which only people hold (a
+         *     second person approves production rule changes).
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -1871,6 +1962,8 @@ export interface components {
              * @description When the current version was created.
              */
             updated_at: string;
+            /** @description A proposed change awaiting approval (production), if any. */
+            pending_change_id?: string | null;
         };
         RuleList: {
             data: components["schemas"]["Rule"][];
@@ -1908,6 +2001,46 @@ export interface components {
             created_at: string;
             created_by: string;
             restored_from?: number | null;
+        };
+        RuleChange: {
+            /** @example rch_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            /** @description The rule changed, or for a new rule the ID it gets when approved. */
+            rule_id: string;
+            code: string;
+            /** @enum {string} */
+            kind: "create" | "update" | "rollback";
+            /** @description The rule's version when proposed (null for a new rule). */
+            base_version: number | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            proposed: components["schemas"]["RuleContent"];
+            proposed_by: string;
+            /** Format: date-time */
+            proposed_at: string;
+            decided_by: string | null;
+            /** Format: date-time */
+            decided_at: string | null;
+            /** @description Why it was rejected, when given. */
+            reason: string | null;
+            /** @description The version approval created. */
+            applied_version: number | null;
+        };
+        RuleContent: {
+            name: string;
+            description: string;
+            severity: components["schemas"]["Severity"];
+            weight: number;
+            mode: components["schemas"]["RuleMode"];
+            enabled: boolean;
+            condition: components["schemas"]["RuleCondition"];
+            restored_from: number | null;
+        };
+        RuleChangeList: {
+            data: components["schemas"]["RuleChange"][];
+        };
+        RejectRuleChangeRequest: {
+            reason?: string;
         };
         RuleVersionList: {
             rule_id: string;
@@ -2566,13 +2699,26 @@ export interface operations {
             };
         };
         responses: {
-            /** @description The created rule (version 1). */
+            /** @description The created rule (version 1). Test environments apply changes at once. */
             201: {
                 headers: {
                     [name: string]: unknown;
                 };
                 content: {
                     "application/json": components["schemas"]["Rule"];
+                };
+            };
+            /**
+             * @description Production environments: the change was proposed and awaits approval by another person
+             *     (two-person rule). Nothing has changed yet; approve it with
+             *     `POST /api/v1/rule-changes/{change_id}/approve`.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
                 };
             };
             400: components["responses"]["InvalidRequest"];
@@ -2632,6 +2778,19 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Rule"];
+                };
+            };
+            /**
+             * @description Production environments: the change was proposed and awaits approval by another person
+             *     (two-person rule). Nothing has changed yet; approve it with
+             *     `POST /api/v1/rule-changes/{change_id}/approve`.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
                 };
             };
             400: components["responses"]["InvalidRequest"];
@@ -2694,6 +2853,19 @@ export interface operations {
                     "application/json": components["schemas"]["Rule"];
                 };
             };
+            /**
+             * @description Production environments: the change was proposed and awaits approval by another person
+             *     (two-person rule). Nothing has changed yet; approve it with
+             *     `POST /api/v1/rule-changes/{change_id}/approve`.
+             */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
@@ -2732,6 +2904,120 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             422: components["responses"]["Unprocessable"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listRuleChanges: {
+        parameters: {
+            query?: {
+                /** @description Only changes in this state (default pending). */
+                status?: "pending" | "approved" | "rejected" | "all";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChangeList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The approved change, with the version it created. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["RejectRuleChangeRequest"];
+            };
+        };
+        responses: {
+            /** @description The rejected change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };

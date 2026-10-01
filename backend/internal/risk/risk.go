@@ -64,6 +64,10 @@ type RuleHandlers interface {
 	UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestObject) (apigen.UpdateRuleResponseObject, error)
 	ListRuleVersions(ctx context.Context, req apigen.ListRuleVersionsRequestObject) (apigen.ListRuleVersionsResponseObject, error)
 	RollbackRule(ctx context.Context, req apigen.RollbackRuleRequestObject) (apigen.RollbackRuleResponseObject, error)
+	ListRuleChanges(ctx context.Context, req apigen.ListRuleChangesRequestObject) (apigen.ListRuleChangesResponseObject, error)
+	GetRuleChange(ctx context.Context, req apigen.GetRuleChangeRequestObject) (apigen.GetRuleChangeResponseObject, error)
+	ApproveRuleChange(ctx context.Context, req apigen.ApproveRuleChangeRequestObject) (apigen.ApproveRuleChangeResponseObject, error)
+	RejectRuleChange(ctx context.Context, req apigen.RejectRuleChangeRequestObject) (apigen.RejectRuleChangeResponseObject, error)
 }
 
 // Config configures the risk module.

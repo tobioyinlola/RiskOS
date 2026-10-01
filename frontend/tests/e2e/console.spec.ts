@@ -141,6 +141,31 @@ test("the alert queue works from the keyboard", async ({ page, isMobile }) => {
   expect(api.problems).toEqual([]);
 });
 
+test("a production rule change is approved by a second person", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/rules");
+  await page.getByRole("radio", { name: "Production" }).click();
+
+  const pending = page.getByRole("table", {
+    name: "Rule changes awaiting approval",
+  });
+  await expect(pending.getByText("Large transfer")).toBeVisible();
+  await pending.getByRole("button", { name: "Review" }).click();
+
+  const drawer = page.getByRole("dialog");
+  await expect(drawer.getByText("A new rule")).toBeVisible();
+  await expect(drawer.getByText("+25")).toBeVisible();
+  await drawer.getByRole("button", { name: "Approve and apply" }).click();
+
+  await expect(drawer).toBeHidden();
+  await expect(pending).toBeHidden();
+  expect(api.calls).toContain("POST /rule-changes/rch_01/approve");
+  expect(api.problems).toEqual([]);
+});
+
 test("pages carry security headers and a nonce-based CSP", async ({
   request,
 }) => {

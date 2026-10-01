@@ -23,6 +23,41 @@ func (q *Queries) CountRules(ctx context.Context) (int64, error) {
 	return count, err
 }
 
+const decideRuleChange = `-- name: DecideRuleChange :execrows
+UPDATE rule_changes
+SET status = $1, decided_by = $2, decided_at = $3, reason = $4,
+    applied_version = $5
+WHERE tenant_id = $6 AND environment_id = $7 AND id = $8 AND status = 'pending'
+`
+
+type DecideRuleChangeParams struct {
+	Status         string
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	Reason         *string
+	AppliedVersion *int32
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+}
+
+func (q *Queries) DecideRuleChange(ctx context.Context, arg DecideRuleChangeParams) (int64, error) {
+	result, err := q.db.Exec(ctx, decideRuleChange,
+		arg.Status,
+		arg.DecidedBy,
+		arg.DecidedAt,
+		arg.Reason,
+		arg.AppliedVersion,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const getCurrentRule = `-- name: GetCurrentRule :one
 SELECT r.id, r.code, r.created_at, v.version, v.name, v.description, v.severity, v.weight, v.mode,
        v.enabled, v.condition, v.created_at AS version_created_at, v.created_by AS version_created_by, v.restored_from
@@ -114,6 +149,47 @@ func (q *Queries) GetRiskSettings(ctx context.Context, arg GetRiskSettingsParams
 	return i, err
 }
 
+const getRuleChange = `-- name: GetRuleChange :one
+SELECT tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity, weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+`
+
+type GetRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+func (q *Queries) GetRuleChange(ctx context.Context, arg GetRuleChangeParams) (RuleChange, error) {
+	row := q.db.QueryRow(ctx, getRuleChange, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i RuleChange
+	err := row.Scan(
+		&i.TenantID,
+		&i.EnvironmentID,
+		&i.ID,
+		&i.RuleID,
+		&i.Code,
+		&i.Kind,
+		&i.BaseVersion,
+		&i.Name,
+		&i.Description,
+		&i.Severity,
+		&i.Weight,
+		&i.Mode,
+		&i.Enabled,
+		&i.Condition,
+		&i.RestoredFrom,
+		&i.Status,
+		&i.ProposedBy,
+		&i.ProposedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.Reason,
+		&i.AppliedVersion,
+	)
+	return i, err
+}
+
 const getRuleVersion = `-- name: GetRuleVersion :one
 SELECT version, name, description, severity, weight, mode, enabled, condition, created_at, created_by, restored_from
 FROM rule_versions
@@ -187,6 +263,61 @@ func (q *Queries) InsertRule(ctx context.Context, arg InsertRuleParams) error {
 		arg.ID,
 		arg.Code,
 		arg.CreatedBy,
+	)
+	return err
+}
+
+const insertRuleChange = `-- name: InsertRuleChange :exec
+
+INSERT INTO rule_changes (
+  tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity,
+  weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at
+) VALUES (
+  $1, $2, $3, $4, $5, $6, $7, $8, $9, $10,
+  $11, $12, $13, $14, $15, 'pending', $16, $17
+)
+`
+
+type InsertRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	RuleID        uuid.UUID
+	Code          string
+	Kind          string
+	BaseVersion   *int32
+	Name          string
+	Description   string
+	Severity      string
+	Weight        int16
+	Mode          string
+	Enabled       bool
+	Condition     []byte
+	RestoredFrom  *int32
+	ProposedBy    string
+	ProposedAt    time.Time
+}
+
+// Rule changes awaiting two-person approval (production) -------------------------------------
+func (q *Queries) InsertRuleChange(ctx context.Context, arg InsertRuleChangeParams) error {
+	_, err := q.db.Exec(ctx, insertRuleChange,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+		arg.RuleID,
+		arg.Code,
+		arg.Kind,
+		arg.BaseVersion,
+		arg.Name,
+		arg.Description,
+		arg.Severity,
+		arg.Weight,
+		arg.Mode,
+		arg.Enabled,
+		arg.Condition,
+		arg.RestoredFrom,
+		arg.ProposedBy,
+		arg.ProposedAt,
 	)
 	return err
 }
@@ -302,6 +433,104 @@ func (q *Queries) ListCurrentRules(ctx context.Context, arg ListCurrentRulesPara
 	return items, nil
 }
 
+const listPendingRuleChanges = `-- name: ListPendingRuleChanges :many
+SELECT rule_id, id FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND status = 'pending'
+`
+
+type ListPendingRuleChangesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+type ListPendingRuleChangesRow struct {
+	RuleID uuid.UUID
+	ID     uuid.UUID
+}
+
+func (q *Queries) ListPendingRuleChanges(ctx context.Context, arg ListPendingRuleChangesParams) ([]ListPendingRuleChangesRow, error) {
+	rows, err := q.db.Query(ctx, listPendingRuleChanges, arg.TenantID, arg.EnvironmentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListPendingRuleChangesRow
+	for rows.Next() {
+		var i ListPendingRuleChangesRow
+		if err := rows.Scan(&i.RuleID, &i.ID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRuleChanges = `-- name: ListRuleChanges :many
+SELECT tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity, weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2
+  AND ($3::text IS NULL OR status = $3::text)
+ORDER BY id DESC
+LIMIT $4
+`
+
+type ListRuleChangesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Status        *string
+	Lim           int32
+}
+
+func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams) ([]RuleChange, error) {
+	rows, err := q.db.Query(ctx, listRuleChanges,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Status,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RuleChange
+	for rows.Next() {
+		var i RuleChange
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.RuleID,
+			&i.Code,
+			&i.Kind,
+			&i.BaseVersion,
+			&i.Name,
+			&i.Description,
+			&i.Severity,
+			&i.Weight,
+			&i.Mode,
+			&i.Enabled,
+			&i.Condition,
+			&i.RestoredFrom,
+			&i.Status,
+			&i.ProposedBy,
+			&i.ProposedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.Reason,
+			&i.AppliedVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRuleVersions = `-- name: ListRuleVersions :many
 SELECT version, name, description, severity, weight, mode, enabled, condition, created_at, created_by, restored_from
 FROM rule_versions
@@ -359,6 +588,67 @@ func (q *Queries) ListRuleVersions(ctx context.Context, arg ListRuleVersionsPara
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockRuleChange = `-- name: LockRuleChange :one
+SELECT tenant_id, environment_id, id, rule_id, code, kind, base_version, name, description, severity, weight, mode, enabled, condition, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, reason, applied_version FROM rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+FOR UPDATE
+`
+
+type LockRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+func (q *Queries) LockRuleChange(ctx context.Context, arg LockRuleChangeParams) (RuleChange, error) {
+	row := q.db.QueryRow(ctx, lockRuleChange, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i RuleChange
+	err := row.Scan(
+		&i.TenantID,
+		&i.EnvironmentID,
+		&i.ID,
+		&i.RuleID,
+		&i.Code,
+		&i.Kind,
+		&i.BaseVersion,
+		&i.Name,
+		&i.Description,
+		&i.Severity,
+		&i.Weight,
+		&i.Mode,
+		&i.Enabled,
+		&i.Condition,
+		&i.RestoredFrom,
+		&i.Status,
+		&i.ProposedBy,
+		&i.ProposedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.Reason,
+		&i.AppliedVersion,
+	)
+	return i, err
+}
+
+const ruleCodeExists = `-- name: RuleCodeExists :one
+SELECT EXISTS (
+  SELECT 1 FROM rules WHERE tenant_id = $1 AND environment_id = $2 AND code = $3
+)
+`
+
+type RuleCodeExistsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Code          string
+}
+
+func (q *Queries) RuleCodeExists(ctx context.Context, arg RuleCodeExistsParams) (bool, error) {
+	row := q.db.QueryRow(ctx, ruleCodeExists, arg.TenantID, arg.EnvironmentID, arg.Code)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
 }
 
 const setRuleCurrentVersion = `-- name: SetRuleCurrentVersion :execrows

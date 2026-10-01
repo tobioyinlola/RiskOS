@@ -16,6 +16,7 @@ const b64url = (s: string) =>
     .replace(/=+$/, "");
 
 const ALL_PERMISSIONS = [
+  "rules:approve",
   "api_keys:read",
   "api_keys:write",
   "audit_logs:read",
@@ -59,6 +60,36 @@ export interface MockApi {
   problems: string[];
   signedIn: boolean;
   hasPasskey: boolean;
+  changeStatus: "pending" | "approved";
+}
+
+const RULE_CHANGE_ID = "rch_01";
+
+function ruleChange(status: "pending" | "approved") {
+  return {
+    id: RULE_CHANGE_ID,
+    rule_id: "rul_01",
+    code: "large_transfer",
+    kind: "create",
+    base_version: null,
+    status,
+    proposed: {
+      name: "Large transfer",
+      description: "",
+      severity: "high",
+      weight: 25,
+      mode: "shadow",
+      enabled: true,
+      condition: { field: "transaction.amount", op: "gte", value: 1000000 },
+      restored_from: null,
+    },
+    proposed_by: "usr_grace",
+    proposed_at: NOW,
+    decided_by: status === "approved" ? "usr_admin" : null,
+    decided_at: status === "approved" ? NOW : null,
+    reason: null,
+    applied_version: status === "approved" ? 1 : null,
+  };
 }
 
 export async function mockApi(page: Page): Promise<MockApi> {
@@ -67,6 +98,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     problems: [],
     signedIn: false,
     hasPasskey: false,
+    changeStatus: "pending",
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -342,6 +374,20 @@ export async function mockApi(page: Page): Promise<MockApi> {
       case "/audit-logs":
       case "/api-keys":
         return json(route, { data: [], next_cursor: null });
+      case "/rule-changes":
+        // Production has one proposal awaiting approval, made by someone else.
+        return json(route, {
+          data:
+            req.headers()["riskos-environment"] === "production" &&
+            state.changeStatus === "pending"
+              ? [ruleChange(state.changeStatus)]
+              : [],
+        });
+      case `/rule-changes/${RULE_CHANGE_ID}`:
+        return json(route, ruleChange(state.changeStatus));
+      case `/rule-changes/${RULE_CHANGE_ID}/approve`:
+        state.changeStatus = "approved";
+        return json(route, ruleChange("approved"));
       case "/rules":
       case "/webhooks":
       case "/team/invites":

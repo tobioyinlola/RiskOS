@@ -238,6 +238,31 @@ type Rule struct {
 	CreatedBy      string
 }
 
+type RuleChange struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	RuleID         uuid.UUID
+	Code           string
+	Kind           string
+	BaseVersion    *int32
+	Name           string
+	Description    string
+	Severity       string
+	Weight         int16
+	Mode           string
+	Enabled        bool
+	Condition      []byte
+	RestoredFrom   *int32
+	Status         string
+	ProposedBy     string
+	ProposedAt     time.Time
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	Reason         *string
+	AppliedVersion *int32
+}
+
 type RuleVersion struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID

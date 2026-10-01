@@ -41,6 +41,13 @@ const (
 	TeamWrite     Permission = "team:write"
 )
 
+// RulesApprove approves rule changes proposed for a production environment (two-person rule).
+// Only people hold it, through their role: an API key can never be granted it, so an approval
+// is always a second person's decision.
+//
+//nolint:gosec // G101 false positive: a permission name
+const RulesApprove Permission = "rules:approve"
+
 // System permissions are held only by RiskOS's own background jobs, never by a customer
 // credential or role.
 const (
@@ -57,6 +64,12 @@ func CustomerPermissions() []Permission {
 		RulesRead, RulesWrite, RiskConfigure, AlertsRead, AlertsWrite, CasesRead, CasesWrite,
 		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite,
 	}
+}
+
+// PersonPermissions returns every permission a customer role can hold: the customer
+// permissions plus those reserved for people.
+func PersonPermissions() []Permission {
+	return append(CustomerPermissions(), RulesApprove)
 }
 
 // IsCustomerPermission reports whether p exists and may be granted to a customer credential.
@@ -85,14 +98,14 @@ const (
 func RolePermissions(r Role) []Permission {
 	switch r {
 	case RoleCustomerAdmin:
-		return CustomerPermissions()
+		return PersonPermissions()
 	case RoleDeveloper:
 		return []Permission{
 			APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead, WebhooksRead, WebhooksWrite,
 		}
 	case RoleRiskManager:
 		return []Permission{
-			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RiskConfigure,
+			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RulesApprove, RiskConfigure,
 			AlertsRead, AlertsWrite, CasesRead, CasesWrite,
 		}
 	case RoleAnalyst:

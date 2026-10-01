@@ -141,7 +141,7 @@ func tenantCreate(ctx context.Context, cfg config.Config, args []string, out io.
 		func(ctx context.Context, _ tenants.Tenant) error {
 			key, err = a.auth.CreateKey(ctx, auth.CreateKeyInput{
 				Name:   "bootstrap (created by " + actor + ")",
-				Scopes: authz.RolePermissions(authz.RoleCustomerAdmin),
+				Scopes: authz.CustomerPermissions(),
 			})
 			return err
 		})
@@ -169,7 +169,7 @@ func apikeyCreate(ctx context.Context, cfg config.Config, args []string, out io.
 	tenant := fs.String("tenant", "", "tenant ID (ten_…)")
 	env := fs.String("env", "", "test or production")
 	name := fs.String("name", "", "key name")
-	scopes := fs.String("scopes", strings.Join(authz.RolePermissions(authz.RoleCustomerAdmin), ","), "comma-separated scopes")
+	scopes := fs.String("scopes", strings.Join(authz.CustomerPermissions(), ","), "comma-separated scopes")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

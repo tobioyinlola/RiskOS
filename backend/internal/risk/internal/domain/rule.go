@@ -52,6 +52,8 @@ type Rule struct {
 	Code      string
 	CreatedAt time.Time
 	Current   RuleVersion
+	// PendingChange is a proposed change awaiting approval (production), if any.
+	PendingChange *uuid.UUID
 }
 
 // VersionRef identifies a rule version in evaluations: "<rule code>@<version>".
