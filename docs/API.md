@@ -76,7 +76,8 @@ generated code is stale. An operation that is not in the contract cannot be rout
 - Status codes: 400 `INVALID_REQUEST`, 401 `UNAUTHENTICATED` (never says why), 403 `FORBIDDEN`
   or `TENANT_SUSPENDED`, 404 `NOT_FOUND` (also for other tenants' resources), 409 `CONFLICT` or
   `IDEMPOTENCY_CONFLICT`, 413 `PAYLOAD_TOO_LARGE`, 422 `INVALID_EVENT`, `STALE_EVENT` or
-  `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`).
+  `SENSITIVE_DATA`, 429 `RATE_LIMITED` (with `Retry-After`), 503 `SERVICE_UNAVAILABLE` (with
+  `Retry-After`; nothing was stored) or `TIMEOUT`.
 - Every request is validated against this contract before it reaches a handler; unknown fields
   are rejected.
 - IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`); an ID of the wrong
@@ -84,9 +85,26 @@ generated code is stale. An operation that is not in the contract cannot be rout
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.
 
+## Retries
+
+A request that fails with 429, 503, a timeout or a network error can be retried safely:
+
+- Retry an event with the **same `event_id`**. If the first attempt was stored after all, the
+  retry returns the stored decision with `Idempotent-Replay: true`; the event is never stored
+  twice.
+- Wait at least `Retry-After` seconds when it is present, back off exponentially otherwise, and
+  add random jitter so clients do not retry in lockstep after an outage.
+- While the decision is unavailable, apply your own fallback for the transaction (for example,
+  hold it for review). The API fails fast instead of queueing: a database outage answers 503
+  within about a second, and a Redis outage still returns decisions, degraded and failing
+  closed ([RISK_ENGINE.md](RISK_ENGINE.md)).
+
+The failure drill (`make failure-drill`, [DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) checks
+that such a client loses no event and stores none twice across Redis, PostgreSQL, worker and API
+restarts.
+
 ## To be designed (TODO(phase-0))
 
 - Remaining operations of spec §7 (entities, analytics).
-- Console session authentication (build step 7).
 - Filtering and sorting conventions for lists (event type, decision, time range).
 - Versioning and deprecation policy.

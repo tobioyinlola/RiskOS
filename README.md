@@ -112,6 +112,7 @@ make help         # all targets
 | Console against the stack | `frontend/tests/e2e/stack.spec.ts` | `make up && make test-e2e-stack` |
 | Micro-benchmarks | `Benchmark*` in backend | `make bench` |
 | Load (k6) | `backend/test/load` | `make up && make load` (HTTP baseline), `make load-events API_KEY=...` (decision path) |
+| Failure and restore drills | `scripts/failure-drill.sh`, `scripts/restore-drill.sh` | `make up && make failure-drill && make restore-drill` ([docs/DISASTER_RECOVERY.md](docs/DISASTER_RECOVERY.md)) |
 
 Baseline numbers: [`docs/PERFORMANCE_BASELINE.md`](docs/PERFORMANCE_BASELINE.md).
 

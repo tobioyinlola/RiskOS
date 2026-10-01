@@ -647,6 +647,15 @@ password.
 | Edge | Contract validation middleware (kin-openapi, spec embedded in the binary); per-key and per-tenant GCRA rate limits in Redis, failing open |
 | Measured | Full decision path at 500 events/s: p95 87 ms, at 100 events/s: p95 13.5 ms (laptop; [PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md)) |
 
+### A.11 Hardening and drills (build step 8, in progress)
+
+| Area | What is built |
+|---|---|
+| Failure drill | `make failure-drill`: ingest under load while Redis, PostgreSQL, the worker and the API fail; checks that no event is lost or duplicated, no degraded transaction is allowed, every alert and webhook arrives ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md)) |
+| Restore drill | `make restore-drill`: backup, restore into a fresh server, then row counts, audit chains, isolation and a live API on the copy |
+| Failing fast | Redis circuit breaker; bounded rate-limit checks; a 1 s deadline to get a database connection, then 503 with `Retry-After`; jobs of a killed worker retried after the job timeout plus a minute |
+| Schedule | Both drills run weekly in CI (`.github/workflows/drills.yml`) |
+
 ### A.10 Console (build step 7)
 
 | Area | What is built |
@@ -708,6 +717,7 @@ password.
 | PgBouncer with transaction pooling (section 13) | pgx caches prepared statements per connection, which breaks under transaction pooling. When PgBouncer is introduced, pgx switches to a PgBouncer-safe query mode (`QueryExecModeCacheDescribe` or `Exec`). `SET LOCAL` for RLS is already transaction-scoped and safe | TODO(phase-8) |
 | Console screens for the live risk monitor, entity pages (users, accounts, devices, transactions) and analytics beyond counts | Not built; the console covers triage, investigation, configuration and administration ([CONSOLE.md](CONSOLE.md)) | TODO(phase-8) |
 | Build step 2 includes dashboard authentication (password, MFA, sessions) | The dashboard realm was built with the dashboard (build step 7) on the same `authz` roles ([CONSOLE_AUTH.md](CONSOLE_AUTH.md)); no breached-password check, SSO or email delivery yet | TODO(phase-8) |
+| Redis state is rebuildable (section 12) | A total loss of Redis state makes every user look new; history signals go silent without being reported as degraded ([DISASTER_RECOVERY.md](DISASTER_RECOVERY.md#losing-redis-state)) | TODO(phase-8) |
 | Rate limits per tenant, key, IP and endpoint (section 9) | Per key and per tenant are built; per IP and per endpoint belong at the gateway (build step 8). The limiter fails open if Redis is down | TODO(phase-7) |
 | Redis `SET NX` idempotency fast path (section 11) | Not built: the PostgreSQL primary key already makes idempotency correct under concurrency; the fast path would only save a query on retries | TODO(phase-7) |
 | Retention sweep (section 6) | Partitions exist; dropping expired ones per tenant policy is not built | TODO(phase-7) |
