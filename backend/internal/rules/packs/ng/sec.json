@@ -1,0 +1,1148 @@
+{
+  "rules": [
+    {
+      "id": "SEC-01",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "auth_failure"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "auth_failure",
+                "window": "window",
+                "by": "ip"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "failures"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "auth_failure",
+                "window": "window",
+                "by": "ip",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "accounts"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "credential_stuffing",
+        "hints": [
+          "rate_limit_ip",
+          "challenge"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "failures",
+          "label": "Failed logins from one address",
+          "type": "count",
+          "default": 10,
+          "min": 3,
+          "max": 1000
+        },
+        {
+          "name": "accounts",
+          "label": "Different accounts tried",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 1000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 300,
+          "min": 60,
+          "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "SEC-02",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "auth_failure"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "distinct_count_once",
+            "event": "auth_failure",
+            "window": "window",
+            "by": "network",
+            "field": "account.id"
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "accounts"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "password_spraying",
+        "hints": [
+          "challenge"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "accounts",
+          "label": "Accounts with one failed login each",
+          "type": "count",
+          "default": 50,
+          "min": 5,
+          "max": 10000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 3600,
+          "min": 300,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "SEC-03",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "auth_failure"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "auth_failure",
+            "window": "window",
+            "by": "account"
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "failures"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "brute_force",
+        "hints": [
+          "temporary_lock",
+          "step_up"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "failures",
+          "label": "Failed logins on one account",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 600,
+          "min": 60,
+          "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "SEC-04",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "mfa_prompt"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "mfa_prompt",
+            "window": "window",
+            "by": "account",
+            "where": {
+              "left": {
+                "fact": "mfa.channel"
+              },
+              "op": "in",
+              "right": {
+                "literal": [
+                  "push",
+                  "otp"
+                ]
+              }
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "prompts"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "mfa_fatigue",
+        "hints": [
+          "pause_prompts",
+          "alert"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "prompts",
+          "label": "Push or code prompts to one user",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 600,
+          "min": 60,
+          "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "SEC-05",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "ip_intelligence"
+      ],
+      "trigger": {
+        "events": [
+          "login",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ],
+        "scope": {
+          "any": [
+            {
+              "left": {
+                "fact": "user.is_admin"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            },
+            {
+              "left": {
+                "fact": "txn.amount"
+              },
+              "op": "gt",
+              "right": {
+                "param": "high_value"
+              }
+            }
+          ]
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "ip.is_tor"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "ip.is_proxy"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "ip.is_vpn"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "low",
+        "reason": "anonymizer"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 10,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "high_value",
+          "label": "High-value amount (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "SEC-06",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The library gives no figures for human typing speed; 40 ms and 0.05 are starting values.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "session"
+      ],
+      "trigger": {
+        "events": [
+          "session_activity"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "client.headless"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "input.keystroke_interval_ms"
+            },
+            "op": "lt",
+            "right": {
+              "param": "min_keystroke_ms"
+            }
+          },
+          {
+            "left": {
+              "fact": "input.timing_variance"
+            },
+            "op": "lt",
+            "right": {
+              "param": "min_variance"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "bot_behaviour",
+        "hints": [
+          "challenge"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "min_keystroke_ms",
+          "label": "Fastest human typing gap (milliseconds)",
+          "type": "count",
+          "default": 40,
+          "min": 5,
+          "max": 500
+        },
+        {
+          "name": "min_variance",
+          "label": "Least timing variation for a human",
+          "type": "ratio",
+          "default": 0.05,
+          "min": 0,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "SEC-07",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "This is the same signal as ATO-05; it is scored once, and account-takeover points are capped so one compromised session is not counted several times.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "session"
+      ],
+      "trigger": {
+        "events": [
+          "session_activity"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "session.ip_changed"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "session.user_agent_changed"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "fact": "session.device_changed"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "session_hijack",
+        "hints": [
+          "revoke_session",
+          "reauthenticate"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "SEC-08",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The library sets no figure for the probing ratio; 0.5 is a starting value.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "api_gateway"
+      ],
+      "trigger": {
+        "events": [
+          "api_request"
+        ],
+        "scope": {
+          "left": {
+            "fact": "auth.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "api_key"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "api_key.network_known"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "api_key.country_known"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "api_key.rate_to_baseline"
+            },
+            "op": "gt",
+            "right": {
+              "param": "rate_multiple"
+            }
+          },
+          {
+            "left": {
+              "fact": "api_key.error_ratio"
+            },
+            "op": "gt",
+            "right": {
+              "param": "probe_ratio"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "api_key_abuse",
+        "hints": [
+          "alert",
+          "throttle_key"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "rate_multiple",
+          "label": "Times the key's normal request rate",
+          "type": "ratio",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "probe_ratio",
+          "label": "Share of failed or not-found requests that suggests probing",
+          "type": "ratio",
+          "default": 0.5,
+          "min": 0.1,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "SEC-09",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "config_change",
+                "window": "window",
+                "by": "merchant",
+                "where": {
+                  "left": {
+                    "fact": "config.field"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "webhook_url",
+                      "payout_destination",
+                      "bank_account"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "high_value"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "payout_change_then_high_value",
+        "min_decision": "review",
+        "hints": [
+          "hold_payout"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time after the change",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "high_value",
+          "label": "High-value amount (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "SEC-10",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "data_export"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "exists",
+            "event": "role_change",
+            "window": "window",
+            "by": "user"
+          }
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "privilege_then_export",
+        "hints": [
+          "alert",
+          "step_up"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time after the role change",
+          "type": "duration",
+          "default": 3600,
+          "min": 600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "SEC-11",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "api_lookup"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "api_lookup",
+                "window": "window",
+                "by": "ip",
+                "where": {
+                  "left": {
+                    "fact": "lookup.result"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": "not_found"
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "lookups"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "api_lookup",
+                "window": "window",
+                "by": "api_key",
+                "where": {
+                  "left": {
+                    "fact": "lookup.result"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": "not_found"
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "lookups"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "account_enumeration",
+        "hints": [
+          "throttle"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "lookups",
+          "label": "Lookups of things that do not exist",
+          "type": "count",
+          "default": 20,
+          "min": 5,
+          "max": 10000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 600,
+          "min": 60,
+          "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "SEC-12",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S5"
+      ],
+      "effective": {
+        "text": "Supports the CBN 2024 risk-based cybersecurity framework (compliance date 1 July 2024); the rule itself is a recommendation"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The library says 'far above'; five times the 30-day baseline is the starting value from its engineering logic.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "data_export"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "export.rows_to_user_baseline"
+            },
+            "op": "gt",
+            "right": {
+              "param": "multiple"
+            }
+          },
+          {
+            "left": {
+              "fact": "export.rows_to_tenant_baseline"
+            },
+            "op": "gt",
+            "right": {
+              "param": "multiple"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "mass_export",
+        "hints": [
+          "step_up",
+          "alert"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "multiple",
+          "label": "Times the usual export size",
+          "type": "ratio",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        }
+      ]
+    }
+  ]
+}

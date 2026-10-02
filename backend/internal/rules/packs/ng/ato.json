@@ -1,0 +1,624 @@
+{
+  "rules": [
+    {
+      "id": "ATO-01",
+      "group": "account_takeover",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "device_bound",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "device.is_new"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": true
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "beneficiary_added",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "beneficiary.is_new"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": true
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "new_device_new_payee_transfer",
+        "min_decision": "review",
+        "evidence": [
+          "device.id",
+          "beneficiary.id"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time in which all three happen",
+          "type": "duration",
+          "default": 1800,
+          "min": 300,
+          "max": 21600
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer the rule looks at (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 10000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "ATO-02",
+      "group": "account_takeover",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "profile_change",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "profile.field"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "password",
+                      "phone",
+                      "email"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "credential_change_before_transfer",
+        "min_decision": "step_up",
+        "evidence": [
+          "profile.field"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "How recent a change counts",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer the rule looks at (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 10000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "ATO-03",
+      "group": "account_takeover",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS",
+        "NCC"
+      ],
+      "sources": [
+        "S7",
+        "S11"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "telco",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "telco.sim_swap"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "sim_reregistered",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "device_reregistered",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "sim_swap",
+        "min_decision": "step_up",
+        "evidence": [
+          "telco.sim_swap"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "How recent a re-registration counts",
+          "type": "duration",
+          "default": 259200,
+          "min": 3600,
+          "max": 2592000
+        }
+      ]
+    },
+    {
+      "id": "ATO-04",
+      "group": "account_takeover",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "device_integrity"
+      ],
+      "trigger": {
+        "events": [
+          "login",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "device.rooted"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "device.jailbroken"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "device.emulator"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "device.hooking_framework"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "device_integrity",
+        "evidence": [
+          "device.rooted",
+          "device.jailbroken",
+          "device.emulator",
+          "device.hooking_framework"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "ATO-05",
+      "group": "account_takeover",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "This is the same signal as SEC-07 (session takeover); it is scored once, and account-takeover points are capped so one compromised session is not counted several times.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "session"
+      ],
+      "trigger": {
+        "events": [
+          "session_activity"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "session.open_count"
+            },
+            "op": "gte",
+            "right": {
+              "param": "concurrent"
+            }
+          },
+          {
+            "left": {
+              "fact": "session.ip_changed"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "session.user_agent_changed"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "session.device_changed"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "session_anomaly",
+        "min_decision": "step_up",
+        "evidence": [
+          "session.open_count",
+          "session.ip_changed",
+          "session.user_agent_changed",
+          "session.device_changed"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "concurrent",
+          "label": "Open sessions that count as too many",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 20
+        }
+      ]
+    },
+    {
+      "id": "ATO-06",
+      "group": "account_takeover",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "auth_success"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "auth_failure",
+            "window": "window",
+            "by": "account",
+            "where": {
+              "left": {
+                "fact": "auth.factor"
+              },
+              "op": "in",
+              "right": {
+                "literal": [
+                  "otp",
+                  "pin"
+                ]
+              }
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "failures"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "otp_pin_failure_burst"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "failures",
+          "label": "Wrong PINs or codes before a correct one",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 600,
+          "min": 60,
+          "max": 3600
+        }
+      ]
+    }
+  ]
+}

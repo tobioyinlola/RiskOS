@@ -1,0 +1,488 @@
+{
+  "ATO-01": {
+    "name": "New phone, new payee, then transfer",
+    "description": "Within 30 minutes: a new device is linked, a new payee is added, and money is sent above the institution's minimum",
+    "points": "30",
+    "engineering_logic": "RULE ATO-01 | weight=30 | action=signal\nWHEN  txn.type = transfer.outbound\nWINDOW 30m BY account.id\nIF    EXISTS(device.bound  WHERE device.is_new = true)\nAND   EXISTS(beneficiary.added WHERE beneficiary.is_new = true)\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=ATO-01  evidence=(device.id, beneficiary.id, times)"
+  },
+  "ATO-02": {
+    "name": "Details changed before a transfer",
+    "description": "Password, phone number or email changed in the last 24 hours, then money sent above the minimum",
+    "points": "25",
+    "engineering_logic": "RULE ATO-02 | weight=25\nWHEN  txn.type = transfer.outbound\nIF    ANY OF ( EXISTS(profile.password_changed OVER 24h) ,\n               EXISTS(profile.phone_changed    OVER 24h) ,\n               EXISTS(profile.email_changed    OVER 24h) )\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=ATO-02  evidence=(change_type, change_time)"
+  },
+  "ATO-03": {
+    "name": "Possible SIM swap",
+    "description": "The telco reports a SIM swap, or the SIM or device was re-registered in the last 72 hours, then money is sent",
+    "points": "25",
+    "engineering_logic": "RULE ATO-03 | weight=25\nWHEN  txn.type = transfer.outbound\nIF    ANY OF ( telco.sim_swap_flag = true , EXISTS(sim.reregistered OVER 72h) , EXISTS(device.reregistered OVER 72h) )\nTHEN  signal=ATO-03  evidence=(swap_source, swap_time)"
+  },
+  "ATO-04": {
+    "name": "Tampered phone",
+    "description": "The phone is rooted, jailbroken, an emulator, or running tools that interfere with the app",
+    "points": "20",
+    "engineering_logic": "RULE ATO-04 | weight=20\nWHEN  session.login OR txn.created\nIF    ANY OF ( device.rooted = true , device.jailbroken = true , device.emulator = true , device.hooking_framework = true )\nTHEN  signal=ATO-04  evidence=(integrity_flags)"
+  },
+  "ATO-05": {
+    "name": "Odd session",
+    "description": "The same account is open in several places at once, or the location, browser or device changes mid-session",
+    "points": "20",
+    "engineering_logic": "RULE ATO-05 | weight=20\nWHEN  session.activity\nIF    ANY OF ( COUNT(DISTINCT session.id WHERE open = true) \u003e 1 ,\n               session.ip != session.start_ip ,\n               session.user_agent != session.start_user_agent ,\n               session.device_fp != session.start_device_fp )\nTHEN  signal=ATO-05  evidence=(changed_attributes)"
+  },
+  "ATO-06": {
+    "name": "PIN or OTP guessing",
+    "description": "Three or more wrong PINs or one-time codes in 10 minutes, then a correct one",
+    "points": "15",
+    "engineering_logic": "RULE ATO-06 | weight=15\nWHEN  auth.success\nWINDOW 10m BY account.id\nIF    COUNT(auth.failure WHERE type IN (otp, pin)) \u003e= 3\nTHEN  signal=ATO-06"
+  },
+  "BEH-01": {
+    "name": "Unusual amount",
+    "description": "The amount is far above the customer's own history (more than 3 standard deviations above their 90-day average, or 5 times their largest), for customers with at least 30 days of history",
+    "points": "24",
+    "engineering_logic": "RULE BEH-01 | weight=24\nWHEN  txn.created\nIF    ANY OF ( txn.amount \u003e AVG(txn.amount OVER 90d) + 3 * STDDEV(txn.amount OVER 90d) ,\n               txn.amount \u003e 5 * MAX(txn.amount OVER 90d) )\nAND   customer.history_days \u003e= 30                            # cold-start exclusion\nTHEN  signal=BEH-01"
+  },
+  "BEH-02": {
+    "name": "Unusual location",
+    "description": "A country or region the customer does not normally use (10 points), or two events too far apart to travel between in the time (20 points)",
+    "points": "10 or 20",
+    "engineering_logic": "RULE BEH-02 | weight=10 or 20\nWHEN  session.login OR txn.created\nIF    geo.country NOT IN profile.usual_countries THEN signal=BEH-02 weight=10\nIF    distance(geo, previous.geo) / time_between \u003e 900 km/h THEN signal=BEH-02 weight=20   # impossible travel"
+  },
+  "BEH-03": {
+    "name": "Unusual time",
+    "description": "Activity outside the customer's usual hours",
+    "points": "8",
+    "engineering_logic": "RULE BEH-03 | weight=8\nWHEN  txn.created\nIF    local_hour(txn.ts) NOT IN profile.usual_hours  AND  profile.history_days \u003e= 30\nTHEN  signal=BEH-03"
+  },
+  "CNP-01": {
+    "name": "Card testing",
+    "description": "Ten or more tiny (under ₦500) or declined attempts on one card, network address or device in 5 minutes",
+    "points": "25",
+    "engineering_logic": "RULE CNP-01 | weight=25\nWHEN  card.authorization\nWINDOW 5m BY card.id OR ip OR device.id\nIF    COUNT(auth WHERE amount \u003c NGN 500 OR result = declined) \u003e= 10\nTHEN  signal=CNP-01"
+  },
+  "CNP-02": {
+    "name": "Many cards, one device",
+    "description": "Five or more different cards used from one device or network address in an hour",
+    "points": "25",
+    "engineering_logic": "RULE CNP-02 | weight=25\nWHEN  card.authorization\nWINDOW 1h BY device.id OR ip\nIF    COUNT(DISTINCT card.id) \u003e= 5\nTHEN  signal=CNP-02"
+  },
+  "CNP-03": {
+    "name": "Suspicious merchant",
+    "description": "A merchant's refunds or chargebacks run at more than three times its own normal rate, or its terminal is active from impossible locations",
+    "points": "20",
+    "engineering_logic": "RULE CNP-03 | weight=20\nWHEN  merchant.daily_job OR terminal.activity\nIF    merchant.refund_rate  \u003e 3 * merchant.refund_rate_baseline\n   OR merchant.chargeback_rate \u003e 3 * merchant.chargeback_rate_baseline\n   OR terminal.impossible_location = true\nTHEN  signal=CNP-03  scope=merchant"
+  },
+  "CRY-01": {
+    "name": "Cash to crypto to outside wallet",
+    "description": "Money comes in, is used to buy crypto, and 80% or more is sent to an outside wallet within 24 hours",
+    "points": "25",
+    "engineering_logic": "RULE CRY-01 | weight=25\nWHEN  crypto.withdrawal\nWINDOW 24h BY account.id\nIF    EXISTS(fiat.inflow) AND EXISTS(crypto.purchase)\nAND   SUM(crypto.withdrawal.external) \u003e= 0.80 * SUM(crypto.purchase)\nTHEN  signal=CRY-01"
+  },
+  "CRY-02": {
+    "name": "Many funders, quick exit",
+    "description": "Five or more different cards or accounts fund one account in 7 days, then 80% or more leaves within 24 hours",
+    "points": "25",
+    "engineering_logic": "RULE CRY-02 | weight=25\nWHEN  txn.type = transfer.outbound\nIF    COUNT(DISTINCT funding_source.id OVER 7d BY account.id) \u003e= 5\nAND   SUM(outflow OVER 24h) \u003e= 0.80 * SUM(inflow OVER 24h)\nTHEN  signal=CRY-02"
+  },
+  "CRY-03": {
+    "name": "Risky destination wallet",
+    "description": "Blockchain analysis flags the receiving wallet as sanctioned, a mixer, darknet or an unlicensed provider",
+    "points": "35",
+    "engineering_logic": "RULE CRY-03 | weight=35\nWHEN  crypto.withdrawal\nIF    analytics.wallet_tag IN (sanctioned, mixer, darknet, unlicensed_provider)\nTHEN  signal=CRY-03  action_hint=hold_and_review"
+  },
+  "CRY-04": {
+    "name": "Large crypto transfer",
+    "description": "A transfer above the institution's chosen limit (the official SEC limit is still awaited)",
+    "points": "15",
+    "engineering_logic": "RULE CRY-04 | weight=15\nWHEN  crypto.transfer\nIF    txn.amount \u003e tenant.cfg.va_threshold      # official SEC threshold awaited\nTHEN  signal=CRY-04"
+  },
+  "GOV-01": {
+    "name": "Monitoring tied to customer checks",
+    "description": "Monitoring must use KYC and KYB data; a system without that link is not compliant, and the readiness check fails",
+    "engineering_logic": "RULE GOV-01 | type=policy\nIF    tenant.monitoring.enabled = true AND tenant.kyc_data.linked = false\nTHEN  readiness=fail  reason=monitoring_without_cdd_linkage"
+  },
+  "GOV-02": {
+    "name": "Network and peer analysis",
+    "description": "Daily review of how customers are linked, and comparison against similar customers",
+    "engineering_logic": "RULE GOV-02 | type=job | schedule=daily\nTHEN  build(related_party_graph)  AND  compare(customer, peer_group)  emit=network_signals"
+  },
+  "GOV-03": {
+    "name": "Careful alert closing",
+    "description": "Alerts close automatically only when low risk, on an approved list of rules, with tuning decisions documented. Everything else stays open for a person",
+    "engineering_logic": "RULE GOV-03 | type=policy\nWHEN  alert.auto_close_requested\nIF    alert.risk_level = LOW AND rule.in(tenant.cfg.auto_close_allowlist) AND tuning.documented = true\nTHEN  allow_auto_close  ELSE keep_open"
+  },
+  "GOV-04": {
+    "name": "Annual model check",
+    "description": "AI and statistical models are independently validated at least every 12 months for accuracy, bias, drift and explainability",
+    "engineering_logic": "RULE GOV-04 | type=job | schedule=annual\nIF    model.last_validated \u003e 12mo\nTHEN  readiness=fail  require=independent_validation(accuracy, bias, drift, explainability)"
+  },
+  "GOV-05": {
+    "name": "Continuous screening",
+    "description": "Sanctions, PEP and adverse-media checks at onboarding and continuously after, covering customers, owners and counterparties",
+    "engineering_logic": "RULE GOV-05 | type=control\nWHEN  customer.onboarded OR list.updated OR daily_job\nTHEN  run REG-11  AND  REG-12  AND  adverse_media_screen  FOR customer, beneficial_owner, counterparty"
+  },
+  "GOV-06": {
+    "name": "Approved reporting",
+    "description": "STRs, SARs, CTRs and FTRs are prepared automatically, but a compliance officer must approve before submission",
+    "engineering_logic": "RULE GOV-06 | type=workflow\nWHEN  report.draft_ready  (STR, SAR, CTR, FTR)\nIF    report.approved_by IN roles(compliance_officer)\nTHEN  allow_submit  ELSE hold_for_approval"
+  },
+  "GOV-07": {
+    "name": "Audit trail and access control",
+    "description": "Every action is logged tamper-proof; access is role-based with extra verification, and data is encrypted",
+    "engineering_logic": "RULE GOV-07 | type=control\nWHEN  any.state_change\nTHEN  append(audit_log, hash_chain)  AND  enforce(rbac, mfa)  AND  encrypt(at_rest, in_transit)"
+  },
+  "GOV-08": {
+    "name": "Record keeping",
+    "description": "Records cannot be deleted before five years after the transaction or end of the relationship",
+    "engineering_logic": "RULE GOV-08 | type=control\nWHEN  record.delete_requested\nIF    record.age \u003c 5y_after(txn OR relationship_end)\nTHEN  deny_delete  reason=retention"
+  },
+  "GOV-09": {
+    "name": "No tipping off",
+    "description": "Nothing about an STR or suspicion flag appears in customer-facing screens, responses, alerts to outside systems or exports; only compliance roles see it",
+    "engineering_logic": "RULE GOV-09 | type=control\nWHEN  api.response OR webhook.send OR export.generate\nIF    payload CONTAINS (str.exists OR str.status OR flag.visibility = compliance_only)\nAND   recipient.role NOT IN (compliance_officer, mlro)\nTHEN  strip_fields  AND  log=audit"
+  },
+  "GOV-10": {
+    "name": "Digital lender registration",
+    "description": "A digital lender cannot be activated without its FCCPC approval (banks and other CBN-supervised firms are exempt)",
+    "engineering_logic": "RULE GOV-10 | type=policy\nWHEN  tenant.activate\nIF    tenant.type = digital_lender AND tenant.fccpc_approval IS NULL AND tenant.regulator != CBN\nTHEN  deny_activate  reason=missing_fccpc_registration"
+  },
+  "GOV-11": {
+    "name": "Fast fraud response",
+    "description": "A confirmed-fraud alert not actioned within 30 minutes is escalated",
+    "engineering_logic": "RULE GOV-11 | type=sla\nWHEN  alert.fraud_confirmed\nIF    NOW - alert.confirmed_at \u003e 30m AND alert.actioned = false\nTHEN  escalate  reason=fraud_response_target"
+  },
+  "GOV-12": {
+    "name": "Fraud reporting",
+    "description": "Confirmed fraud can be reported to the industry channel in one click, and unreported confirmed cases are tracked",
+    "engineering_logic": "RULE GOV-12 | type=workflow\nWHEN  alert.fraud_confirmed\nTHEN  offer(report_to_industry_channel)  AND  track(unreported_confirmed_cases)"
+  },
+  "INS-01": {
+    "name": "Staff-linked account",
+    "description": "An account tied to an employee moves far more than similar accounts, or deals with customers that employee serves. Visible to compliance staff only",
+    "points": "20",
+    "engineering_logic": "RULE INS-01 | weight=20\nWHEN  txn.created\nSCOPE account.linked_to_employee = true\nIF    SUM(txn.amount OVER 30d) \u003e peer_group.p95(SUM OVER 30d)\n   OR EXISTS(txn WHERE counterparty.customer_id IN employee.serviced_customers)\nTHEN  signal=INS-01  visibility=compliance_only   # gov=GOV-09"
+  },
+  "INS-02": {
+    "name": "Staff access, then takeover",
+    "description": "Staff viewed or changed a customer's contact details or limits, then money leaves that customer's account within 24 hours",
+    "points": "30",
+    "engineering_logic": "RULE INS-02 | weight=30\nWHEN  txn.type = transfer.outbound\nWINDOW 24h BY customer.id\nIF    EXISTS(staff_action WHERE type IN (view_contact, change_contact, change_limits))\nTHEN  signal=INS-02  evidence=(staff.id, action, time)"
+  },
+  "LEN-01": {
+    "name": "Loan stacking",
+    "description": "Three or more loan applications from one BVN or device in 7 days",
+    "points": "20",
+    "engineering_logic": "RULE LEN-01 | weight=20\nWHEN  loan.application.submitted\nWINDOW 7d BY bvn OR device.id\nIF    COUNT(application) \u003e= 3\nTHEN  signal=LEN-01"
+  },
+  "LEN-02": {
+    "name": "Borrow and cash out",
+    "description": "90% or more of a loan is moved out within 30 minutes of payout",
+    "points": "20",
+    "engineering_logic": "RULE LEN-02 | weight=20\nWHEN  txn.type = transfer.outbound\nWINDOW 30m BY account.id\nIF    EXISTS(loan.disbursement)\nAND   SUM(txn.amount) \u003e= 0.90 * loan.disbursement.amount\nTHEN  signal=LEN-02"
+  },
+  "LEN-03": {
+    "name": "Reused identity",
+    "description": "The same photo, ID document or phone number appears on different applicants",
+    "points": "25",
+    "engineering_logic": "RULE LEN-03 | weight=25\nWHEN  loan.application.submitted\nIF    ANY OF ( photo_hash IN other_applicants , id_document_hash IN other_applicants , phone IN other_applicants )\nTHEN  signal=LEN-03"
+  },
+  "LEN-04": {
+    "name": "Repayments from strangers",
+    "description": "Three or more repayments in 30 days from accounts whose BVN differs from the borrower's",
+    "points": "15",
+    "engineering_logic": "RULE LEN-04 | weight=15\nWHEN  loan.repayment\nWINDOW 30d BY loan.id\nIF    COUNT(repayment WHERE payer.bvn != borrower.bvn) \u003e= 3\nTHEN  signal=LEN-04"
+  },
+  "MUL-01": {
+    "name": "Money passing straight through",
+    "description": "80% or more of money received leaves within 60 minutes",
+    "points": "25",
+    "engineering_logic": "RULE MUL-01 | weight=25\nWHEN  txn.type = transfer.outbound\nWINDOW 60m BY account.id\nIF    SUM(txn.amount WHERE direction=out) \u003e= 0.80 * SUM(txn.amount WHERE direction=in)\nAND   SUM(txn.amount WHERE direction=in) \u003e tenant.cfg.floor\nTHEN  signal=MUL-01  evidence=(in_sum, out_sum, ratio)"
+  },
+  "MUL-02": {
+    "name": "Many senders into one account",
+    "description": "Ten or more different senders pay one account in 24 hours",
+    "points": "20",
+    "engineering_logic": "RULE MUL-02 | weight=20\nWHEN  txn.type = transfer.inbound\nWINDOW 24h BY account.id\nIF    COUNT(DISTINCT sender.id) \u003e= 10\nTHEN  signal=MUL-02"
+  },
+  "MUL-03": {
+    "name": "One payment split many ways",
+    "description": "One incoming payment is split among five or more recipients within 60 minutes",
+    "points": "20",
+    "engineering_logic": "RULE MUL-03 | weight=20\nWHEN  txn.type = transfer.outbound\nWINDOW 60m BY source_inflow.id\nIF    COUNT(DISTINCT beneficiary.id) \u003e= 5\nTHEN  signal=MUL-03"
+  },
+  "MUL-04": {
+    "name": "New account, big volume",
+    "description": "An account under 7 days old moves more than ten times what is normal for its KYC tier",
+    "points": "20",
+    "engineering_logic": "RULE MUL-04 | weight=20\nWHEN  txn.created\nSCOPE account.age \u003c 7d\nIF    SUM(txn.amount OVER account.age) \u003e 10 * kyc_tier.norm(account.kyc_tier)\nTHEN  signal=MUL-04  evidence=(volume, tier_norm)"
+  },
+  "MUL-05": {
+    "name": "Dormant account wakes up",
+    "description": "No activity for 90 days or more, then a large payment in or out",
+    "points": "20",
+    "engineering_logic": "RULE MUL-05 | weight=20\nWHEN  txn.created\nIF    account.days_since_last_activity \u003e= 90\nAND   txn.amount \u003e tenant.cfg.large_after_dormancy\nTHEN  signal=MUL-05"
+  },
+  "MUL-06": {
+    "name": "Shared identity details",
+    "description": "One device used on three or more accounts, or one BVN, phone number or address on several accounts or applications",
+    "points": "25",
+    "engineering_logic": "RULE MUL-06 | weight=25\nWHEN  account.created OR application.submitted OR txn.created\nIF    ANY OF ( COUNT(DISTINCT account.id BY device.id)  \u003e= 3 ,\n               COUNT(DISTINCT account.id BY bvn)        \u003e= 2 ,\n               COUNT(DISTINCT account.id BY phone)      \u003e= 2 ,\n               COUNT(DISTINCT account.id BY address)    \u003e= 2 )\nTHEN  signal=MUL-06  evidence=(shared_identifier, linked_accounts)"
+  },
+  "MUL-07": {
+    "name": "Reported recipient",
+    "description": "The recipient was reported by three or more unrelated senders, or is on a fraud list or the Person of Interest list",
+    "points": "30",
+    "engineering_logic": "RULE MUL-07 | weight=30\nWHEN  txn.type = transfer.outbound\nIF    ANY OF ( COUNT(DISTINCT reporter.id WHERE report.beneficiary = txn.beneficiary) \u003e= 3 ,\n               beneficiary IN fraud_list , beneficiary IN nibss.person_of_interest )\nTHEN  signal=MUL-07"
+  },
+  "MUL-08": {
+    "name": "Quick cash-out",
+    "description": "Money arrives by card or peer-to-peer and is withdrawn at an ATM or POS within 30 minutes",
+    "points": "15",
+    "engineering_logic": "RULE MUL-08 | weight=15\nWHEN  txn.type IN (atm.withdrawal, pos.purchase)\nWINDOW 30m BY account.id\nIF    EXISTS(inflow WHERE source IN (card, p2p))\nAND   txn.amount \u003e= 0.70 * inflow.amount\nTHEN  signal=MUL-08"
+  },
+  "PON-01": {
+    "name": "Ponzi-style pooling",
+    "description": "Twenty or more unrelated senders pay one account in 7 days, and 30% or more of what it pays out goes to people who paid in earlier",
+    "points": "25",
+    "engineering_logic": "RULE PON-01 | weight=25\nWHEN  txn.type = transfer.inbound\nWINDOW 7d BY account.id\nIF    COUNT(DISTINCT sender.id WHERE unrelated = true) \u003e= 20\nAND   SUM(outflow WHERE recipient IN prior_senders) \u003e= 0.30 * SUM(outflow)\nTHEN  signal=PON-01"
+  },
+  "REG-01": {
+    "name": "New-device limit",
+    "description": "A customer sends more than ₦20,000 within 24 hours of linking a new phone or app, or within 24 hours of opening the account",
+    "action": "Declines the transfer",
+    "engineering_logic": "RULE REG-01 | control=hard | action=decline\nWHEN  txn.type = transfer.outbound\nSCOPE tenant.type IN (bank, mfb, psp) AND tenant.instant_payments = true\nIF    txn.amount \u003e tenant.cfg.new_device_cap            # default NGN 20_000\nAND   ANY OF ( device.bound_age \u003c 24h , account.age \u003c 24h )\nTHEN  decision=decline  reason=new_device_or_account_cap"
+  },
+  "REG-02": {
+    "name": "One active device",
+    "description": "A customer logs in on a second phone while another is already linked to the mobile banking app",
+    "action": "Blocks the second login until the customer re-verifies on the new phone",
+    "engineering_logic": "RULE REG-02 | control=hard | action=block_session\nWHEN  session.login\nSCOPE channel = mobile_app\nIF    device.id != account.active_device_id\nAND   account.active_device_id IS NOT NULL\nTHEN  decision=block_session  require=fresh_auth_on_new_device  reason=single_active_device"
+  },
+  "REG-03": {
+    "name": "New-device web login",
+    "description": "A customer logs in to internet banking from a device not seen before",
+    "action": "Asks for stronger extra verification",
+    "engineering_logic": "RULE REG-03 | control=hard | action=step_up\nWHEN  session.login\nSCOPE channel = web\nIF    device.is_new = true\nTHEN  decision=step_up  require=enhanced_mfa  reason=new_device_web_login"
+  },
+  "REG-04": {
+    "name": "Very large transfers",
+    "description": "An individual sends more than ₦25m, or a company more than ₦250m, unless the limit was raised after enhanced checks and extra verification",
+    "action": "Blocks the transfer or sends it for enhanced checks",
+    "engineering_logic": "RULE REG-04 | control=hard | action=block_or_edd\nWHEN  txn.type = transfer.outbound\nIF    ( customer.type = individual AND txn.amount \u003e NGN 25_000_000 )\n   OR ( customer.type = corporate  AND txn.amount \u003e NGN 250_000_000 )\nUNLESS account.limit_raised = true AND account.limit_raise.edd_done = true AND account.limit_raise.mfa_done = true\nTHEN  decision=block  route=edd_queue  reason=high_value_ceiling"
+  },
+  "REG-05": {
+    "name": "Suspect BVN hold",
+    "description": "The sender's BVN is on a temporary suspicious list",
+    "action": "Holds the transfer for up to 24 hours while it is investigated, and opens a case",
+    "engineering_logic": "RULE REG-05 | control=hard | action=hold\nWHEN  txn.type = transfer.outbound\nIF    customer.bvn IN watchlist.temporary_suspect_bvn\nTHEN  decision=hold  hold_max=24h  case=open  reason=suspect_bvn_hold"
+  },
+  "REG-06": {
+    "name": "Digital account opening",
+    "description": "An account is opened or reactivated online without a live-face check, or without live confirmation of the BVN or NIN",
+    "action": "Blocks the account opening or reactivation",
+    "engineering_logic": "RULE REG-06 | control=hard | action=block\nWHEN  account.open OR account.reactivate\nSCOPE channel = digital\nIF    kyc.liveness_passed = false\n   OR kyc.bvn_live_check != verified\n   OR kyc.nin_live_check != verified\nTHEN  decision=block  reason=digital_onboarding_identity_incomplete"
+  },
+  "REG-07": {
+    "name": "Cash payment ceiling",
+    "description": "A cash payment above ₦5m (individual) or ₦10m (company)",
+    "action": "Flags it; payments above the ceiling must go through a financial institution",
+    "engineering_logic": "RULE REG-07 | control=hard | action=flag\nWHEN  txn.type = cash.payment\nIF    ( customer.type = individual AND txn.amount \u003e NGN 5_000_000 )\n   OR ( customer.type = corporate  AND txn.amount \u003e NGN 10_000_000 )\nTHEN  flag=cash_ceiling  require=route_via_financial_institution"
+  },
+  "REG-08": {
+    "name": "Weekly cash withdrawals",
+    "description": "Cash withdrawals across all channels exceed ₦1.5m (individual) or ₦5m (company) in a week",
+    "action": "Applies the 3% (individual) or 5% (company) charge to the excess. Banks only; each institution switches it on or off",
+    "engineering_logic": "RULE REG-08 | control=hard | action=fee | toggle=tenant.type=bank\nWHEN  txn.type = cash.withdrawal\nSCOPE tenant.type = bank AND tenant.cfg.cash_fee_enabled = true\nWINDOW 7d (calendar week)  BY customer.id\nIF    SUM(txn.amount WHERE channel=any) \u003e ( individual ? NGN 1_500_000 : NGN 5_000_000 )\nTHEN  fee = ( individual ? 3% : 5% ) * excess  reason=weekly_cash_limit"
+  },
+  "REG-09": {
+    "name": "ATM limits",
+    "description": "ATM withdrawals above ₦100,000 in a day or ₦850,000 in a week for one customer",
+    "action": "Declines the withdrawal",
+    "engineering_logic": "RULE REG-09 | control=hard | action=decline\nWHEN  txn.type = atm.withdrawal\nIF    SUM(txn.amount) OVER 1d  BY customer.id \u003e NGN 100_000\n   OR SUM(txn.amount) OVER 7d  BY customer.id \u003e NGN 850_000\nTHEN  decision=decline  reason=atm_limit"
+  },
+  "REG-10": {
+    "name": "Foreign transfers",
+    "description": "An international transfer of US$10,000 or more (or equivalent)",
+    "action": "Prepares a report to the NFIU, due within one day of the transaction",
+    "engineering_logic": "RULE REG-10 | control=hard | action=report\nWHEN  txn.type = transfer.international\nIF    txn.amount_usd_equiv \u003e= 10_000\nTHEN  task=report.FTR  due=1d_after_txn  to=NFIU"
+  },
+  "REG-11": {
+    "name": "Sanctions match",
+    "description": "A name, ID or account matches the Nigerian sanctions list, UN lists or other chosen lists (including spelling variations and transliterations), and the match is confirmed or is strong enough for automatic action",
+    "action": "Blocks and freezes, opens a case, and prepares reports to the NFIU and the Nigeria Sanctions Committee",
+    "engineering_logic": "RULE REG-11 | control=hard | action=block\nWHEN  txn.created OR customer.onboarded OR list.updated\nIF    screen(party.name, party.id, party.account) MATCHES sanctions_lists\n        USING fuzzy + transliteration  score \u003e= tenant.cfg.match_threshold\nAND   match.reviewed = confirmed OR tenant.cfg.auto_block_on_strong_match = true\nTHEN  decision=block  freeze=account  case=open  task=report.NFIU,NigSaC  reason=sanctions_match"
+  },
+  "REG-12": {
+    "name": "Politically exposed person",
+    "description": "The customer, or an owner behind a company, is a PEP",
+    "action": "Sends for review with enhanced checks: source of funds, source of wealth and senior management approval",
+    "engineering_logic": "RULE REG-12 | control=hard | action=edd\nWHEN  customer.onboarded OR customer.periodic_review OR txn.created\nIF    customer.is_pep = true OR ANY(beneficial_owner.is_pep = true)\nTHEN  decision=review  require=edd,source_of_funds,source_of_wealth,senior_approval  reason=pep"
+  },
+  "REG-13": {
+    "name": "Person of interest",
+    "description": "The customer or the other party appears on the NIBSS Person of Interest list",
+    "action": "Sends for review and opens a case",
+    "engineering_logic": "RULE REG-13 | control=hard | action=review\nWHEN  txn.created OR customer.onboarded\nIF    customer.id OR counterparty.id IN nibss.person_of_interest\nTHEN  decision=review  case=open  reason=person_of_interest"
+  },
+  "REG-14": {
+    "name": "Suspicious transaction report (STR)",
+    "description": "An alert is still open after 72 hours; or an analyst confirms suspicion",
+    "action": "Escalates the old alert to the compliance officer; once suspicion is confirmed, starts a 24-hour clock to file with the NFIU",
+    "engineering_logic": "RULE REG-14 | control=hard | action=report\nWHEN  alert.created\nIF    alert.age \u003e 72h AND alert.status = open\nTHEN  escalate=compliance_officer  reason=screening_sla_breach\nWHEN  alert.suspicion_confirmed\nTHEN  task=report.STR  due=24h  to=NFIU  gov=GOV-09"
+  },
+  "REG-15": {
+    "name": "BVN watchlist",
+    "description": "The customer's BVN is on the CBN watchlist (categories 0, 1, 2 or 99) and the listing is still active (5 years for category 0, 10 years for the others)",
+    "action": "Blocks new relationships, ATM, POS, internet and mobile banking, cheques and credit",
+    "engineering_logic": "RULE REG-15 | control=hard | action=block\nWHEN  customer.onboarded OR txn.created OR credit.requested OR session.login\nIF    customer.bvn.watchlist_category IN (0, 1, 2, 99)\nAND   watchlist.entry.active = true       # category 0 lasts 5y, others 10y\nTHEN  decision=block  scope=(new_relationship, atm, pos, web, mobile, cheque, credit)  reason=bvn_watchlist"
+  },
+  "REG-16": {
+    "name": "Accounts without BVN",
+    "description": "An account or wallet has no BVN",
+    "action": "Allows money in only; closes the account after 30 days",
+    "engineering_logic": "RULE REG-16 | control=hard | action=restrict\nWHEN  account.created OR daily_job\nIF    account.bvn IS NULL\nTHEN  restrict=inflow_only\nAND   IF account.age \u003e= 30d THEN task=close_account"
+  },
+  "REG-17": {
+    "name": "Large cash report",
+    "description": "A domestic cash deposit, withdrawal or payment of ₦5m or more (individual) or ₦10m or more (company)",
+    "action": "Prepares a currency transaction report for the NFIU (domestic cash only)",
+    "engineering_logic": "RULE REG-17 | control=hard | action=report\nWHEN  txn.type IN (cash.deposit, cash.withdrawal, cash.payment)\nSCOPE txn.domestic = true\nIF    ( customer.type = individual AND txn.amount \u003e= NGN 5_000_000 )\n   OR ( customer.type = corporate  AND txn.amount \u003e= NGN 10_000_000 )\nTHEN  task=report.CTR  format=goAML"
+  },
+  "REG-18": {
+    "name": "PEP monthly report",
+    "description": "Any transaction by a PEP, of any size",
+    "action": "Adds it to the monthly PEP transaction report",
+    "engineering_logic": "RULE REG-18 | control=hard | action=report\nWHEN  txn.created\nIF    customer.is_pep = true\nTHEN  add_to=monthly_pep_report  amount_floor=none"
+  },
+  "REG-19": {
+    "name": "STR completeness",
+    "description": "An STR is submitted without an offence category, a matching indicator, or one of the allowed report types",
+    "action": "Stops the submission so the NFIU system does not reject it",
+    "engineering_logic": "RULE REG-19 | control=hard | action=validate\nWHEN  report.STR.submit\nIF    report.predicate_offence IS NULL\n   OR report.indicator IS NULL\n   OR report.category NOT IN (terrorism_financing, kidnapping_ransom, corruption, fraud, drug_trafficking, general)\nTHEN  reject_submit  reason=goaml_would_reject"
+  },
+  "SEC-01": {
+    "name": "Stolen-password testing",
+    "description": "Ten or more failed logins from one network address across five or more accounts in 5 minutes",
+    "points": "30",
+    "engineering_logic": "RULE SEC-01 | weight=30\nWHEN  auth.failure\nWINDOW 5m BY ip\nIF    COUNT(auth.failure) \u003e= 10 AND COUNT(DISTINCT account.id) \u003e= 5\nTHEN  signal=SEC-01  action_hint=rate_limit_ip"
+  },
+  "SEC-02": {
+    "name": "Password spraying",
+    "description": "One failed login each on 50 or more accounts from one network in an hour",
+    "points": "25",
+    "engineering_logic": "RULE SEC-02 | weight=25\nWHEN  auth.failure\nWINDOW 1h BY network(asn OR /24)\nIF    COUNT(DISTINCT account.id WHERE failures_per_account = 1) \u003e= 50\nTHEN  signal=SEC-02"
+  },
+  "SEC-03": {
+    "name": "Repeated guessing",
+    "description": "Five or more failed logins on one account in 10 minutes",
+    "points": "20",
+    "engineering_logic": "RULE SEC-03 | weight=20\nWHEN  auth.failure\nWINDOW 10m BY account.id\nIF    COUNT(auth.failure) \u003e= 5\nTHEN  signal=SEC-03  action_hint=temporary_lock"
+  },
+  "SEC-04": {
+    "name": "Approval-prompt flooding",
+    "description": "Five or more push or OTP prompts to one user in 10 minutes",
+    "points": "25",
+    "engineering_logic": "RULE SEC-04 | weight=25\nWHEN  mfa.prompt_sent\nWINDOW 10m BY account.id\nIF    COUNT(mfa.prompt_sent WHERE type IN (push, otp)) \u003e= 5\nTHEN  signal=SEC-04  action_hint=pause_prompts"
+  },
+  "SEC-05": {
+    "name": "Hidden location",
+    "description": "An admin or high-value session uses Tor, a known proxy or a VPN",
+    "points": "10",
+    "engineering_logic": "RULE SEC-05 | weight=10\nWHEN  session.login OR txn.created\nSCOPE ( user.role = admin OR txn.amount \u003e tenant.cfg.high_value )\nIF    ip.is_tor = true OR ip.is_known_proxy = true OR ip.is_vpn = true\nTHEN  signal=SEC-05"
+  },
+  "SEC-06": {
+    "name": "Automated behaviour",
+    "description": "A hidden browser, or typing and timing that is not human",
+    "points": "20",
+    "engineering_logic": "RULE SEC-06 | weight=20\nWHEN  session.activity\nIF    ANY OF ( client.headless = true , input.keystroke_interval_ms \u003c tenant.cfg.min_human , input.timing_variance \u003c tenant.cfg.min_variance )\nTHEN  signal=SEC-06"
+  },
+  "SEC-07": {
+    "name": "Session takeover",
+    "description": "The location changes mid-session together with a change of browser or device",
+    "points": "25",
+    "engineering_logic": "RULE SEC-07 | weight=25\nWHEN  session.activity\nIF    session.ip != session.start_ip\nAND   ANY OF ( session.user_agent != start_user_agent , session.device_fp != start_device_fp )\nTHEN  signal=SEC-07  action_hint=revoke_session"
+  },
+  "SEC-08": {
+    "name": "API key misuse",
+    "description": "A key is used from a new network or country, at five times its normal rate, or with many failed or not-found requests that suggest guessing IDs",
+    "points": "30",
+    "engineering_logic": "RULE SEC-08 | weight=30\nWHEN  api.request\nSCOPE auth.type = api_key\nIF    ANY OF ( request.network NOT IN key.known_networks ,\n               request.country NOT IN key.known_countries ,\n               RATE(request OVER 5m) \u003e 5 * key.baseline_rate ,\n               RATIO(status IN (400, 404) OVER 10m) \u003e tenant.cfg.probe_ratio )\nTHEN  signal=SEC-08  action_hint=throttle_key"
+  },
+  "SEC-09": {
+    "name": "Payout details changed",
+    "description": "A webhook address, payout destination or bank account is changed, then a high-value transaction follows within 24 hours",
+    "points": "30",
+    "engineering_logic": "RULE SEC-09 | weight=30\nWHEN  txn.created\nWINDOW 24h BY tenant.id OR merchant.id\nIF    EXISTS(config.changed WHERE field IN (webhook_url, payout_destination, bank_account))\nAND   txn.amount \u003e tenant.cfg.high_value\nTHEN  signal=SEC-09  action_hint=hold_payout"
+  },
+  "SEC-10": {
+    "name": "Rights raised, then data exported",
+    "description": "A user's role is upgraded and they export data within the hour",
+    "points": "30",
+    "engineering_logic": "RULE SEC-10 | weight=30\nWHEN  data.export\nWINDOW 1h BY user.id\nIF    EXISTS(user.role_changed)\nTHEN  signal=SEC-10"
+  },
+  "SEC-11": {
+    "name": "Probing for valid accounts",
+    "description": "Twenty or more lookups of accounts or IDs that do not exist, from one source in 10 minutes",
+    "points": "20",
+    "engineering_logic": "RULE SEC-11 | weight=20\nWHEN  api.lookup\nWINDOW 10m BY source(ip OR api_key)\nIF    COUNT(lookup WHERE result = not_found) \u003e= 20\nTHEN  signal=SEC-11"
+  },
+  "SEC-12": {
+    "name": "Unusually large export",
+    "description": "An export far above the user's or institution's normal size",
+    "points": "25",
+    "engineering_logic": "RULE SEC-12 | weight=25\nWHEN  data.export\nIF    export.rows \u003e 5 * BASELINE(export.rows BY user.id OVER 30d)\n   OR export.rows \u003e 5 * BASELINE(export.rows BY tenant.id OVER 30d)\nTHEN  signal=SEC-12"
+  },
+  "SIM-01": {
+    "name": "Phone not linked to NIN",
+    "description": "The phone number is not linked to a verified NIN, and money is sent above the minimum",
+    "points": "15",
+    "engineering_logic": "RULE SIM-01 | weight=15\nWHEN  txn.type = transfer.outbound\nIF    identity.phone_nin_linked = false\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=SIM-01"
+  },
+  "SIM-02": {
+    "name": "Frequent phone changes",
+    "description": "The phone number on the profile changed twice or more in 30 days",
+    "points": "15",
+    "engineering_logic": "RULE SIM-02 | weight=15\nWHEN  profile.phone_changed\nWINDOW 30d BY customer.id\nIF    COUNT(profile.phone_changed) \u003e= 2\nTHEN  signal=SIM-02"
+  },
+  "SIM-03": {
+    "name": "Recycled number",
+    "description": "The phone number now belongs to a different person than the one on the profile",
+    "points": "25",
+    "engineering_logic": "RULE SIM-03 | weight=25\nWHEN  telco.lookup OR txn.created\nIF    telco.msisdn_subscriber_id != profile.phone_subscriber_id\nTHEN  signal=SIM-03"
+  },
+  "VEL-01": {
+    "name": "Burst of transfers",
+    "description": "Five or more transfers out in 10 minutes",
+    "points": "15",
+    "engineering_logic": "RULE VEL-01 | weight=15\nWHEN  txn.type = transfer.outbound\nWINDOW 10m BY account.id\nIF    COUNT(txn) \u003e= 5\nTHEN  signal=VEL-01  evidence=(count, window)"
+  },
+  "VEL-02": {
+    "name": "Sudden spike",
+    "description": "Money sent out in 24 hours is more than three times the customer's usual daily amount, and above the institution's minimum",
+    "points": "20",
+    "engineering_logic": "RULE VEL-02 | weight=20\nWHEN  txn.type = transfer.outbound\nWINDOW 24h BY account.id\nIF    SUM(txn.amount) \u003e 3 * AVG(daily_outbound OVER 30d)     # relative condition\nAND   SUM(txn.amount) \u003e tenant.cfg.floor                     # absolute condition\nTHEN  signal=VEL-02  evidence=(sum_24h, avg_30d)"
+  },
+  "VEL-03": {
+    "name": "Many new payees",
+    "description": "Three or more new payees added in 24 hours",
+    "points": "15",
+    "engineering_logic": "RULE VEL-03 | weight=15\nWHEN  beneficiary.added\nWINDOW 24h BY account.id\nIF    COUNT(beneficiary.added WHERE is_new = true) \u003e= 3\nTHEN  signal=VEL-03"
+  },
+  "VEL-04": {
+    "name": "Splitting to stay under limits",
+    "description": "Three or more transfers in 24 hours, each just under a known limit (between 90% and 99.9% of it): the ₦20,000 cap, the cash ceiling or the ATM limits",
+    "points": "25",
+    "engineering_logic": "RULE VEL-04 | weight=25\nWHEN  txn.created\nWINDOW 24h BY account.id\nIF    COUNT(txn WHERE txn.amount BETWEEN 0.90*L AND 0.999*L) \u003e= 3\n      WHERE L IN ( tenant.cfg.new_device_cap , cash_ceiling , atm_daily_limit , atm_weekly_limit )\nTHEN  signal=VEL-04  evidence=(limit_hit, amounts)   # structuring"
+  },
+  "VEL-05": {
+    "name": "Repeated round amounts",
+    "description": "Three or more identical round amounts to different people in 24 hours",
+    "points": "10",
+    "engineering_logic": "RULE VEL-05 | weight=10\nWHEN  txn.type = transfer.outbound\nWINDOW 24h BY account.id\nIF    COUNT(txn WHERE txn.amount % 1_000 = 0 AND txn.amount = same AND DISTINCT beneficiary.id) \u003e= 3\nTHEN  signal=VEL-05"
+  },
+  "VEL-06": {
+    "name": "Late-night first payment",
+    "description": "A first large payment to a new payee between midnight and 5 a.m. Nigerian time",
+    "points": "15",
+    "engineering_logic": "RULE VEL-06 | weight=15\nWHEN  txn.type = transfer.outbound\nIF    beneficiary.is_new = true\nAND   txn.amount \u003e tenant.cfg.high_value\nAND   local_time(txn.ts, Africa/Lagos) BETWEEN 00:00 AND 05:00\nAND   COUNT(txn WHERE beneficiary = same OVER ALL) = 0     # first payment\nTHEN  signal=VEL-06"
+  }
+}

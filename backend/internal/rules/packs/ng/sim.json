@@ -1,0 +1,242 @@
+{
+  "rules": [
+    {
+      "id": "SIM-01",
+      "group": "sim",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NCC"
+      ],
+      "sources": [
+        "S11"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No NCC rule on activity after a SIM swap was found; this rule is a design based on the NCC SIM replacement and NIN-linking rules.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "identity"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "identity.phone_nin_linked"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "phone_not_nin_linked"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer the rule looks at (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 10000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "SIM-02",
+      "group": "sim",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NCC"
+      ],
+      "sources": [
+        "S11"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No NCC rule on activity after a SIM swap was found; this rule is a design based on the NCC SIM replacement and NIN-linking rules.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "profile_change"
+        ],
+        "scope": {
+          "left": {
+            "fact": "profile.field"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "phone"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "profile_change",
+            "window": "window",
+            "by": "customer",
+            "where": {
+              "left": {
+                "fact": "profile.field"
+              },
+              "op": "eq",
+              "right": {
+                "literal": "phone"
+              }
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "changes"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "repeated_phone_changes"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "changes",
+          "label": "Phone changes that count as frequent",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 20
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "SIM-03",
+      "group": "sim",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NCC"
+      ],
+      "sources": [
+        "S11"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No NCC rule on activity after a SIM swap was found; this rule is a design based on the NCC SIM replacement and NIN-linking rules.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "telco"
+      ],
+      "trigger": {
+        "events": [
+          "telco_lookup",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "telco.subscriber_matches_profile"
+        },
+        "op": "eq",
+        "right": {
+          "literal": false
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "recycled_number",
+        "min_decision": "step_up"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    }
+  ]
+}
