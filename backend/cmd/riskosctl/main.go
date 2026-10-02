@@ -215,7 +215,7 @@ func userInvite(ctx context.Context, cfg config.Config, args []string, out io.Wr
 	operator := fs.String("operator", "", "who is running this command (recorded in the audit log)")
 	tenant := fs.String("tenant", "", "tenant ID (ten_…)")
 	email := fs.String("email", "", "the person's email address")
-	role := fs.String("role", string(authz.RoleCustomerAdmin), "customer_admin, developer, risk_manager or analyst")
+	role := fs.String("role", string(authz.RoleCustomerAdmin), "customer_admin, developer, risk_manager, analyst, compliance_officer or auditor")
 	if err := fs.Parse(args); err != nil {
 		return err
 	}

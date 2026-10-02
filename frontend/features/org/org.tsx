@@ -46,6 +46,16 @@ const ROLES: { value: Schemas["Role"]; label: string; help: string }[] = [
     label: "Developer",
     help: "API keys, webhooks and events.",
   },
+  {
+    value: "compliance_officer",
+    label: "Compliance officer",
+    help: "Rules library, approvals, alerts and cases.",
+  },
+  {
+    value: "auditor",
+    label: "Auditor",
+    help: "Read-only: events, rules, cases and the audit log.",
+  },
 ];
 const roleLabel = (r: string) =>
   ROLES.find((x) => x.value === r)?.label ?? humanize(r);

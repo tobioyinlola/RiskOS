@@ -12,6 +12,7 @@ import (
 	"log/slog"
 	"net/mail"
 	"net/netip"
+	"slices"
 	"strings"
 	"time"
 	"unicode/utf8"
@@ -892,12 +893,7 @@ type PendingInvite struct {
 }
 
 func validRole(r authz.Role) bool {
-	switch r {
-	case authz.RoleCustomerAdmin, authz.RoleDeveloper, authz.RoleRiskManager, authz.RoleAnalyst:
-		return true
-	default:
-		return false
-	}
+	return slices.Contains(authz.CustomerRoles(), r)
 }
 
 func normalizeEmail(raw string) (string, error) {

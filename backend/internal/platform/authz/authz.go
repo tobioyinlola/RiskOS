@@ -39,6 +39,10 @@ const (
 	WebhooksWrite Permission = "webhooks:write"
 	TeamRead      Permission = "team:read"
 	TeamWrite     Permission = "team:write"
+	// ComplianceRead reads the workspace's rule pack: rules, sources, clocks and gaps.
+	ComplianceRead Permission = "compliance:read"
+	// ComplianceEngineering also shows each rule's engineering logic and machine definition.
+	ComplianceEngineering Permission = "compliance:engineering"
 )
 
 // RulesApprove approves rule changes proposed for a production environment (two-person rule).
@@ -47,6 +51,12 @@ const (
 //
 //nolint:gosec // G101 false positive: a permission name
 const RulesApprove Permission = "rules:approve"
+
+// ComplianceWrite sets the workspace's compliance profile (jurisdiction, licence type and
+// capabilities), which decides the regulatory controls that apply. Only people hold it.
+//
+//nolint:gosec // G101 false positive: a permission name
+const ComplianceWrite Permission = "compliance:write"
 
 // System permissions are held only by RiskOS's own background jobs, never by a customer
 // credential or role.
@@ -62,14 +72,14 @@ func CustomerPermissions() []Permission {
 	return []Permission{
 		APIKeysRead, APIKeysWrite, AuditLogsRead, EventsWrite, EventsRead, RiskEvaluate,
 		RulesRead, RulesWrite, RiskConfigure, AlertsRead, AlertsWrite, CasesRead, CasesWrite,
-		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite,
+		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite, ComplianceRead, ComplianceEngineering,
 	}
 }
 
 // PersonPermissions returns every permission a customer role can hold: the customer
 // permissions plus those reserved for people.
 func PersonPermissions() []Permission {
-	return append(CustomerPermissions(), RulesApprove)
+	return append(CustomerPermissions(), RulesApprove, ComplianceWrite)
 }
 
 // IsCustomerPermission reports whether p exists and may be granted to a customer credential.
@@ -84,7 +94,17 @@ const (
 	RoleDeveloper     Role = "developer"
 	RoleRiskManager   Role = "risk_manager"
 	RoleAnalyst       Role = "analyst"
+	// RoleComplianceOfficer runs the compliance programme: the rule pack, approvals, alerts and
+	// cases.
+	RoleComplianceOfficer Role = "compliance_officer"
+	// RoleAuditor reads, and changes nothing.
+	RoleAuditor Role = "auditor"
 )
+
+// CustomerRoles returns every customer role.
+func CustomerRoles() []Role {
+	return []Role{RoleCustomerAdmin, RoleDeveloper, RoleRiskManager, RoleAnalyst, RoleComplianceOfficer, RoleAuditor}
+}
 
 // Internal RiskOS roles. They grant no access to tenant data: support access to a tenant is a
 // separate, time-boxed, approved grant (ARCHITECTURE.md §8).
@@ -102,14 +122,22 @@ func RolePermissions(r Role) []Permission {
 	case RoleDeveloper:
 		return []Permission{
 			APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead, WebhooksRead, WebhooksWrite,
+			ComplianceRead, ComplianceEngineering,
 		}
 	case RoleRiskManager:
 		return []Permission{
 			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RulesApprove, RiskConfigure,
-			AlertsRead, AlertsWrite, CasesRead, CasesWrite,
+			AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead,
 		}
 	case RoleAnalyst:
-		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite}
+		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead}
+	case RoleComplianceOfficer:
+		return []Permission{
+			EventsRead, RulesRead, RulesApprove, AlertsRead, AlertsWrite, CasesRead, CasesWrite, AuditLogsRead,
+			TeamRead, ComplianceRead, ComplianceWrite,
+		}
+	case RoleAuditor:
+		return []Permission{EventsRead, RulesRead, AlertsRead, CasesRead, AuditLogsRead, TeamRead, ComplianceRead}
 	case RoleOperationsAdmin, RoleSecurityAdmin:
 		return nil
 	default:

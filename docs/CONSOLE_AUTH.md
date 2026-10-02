@@ -8,8 +8,10 @@ Status: **built (build step 7).** API keys (machine access) are unchanged ([TENA
 
 - A user belongs to exactly one tenant and sees both of its environments (test and production).
   Emails are unique across RiskOS; one email signs in to one tenant.
-- Roles: `customer_admin`, `developer`, `risk_manager`, `analyst`, with the same permissions as
-  API key scopes (`platform/authz`).
+- Roles: `customer_admin`, `developer`, `risk_manager`, `analyst`, `compliance_officer` and
+  `auditor` (read-only), with the same permissions as API key scopes (`platform/authz`).
+  `rules:approve` and `compliance:write` are held only by people, never by API keys; only
+  `customer_admin` and `developer` hold `compliance:engineering` (ADR-0006).
 - **Getting an account.** A tenant's first administrator is invited by an operator
   (`riskosctl user invite --tenant ten_… --email … --operator …`, which prints the link), and
   administrators invite others from the console (Team). Either way the result is a single-use

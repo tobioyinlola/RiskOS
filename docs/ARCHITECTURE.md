@@ -259,7 +259,7 @@ RiskOS separates three authentication realms so a compromise in one cannot becom
 - The full secret is shown once. Rotation gives an overlap window; revocation takes effect through a short-lived in-memory cache with a 5-second maximum staleness (assumption) and a Redis invalidation signal.
 - Scopes are least-privilege, for example `events:write` or `risk:evaluate`, and are checked on every route.
 
-**Authorization.** Role-based access control follows the spec's roles (analyst, risk manager, developer, customer admin, operations admin, security admin) against resources and actions. Customer roles and internal roles are separate sets. The default answer is deny.
+**Authorization.** Role-based access control follows the spec's roles (analyst, risk manager, developer, customer admin, compliance officer, auditor, operations admin, security admin) against resources and actions. Customer roles and internal roles are separate sets. The default answer is deny.
 
 **Webhook signing.** Each delivery carries a timestamp, event ID and an HMAC-SHA256 signature over both plus the body. Receivers reject timestamps outside a 5-minute tolerance and repeated event IDs. Webhook secrets are shown once.
 
@@ -630,7 +630,7 @@ password.
 | Tenant context | `platform/tenancy.Scope` (tenant, environment, principal) in the request context; `platform/txn.Runner` opens a transaction and sets `app.tenant_id` / `app.environment_id` transaction-locally for RLS |
 | API keys | `rsk_test_`/`rsk_live_` + 12-char lookup + 32-char secret; HMAC-SHA256 with a pepper (`RISKOS_API_KEY_PEPPER`) stored, constant-time compare; scopes; create, list, rotate (overlap 0-7 days), revoke; a key cannot grant or rotate scopes it lacks |
 | Authentication | Middleware on `/api/v1/` before routing; lookup through the `auth_lookup_api_key` SECURITY DEFINER function (the only cross-tenant query); lookup cache TTL 5 s = revocation staleness bound; uniform 401; 403 `TENANT_SUSPENDED` only after the key verifies |
-| RBAC | `platform/authz`: permission catalog, customer roles (customer_admin, developer, risk_manager, analyst), internal roles with no tenant access; `authz.Require` in services; deny by default |
+| RBAC | `platform/authz`: permission catalog, customer roles (customer_admin, developer, risk_manager, analyst, compliance_officer, auditor), internal roles with no tenant access; `authz.Require` in services; deny by default |
 | Audit log | `audit_log` + `audit_chain_heads`; append-only (grants + trigger); per-tenant SHA-256 chain over a canonical encoding, written in the action's transaction; `riskosctl audit verify` recomputes the chain as the owner |
 | API | `GET /api/v1/whoami`, `GET/POST /api/v1/api-keys`, `POST …/{id}/rotate`, `POST …/{id}/revoke`, `GET /api/v1/audit-logs`; cursor pagination |
 
