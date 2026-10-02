@@ -2,12 +2,16 @@ package tenants
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
+	"github.com/tobioyinlola/RiskOS/backend/internal/tenants/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants/internal/service"
 )
 
@@ -17,6 +21,10 @@ type (
 	Tenant = service.Tenant
 	// CreateParams describes a new tenant.
 	CreateParams = service.CreateParams
+	// Onboarding is a tenant's compliance onboarding.
+	Onboarding = service.OnboardingView
+	// Answers are onboarding answers.
+	Answers = service.Answers
 )
 
 // Errors.
@@ -24,7 +32,18 @@ var (
 	ErrInvalidInput = service.ErrInvalidInput
 	ErrNotFound     = service.ErrNotFound
 	ErrNotActive    = service.ErrNotActive
+	// ErrNoOnboarding means the tenant has no onboarding (created by an operator).
+	ErrNoOnboarding = service.ErrNoOnboarding
+	// ErrOnboardingState means the onboarding cannot change in its current state.
+	ErrOnboardingState = service.ErrOnboardingState
 )
+
+// OnboardingHandlers are the onboarding operations of the public API.
+type OnboardingHandlers interface {
+	GetOnboarding(ctx context.Context, req apigen.GetOnboardingRequestObject) (apigen.GetOnboardingResponseObject, error)
+	SaveOnboarding(ctx context.Context, req apigen.SaveOnboardingRequestObject) (apigen.SaveOnboardingResponseObject, error)
+	SubmitOnboarding(ctx context.Context, req apigen.SubmitOnboardingRequestObject) (apigen.SubmitOnboardingResponseObject, error)
+}
 
 // Module is the tenants module.
 type Module struct {
@@ -58,4 +77,19 @@ func (m *Module) StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenanc
 // operator tool. For operator tooling only.
 func (m *Module) OperatorScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, actor string) (context.Context, error) {
 	return m.svc.OperatorScope(ctx, tenantID, kind, actor)
+}
+
+// HTTPHandlers returns the onboarding handlers of the public API.
+func (m *Module) HTTPHandlers(clk clock.Clock) OnboardingHandlers { return handler.New(m.svc, clk) }
+
+// StaffOnboarding returns a tenant's onboarding for RiskOS staff, recorded in the tenant's audit
+// log. ctx must be a tenant scope from StaffScope. For the admin module only.
+func (m *Module) StaffOnboarding(ctx context.Context) (Onboarding, error) {
+	return m.svc.StaffOnboarding(ctx)
+}
+
+// ReviewOnboarding approves (opening production) or rejects (with a note for the customer) a
+// submitted onboarding. ctx must be a tenant scope from StaffScope. For the admin module only.
+func (m *Module) ReviewOnboarding(ctx context.Context, approve bool, note string, now time.Time) (Onboarding, error) {
+	return m.svc.ReviewOnboarding(ctx, approve, note, now)
 }

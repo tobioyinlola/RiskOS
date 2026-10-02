@@ -236,6 +236,13 @@ type FeatureStoreState struct {
 	ResetAt        *time.Time
 }
 
+type GoogleLogin struct {
+	StateHash   []byte
+	BrowserHash []byte
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+}
+
 type RiskSetting struct {
 	TenantID             uuid.UUID
 	EnvironmentID        uuid.UUID
@@ -301,6 +308,24 @@ type RuleVersion struct {
 	CreatedAt     time.Time
 	CreatedBy     string
 	RestoredFrom  *int32
+}
+
+type Signup struct {
+	ID              uuid.UUID
+	TokenHash       []byte
+	Email           string
+	Name            string
+	BusinessName    *string
+	PasswordHash    *string
+	GoogleSubject   *string
+	ExistingAccount bool
+	EmailVerifiedAt *time.Time
+	CodeSentCount   int32
+	CodeSentAt      *time.Time
+	FailedAttempts  int32
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	CompletedAt     *time.Time
 }
 
 type SsoConnection struct {
@@ -395,11 +420,26 @@ type SupportAccess struct {
 }
 
 type Tenant struct {
-	ID        uuid.UUID
-	Name      string
-	Region    string
-	Status    string
-	CreatedAt time.Time
+	ID                uuid.UUID
+	Name              string
+	Region            string
+	Status            string
+	CreatedAt         time.Time
+	ProductionEnabled bool
+	Origin            string
+}
+
+type TenantOnboarding struct {
+	TenantID    uuid.UUID
+	Answers     []byte
+	Status      string
+	UpdatedAt   time.Time
+	UpdatedBy   string
+	SubmittedAt *time.Time
+	SubmittedBy *string
+	ReviewedAt  *time.Time
+	ReviewedBy  *string
+	ReviewNote  *string
 }
 
 type User struct {
@@ -409,7 +449,7 @@ type User struct {
 	Name           string
 	Role           string
 	Status         string
-	PasswordHash   string
+	PasswordHash   *string
 	TotpSecretEnc  []byte
 	TotpLastStep   *int64
 	RecoveryHashes [][]byte
@@ -418,6 +458,7 @@ type User struct {
 	UpdatedAt      time.Time
 	LastLoginAt    *time.Time
 	SsoSubject     *string
+	GoogleSubject  *string
 }
 
 type UserInvite struct {

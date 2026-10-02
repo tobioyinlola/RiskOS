@@ -106,13 +106,19 @@ func (m *mockIDP) sign(t *testing.T, claims map[string]any) string {
 // the request's nonce). It returns the code and the state to send back.
 func (m *mockIDP) authorize(t *testing.T, authURL string, claims map[string]any) (code, state string) {
 	t.Helper()
+	return m.authorizeAt(t, authURL, "http://console.test/sso/callback", claims)
+}
+
+// authorizeAt is authorize for a request that must come back to redirect.
+func (m *mockIDP) authorizeAt(t *testing.T, authURL, redirect string, claims map[string]any) (code, state string) {
+	t.Helper()
 	u, err := url.Parse(authURL)
 	require.NoError(t, err)
 	q := u.Query()
 	require.Equal(t, m.srv.URL+"/authorize", u.Scheme+"://"+u.Host+u.Path)
 	require.Equal(t, "code", q.Get("response_type"))
 	require.Equal(t, "S256", q.Get("code_challenge_method"))
-	require.Equal(t, "http://console.test/sso/callback", q.Get("redirect_uri"))
+	require.Equal(t, redirect, q.Get("redirect_uri"))
 	require.NotEmpty(t, q.Get("nonce"))
 	now := time.Now()
 	full := map[string]any{"iss": m.srv.URL, "aud": q.Get("client_id"), "iat": now.Unix(), "exp": now.Add(5 * time.Minute).Unix(), "nonce": q.Get("nonce")}

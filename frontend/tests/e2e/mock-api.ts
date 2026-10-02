@@ -65,6 +65,43 @@ export interface MockApi {
   events: ReturnType<typeof eventSummary>[];
   /** The deny list; the console adds and removes entries. */
   deny: Record<string, unknown>[];
+  /** Whether the workspace's production environment is open (self-serve ones start locked). */
+  productionEnabled: boolean;
+  /** The workspace's compliance onboarding (null: created by an operator, none). */
+  onboarding: { status: string; answers: Record<string, unknown> } | null;
+}
+
+/** The answers onboarding needs before it can be submitted. */
+const REQUIRED = [
+  "legal_name",
+  "country",
+  "registration_number",
+  "website",
+  "industry",
+  "regulated",
+  "aml_program",
+  "compliance_officer_name",
+  "compliance_officer_email",
+  "monitored_events",
+  "monthly_volume",
+  "regions_served",
+  "go_live",
+  "data_protection",
+  "data_residency",
+  "accept_terms",
+  "accept_dpa",
+];
+
+function missing(answers: Record<string, unknown>): string[] {
+  return REQUIRED.filter((k) => {
+    const v = answers[k];
+    return (
+      v === undefined ||
+      v === "" ||
+      v === false ||
+      (Array.isArray(v) && v.length === 0)
+    );
+  }).filter((k) => !(k === "regulated" && answers.regulated === false));
 }
 
 let eventSeq = 0;
@@ -196,6 +233,8 @@ export async function mockApi(page: Page): Promise<MockApi> {
     changeStatus: "pending",
     events: [],
     deny: [],
+    productionEnabled: true,
+    onboarding: null,
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -208,9 +247,13 @@ export async function mockApi(page: Page): Promise<MockApi> {
       name: "Ada Lovelace",
       role: "customer_admin",
     },
-    tenant: { id: "ten_1", name: "Acme Payments" },
+    tenant: {
+      id: "ten_1",
+      name: "Acme Payments",
+      production_enabled: state.productionEnabled,
+    },
     permissions: ALL_PERMISSIONS,
-    environments: ["test", "production"],
+    environments: state.productionEnabled ? ["test", "production"] : ["test"],
     csrf_token: csrf,
     expires_at: "2026-09-30T23:59:59Z",
     reauth_valid_until: null,
@@ -287,6 +330,98 @@ export async function mockApi(page: Page): Promise<MockApi> {
       }
       state.signedIn = true;
       return json(route, { state: "active", mfa_methods: [] });
+    }
+
+    // Self-serve sign-up: the emailed code is 123456; Google sends the browser straight back.
+    if (path === "/auth/signup/options") {
+      return json(route, { email: true, google: true });
+    }
+    if (path === "/auth/signup") {
+      if (
+        !body?.name ||
+        !body?.email ||
+        !body?.business_name ||
+        !body?.password
+      ) {
+        state.problems.push("sign-up without every field");
+      }
+      return json(
+        route,
+        {
+          email: body?.email,
+          resend_after_seconds: 60,
+          expires_at: "2026-10-01T23:00:00Z",
+        },
+        202,
+      );
+    }
+    if (path === "/auth/signup/resend") {
+      return json(route, {
+        email: "new@acme.example",
+        resend_after_seconds: 60,
+        expires_at: "2026-10-01T23:00:00Z",
+      });
+    }
+    if (path === "/auth/signup/verify") {
+      if (body?.code !== "123456") {
+        return error(
+          route,
+          400,
+          "CODE_INVALID",
+          "That code is incorrect. Check the latest email and try again.",
+        );
+      }
+      state.productionEnabled = false;
+      state.onboarding = { status: "draft", answers: {} };
+      return json(route, { state: "enrollment_required" });
+    }
+    if (path === "/auth/google/start") {
+      return json(route, {
+        redirect_url: `${url.origin}/signup/google?code=g-1&state=gs-1`,
+      });
+    }
+    if (path === "/auth/google/callback") {
+      if (body?.code !== "g-1" || body?.state !== "gs-1") {
+        state.problems.push("Google callback without Google's code and state");
+      }
+      return json(route, {
+        outcome: "needs_business",
+        email: "grace@acme.example",
+        name: "Grace Hopper",
+      });
+    }
+    if (path === "/auth/signup/complete") {
+      state.productionEnabled = false;
+      state.onboarding = { status: "draft", answers: {} };
+      return json(route, { state: "enrollment_required" });
+    }
+
+    // Compliance onboarding.
+    if (path === "/onboarding" || path === "/onboarding/submit") {
+      if (!state.onboarding)
+        return error(route, 404, "NOT_FOUND", "Not found.");
+      if (method === "PUT") state.onboarding.answers = body ?? {};
+      if (path === "/onboarding/submit") {
+        if (missing(state.onboarding.answers).length) {
+          return error(
+            route,
+            400,
+            "INVALID_REQUEST",
+            "Answer everything first.",
+          );
+        }
+        state.onboarding.status = "submitted";
+      }
+      return json(route, {
+        status: state.onboarding.status,
+        answers: state.onboarding.answers,
+        missing: missing(state.onboarding.answers),
+        production_enabled: state.productionEnabled,
+        submitted_at: state.onboarding.status === "submitted" ? NOW : null,
+        reviewed_at: null,
+        review_note: null,
+        updated_at: NOW,
+      });
     }
 
     // Sign-in and second factors.

@@ -10,6 +10,11 @@ and logs. Design: [ARCHITECTURE.md §8](ARCHITECTURE.md#8-tenancy-and-isolation)
   Postgres, Redis, workers and keys). Its data never leaves that cell (§16.6).
 - **Environment:** `test` or `production` under a tenant, with separate API keys, rules, data and
   webhooks. A test key can never read production rows.
+- **Origin:** a tenant is created by an operator (`riskosctl tenant create`) or by self-serve
+  sign-up ([ADR-0005](adr/ADR-0005-self-serve-signup.md)). A self-serve tenant's production
+  environment is locked (`tenants.production_enabled = false`) until RiskOS staff approve its
+  compliance onboarding (`tenant_onboarding`, RLS like every tenant table); console sessions
+  cannot scope into it meanwhile.
 - **Every table** that holds tenant data carries `tenant_id` and `environment_id`, and every index
   on it starts with `(tenant_id, environment_id, …)`.
 

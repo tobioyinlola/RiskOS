@@ -94,3 +94,8 @@ WHERE tenant_id = @tenant_id AND id = @id;
 
 -- name: DeleteCredential :execrows
 DELETE FROM webauthn_credentials WHERE tenant_id = @tenant_id AND user_id = @user_id AND id = @id;
+
+-- name: BindGoogleSubject :execrows
+-- Binds Google's subject on the first Google sign-in; afterwards it must match.
+UPDATE users SET google_subject = @subject, updated_at = @now
+WHERE tenant_id = @tenant_id AND id = @id AND (google_subject IS NULL OR google_subject = @subject);

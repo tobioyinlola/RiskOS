@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 	"unicode/utf8"
 
 	"github.com/google/uuid"
@@ -43,6 +44,11 @@ type CreateParams struct {
 	Region string
 	// Actor names the operator tool or person creating the tenant, for the audit log.
 	Actor string
+	// SelfServe marks a tenant created by public sign-up: its production environment stays locked
+	// and it gets a compliance onboarding to complete.
+	SelfServe bool
+	// Now is the creation time (onboarding timestamps); required with SelfServe.
+	Now time.Time
 }
 
 // Service creates tenants and resolves environments.
@@ -76,15 +82,24 @@ func (s *Service) Create(ctx context.Context, p CreateParams, then func(ctx cont
 	ctx = tenancy.WithScope(ctx, systemScope(t.ID, t.TestEnvID, tenancy.EnvironmentTest, p.Actor))
 
 	err := s.runner.Run(ctx, func(ctx context.Context) error {
-		if err := s.store.InsertTenant(ctx, t.ID, t.Name, t.Region); err != nil {
+		origin := "operator"
+		if p.SelfServe {
+			origin = "self_serve"
+		}
+		if err := s.store.InsertTenant(ctx, t.ID, t.Name, t.Region, origin, !p.SelfServe); err != nil {
 			return err
 		}
 		if err := s.audit.Record(ctx, audit.Entry{
 			Action: "tenant.created", ResourceType: "tenant", ResourceID: ids.Format(ids.PrefixTenant, t.ID),
 			Outcome: audit.OutcomeSuccess, TenantLevel: true,
-			Metadata: map[string]any{"name": t.Name, "region": t.Region},
+			Metadata: map[string]any{"name": t.Name, "region": t.Region, "origin": origin},
 		}); err != nil {
 			return err
+		}
+		if p.SelfServe {
+			if err := s.store.InsertOnboarding(ctx, t.ID, p.Actor, p.Now); err != nil {
+				return err
+			}
 		}
 		for _, env := range []struct {
 			id   uuid.UUID

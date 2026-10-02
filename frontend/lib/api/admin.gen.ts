@@ -228,6 +228,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Self-serve workspaces' compliance onboarding, submitted first
+         * @description Identity, status and dates only. Requires the operations_admin role.
+         */
+        get: operations["listOnboardingReviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/onboarding/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One workspace's onboarding answers
+         * @description Requires the operations_admin role. Reading the answers is recorded in the staff audit log
+         *     and the tenant's.
+         */
+        get: operations["getOnboardingReview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/onboarding/{tenant_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a submitted onboarding
+         * @description Requires the operations_admin role. Opens the workspace's production environment. Recorded in
+         *     the staff audit log and the tenant's.
+         */
+        post: operations["approveOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/onboarding/{tenant_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a submitted onboarding back with a note
+         * @description Requires the operations_admin role and a note of 10 to 1000 characters, which the customer
+         *     sees. The customer can change their answers and submit again. Production stays locked.
+         */
+        post: operations["rejectOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/audit-log": {
         parameters: {
             query?: never;
@@ -372,6 +455,44 @@ export interface components {
         SupportAccessList: {
             data: components["schemas"]["SupportAccess"][];
         };
+        /** @enum {string} */
+        OnboardingStatus: "draft" | "submitted" | "approved" | "rejected";
+        OnboardingQueueItem: {
+            tenant_id: string;
+            tenant_name: string;
+            tenant_status: string;
+            /** Format: date-time */
+            tenant_created_at: string;
+            status: components["schemas"]["OnboardingStatus"];
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            reviewed_at: string | null;
+        };
+        OnboardingQueue: {
+            data: components["schemas"]["OnboardingQueueItem"][];
+        };
+        OnboardingReview: {
+            tenant_id: string;
+            tenant_name: string;
+            status: components["schemas"]["OnboardingStatus"];
+            /** @description The customer's answers (the customer API's OnboardingAnswers). */
+            answers: {
+                [key: string]: unknown;
+            };
+            missing: string[];
+            production_enabled: boolean;
+            /** Format: date-time */
+            submitted_at: string | null;
+            submitted_by: string | null;
+            /** Format: date-time */
+            reviewed_at: string | null;
+            reviewed_by: string | null;
+            review_note: string | null;
+        };
+        OnboardingDecision: {
+            note?: string;
+        };
         StaffAuditEntry: {
             id: string;
             /** Format: date-time */
@@ -455,6 +576,7 @@ export interface components {
         };
     };
     parameters: {
+        TenantID: string;
         AccessID: string;
     };
     requestBodies: never;
@@ -787,6 +909,118 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listOnboardingReviews: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The queue. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingQueue"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getOnboardingReview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingReview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["OnboardingDecision"];
+            };
+        };
+        responses: {
+            /** @description The approved onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingReview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingDecision"];
+            };
+        };
+        responses: {
+            /** @description The rejected onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OnboardingReview"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
             default: components["responses"]["DefaultError"];

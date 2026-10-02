@@ -10,7 +10,7 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 
 | Section | Path | Needs | What it does |
 |---|---|---|---|
-| Overview | `/` | `events:read` or `alerts:read` | Open alerts and cases, the risk distribution and decisions of recent events |
+| Overview | `/` | `events:read` or `alerts:read` | A greeting and quick actions; the mean score of recent events with its trend and a chart, interventions and the risk mix, open alerts and cases, and recent activity filtered by pill tabs |
 | Live monitor | `/live` | `events:read` | Events as they arrive (checked every 2 seconds). New events wait above the table while you hover it, have an event open or pause, so rows never move under you; arrivals are announced politely to screen readers |
 | Events | `/events` | `events:read` | Event explorer filtered by type, band, decision and user (in the URL, so a view can be shared); the drawer shows the evaluation (score, band, decision, reasons), links to the user, account and device, and the raw and normalized payloads |
 | Transactions | `/transactions` | `events:read` | Transaction events with amount, direction, beneficiary and channel |
@@ -26,12 +26,27 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 | Team | `/team` | `team:read` | Members, roles, invites (emailed when RiskOS has email configured; the link is also shown once to copy) |
 | Audit log | `/audit-logs` | `audit_logs:read` | The tenant's audit trail |
 | Account security | `/account` | signed in | Passkeys, authenticator app, recovery codes |
+| Sign-up | `/signup`, `/signup/google` | no account | Create a workspace with email (a 6-digit emailed code) or Google, then a second factor ([CONSOLE_AUTH.md](CONSOLE_AUTH.md#sign-up)) |
+| Onboarding | `/onboarding` | `team:read` (`team:write` to answer) | A self-serve workspace's compliance onboarding (below) |
 
 A section appears in the navigation only when the user holds one of its permissions; the API
 enforces the same permissions on every request.
 
 Analytics are computed from the events when you open the page. TODO(phase-9): precompute
 hourly rollups if 30-day windows become slow at production volumes.
+
+## Onboarding
+
+A self-serve workspace answers a compliance onboarding before its production environment opens.
+`/onboarding` is a five-step page outside the console shell: business (legal name, country,
+registration number, website, industry), regulation (regulator and licence, AML/CFT programme,
+compliance officer, screening provider), use case (events, monthly volume, countries served,
+go-live), data and privacy (data protection laws, residency, DPO, terms and data processing
+agreement), then review and submit. Answers are saved at each step (`PUT /api/v1/onboarding`);
+`missing` lists what submitting still needs. Submitted answers are frozen while RiskOS reviews
+them ([ADMIN.md](ADMIN.md#onboarding-reviews)); a rejected onboarding shows the reviewer's note and
+can be changed and submitted again. Until approval the overview shows a "Production is locked"
+banner and the Production switch is disabled.
 
 ## Environments
 
@@ -42,16 +57,17 @@ per browser. In production the console shows a PRODUCTION banner across the top.
 
 ## Layout and preferences
 
-- **Navigation.** The left navigation (240px) collapses to an icon rail with the button at its
-  foot or with `[`. In the rail, each section's name shows on hover or focus. Narrow screens get
-  a drawer instead.
+- **Navigation.** The left navigation (248px) has the workspace switcher on top, the main
+  sections, then the Workflows and Organization groups and an onboarding card. It collapses to
+  an icon rail with the button at its foot or with `[`; in the rail, each section's name shows
+  on hover or focus. Narrow screens get a drawer instead.
 - **Command palette.** `Ctrl+K` (`⌘K` on a Mac), or the search box in the top bar, opens the
-  palette. Type to find a section or an action (switch environment, theme, row density,
+  palette. Type to find a section or an action (switch environment, row density,
   navigation, shortcuts, sign out), then press Enter.
-- **Preferences.** The theme (dark Console by default, light Daylight), table row density
-  (Default 40px or Compact 32px) and the navigation state are kept per browser. The top bar has
-  buttons for theme and density. The theme is applied before the page paints, so it never
-  flashes.
+- **Preferences.** Table row density (Default 52px or Compact 40px) and the navigation state
+  are kept per browser; the top bar has a density button. The console is light only.
+- **Alerts bell.** The bell in the top bar opens the alert queue and shows a dot while alerts
+  are open.
 - **Evidence.** IDs in drawers and headers have a copy button, and code and payload blocks can
   be copied in one click.
 - **Danger actions.** Revoking a key, disabling a webhook endpoint and removing a passkey each

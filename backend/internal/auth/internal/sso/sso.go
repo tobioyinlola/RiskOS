@@ -61,6 +61,8 @@ type Connection struct {
 	ClientID     string
 	ClientSecret string
 	RedirectURL  string
+	// Scopes are requested in addition to openid and email (Google asks for profile).
+	Scopes []string
 }
 
 // Identity is what a verified ID token says about the person.
@@ -68,6 +70,8 @@ type Identity struct {
 	Subject       string
 	Email         string
 	EmailVerified bool
+	// Name is the person's name when the provider shares it (the profile scope).
+	Name string
 }
 
 // CheckIssuer validates an issuer URL's form: https (http only when private addresses are
@@ -111,7 +115,7 @@ func (c *Client) provider(ctx context.Context, issuer string, fresh bool) (*oidc
 func (c *Client) oauth(p *oidc.Provider, conn Connection) *oauth2.Config {
 	return &oauth2.Config{
 		ClientID: conn.ClientID, ClientSecret: conn.ClientSecret, Endpoint: p.Endpoint(),
-		RedirectURL: conn.RedirectURL, Scopes: []string{oidc.ScopeOpenID, "email"},
+		RedirectURL: conn.RedirectURL, Scopes: append([]string{oidc.ScopeOpenID, "email"}, conn.Scopes...),
 	}
 }
 
@@ -150,6 +154,7 @@ func (c *Client) Exchange(ctx context.Context, conn Connection, code, nonce, ver
 	var claims struct {
 		Email         string `json:"email"`
 		EmailVerified any    `json:"email_verified"`
+		Name          string `json:"name"`
 	}
 	if err := idt.Claims(&claims); err != nil {
 		return Identity{}, fmt.Errorf("%w: claims: %w", ErrRejected, err)
@@ -157,5 +162,6 @@ func (c *Client) Exchange(ctx context.Context, conn Connection, code, nonce, ver
 	return Identity{
 		Subject: idt.Subject, Email: strings.ToLower(strings.TrimSpace(claims.Email)),
 		EmailVerified: claims.EmailVerified == true || claims.EmailVerified == "true",
+		Name:          strings.TrimSpace(claims.Name),
 	}, nil
 }

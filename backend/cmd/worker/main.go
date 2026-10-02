@@ -103,7 +103,8 @@ func run() (err error) {
 			Console: cc, Cookie: auth.CookieConfig{ConsoleURL: cfg.Console.URL}, Logger: logger,
 		})
 		jobs.Register(registry, authModule.InviteEmailJob(sender))
-		logger.InfoContext(ctx, "invite emails enabled", slog.String("smtp_host", cfg.SMTP.Host))
+		jobs.Register(registry, authModule.SignupEmailJob(sender))
+		logger.InfoContext(ctx, "invite and sign-up emails enabled", slog.String("smtp_host", cfg.SMTP.Host))
 	}
 	jobs.Register(registry, jobs.NoopHandler(logger))
 	jobs.Register(registry, alertsModule.RaiseJob(tenantsModule))

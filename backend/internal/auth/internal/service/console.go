@@ -92,6 +92,9 @@ type Session struct {
 	ReauthAt        *time.Time
 	TestEnvID       uuid.UUID
 	ProductionEnvID uuid.UUID
+	// ProductionEnabled is false while a self-serve tenant's onboarding is not approved: the
+	// session cannot act in production.
+	ProductionEnabled bool
 	// CSRF is the token the console must echo in X-CSRF-Token on unsafe requests.
 	CSRF string
 }
@@ -120,6 +123,9 @@ type Console struct {
 	// sso talks to identity providers; ssoKey derives each request's PKCE verifier and nonce.
 	sso    *sso.Client
 	ssoKey []byte
+	// signup configures self-serve sign-up; signupKey derives its emailed codes.
+	signup    SignupConfig
+	signupKey []byte
 }
 
 // PasskeyRP returns the passkey relying party ID and allowed origins.
@@ -143,6 +149,8 @@ func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock
 	invite.Write([]byte("riskos-invite-key"))
 	ssoKey := hmac.New(sha256.New, cfg.Secret)
 	ssoKey.Write([]byte("riskos-sso-key"))
+	signupKey := hmac.New(sha256.New, cfg.Secret)
+	signupKey.Write([]byte("riskos-signup-code-key"))
 	wa, err := webauthn.New(&webauthn.Config{RPID: cfg.RPID, RPDisplayName: "RiskOS", RPOrigins: cfg.Origins})
 	if err != nil {
 		return nil, fmt.Errorf("configure passkeys: %w", err)
@@ -150,7 +158,7 @@ func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock
 	return &Console{
 		store: st, runner: runner, audit: rec, clock: clk, limiter: limiter, sealer: sealer,
 		csrfKey: csrf.Sum(nil), wa: wa, cfg: cfg, logger: logger, inviteKey: invite.Sum(nil),
-		sso: sso.New(ssoTimeout, cfg.SSOAllowPrivate), ssoKey: ssoKey.Sum(nil),
+		sso: sso.New(ssoTimeout, cfg.SSOAllowPrivate), ssoKey: ssoKey.Sum(nil), signupKey: signupKey.Sum(nil),
 	}, nil
 }
 
@@ -205,7 +213,7 @@ func (c *Console) ResolveSession(ctx context.Context, token string) (Session, er
 	s := Session{
 		ID: r.ID, TenantID: r.TenantID, TenantName: r.TenantName, UserID: r.UserID, State: r.State,
 		Role: authz.Role(r.UserRole), CreatedAt: r.CreatedAt, ExpiresAt: r.ExpiresAt, ReauthAt: r.ReauthAt,
-		TestEnvID: r.TestEnvID, ProductionEnvID: r.ProductionEnvID, CSRF: c.csrfFor(r.ID),
+		TestEnvID: r.TestEnvID, ProductionEnvID: r.ProductionEnvID, ProductionEnabled: r.ProductionEnabled, CSRF: c.csrfFor(r.ID),
 	}
 	if now.Sub(r.LastSeenAt) >= time.Minute {
 		tctx := tenantCtx(ctx, s.TenantID, userPrincipal(s.UserID, s.Role))
@@ -223,6 +231,9 @@ func (c *Console) Scope(s Session, kind tenancy.EnvironmentKind) (tenancy.Scope,
 	}
 	env := s.TestEnvID
 	if kind == tenancy.EnvironmentProduction {
+		if !s.ProductionEnabled {
+			return tenancy.Scope{}, domain.ErrProductionLocked
+		}
 		env = s.ProductionEnvID
 	}
 	return tenancy.Scope{TenantID: s.TenantID, EnvironmentID: env, EnvironmentKind: kind, Principal: userPrincipal(s.UserID, s.Role)}, nil
@@ -280,11 +291,12 @@ func (c *Console) Login(ctx context.Context, email, password string, cl Client) 
 	if err != nil {
 		return SignIn{}, err
 	}
-	if u == nil {
+	if u == nil || u.PasswordHash == nil {
+		// Unknown emails and Google-only accounts (no password) look the same.
 		console.VerifyDummy(password)
 		return SignIn{}, domain.ErrInvalidCredentials
 	}
-	ok, err := console.VerifyPassword(password, u.PasswordHash)
+	ok, err := console.VerifyPassword(password, *u.PasswordHash)
 	if err != nil {
 		return SignIn{}, err
 	}
@@ -1073,7 +1085,7 @@ func (c *Console) AcceptInvite(ctx context.Context, token, name, password string
 			return domain.ErrInviteInvalid
 		}
 		if err := c.store.InsertUser(ctx, sqlcgen.InsertUserParams{
-			ID: userID, Email: inv.Email, Name: name, Role: inv.Role, PasswordHash: hash, Now: now,
+			ID: userID, Email: inv.Email, Name: name, Role: inv.Role, PasswordHash: &hash, Now: now,
 			CreatedBy: ids.Format(ids.PrefixInvite, inv.ID),
 		}); err != nil {
 			return err

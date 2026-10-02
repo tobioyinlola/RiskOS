@@ -43,6 +43,20 @@ var (
 	ErrSSOFailed        = errors.New("single sign-on failed")
 	ErrSSOProvider      = errors.New("identity provider unavailable")
 	ErrSSONotFound      = errors.New("no single sign-on connection")
+
+	// ErrProductionLocked means the tenant's production environment opens only after RiskOS
+	// approves its onboarding.
+	ErrProductionLocked = errors.New("production is locked until onboarding is approved")
+	// ErrSignupDisabled means sign-up with email is not available.
+	ErrSignupDisabled = errors.New("sign-up is not available")
+	// ErrSignupInvalid means the sign-up is unknown, expired, finished or used up.
+	ErrSignupInvalid = errors.New("sign-up is invalid or expired")
+	// ErrCodeInvalid means the emailed code is wrong.
+	ErrCodeInvalid = errors.New("the code is incorrect")
+	// ErrGoogleNotConfigured means Google sign-in is not set up.
+	ErrGoogleNotConfigured = errors.New("google sign-in is not set up")
+	// ErrGoogleFailed covers Google sign-ins that did not verify.
+	ErrGoogleFailed = errors.New("google sign-in failed")
 	// Support access by RiskOS staff (the admin realm resolves it).
 	ErrStaffUnauthenticated = errors.New("staff session required")
 	ErrSupportDenied        = errors.New("support access is not approved, has ended or is not yours")

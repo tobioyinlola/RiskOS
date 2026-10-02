@@ -38,6 +38,13 @@ type (
 	CreateKeyInput = service.CreateKeyInput
 	// CreatedKey is a new API key with the only copy of its secret.
 	CreatedKey = domain.CreatedKey
+	// TenantCreator creates self-serve tenants (the tenants module, adapted by the composition
+	// root).
+	TenantCreator = service.TenantCreator
+	// GoogleConfig registers RiskOS with Google for signing in and up.
+	GoogleConfig = service.GoogleConfig
+	// SignupEmailArgs is the job that emails a sign-up's code.
+	SignupEmailArgs = service.SignupEmailArgs
 )
 
 // Errors.
@@ -85,6 +92,13 @@ type ConsoleHandlers interface {
 	GetSSO(ctx context.Context, req apigen.GetSSORequestObject) (apigen.GetSSOResponseObject, error)
 	PutSSO(ctx context.Context, req apigen.PutSSORequestObject) (apigen.PutSSOResponseObject, error)
 	DeleteSSO(ctx context.Context, req apigen.DeleteSSORequestObject) (apigen.DeleteSSOResponseObject, error)
+	GetSignupOptions(ctx context.Context, req apigen.GetSignupOptionsRequestObject) (apigen.GetSignupOptionsResponseObject, error)
+	StartSignup(ctx context.Context, req apigen.StartSignupRequestObject) (apigen.StartSignupResponseObject, error)
+	ResendSignupCode(ctx context.Context, req apigen.ResendSignupCodeRequestObject) (apigen.ResendSignupCodeResponseObject, error)
+	VerifySignup(ctx context.Context, req apigen.VerifySignupRequestObject) (apigen.VerifySignupResponseObject, error)
+	CompleteSignup(ctx context.Context, req apigen.CompleteSignupRequestObject) (apigen.CompleteSignupResponseObject, error)
+	StartGoogle(ctx context.Context, req apigen.StartGoogleRequestObject) (apigen.StartGoogleResponseObject, error)
+	FinishGoogle(ctx context.Context, req apigen.FinishGoogleRequestObject) (apigen.FinishGoogleResponseObject, error)
 	ListTeamMembers(ctx context.Context, req apigen.ListTeamMembersRequestObject) (apigen.ListTeamMembersResponseObject, error)
 	UpdateTeamMember(ctx context.Context, req apigen.UpdateTeamMemberRequestObject) (apigen.UpdateTeamMemberResponseObject, error)
 	ListInvites(ctx context.Context, req apigen.ListInvitesRequestObject) (apigen.ListInvitesResponseObject, error)
@@ -110,8 +124,15 @@ type Config struct {
 	// Limiter throttles sign-in; nil disables throttling (tests).
 	Limiter Limiter
 	Logger  *slog.Logger
-	// InviteEmails queues an email for each new invite; nil when email is not configured.
+	// InviteEmails queues an email for each new invite and each sign-up code; nil when email is
+	// not configured (sign-up with email is then unavailable).
 	InviteEmails jobs.Enqueuer
+	// Signup enables self-serve sign-up: Tenants creates workspaces (nil: sign-up off), Google
+	// (optional) enables signing in and up with Google.
+	Signup struct {
+		Tenants TenantCreator
+		Google  *GoogleConfig
+	}
 }
 
 // InviteEmailArgs is the job that emails an invite's link.
@@ -183,6 +204,15 @@ func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg 
 	}
 	if cfg.InviteEmails != nil {
 		con.SetInviteEmails(cfg.InviteEmails)
+	}
+	if cfg.Signup.Tenants != nil {
+		google := cfg.Signup.Google
+		if google != nil && google.RedirectURL == "" && cfg.Cookie.ConsoleURL != "" {
+			g := *google
+			g.RedirectURL = strings.TrimRight(cfg.Cookie.ConsoleURL, "/") + "/signup/google"
+			google = &g
+		}
+		con.SetSignup(service.SignupConfig{Tenants: cfg.Signup.Tenants, Google: google})
 	}
 	cookie := cfg.Cookie
 	if cookie.Name == "" {
@@ -293,6 +323,43 @@ func inviteMessage(inv *service.PendingInvite, link string) mail.Message {
 			"The link works once and expires on " + inv.ExpiresAt.UTC().Format("2 January 2006 at 15:04 UTC") + ".\n" +
 			"You will also set up a passkey or an authenticator app when you first sign in.\n\n" +
 			"If you did not expect this invite, ignore this email.\n",
+	}
+}
+
+// SignupEmailJob returns the worker handler for SignupEmailArgs: the sign-up's code, or, when the
+// email already has an account, a note saying so. Sign-ups finished, expired or superseded by a
+// newer code are skipped.
+func (m *Module) SignupEmailJob(sender mail.Sender) func(context.Context, SignupEmailArgs) error {
+	return func(ctx context.Context, a SignupEmailArgs) error {
+		p, err := m.console.SignupEmailFor(ctx, a)
+		if err != nil || p == nil {
+			return err
+		}
+		return sender.Send(ctx, signupMessage(p, m.cookie.ConsoleURL))
+	}
+}
+
+func signupMessage(p *service.PendingSignupEmail, consoleURL string) mail.Message {
+	signIn := strings.TrimRight(consoleURL, "/") + "/login"
+	if p.Code == "" {
+		return mail.Message{
+			To:      p.Email,
+			Subject: "You already have a RiskOS account",
+			Text: "Hello " + oneLine(p.Name) + ",\n\n" +
+				"Someone, probably you, tried to create a RiskOS workspace with this email address. It " +
+				"already has an account, so no new workspace was created.\n\n" +
+				"Sign in instead:\n" + signIn + "\n\n" +
+				"If this was not you, you can ignore this email.\n",
+		}
+	}
+	return mail.Message{
+		To:      p.Email,
+		Subject: p.Code + " is your RiskOS verification code",
+		Text: "Hello " + oneLine(p.Name) + ",\n\n" +
+			"Enter this code to verify your email and create your RiskOS workspace:\n\n" +
+			"    " + p.Code + "\n\n" +
+			"It works until " + p.ExpiresAt.UTC().Format("15:04 UTC on 2 January 2006") + ". A newer code replaces it.\n\n" +
+			"If you did not try to sign up, ignore this email: nothing is created without the code.\n",
 	}
 }
 

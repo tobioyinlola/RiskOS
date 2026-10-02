@@ -1293,6 +1293,209 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/signup/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which ways to sign up are available
+         * @description `email` is false when sign-up is switched off or RiskOS cannot send email; `google` is true
+         *     when Google sign-in is configured. The console shows only what is available.
+         */
+        get: operations["getSignupOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start creating a workspace with email and password
+         * @description Records the sign-up and emails a 6-digit code to prove the address; nothing is created until
+         *     the code is verified. The response is the same whether or not the email already has an
+         *     account (that person gets an email saying so instead of a code). Passwords follow the console
+         *     rules (12 to 128 characters, not the email, not in known breaches). Sets a cookie, valid for an
+         *     hour, that ties the sign-up to this browser. Throttled per email and per IP (429).
+         */
+        post: operations["startSignup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a new code
+         * @description Sends a new code (the previous one stops working), at most once a minute and five times per
+         *     sign-up (429 with Retry-After).
+         */
+        post: operations["resendSignupCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify the emailed code and create the workspace
+         * @description With the right code, creates the workspace (a tenant with test and production environments,
+         *     production locked until onboarding is approved) and its first administrator, and starts a
+         *     session that must enroll a second factor next. A wrong code gets 400 `CODE_INVALID`; five
+         *     wrong codes end the sign-up (start again).
+         */
+        post: operations["verifySignup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Name the workspace and create it (Google sign-ups)
+         * @description For a sign-up whose email Google verified: creates the workspace with this business name and
+         *     its first administrator, and starts a session that must enroll a second factor next.
+         */
+        post: operations["completeSignup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in or up with Google
+         * @description Returns Google's authorization URL and sets a short-lived cookie binding the request to this
+         *     browser. 404 `GOOGLE_NOT_CONFIGURED` when Google sign-in is not set up.
+         */
+        post: operations["startGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish signing in or up with Google
+         * @description Called by the console's Google callback page with Google's `code` and `state`. Google must
+         *     confirm the email (`email_verified`). If the email has an account, its first Google sign-in
+         *     binds Google's subject (later ones must match) and a session starts that still needs RiskOS's
+         *     second factor (`outcome: signed_in`). Otherwise a sign-up starts with the verified email
+         *     (`outcome: needs_business`): name the workspace with `completeSignup`. Failures get 401
+         *     `GOOGLE_FAILED`.
+         */
+        post: operations["finishGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's compliance onboarding
+         * @description Requires `team:read`. 404 for workspaces created by RiskOS operators (they have no onboarding).
+         *     `missing` lists the answers still needed before submitting.
+         */
+        get: operations["getOnboarding"];
+        /**
+         * Save onboarding answers (a draft)
+         * @description Requires `team:write`. Replaces the answers; allowed while the onboarding is a draft or was
+         *     rejected (saving a rejected one makes it a draft again). 409 once submitted or approved.
+         */
+        put: operations["saveOnboarding"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit the onboarding for review
+         * @description Requires `team:write`. Every required answer must be present (400 lists what is missing).
+         *     RiskOS staff then review it; approval opens the production environment.
+         */
+        post: operations["submitOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sso": {
         parameters: {
             query?: never;
@@ -1331,6 +1534,97 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        SignupOptions: {
+            /** @description Sign-up with email, business name and password is available. */
+            email: boolean;
+            /** @description Signing in and up with Google is available. */
+            google: boolean;
+        };
+        SignupRequest: {
+            name: string;
+            email: string;
+            business_name: string;
+            password: string;
+        };
+        SignupPending: {
+            /** @description Where the code was sent. */
+            email: string;
+            /** @description How long until another code can be requested. */
+            resend_after_seconds: number;
+            /**
+             * Format: date-time
+             * @description When the sign-up lapses (start again after).
+             */
+            expires_at: string;
+        };
+        SignupVerifyRequest: {
+            code: string;
+        };
+        SignupCompleteRequest: {
+            business_name: string;
+        };
+        GoogleResult: {
+            /** @enum {string} */
+            outcome: "signed_in" | "needs_business";
+            auth?: components["schemas"]["AuthState"];
+            /** @description The Google account's email (needs_business). */
+            email?: string;
+            /** @description The Google account's name (needs_business). */
+            name?: string;
+        };
+        /** @enum {string} */
+        OnboardingStatus: "draft" | "submitted" | "approved" | "rejected";
+        /**
+         * @description Know-your-business answers. Every field is optional while drafting; `submitOnboarding`
+         *     requires the ones listed in `Onboarding.missing`.
+         */
+        OnboardingAnswers: {
+            legal_name?: string;
+            trading_name?: string;
+            /** @description Country of incorporation, ISO 3166-1 alpha-2. */
+            country?: string;
+            registration_number?: string;
+            website?: string;
+            /** @enum {string} */
+            industry?: "payments" | "lending" | "banking" | "crypto" | "marketplace" | "insurance" | "gaming" | "other";
+            /** @description Licensed or registered with a financial regulator. */
+            regulated?: boolean;
+            regulator?: string;
+            licence_number?: string;
+            /** @description Has a documented AML/CFT programme. */
+            aml_program?: boolean;
+            compliance_officer_name?: string;
+            compliance_officer_email?: string;
+            /** @description Sanctions and PEP screening provider, if any. */
+            screening_provider?: string;
+            monitored_events?: ("payments" | "payouts" | "transfers" | "logins" | "signups" | "card_transactions")[];
+            /** @enum {string} */
+            monthly_volume?: "under_10k" | "10k_100k" | "100k_1m" | "1m_10m" | "over_10m";
+            regions_served?: string[];
+            /** @enum {string} */
+            go_live?: "now" | "within_3_months" | "within_6_months" | "later";
+            data_protection?: ("gdpr" | "uk_gdpr" | "ndpr" | "popia" | "ccpa" | "lgpd" | "other")[];
+            /** @enum {string} */
+            data_residency?: "eu" | "uk" | "us" | "africa" | "no_preference";
+            dpo_email?: string;
+            accept_terms?: boolean;
+            accept_dpa?: boolean;
+        };
+        Onboarding: {
+            status: components["schemas"]["OnboardingStatus"];
+            answers: components["schemas"]["OnboardingAnswers"];
+            /** @description Answers still needed before submitting, by field name. */
+            missing: string[];
+            production_enabled: boolean;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            reviewed_at: string | null;
+            /** @description The reviewer's note (always given when rejected). */
+            review_note: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
         SSOStartRequest: {
             email: string;
         };
@@ -1432,6 +1726,8 @@ export interface components {
             tenant: {
                 id: string;
                 name: string;
+                /** @description False for a self-serve workspace until RiskOS approves its onboarding; production requests get 403 `PRODUCTION_LOCKED` meanwhile. */
+                production_enabled: boolean;
             };
             permissions: components["schemas"]["Scope"][];
             /** @description Choose one per request with the `RiskOS-Environment` header (default `test`). */
@@ -4630,6 +4926,286 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getSignupOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The available ways to sign up. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupOptions"];
+                };
+            };
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startSignup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupRequest"];
+            };
+        };
+        responses: {
+            /** @description A code is on its way. */
+            202: {
+                headers: {
+                    /** @description The sign-up's browser binding (HttpOnly, SameSite=Lax, one hour). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupPending"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    resendSignupCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_signup?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A new code is on its way. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupPending"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifySignup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_signup?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session's state. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    completeSignup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_signup?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session's state. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    /** @description The request's browser binding (HttpOnly, SameSite=Lax, ten minutes). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOStart"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    finishGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_google?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSOCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in, or a sign-up waiting for its business name. */
+            200: {
+                headers: {
+                    /** @description The session cookie, or the sign-up's browser binding. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleResult"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    saveOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingAnswers"];
+            };
+        };
+        responses: {
+            /** @description The onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    submitOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The submitted onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             default: components["responses"]["DefaultError"];
         };
     };

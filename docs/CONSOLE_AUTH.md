@@ -17,6 +17,8 @@ Status: **built (build step 7).** API keys (machine access) are unchanged ([TENA
   server logs or `Referer` headers. When email is configured, console invites are also emailed
   ([Invite emails](#invite-emails)). The invited person sets their name and password and must
   then enroll a second factor before they can do anything else.
+- **Creating a workspace.** When sign-up is on, anyone can create a workspace and become its
+  first administrator at `/signup` ([Sign-up](#sign-up)).
 
 ## Sign-in
 
@@ -105,6 +107,41 @@ A tenant can connect one OpenID Connect identity provider (Team → Single sign-
 - **Known trade-off.** Starting SSO answers differently for an email with SSO (a redirect) and one
   without (404 `SSO_NOT_CONFIGURED`), so it reveals that an account uses SSO. Attempts are
   throttled per email and per IP, like password sign-in.
+
+## Sign-up
+
+Self-serve sign-up ([ADR-0005](adr/ADR-0005-self-serve-signup.md)). On with
+`RISKOS_SIGNUP_ENABLED=true`; new workspaces are pinned to `RISKOS_SIGNUP_REGION`.
+
+1. **With email.** `POST /api/v1/auth/signup` takes a name, work email, business name and
+   password (the usual password rules and breach check). Nothing is created yet: the API records
+   the sign-up (one hour, tied to the browser by the `riskos_signup` cookie, HttpOnly, SameSite=Lax,
+   path `/api/v1/auth/signup`) and the worker emails a 6-digit code. Codes are derived from the
+   sign-up ID with a key from the console secret and never stored; a new code (once a minute, five
+   in all) replaces the previous one; five wrong codes end the sign-up. If the email already has
+   an account the response is the same and the email says so instead of carrying a code, so the
+   page reveals nothing. Needs SMTP; without it only Google is offered.
+2. **With Google.** `POST /api/v1/auth/google/start` returns Google's authorization URL (code flow
+   with PKCE, state, nonce; `riskos_google` cookie for ten minutes); Google returns to
+   `/signup/google`, which posts the code to `/api/v1/auth/google/callback`. Google must vouch for
+   the email (`email_verified`). If the email has an account, its first Google sign-in binds
+   Google's subject to it and later ones must present the same subject; the session still needs
+   RiskOS's second factor. Otherwise a sign-up starts with the verified email and the person names
+   their business (`POST /api/v1/auth/signup/complete`). Google-only users have no password:
+   password sign-in treats them like unknown emails. Configure `RISKOS_GOOGLE_CLIENT_ID` and
+   `RISKOS_GOOGLE_CLIENT_SECRET` (an OAuth client of type "Web application" whose authorized
+   redirect URI is `<console URL>/signup/google`).
+3. **The workspace.** Verifying the code (or completing a Google sign-up) creates, in one
+   transaction, the tenant with both environments, its onboarding draft, the administrator
+   (`customer_admin`) and a session that must enroll a second factor next. Audit: `tenant.created`
+   (origin `self_serve`), `environment.created`, `user.created` (source `signup`).
+4. **Production gate.** A self-serve workspace's production environment stays locked until RiskOS
+   approves its compliance onboarding ([CONSOLE.md](CONSOLE.md#onboarding)): the session lists only
+   `test`, and a request with `RiskOS-Environment: production` gets 403 `PRODUCTION_LOCKED`.
+
+Limits (Redis, failing open like sign-in): 10 sign-ups per IP and 5 per email per hour, 30 code
+checks per IP per 15 minutes, 5 workspaces per IP per day, 60 Google requests per IP per 15
+minutes. `GET /api/v1/auth/signup/options` tells the console which ways are available.
 
 ## Invite emails
 

@@ -14,6 +14,8 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/google/uuid"
+
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
@@ -135,7 +137,8 @@ func run() (err error) {
 		inviteEmails = queue
 	}
 	auditModule := audit.New(runner, clk)
-	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
+	tenantsModule := tenants.New(runner, auditModule.Recorder())
+	authCfg := auth.Config{
 		Pepper:   []byte(cfg.Auth.APIKeyPepper),
 		CacheTTL: cfg.Auth.APIKeyCacheTTL,
 		Console:  consoleConfig(cfg.Console),
@@ -145,7 +148,14 @@ func run() (err error) {
 		Limiter:      ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		Logger:       logger,
 		InviteEmails: inviteEmails,
-	})
+	}
+	if cfg.Console.SignupEnabled {
+		authCfg.Signup.Tenants = selfServeTenants{tenants: tenantsModule, region: cfg.Console.SignupRegion}
+		if cfg.Console.GoogleClientID != "" {
+			authCfg.Signup.Google = &auth.GoogleConfig{ClientID: cfg.Console.GoogleClientID, ClientSecret: cfg.Console.GoogleClientSecret}
+		}
+	}
+	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, authCfg)
 
 	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
 		FeatureHashKey: []byte(cfg.Risk.FeatureHashKey),
@@ -162,7 +172,7 @@ func run() (err error) {
 
 	// The internal admin realm: staff passkeys use the console's relying party and origins.
 	rpid, origins := authModule.PasskeyRP()
-	adminModule, err := admin.New(pool, tenants.New(runner, auditModule.Recorder()), runner, auditModule.Recorder(), clk, admin.Config{
+	adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
 		Secret: []byte(cfg.Console.Secret), RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
 		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
 	})
@@ -184,6 +194,7 @@ func run() (err error) {
 		Alerts:    alertsModule,
 		Cases:     casesModule,
 		Webhooks:  webhooksModule,
+		Tenants:   tenantsModule,
 		Admin:     adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		RateLimits: httpapi.RateLimits{
@@ -213,6 +224,19 @@ func run() (err error) {
 
 func webhookConfig(c config.Webhooks) webhooks.Config {
 	return webhooks.Config{SigningKey: []byte(c.SigningKey), Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest}
+}
+
+// selfServeTenants creates the workspaces of public sign-up (auth.TenantCreator): pinned to the
+// configured region, production locked until onboarding is approved.
+type selfServeTenants struct {
+	tenants *tenants.Module
+	region  string
+}
+
+func (s selfServeTenants) CreateSelfServe(ctx context.Context, name, actor string, now time.Time, then func(ctx context.Context, tenantID uuid.UUID) error) (uuid.UUID, error) {
+	t, err := s.tenants.Create(ctx, tenants.CreateParams{Name: name, Region: s.region, Actor: actor, SelfServe: true, Now: now},
+		func(ctx context.Context, t tenants.Tenant) error { return then(ctx, t.ID) })
+	return t.ID, err
 }
 
 func consoleConfig(c config.Console) auth.ConsoleConfig {

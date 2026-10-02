@@ -66,6 +66,23 @@ type stackConfig struct {
 	inviteEmails jobs.Enqueuer
 	// admin enables the internal admin realm.
 	admin bool
+	// signup enables self-serve sign-up; google, when set, Google sign-in.
+	signup bool
+	google *auth.GoogleConfig
+}
+
+// withSignup enables self-serve sign-up (and Google sign-in with google, if not nil).
+func withSignup(google *auth.GoogleConfig) stackOption {
+	return func(c *stackConfig) { c.signup, c.google = true, google }
+}
+
+// selfServe adapts the tenants module to auth.TenantCreator, like cmd/api.
+type selfServe struct{ tenants *tenants.Module }
+
+func (s selfServe) CreateSelfServe(ctx context.Context, name, actor string, now time.Time, then func(ctx context.Context, tenantID uuid.UUID) error) (uuid.UUID, error) {
+	t, err := s.tenants.Create(ctx, tenants.CreateParams{Name: name, Region: "eu-west-1", Actor: actor, SelfServe: true, Now: now},
+		func(ctx context.Context, t tenants.Tenant) error { return then(ctx, t.ID) })
+	return t.ID, err
 }
 
 // withAdmin enables the internal admin realm and support access.
@@ -139,11 +156,16 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	clk := clock.System{}
 	runner := db.NewTxRunner(shared.pool, db.WithBeginTimeout(time.Second))
 	auditModule := audit.New(runner, clk)
-	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{
+	tenantsModule := tenants.New(runner, auditModule.Recorder())
+	authCfg := auth.Config{
 		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
 		InviteEmails: sc.inviteEmails,
 		Cookie:       auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
-	})
+	}
+	if sc.signup {
+		authCfg.Signup.Tenants, authCfg.Signup.Google = selfServe{tenantsModule}, sc.google
+	}
+	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, authCfg)
 	riskModule := newRisk(featureRedis, runner, auditModule, clk, func(c *risk.Config) {
 		if sc.historyWarmup > 0 {
 			c.StateDB, c.HistoryWarmup = shared.pool, sc.historyWarmup
@@ -164,7 +186,8 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		authModule.SetSupport(adminModule)
 	}
 	h, err := httpapi.New(httpapi.Deps{
-		Logger: shared.logger, Clock: clk, Telemetry: tel,
+		Tenants: tenants.New(runner, auditModule.Recorder()),
+		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
 		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),

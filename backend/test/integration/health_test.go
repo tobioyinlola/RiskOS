@@ -30,6 +30,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
 
@@ -46,6 +47,7 @@ func newAPI(t *testing.T) http.Handler {
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clock.System{}, queue, testWebhookConfig(), nil, shared.logger)
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clock.System{}, webhooksModule.Publisher(), shared.logger)
 	h, err := httpapi.New(httpapi.Deps{
+		Tenants:    tenants.New(runner, auditModule.Recorder()),
 		Logger:     shared.logger,
 		Clock:      clock.System{},
 		HTTP:       config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 1 << 20},

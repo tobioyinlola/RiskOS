@@ -49,6 +49,8 @@ tags:
     description: Console sign-in, second factors and sessions (cookie-based; not for API keys).
   - name: team
     description: Console users and invites.
+  - name: onboarding
+    description: Compliance onboarding of self-serve workspaces (know your business).
 security:
   - apiKey: []
 paths:
@@ -2384,6 +2386,334 @@ paths:
           $ref: "#/components/responses/RateLimited"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/options:
+    get:
+      operationId: getSignupOptions
+      tags: [session]
+      summary: Which ways to sign up are available
+      security: []
+      description: |
+        `email` is false when sign-up is switched off or RiskOS cannot send email; `google` is true
+        when Google sign-in is configured. The console shows only what is available.
+      responses:
+        "200":
+          description: The available ways to sign up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupOptions"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup:
+    post:
+      operationId: startSignup
+      tags: [session]
+      summary: Start creating a workspace with email and password
+      security: []
+      description: |
+        Records the sign-up and emails a 6-digit code to prove the address; nothing is created until
+        the code is verified. The response is the same whether or not the email already has an
+        account (that person gets an email saying so instead of a code). Passwords follow the console
+        rules (12 to 128 characters, not the email, not in known breaches). Sets a cookie, valid for an
+        hour, that ties the sign-up to this browser. Throttled per email and per IP (429).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "202":
+          description: A code is on its way.
+          headers:
+            Set-Cookie:
+              description: The sign-up's browser binding (HttpOnly, SameSite=Lax, one hour).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupPending"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/resend:
+    post:
+      operationId: resendSignupCode
+      tags: [session]
+      summary: Send a new code
+      security: []
+      description: |
+        Sends a new code (the previous one stops working), at most once a minute and five times per
+        sign-up (429 with Retry-After).
+      parameters:
+        - name: riskos_signup
+          in: cookie
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A new code is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupPending"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/verify:
+    post:
+      operationId: verifySignup
+      tags: [session]
+      summary: Verify the emailed code and create the workspace
+      security: []
+      description: |
+        With the right code, creates the workspace (a tenant with test and production environments,
+        production locked until onboarding is approved) and its first administrator, and starts a
+        session that must enroll a second factor next. A wrong code gets 400 `CODE_INVALID`; five
+        wrong codes end the sign-up (start again).
+      parameters:
+        - name: riskos_signup
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupVerifyRequest"
+      responses:
+        "200":
+          description: The new session's state.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/complete:
+    post:
+      operationId: completeSignup
+      tags: [session]
+      summary: Name the workspace and create it (Google sign-ups)
+      security: []
+      description: |
+        For a sign-up whose email Google verified: creates the workspace with this business name and
+        its first administrator, and starts a session that must enroll a second factor next.
+      parameters:
+        - name: riskos_signup
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupCompleteRequest"
+      responses:
+        "200":
+          description: The new session's state.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/google/start:
+    post:
+      operationId: startGoogle
+      tags: [session]
+      summary: Start signing in or up with Google
+      security: []
+      description: |
+        Returns Google's authorization URL and sets a short-lived cookie binding the request to this
+        browser. 404 `GOOGLE_NOT_CONFIGURED` when Google sign-in is not set up.
+      responses:
+        "200":
+          description: Where to send the browser.
+          headers:
+            Set-Cookie:
+              description: The request's browser binding (HttpOnly, SameSite=Lax, ten minutes).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOStart"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/google/callback:
+    post:
+      operationId: finishGoogle
+      tags: [session]
+      summary: Finish signing in or up with Google
+      security: []
+      description: |
+        Called by the console's Google callback page with Google's `code` and `state`. Google must
+        confirm the email (`email_verified`). If the email has an account, its first Google sign-in
+        binds Google's subject (later ones must match) and a session starts that still needs RiskOS's
+        second factor (`outcome: signed_in`). Otherwise a sign-up starts with the verified email
+        (`outcome: needs_business`): name the workspace with `completeSignup`. Failures get 401
+        `GOOGLE_FAILED`.
+      parameters:
+        - name: riskos_google
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SSOCallbackRequest"
+      responses:
+        "200":
+          description: Signed in, or a sign-up waiting for its business name.
+          headers:
+            Set-Cookie:
+              description: The session cookie, or the sign-up's browser binding.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleResult"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/onboarding:
+    get:
+      operationId: getOnboarding
+      tags: [onboarding]
+      summary: The workspace's compliance onboarding
+      description: |
+        Requires `team:read`. 404 for workspaces created by RiskOS operators (they have no onboarding).
+        `missing` lists the answers still needed before submitting.
+      responses:
+        "200":
+          description: The onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Onboarding"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: saveOnboarding
+      tags: [onboarding]
+      summary: Save onboarding answers (a draft)
+      description: |
+        Requires `team:write`. Replaces the answers; allowed while the onboarding is a draft or was
+        rejected (saving a rejected one makes it a draft again). 409 once submitted or approved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingAnswers"
+      responses:
+        "200":
+          description: The onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Onboarding"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/onboarding/submit:
+    post:
+      operationId: submitOnboarding
+      tags: [onboarding]
+      summary: Submit the onboarding for review
+      description: |
+        Requires `team:write`. Every required answer must be present (400 lists what is missing).
+        RiskOS staff then review it; approval opens the production environment.
+      responses:
+        "200":
+          description: The submitted onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Onboarding"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/sso:
     get:
       operationId: getSSO
@@ -2560,6 +2890,200 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    SignupOptions:
+      type: object
+      additionalProperties: false
+      required: [email, google]
+      properties:
+        email:
+          type: boolean
+          description: Sign-up with email, business name and password is available.
+        google:
+          type: boolean
+          description: Signing in and up with Google is available.
+    SignupRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, business_name, password]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        business_name:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          maxLength: 128
+    SignupPending:
+      type: object
+      additionalProperties: false
+      required: [email, resend_after_seconds, expires_at]
+      properties:
+        email:
+          type: string
+          description: Where the code was sent.
+        resend_after_seconds:
+          type: integer
+          description: How long until another code can be requested.
+        expires_at:
+          type: string
+          format: date-time
+          description: When the sign-up lapses (start again after).
+    SignupVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+    SignupCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [business_name]
+      properties:
+        business_name:
+          type: string
+          maxLength: 200
+    GoogleResult:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [signed_in, needs_business]
+        auth:
+          $ref: "#/components/schemas/AuthState"
+        email:
+          type: string
+          description: The Google account's email (needs_business).
+        name:
+          type: string
+          description: The Google account's name (needs_business).
+    OnboardingStatus:
+      type: string
+      enum: [draft, submitted, approved, rejected]
+    OnboardingAnswers:
+      type: object
+      additionalProperties: false
+      description: |
+        Know-your-business answers. Every field is optional while drafting; `submitOnboarding`
+        requires the ones listed in `Onboarding.missing`.
+      properties:
+        legal_name:
+          type: string
+          maxLength: 200
+        trading_name:
+          type: string
+          maxLength: 200
+        country:
+          type: string
+          description: Country of incorporation, ISO 3166-1 alpha-2.
+          pattern: "^[A-Z]{2}$"
+        registration_number:
+          type: string
+          maxLength: 100
+        website:
+          type: string
+          maxLength: 300
+        industry:
+          type: string
+          enum: [payments, lending, banking, crypto, marketplace, insurance, gaming, other]
+        regulated:
+          type: boolean
+          description: Licensed or registered with a financial regulator.
+        regulator:
+          type: string
+          maxLength: 200
+        licence_number:
+          type: string
+          maxLength: 100
+        aml_program:
+          type: boolean
+          description: Has a documented AML/CFT programme.
+        compliance_officer_name:
+          type: string
+          maxLength: 100
+        compliance_officer_email:
+          type: string
+          maxLength: 254
+        screening_provider:
+          type: string
+          maxLength: 200
+          description: Sanctions and PEP screening provider, if any.
+        monitored_events:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items:
+            type: string
+            enum: [payments, payouts, transfers, logins, signups, card_transactions]
+        monthly_volume:
+          type: string
+          enum: [under_10k, 10k_100k, 100k_1m, 1m_10m, over_10m]
+        regions_served:
+          type: array
+          maxItems: 60
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^[A-Z]{2}$"
+        go_live:
+          type: string
+          enum: [now, within_3_months, within_6_months, later]
+        data_protection:
+          type: array
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum: [gdpr, uk_gdpr, ndpr, popia, ccpa, lgpd, other]
+        data_residency:
+          type: string
+          enum: [eu, uk, us, africa, no_preference]
+        dpo_email:
+          type: string
+          maxLength: 254
+        accept_terms:
+          type: boolean
+        accept_dpa:
+          type: boolean
+    Onboarding:
+      type: object
+      additionalProperties: false
+      required: [status, answers, missing, production_enabled, submitted_at, reviewed_at, review_note, updated_at]
+      properties:
+        status:
+          $ref: "#/components/schemas/OnboardingStatus"
+        answers:
+          $ref: "#/components/schemas/OnboardingAnswers"
+        missing:
+          type: array
+          description: Answers still needed before submitting, by field name.
+          items:
+            type: string
+        production_enabled:
+          type: boolean
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        review_note:
+          type: string
+          nullable: true
+          description: The reviewer's note (always given when rejected).
+        updated_at:
+          type: string
+          format: date-time
     SSOStartRequest:
       type: object
       additionalProperties: false
@@ -2780,12 +3304,15 @@ components:
         tenant:
           type: object
           additionalProperties: false
-          required: [id, name]
+          required: [id, name, production_enabled]
           properties:
             id:
               type: string
             name:
               type: string
+            production_enabled:
+              type: boolean
+              description: False for a self-serve workspace until RiskOS approves its onboarding; production requests get 403 `PRODUCTION_LOCKED` meanwhile.
         permissions:
           type: array
           items:

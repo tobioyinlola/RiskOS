@@ -7,6 +7,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgconn"
@@ -66,4 +67,36 @@ func (s Store) Scoped(ctx context.Context) (*sqlcgen.Queries, error) {
 		return nil, err
 	}
 	return sqlcgen.New(tx), nil
+}
+
+// OnboardingRow is a self-serve workspace's onboarding in the review queue: identity, status
+// and dates, never the answers.
+type OnboardingRow struct {
+	TenantID        [16]byte
+	TenantName      string
+	TenantStatus    string
+	TenantCreatedAt time.Time
+	Status          string
+	SubmittedAt     *time.Time
+	ReviewedAt      *time.Time
+}
+
+// OnboardingQueue lists every self-serve workspace's onboarding, submitted ones first (through
+// the admin_onboarding_queue function; hand-written because its dates are nullable).
+func (s Store) OnboardingQueue(ctx context.Context) ([]OnboardingRow, error) {
+	rows, err := s.pool.Query(ctx,
+		`SELECT tenant_id, tenant_name, tenant_status, created_at, status, submitted_at, reviewed_at FROM admin_onboarding_queue()`)
+	if err != nil {
+		return nil, Classify(err, "list onboarding")
+	}
+	defer rows.Close()
+	var out []OnboardingRow
+	for rows.Next() {
+		var r OnboardingRow
+		if err := rows.Scan(&r.TenantID, &r.TenantName, &r.TenantStatus, &r.TenantCreatedAt, &r.Status, &r.SubmittedAt, &r.ReviewedAt); err != nil {
+			return nil, Classify(err, "list onboarding")
+		}
+		out = append(out, r)
+	}
+	return out, Classify(rows.Err(), "list onboarding")
 }

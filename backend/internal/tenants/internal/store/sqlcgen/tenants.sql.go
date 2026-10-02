@@ -7,6 +7,7 @@ package sqlcgen
 
 import (
 	"context"
+	"time"
 
 	"github.com/google/uuid"
 )
@@ -57,6 +58,69 @@ func (q *Queries) GetEnvironmentByKind(ctx context.Context, arg GetEnvironmentBy
 	return i, err
 }
 
+const getOnboarding = `-- name: GetOnboarding :one
+SELECT o.tenant_id, o.answers, o.status, o.updated_at, o.updated_by, o.submitted_at, o.submitted_by, o.reviewed_at, o.reviewed_by, o.review_note, t.name AS tenant_name, t.production_enabled
+FROM tenant_onboarding o JOIN tenants t ON t.id = o.tenant_id
+WHERE o.tenant_id = $1
+`
+
+type GetOnboardingRow struct {
+	TenantID          uuid.UUID
+	Answers           []byte
+	Status            string
+	UpdatedAt         time.Time
+	UpdatedBy         string
+	SubmittedAt       *time.Time
+	SubmittedBy       *string
+	ReviewedAt        *time.Time
+	ReviewedBy        *string
+	ReviewNote        *string
+	TenantName        string
+	ProductionEnabled bool
+}
+
+func (q *Queries) GetOnboarding(ctx context.Context, tenantID uuid.UUID) (GetOnboardingRow, error) {
+	row := q.db.QueryRow(ctx, getOnboarding, tenantID)
+	var i GetOnboardingRow
+	err := row.Scan(
+		&i.TenantID,
+		&i.Answers,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.SubmittedAt,
+		&i.SubmittedBy,
+		&i.ReviewedAt,
+		&i.ReviewedBy,
+		&i.ReviewNote,
+		&i.TenantName,
+		&i.ProductionEnabled,
+	)
+	return i, err
+}
+
+const getOnboardingForUpdate = `-- name: GetOnboardingForUpdate :one
+SELECT tenant_id, answers, status, updated_at, updated_by, submitted_at, submitted_by, reviewed_at, reviewed_by, review_note FROM tenant_onboarding WHERE tenant_id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetOnboardingForUpdate(ctx context.Context, tenantID uuid.UUID) (TenantOnboarding, error) {
+	row := q.db.QueryRow(ctx, getOnboardingForUpdate, tenantID)
+	var i TenantOnboarding
+	err := row.Scan(
+		&i.TenantID,
+		&i.Answers,
+		&i.Status,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.SubmittedAt,
+		&i.SubmittedBy,
+		&i.ReviewedAt,
+		&i.ReviewedBy,
+		&i.ReviewNote,
+	)
+	return i, err
+}
+
 const insertEnvironment = `-- name: InsertEnvironment :exec
 INSERT INTO environments (id, tenant_id, kind) VALUES ($1, $2, $3)
 `
@@ -72,17 +136,124 @@ func (q *Queries) InsertEnvironment(ctx context.Context, arg InsertEnvironmentPa
 	return err
 }
 
+const insertOnboarding = `-- name: InsertOnboarding :exec
+
+INSERT INTO tenant_onboarding (tenant_id, status, updated_at, updated_by)
+VALUES ($1, 'draft', $2, $3)
+`
+
+type InsertOnboardingParams struct {
+	TenantID  uuid.UUID
+	Now       time.Time
+	UpdatedBy string
+}
+
+// Compliance onboarding (docs/CONSOLE.md#onboarding). Every query takes tenant_id explicitly.
+func (q *Queries) InsertOnboarding(ctx context.Context, arg InsertOnboardingParams) error {
+	_, err := q.db.Exec(ctx, insertOnboarding, arg.TenantID, arg.Now, arg.UpdatedBy)
+	return err
+}
+
 const insertTenant = `-- name: InsertTenant :exec
-INSERT INTO tenants (id, name, region) VALUES ($1, $2, $3)
+INSERT INTO tenants (id, name, region, origin, production_enabled)
+VALUES ($1, $2, $3, $4, $5)
 `
 
 type InsertTenantParams struct {
-	ID     uuid.UUID
-	Name   string
-	Region string
+	ID                uuid.UUID
+	Name              string
+	Region            string
+	Origin            string
+	ProductionEnabled bool
 }
 
 func (q *Queries) InsertTenant(ctx context.Context, arg InsertTenantParams) error {
-	_, err := q.db.Exec(ctx, insertTenant, arg.ID, arg.Name, arg.Region)
+	_, err := q.db.Exec(ctx, insertTenant,
+		arg.ID,
+		arg.Name,
+		arg.Region,
+		arg.Origin,
+		arg.ProductionEnabled,
+	)
+	return err
+}
+
+const reviewOnboarding = `-- name: ReviewOnboarding :exec
+UPDATE tenant_onboarding
+SET status = $1, reviewed_at = $2, reviewed_by = $3, review_note = $4
+WHERE tenant_id = $5
+`
+
+type ReviewOnboardingParams struct {
+	Status     string
+	Now        *time.Time
+	ReviewedBy *string
+	ReviewNote *string
+	TenantID   uuid.UUID
+}
+
+func (q *Queries) ReviewOnboarding(ctx context.Context, arg ReviewOnboardingParams) error {
+	_, err := q.db.Exec(ctx, reviewOnboarding,
+		arg.Status,
+		arg.Now,
+		arg.ReviewedBy,
+		arg.ReviewNote,
+		arg.TenantID,
+	)
+	return err
+}
+
+const saveOnboardingAnswers = `-- name: SaveOnboardingAnswers :exec
+UPDATE tenant_onboarding
+SET answers = $1, updated_at = $2, updated_by = $3,
+    status = CASE WHEN status = 'rejected' THEN 'draft' ELSE status END
+WHERE tenant_id = $4
+`
+
+type SaveOnboardingAnswersParams struct {
+	Answers   []byte
+	Now       time.Time
+	UpdatedBy string
+	TenantID  uuid.UUID
+}
+
+func (q *Queries) SaveOnboardingAnswers(ctx context.Context, arg SaveOnboardingAnswersParams) error {
+	_, err := q.db.Exec(ctx, saveOnboardingAnswers,
+		arg.Answers,
+		arg.Now,
+		arg.UpdatedBy,
+		arg.TenantID,
+	)
+	return err
+}
+
+const setProductionEnabled = `-- name: SetProductionEnabled :exec
+UPDATE tenants SET production_enabled = $1 WHERE id = $2
+`
+
+type SetProductionEnabledParams struct {
+	Enabled  bool
+	TenantID uuid.UUID
+}
+
+func (q *Queries) SetProductionEnabled(ctx context.Context, arg SetProductionEnabledParams) error {
+	_, err := q.db.Exec(ctx, setProductionEnabled, arg.Enabled, arg.TenantID)
+	return err
+}
+
+const submitOnboarding = `-- name: SubmitOnboarding :exec
+UPDATE tenant_onboarding
+SET status = 'submitted', submitted_at = $1, submitted_by = $2, updated_at = $1, updated_by = $2
+WHERE tenant_id = $3
+`
+
+type SubmitOnboardingParams struct {
+	Now         *time.Time
+	SubmittedBy *string
+	TenantID    uuid.UUID
+}
+
+func (q *Queries) SubmitOnboarding(ctx context.Context, arg SubmitOnboardingParams) error {
+	_, err := q.db.Exec(ctx, submitOnboarding, arg.Now, arg.SubmittedBy, arg.TenantID)
 	return err
 }
