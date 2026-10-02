@@ -1496,6 +1496,156 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's rule pack
+         * @description Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
+         *     recently loaded pack when no profile is set.
+         */
+        get: operations["getCompliancePack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's rules
+         * @description Requires `compliance:read`. Every rule of the pack, ordered by ID, with its wording, source,
+         *     effective date, verification status, defaults and bounded parameters. The engineering logic
+         *     is only on a single rule, for callers with `compliance:engineering`.
+         */
+        get: operations["listComplianceRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One rule
+         * @description Requires `compliance:read`. `engineering_logic` (the library's section 7B) and `definition` (the
+         *     machine definition) are included only for callers with `compliance:engineering`.
+         */
+        get: operations["getComplianceRule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/clocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's legal deadlines
+         * @description Requires `compliance:read`. The reporting and response deadlines the pack's workflows time.
+         */
+        get: operations["listComplianceClocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/gaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's open questions
+         * @description Requires `compliance:read`. Open legal questions a person must settle (conflicting or unconfirmed sources).
+         */
+        get: operations["listComplianceGaps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/glossary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's glossary
+         * @description Requires `compliance:read`. Plain-English meanings of the terms the rules use.
+         */
+        get: operations["listComplianceGlossary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's compliance profile
+         * @description Requires `compliance:read`. 404 until a profile is set.
+         */
+        get: operations["getComplianceProfile"];
+        /**
+         * Set the workspace's compliance profile
+         * @description Requires `compliance:write` (people only). Sets the jurisdiction, licence type and capabilities
+         *     that decide which rules apply. The workspace stays on its pack version unless the
+         *     jurisdiction changes, which moves it to that jurisdiction's latest pack. Audited.
+         */
+        put: operations["putComplianceProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sso": {
         parameters: {
             query?: never;
@@ -1610,6 +1760,184 @@ export interface components {
             accept_terms?: boolean;
             accept_dpa?: boolean;
         };
+        /**
+         * @description control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+         * @enum {string}
+         */
+        ComplianceRuleKind: "control" | "signal" | "governance";
+        /**
+         * @description How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
+         * @enum {string}
+         */
+        ComplianceVerification: "confirmed" | "secondary_source_only" | "conflicting" | "awaiting_regulator";
+        ComplianceOption: {
+            id: string;
+            label: string;
+        };
+        ComplianceGroup: {
+            id: string;
+            label: string;
+            /** @description How many rules the group has. */
+            rules: number;
+        };
+        ComplianceLink: {
+            title: string;
+            url: string;
+        };
+        ComplianceSource: {
+            id: string;
+            title: string;
+            links: components["schemas"]["ComplianceLink"][];
+        };
+        ComplianceCounts: {
+            controls: number;
+            signals: number;
+            governance: number;
+        };
+        CompliancePack: {
+            id: string;
+            /** @description ISO 3166-1 alpha-2 country code. */
+            jurisdiction: string;
+            name: string;
+            version: string;
+            /** @description SHA-256 of the pack's files. A loaded version never changes. */
+            checksum: string;
+            /** Format: date-time */
+            loaded_at: string;
+            groups: components["schemas"]["ComplianceGroup"][];
+            licence_types: components["schemas"]["ComplianceOption"][];
+            capabilities: components["schemas"]["ComplianceOption"][];
+            sources: components["schemas"]["ComplianceSource"][];
+            counts: components["schemas"]["ComplianceCounts"];
+        };
+        ComplianceParameter: {
+            name: string;
+            label: string;
+            /**
+             * @description The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
+             *     the day in Africa/Lagos time; flag is 0 or 1.
+             * @enum {string}
+             */
+            type: "money" | "duration" | "count" | "ratio" | "points" | "percent" | "speed" | "hour" | "score" | "flag";
+            currency?: string;
+            /**
+             * Format: double
+             * @description Null when the institution must set the value.
+             */
+            default: number | null;
+            /** Format: double */
+            min: number;
+            /**
+             * Format: double
+             * @description For regulatory limits, the legal maximum.
+             */
+            max: number;
+        };
+        ComplianceEffective: {
+            /** @description YYYY-MM-DD, set only when the source states a full date. */
+            date?: string;
+            text: string;
+        };
+        ComplianceDefaults: {
+            enabled: boolean;
+            /** @enum {string} */
+            mode: "live" | "shadow";
+        };
+        ComplianceOutcome: {
+            decision?: string;
+            severity?: string;
+            tasks: string[];
+        };
+        ComplianceRule: {
+            id: string;
+            /** @description The library's plain-English name, verbatim. */
+            name: string;
+            /** @description The library's plain-English description, verbatim. */
+            description: string;
+            /** @description What the system does (controls only), verbatim. */
+            action?: string;
+            /** @description The library's points column (signals only), verbatim. */
+            points?: string;
+            group: string;
+            kind: components["schemas"]["ComplianceRuleKind"];
+            /** @enum {string} */
+            status: "regulatory" | "recommended" | "governance";
+            regulators: string[];
+            /** @description Licence types the rule applies to. Empty means every institution. */
+            applies_to: string[];
+            /** @description Capabilities the workspace must have for the rule to apply. */
+            requires: string[];
+            /** @description Source IDs (see the pack's sources). */
+            sources: string[];
+            effective: components["schemas"]["ComplianceEffective"];
+            verification: components["schemas"]["ComplianceVerification"];
+            caveat?: string;
+            defaults: components["schemas"]["ComplianceDefaults"];
+            /** @description The data the rule needs. When one is unavailable the rule is reported as not evaluated. */
+            inputs: string[];
+            /** @description The event types the rule is evaluated on. */
+            events: string[];
+            outcome: components["schemas"]["ComplianceOutcome"];
+            parameters: components["schemas"]["ComplianceParameter"][];
+            /** @description Whether the rule applies to the workspace's profile; null without a profile. */
+            applicable: boolean | null;
+            /** @description The library's section 7B logic. Only for `compliance:engineering`. */
+            engineering_logic?: string;
+            /** @description The machine definition the engine interprets. Only for `compliance:engineering`. */
+            definition?: {
+                [key: string]: unknown;
+            };
+        };
+        ComplianceRuleList: {
+            data: components["schemas"]["ComplianceRule"][];
+        };
+        ComplianceClock: {
+            id: string;
+            duration: string;
+            duty: string;
+            applies_to: string;
+            requirement: string;
+            /** @description The deadline in hours. */
+            hours: number;
+            sources: string[];
+            rules: string[];
+        };
+        ComplianceClockList: {
+            data: components["schemas"]["ComplianceClock"][];
+        };
+        ComplianceGap: {
+            id: string;
+            title: string;
+            detail: string;
+            rules: string[];
+            sources: string[];
+        };
+        ComplianceGapList: {
+            data: components["schemas"]["ComplianceGap"][];
+        };
+        ComplianceTerm: {
+            term: string;
+            expansion: string;
+            definition: string;
+        };
+        ComplianceTermList: {
+            data: components["schemas"]["ComplianceTerm"][];
+        };
+        ComplianceProfile: {
+            jurisdiction: string;
+            licence_type: string;
+            capabilities: string[];
+            pack_id: string;
+            pack_version: string;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by: string;
+        };
+        ComplianceProfileRequest: {
+            jurisdiction: string;
+            licence_type: string;
+            capabilities: string[];
+        };
         Onboarding: {
             status: components["schemas"]["OnboardingStatus"];
             answers: components["schemas"]["OnboardingAnswers"];
@@ -1706,7 +2034,7 @@ export interface components {
             password: string;
         };
         /** @enum {string} */
-        Role: "customer_admin" | "developer" | "risk_manager" | "analyst";
+        Role: "customer_admin" | "developer" | "risk_manager" | "analyst" | "compliance_officer" | "auditor";
         Passkey: {
             id: string;
             name: string;
@@ -2071,11 +2399,12 @@ export interface components {
         /** @enum {string} */
         Environment: "test" | "production";
         /**
-         * @description A permission. API keys can hold any except `rules:approve`, which only people hold (a
-         *     second person approves production rule changes).
+         * @description A permission. API keys can hold any except `rules:approve` and `compliance:write`, which
+         *     only people hold (a second person approves production rule changes; a person sets the
+         *     workspace's compliance profile).
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write" | "compliance:read" | "compliance:engineering" | "compliance:write";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -5206,6 +5535,218 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getCompliancePack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace's rule pack. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompliancePack"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceRules: {
+        parameters: {
+            query?: {
+                /** @description Only rules in this group. */
+                group?: string;
+                /** @description Only rules of this kind. */
+                kind?: components["schemas"]["ComplianceRuleKind"];
+                /** @description Only rules involving this regulator (CBN, NFIU and so on). */
+                regulator?: string;
+                /** @description Only rules with this verification status. */
+                verification?: components["schemas"]["ComplianceVerification"];
+                /** @description Words to find in a rule's ID, name or description. */
+                q?: string;
+                /** @description Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile. */
+                applicable?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's rules. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceRuleList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One rule. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceRule"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceClocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's legal deadlines. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceClockList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceGaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's open questions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceGapList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceGlossary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's glossary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTermList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace's compliance profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceProfile"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putComplianceProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComplianceProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceProfile"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["DefaultError"];
         };
     };

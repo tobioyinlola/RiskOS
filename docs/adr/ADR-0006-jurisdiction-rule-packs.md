@@ -32,6 +32,15 @@ decision 12). The regulatory controls must decline, hold or block regardless of 
 4. **Compliance roles.** Two customer roles are added: `compliance_officer` (the MLRO: reads the
    library, sees suspicion and STR data, approves reports) and `auditor` (read-only). Only
    compliance roles see STR existence, filing status and suspicion flags (GOV-09).
+   Permissions: `compliance:read` (every customer role), `compliance:engineering` (section 7B
+   logic and machine definitions; administrators and developers) and `compliance:write` (the
+   compliance profile; people only, never API keys).
+5. **Packs are global, versioned reference data.** `migrate up` validates each built-in pack and
+   loads any version not yet stored into `rule_packs` and `pack_rules`, as the schema owner. The
+   application role can only read them. A stored version is immutable: a trigger refuses updates
+   and deletes, and loading the same version with a different checksum fails, so changed content
+   needs a new version. Each tenant's `tenant_compliance` row (RLS) pins the pack version it is on
+   and records its licence type and capabilities, which decide which rules apply.
 
 ## Alternatives considered
 

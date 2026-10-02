@@ -26,6 +26,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -42,6 +43,7 @@ type server struct {
 	cases.CaseHandlers
 	webhooks.WebhookHandlers
 	tenants.OnboardingHandlers
+	rules.LibraryHandlers
 }
 
 var _ apigen.StrictServerInterface = server{}
@@ -62,6 +64,8 @@ type Deps struct {
 	Webhooks  *webhooks.Module
 	// Tenants serves the onboarding of self-serve workspaces.
 	Tenants *tenants.Module
+	// Rules serves the compliance rules library.
+	Rules *rules.Module
 	// Admin is the internal admin realm (/api/admin/); nil leaves it out.
 	Admin *admin.Module
 	// Limiter enforces RateLimits on authenticated requests.
@@ -116,6 +120,7 @@ func New(d Deps) (http.Handler, error) {
 		CaseHandlers:       d.Cases.HTTPHandlers(),
 		WebhookHandlers:    d.Webhooks.HTTPHandlers(),
 		OnboardingHandlers: d.Tenants.HTTPHandlers(d.Clock),
+		LibraryHandlers:    d.Rules.HTTPHandlers(d.Clock),
 	}
 	strict := apigen.NewStrictHandlerWithOptions(impl, []apigen.StrictMiddlewareFunc{
 		d.Auth.ReauthMiddleware(), operationLimit(d.Limiter, d.RateLimits.Operations, d.Logger),

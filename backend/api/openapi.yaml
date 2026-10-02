@@ -51,6 +51,11 @@ tags:
     description: Console users and invites.
   - name: onboarding
     description: Compliance onboarding of self-serve workspaces (know your business).
+  - name: compliance
+    description: |
+      The jurisdiction rule pack a workspace is on (ADR-0006): regulatory controls, risk-scoring
+      rules and governance presets, each with its legal source, effective date, verification status
+      and the library's plain-English wording.
 security:
   - apiKey: []
 paths:
@@ -2714,6 +2719,242 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/pack:
+    get:
+      operationId: getCompliancePack
+      tags: [compliance]
+      summary: The workspace's rule pack
+      description: |
+        Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
+        recently loaded pack when no profile is set.
+      responses:
+        "200":
+          description: The workspace's rule pack.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompliancePack"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules:
+    get:
+      operationId: listComplianceRules
+      tags: [compliance]
+      summary: The pack's rules
+      description: |
+        Requires `compliance:read`. Every rule of the pack, ordered by ID, with its wording, source,
+        effective date, verification status, defaults and bounded parameters. The engineering logic
+        is only on a single rule, for callers with `compliance:engineering`.
+      parameters:
+        - name: group
+          in: query
+          required: false
+          description: Only rules in this group.
+          schema:
+            type: string
+            maxLength: 64
+        - name: kind
+          in: query
+          required: false
+          description: Only rules of this kind.
+          schema:
+            $ref: "#/components/schemas/ComplianceRuleKind"
+        - name: regulator
+          in: query
+          required: false
+          description: Only rules involving this regulator (CBN, NFIU and so on).
+          schema:
+            type: string
+            maxLength: 16
+        - name: verification
+          in: query
+          required: false
+          description: Only rules with this verification status.
+          schema:
+            $ref: "#/components/schemas/ComplianceVerification"
+        - name: q
+          in: query
+          required: false
+          description: Words to find in a rule's ID, name or description.
+          schema:
+            type: string
+            maxLength: 100
+        - name: applicable
+          in: query
+          required: false
+          description: Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The pack's rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRuleList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}:
+    get:
+      operationId: getComplianceRule
+      tags: [compliance]
+      summary: One rule
+      description: |
+        Requires `compliance:read`. `engineering_logic` (the library's section 7B) and `definition` (the
+        machine definition) are included only for callers with `compliance:engineering`.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      responses:
+        "200":
+          description: One rule.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRule"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/clocks:
+    get:
+      operationId: listComplianceClocks
+      tags: [compliance]
+      summary: The pack's legal deadlines
+      description: |
+        Requires `compliance:read`. The reporting and response deadlines the pack's workflows time.
+      responses:
+        "200":
+          description: The pack's legal deadlines.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceClockList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/gaps:
+    get:
+      operationId: listComplianceGaps
+      tags: [compliance]
+      summary: The pack's open questions
+      description: |
+        Requires `compliance:read`. Open legal questions a person must settle (conflicting or unconfirmed sources).
+      responses:
+        "200":
+          description: The pack's open questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceGapList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/glossary:
+    get:
+      operationId: listComplianceGlossary
+      tags: [compliance]
+      summary: The pack's glossary
+      description: |
+        Requires `compliance:read`. Plain-English meanings of the terms the rules use.
+      responses:
+        "200":
+          description: The pack's glossary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTermList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/profile:
+    get:
+      operationId: getComplianceProfile
+      tags: [compliance]
+      summary: The workspace's compliance profile
+      description: |
+        Requires `compliance:read`. 404 until a profile is set.
+      responses:
+        "200":
+          description: The workspace's compliance profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceProfile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: putComplianceProfile
+      tags: [compliance]
+      summary: Set the workspace's compliance profile
+      description: |
+        Requires `compliance:write` (people only). Sets the jurisdiction, licence type and capabilities
+        that decide which rules apply. The workspace stays on its pack version unless the
+        jurisdiction changes, which moves it to that jurisdiction's latest pack. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceProfileRequest"
+      responses:
+        "200":
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceProfile"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/sso:
     get:
       operationId: getSSO
@@ -3053,6 +3294,379 @@ components:
           type: boolean
         accept_dpa:
           type: boolean
+    ComplianceRuleKind:
+      type: string
+      description: control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+      enum: [control, signal, governance]
+    ComplianceVerification:
+      type: string
+      description: How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
+      enum: [confirmed, secondary_source_only, conflicting, awaiting_regulator]
+    ComplianceOption:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+    ComplianceGroup:
+      type: object
+      additionalProperties: false
+      required: [id, label, rules]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        rules:
+          type: integer
+          description: How many rules the group has.
+    ComplianceLink:
+      type: object
+      additionalProperties: false
+      required: [title, url]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+    ComplianceSource:
+      type: object
+      additionalProperties: false
+      required: [id, title, links]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceLink"
+    ComplianceCounts:
+      type: object
+      additionalProperties: false
+      required: [controls, signals, governance]
+      properties:
+        controls:
+          type: integer
+        signals:
+          type: integer
+        governance:
+          type: integer
+    CompliancePack:
+      type: object
+      additionalProperties: false
+      required: [id, jurisdiction, name, version, checksum, loaded_at, groups, licence_types, capabilities, sources, counts]
+      properties:
+        id:
+          type: string
+        jurisdiction:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        name:
+          type: string
+        version:
+          type: string
+        checksum:
+          type: string
+          description: SHA-256 of the pack's files. A loaded version never changes.
+        loaded_at:
+          type: string
+          format: date-time
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceGroup"
+        licence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceOption"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceOption"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceSource"
+        counts:
+          $ref: "#/components/schemas/ComplianceCounts"
+    ComplianceParameter:
+      type: object
+      additionalProperties: false
+      required: [name, label, type, default, min, max]
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          description: |
+            The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
+            the day in Africa/Lagos time; flag is 0 or 1.
+          enum: [money, duration, count, ratio, points, percent, speed, hour, score, flag]
+        currency:
+          type: string
+        default:
+          type: number
+          format: double
+          nullable: true
+          description: Null when the institution must set the value.
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+          description: For regulatory limits, the legal maximum.
+    ComplianceEffective:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        date:
+          type: string
+          description: YYYY-MM-DD, set only when the source states a full date.
+        text:
+          type: string
+    ComplianceDefaults:
+      type: object
+      additionalProperties: false
+      required: [enabled, mode]
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum: [live, shadow]
+    ComplianceOutcome:
+      type: object
+      additionalProperties: false
+      required: [tasks]
+      properties:
+        decision:
+          type: string
+        severity:
+          type: string
+        tasks:
+          type: array
+          items:
+            type: string
+    ComplianceRule:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, group, kind, status, regulators, applies_to, requires, sources, effective, verification, defaults, inputs, events, outcome, parameters, applicable]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: The library's plain-English name, verbatim.
+        description:
+          type: string
+          description: The library's plain-English description, verbatim.
+        action:
+          type: string
+          description: What the system does (controls only), verbatim.
+        points:
+          type: string
+          description: The library's points column (signals only), verbatim.
+        group:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ComplianceRuleKind"
+        status:
+          type: string
+          enum: [regulatory, recommended, governance]
+        regulators:
+          type: array
+          items:
+            type: string
+        applies_to:
+          type: array
+          description: Licence types the rule applies to. Empty means every institution.
+          items:
+            type: string
+        requires:
+          type: array
+          description: Capabilities the workspace must have for the rule to apply.
+          items:
+            type: string
+        sources:
+          type: array
+          description: Source IDs (see the pack's sources).
+          items:
+            type: string
+        effective:
+          $ref: "#/components/schemas/ComplianceEffective"
+        verification:
+          $ref: "#/components/schemas/ComplianceVerification"
+        caveat:
+          type: string
+        defaults:
+          $ref: "#/components/schemas/ComplianceDefaults"
+        inputs:
+          type: array
+          description: The data the rule needs. When one is unavailable the rule is reported as not evaluated.
+          items:
+            type: string
+        events:
+          type: array
+          description: The event types the rule is evaluated on.
+          items:
+            type: string
+        outcome:
+          $ref: "#/components/schemas/ComplianceOutcome"
+        parameters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceParameter"
+        applicable:
+          type: boolean
+          nullable: true
+          description: Whether the rule applies to the workspace's profile; null without a profile.
+        engineering_logic:
+          type: string
+          description: The library's section 7B logic. Only for `compliance:engineering`.
+        definition:
+          type: object
+          additionalProperties: true
+          description: The machine definition the engine interprets. Only for `compliance:engineering`.
+    ComplianceRuleList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceRule"
+    ComplianceClock:
+      type: object
+      additionalProperties: false
+      required: [id, duration, duty, applies_to, requirement, hours, sources, rules]
+      properties:
+        id:
+          type: string
+        duration:
+          type: string
+        duty:
+          type: string
+        applies_to:
+          type: string
+        requirement:
+          type: string
+        hours:
+          type: integer
+          description: The deadline in hours.
+        sources:
+          type: array
+          items:
+            type: string
+        rules:
+          type: array
+          items:
+            type: string
+    ComplianceClockList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceClock"
+    ComplianceGap:
+      type: object
+      additionalProperties: false
+      required: [id, title, detail, rules, sources]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        rules:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            type: string
+    ComplianceGapList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceGap"
+    ComplianceTerm:
+      type: object
+      additionalProperties: false
+      required: [term, expansion, definition]
+      properties:
+        term:
+          type: string
+        expansion:
+          type: string
+        definition:
+          type: string
+    ComplianceTermList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceTerm"
+    ComplianceProfile:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, licence_type, capabilities, pack_id, pack_version, updated_at, updated_by]
+      properties:
+        jurisdiction:
+          type: string
+        licence_type:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        pack_id:
+          type: string
+        pack_version:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+    ComplianceProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, licence_type, capabilities]
+      properties:
+        jurisdiction:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        licence_type:
+          type: string
+          maxLength: 64
+        capabilities:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            maxLength: 64
     Onboarding:
       type: object
       additionalProperties: false
@@ -3264,7 +3878,7 @@ components:
           maxLength: 128
     Role:
       type: string
-      enum: [customer_admin, developer, risk_manager, analyst]
+      enum: [customer_admin, developer, risk_manager, analyst, compliance_officer, auditor]
     Passkey:
       type: object
       additionalProperties: false
@@ -4003,9 +4617,10 @@ components:
     Scope:
       type: string
       description: |
-        A permission. API keys can hold any except `rules:approve`, which only people hold (a
-        second person approves production rule changes).
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
+        A permission. API keys can hold any except `rules:approve` and `compliance:write`, which
+        only people hold (a second person approves production rule changes; a person sets the
+        workspace's compliance profile).
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write, compliance:read, compliance:engineering, compliance:write]
     Whoami:
       type: object
       additionalProperties: false

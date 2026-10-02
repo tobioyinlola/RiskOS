@@ -37,6 +37,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -187,6 +188,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	}
 	h, err := httpapi.New(httpapi.Deps{
 		Tenants: tenants.New(runner, auditModule.Recorder()),
+		Rules:   rules.New(runner, auditModule.Recorder()),
 		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
@@ -347,7 +349,7 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	assert.ElementsMatch(t, []apigen.Scope{
 		"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate",
 		"rules:read", "rules:write", "risk:configure", "alerts:read", "alerts:write", "cases:read", "cases:write",
-		"webhooks:read", "webhooks:write", "team:read", "team:write",
+		"webhooks:read", "webhooks:write", "team:read", "team:write", "compliance:read", "compliance:engineering",
 	}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.

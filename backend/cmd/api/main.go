@@ -34,6 +34,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -195,6 +196,7 @@ func run() (err error) {
 		Cases:     casesModule,
 		Webhooks:  webhooksModule,
 		Tenants:   tenantsModule,
+		Rules:     rules.New(runner, auditModule.Recorder()),
 		Admin:     adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		RateLimits: httpapi.RateLimits{

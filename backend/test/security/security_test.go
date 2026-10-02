@@ -37,6 +37,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -93,6 +94,7 @@ func startServer(t *testing.T) server {
 		Health: health.NewService(logger), Auth: authModule, Audit: auditModule,
 		Events: eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Webhooks: webhooksMod, Limiter: allowAll{},
 		Tenants: tenants.New(noDB{}, auditModule.Recorder()),
+		Rules:   rules.New(noDB{}, auditModule.Recorder()),
 	})
 	require.NoError(t, err)
 

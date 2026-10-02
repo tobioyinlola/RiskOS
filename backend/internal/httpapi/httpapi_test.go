@@ -33,6 +33,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -67,6 +68,7 @@ func newFixture(t testing.TB, probes map[string]error) fixture {
 			Audit:     auditModule,
 			Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Webhooks: webhooksMod,
 			Tenants: tenants.New(noDB{}, auditModule.Recorder()),
+			Rules:   rules.New(noDB{}, auditModule.Recorder()),
 			Limiter: allowAll{},
 		})),
 	}
@@ -217,6 +219,7 @@ func BenchmarkLiveness(b *testing.B) {
 		Audit:     auditModule,
 		Events:    eventsMod, Risk: riskMod, Alerts: alertsMod, Cases: casesMod, Webhooks: webhooksMod,
 		Tenants: tenants.New(noDB{}, auditModule.Recorder()),
+		Rules:   rules.New(noDB{}, auditModule.Recorder()),
 		Limiter: allowAll{},
 	}))
 	req := httptest.NewRequestWithContext(b.Context(), http.MethodGet, "/health/live", nil)

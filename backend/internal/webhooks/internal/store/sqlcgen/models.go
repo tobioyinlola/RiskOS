@@ -243,6 +243,15 @@ type GoogleLogin struct {
 	ExpiresAt   time.Time
 }
 
+type PackRule struct {
+	PackID      string
+	PackVersion string
+	RuleID      string
+	Kind        string
+	Definition  []byte
+	Wording     []byte
+}
+
 type RiskSetting struct {
 	TenantID             uuid.UUID
 	EnvironmentID        uuid.UUID
@@ -291,6 +300,16 @@ type RuleChange struct {
 	DecidedAt      *time.Time
 	Reason         *string
 	AppliedVersion *int32
+}
+
+type RulePack struct {
+	ID           string
+	Version      string
+	Jurisdiction string
+	Name         string
+	Checksum     string
+	Meta         []byte
+	LoadedAt     time.Time
 }
 
 type RuleVersion struct {
@@ -427,6 +446,16 @@ type Tenant struct {
 	CreatedAt         time.Time
 	ProductionEnabled bool
 	Origin            string
+}
+
+type TenantCompliance struct {
+	TenantID     uuid.UUID
+	PackID       string
+	PackVersion  string
+	LicenceType  string
+	Capabilities []string
+	UpdatedAt    time.Time
+	UpdatedBy    string
 }
 
 type TenantOnboarding struct {
