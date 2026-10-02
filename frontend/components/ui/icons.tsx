@@ -27,6 +27,8 @@ export {
   UsersIcon as Users,
   UsersThreeIcon as Team,
   ScrollIcon as Scroll,
+  ScalesIcon as Scales,
+  BookOpenTextIcon as Book,
   KeyIcon as Key,
   LockIcon as Lock,
   BugIcon as Bug,

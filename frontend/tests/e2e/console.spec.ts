@@ -41,6 +41,8 @@ test("sign-in with a new passkey, every section, sign-out and back in", async ({
   page,
   isMobile,
 }) => {
+  // A walk through every section: its length grows with the console.
+  test.slow();
   const csp = watchCsp(page);
   const api = await mockApi(page);
   await virtualAuthenticator(page);

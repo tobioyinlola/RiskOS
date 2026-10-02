@@ -1,5 +1,15 @@
 import type { Page, Route } from "@playwright/test";
 
+import {
+  applies,
+  CLOCKS,
+  ENGINEERING,
+  GAPS,
+  GLOSSARY,
+  PACK,
+  RULES,
+} from "./compliance-fixtures";
+
 /**
  * A small in-memory stand-in for the RiskOS API, served through Playwright's request
  * interception, so the browser tests run without a backend. It checks what the browser sends
@@ -32,6 +42,9 @@ const ALL_PERMISSIONS = [
   "webhooks:write",
   "team:read",
   "team:write",
+  "compliance:read",
+  "compliance:engineering",
+  "compliance:write",
 ];
 
 const THRESHOLDS = { low: 20, elevated: 50, high: 70, critical: 90 };
@@ -69,6 +82,14 @@ export interface MockApi {
   productionEnabled: boolean;
   /** The workspace's compliance onboarding (null: created by an operator, none). */
   onboarding: { status: string; answers: Record<string, unknown> } | null;
+  /** The signed-in user's permissions; tests narrow them to act as another role. */
+  permissions: string[];
+  /** The workspace's compliance profile (null until set). */
+  complianceProfile: {
+    jurisdiction: string;
+    licence_type: string;
+    capabilities: string[];
+  } | null;
 }
 
 /** The answers onboarding needs before it can be submitted. */
@@ -235,6 +256,8 @@ export async function mockApi(page: Page): Promise<MockApi> {
     deny: [],
     productionEnabled: true,
     onboarding: null,
+    permissions: ALL_PERMISSIONS,
+    complianceProfile: null,
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -252,7 +275,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
       name: "Acme Payments",
       production_enabled: state.productionEnabled,
     },
-    permissions: ALL_PERMISSIONS,
+    permissions: state.permissions,
     environments: state.productionEnabled ? ["test", "production"] : ["test"],
     csrf_token: csrf,
     expires_at: "2026-09-30T23:59:59Z",
@@ -294,6 +317,72 @@ export async function mockApi(page: Page): Promise<MockApi> {
   const error = (route: Route, status: number, code: string, message: string) =>
     json(route, { error: { code, message, request_id: "req_test" } }, status);
 
+  const ruleView = (r: (typeof RULES)[number], detail: boolean) => ({
+    ...r,
+    applicable: applies(r, state.complianceProfile),
+    ...(detail &&
+    state.permissions.includes("compliance:engineering") &&
+    ENGINEERING[r.id]
+      ? { engineering_logic: ENGINEERING[r.id], definition: { id: r.id } }
+      : {}),
+  });
+
+  const compliance = (
+    route: Route,
+    path: string,
+    method: string,
+    body: Record<string, unknown> | null,
+  ) => {
+    if (!state.permissions.includes("compliance:read")) {
+      return error(route, 403, "FORBIDDEN", "Not allowed.");
+    }
+    const ruleId = path.match(/^\/compliance\/rules\/(.+)$/)?.[1];
+    if (ruleId) {
+      const r = RULES.find((x) => x.id === ruleId);
+      return r
+        ? json(route, ruleView(r, true))
+        : error(route, 404, "NOT_FOUND", "No such rule.");
+    }
+    switch (path) {
+      case "/compliance/pack":
+        return json(route, PACK);
+      case "/compliance/rules":
+        return json(route, { data: RULES.map((r) => ruleView(r, false)) });
+      case "/compliance/clocks":
+        return json(route, { data: CLOCKS });
+      case "/compliance/gaps":
+        return json(route, { data: GAPS });
+      case "/compliance/glossary":
+        return json(route, { data: GLOSSARY });
+      case "/compliance/profile": {
+        const view = () => ({
+          ...state.complianceProfile,
+          pack_id: "ng",
+          pack_version: PACK.version,
+          updated_at: NOW,
+          updated_by: "usr_admin",
+        });
+        if (method === "PUT") {
+          if (!state.permissions.includes("compliance:write")) {
+            return error(route, 403, "FORBIDDEN", "Not allowed.");
+          }
+          state.complianceProfile = {
+            jurisdiction: String(body?.jurisdiction),
+            licence_type: String(body?.licence_type),
+            capabilities: (body?.capabilities as string[]) ?? [],
+          };
+          return json(route, view());
+        }
+        return state.complianceProfile
+          ? json(route, view())
+          : error(route, 404, "NOT_FOUND", "No compliance profile.");
+      }
+      default:
+        state.problems.push(`unmocked ${method} ${path}`);
+        return error(route, 404, "NOT_FOUND", "Not mocked.");
+    }
+  };
+
   await page.route("**/api/v1/**", async (route) => {
     const req = route.request();
     const url = new URL(req.url());
@@ -308,6 +397,10 @@ export async function mockApi(page: Page): Promise<MockApi> {
       req.headers()["x-csrf-token"] !== csrf
     ) {
       state.problems.push(`${method} ${path} without the CSRF token`);
+    }
+
+    if (path.startsWith("/compliance/")) {
+      return compliance(route, path, method, body);
     }
 
     if (path.startsWith("/deny-list/") && method === "DELETE") {

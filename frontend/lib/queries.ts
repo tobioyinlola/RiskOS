@@ -2,7 +2,7 @@
 
 import { useInfiniteQuery, useQuery } from "@tanstack/react-query";
 
-import { api, unwrap, type Schemas } from "@/lib/api/client";
+import { ApiError, api, unwrap, type Schemas } from "@/lib/api/client";
 import { DEFAULT_THRESHOLDS, type Thresholds } from "@/lib/risk";
 import { useSession } from "@/lib/session";
 
@@ -381,5 +381,84 @@ export function useInvites() {
   return useQuery({
     queryKey: key,
     queryFn: async () => unwrap(await api().GET("/api/v1/team/invites")),
+  });
+}
+
+/*
+ * The compliance rules library (ADR-0006). The pack belongs to the workspace, not to an
+ * environment, and a loaded pack version never changes, so it is cached for long.
+ */
+const COMPLIANCE_STALE = 10 * 60_000;
+
+export function useCompliancePack() {
+  return useQuery({
+    queryKey: ["compliance", "pack"],
+    staleTime: COMPLIANCE_STALE,
+    retry: false,
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/pack")),
+  });
+}
+
+/** Every rule of the pack (lists never carry engineering logic). */
+export function useComplianceRules() {
+  return useQuery({
+    queryKey: ["compliance", "rules"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/rules")),
+  });
+}
+
+/** One rule; the engineering logic is present only when the caller may see it. */
+export function useComplianceRule(ruleId: string) {
+  return useQuery({
+    queryKey: ["compliance", "rule", ruleId],
+    staleTime: COMPLIANCE_STALE,
+    retry: false,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/rules/{rule_id}", {
+          params: { path: { rule_id: ruleId } },
+        }),
+      ),
+  });
+}
+
+export function useComplianceClocks() {
+  return useQuery({
+    queryKey: ["compliance", "clocks"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/clocks")),
+  });
+}
+
+export function useComplianceGaps() {
+  return useQuery({
+    queryKey: ["compliance", "gaps"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/gaps")),
+  });
+}
+
+export function useComplianceGlossary() {
+  return useQuery({
+    queryKey: ["compliance", "glossary"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/glossary")),
+  });
+}
+
+/** The workspace's compliance profile, or null until one is set. */
+export function useComplianceProfile() {
+  return useQuery({
+    queryKey: ["compliance", "profile"],
+    retry: false,
+    queryFn: async () => {
+      try {
+        return unwrap(await api().GET("/api/v1/compliance/profile"));
+      } catch (e) {
+        if (e instanceof ApiError && e.status === 404) return null;
+        throw e;
+      }
+    },
   });
 }

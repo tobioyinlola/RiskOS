@@ -12,7 +12,7 @@ export interface NavSection {
   href: Route;
   label: string;
   /** "Main" items are listed first without a heading; the others under their label. */
-  group: "Main" | "Workflows" | "Organization";
+  group: "Main" | "Workflows" | "Compliance" | "Organization";
   icon:
     | "gauge"
     | "radio"
@@ -28,6 +28,7 @@ export interface NavSection {
     | "code"
     | "users"
     | "scroll"
+    | "scales"
     | "key";
   anyOf: readonly Scope[];
 }
@@ -116,6 +117,13 @@ export const navSections = [
     group: "Workflows",
     icon: "code",
     anyOf: ["api_keys:read", "webhooks:read"],
+  },
+  {
+    href: "/compliance",
+    label: "Rules library",
+    group: "Compliance",
+    icon: "scales",
+    anyOf: ["compliance:read"],
   },
   {
     href: "/team",

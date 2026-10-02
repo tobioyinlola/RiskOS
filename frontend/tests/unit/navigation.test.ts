@@ -21,6 +21,7 @@ describe("navigation", () => {
       "Deny lists",
       "Risk settings",
       "Developer",
+      "Rules library",
       "Team",
       "Single sign-on",
       "Audit log",

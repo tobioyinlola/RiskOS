@@ -37,6 +37,7 @@ import {
   Receipt,
   Rows,
   Scroll,
+  Scales,
   Search,
   ShieldCheck,
   SignOut,
@@ -81,9 +82,10 @@ const ICONS: Record<NavSection["icon"], Icon> = {
   code: Code,
   users: Team,
   scroll: Scroll,
+  scales: Scales,
 };
 
-const GROUPS = ["Main", "Workflows", "Organization"] as const;
+const GROUPS = ["Main", "Workflows", "Compliance", "Organization"] as const;
 
 /**
  * One navigation item: icon and label; the active item is a blue-50 pill with blue text and the
