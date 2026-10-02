@@ -6,7 +6,8 @@ import { useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
-import { CopyValue, KeyValues, Tag } from "@/components/ui/misc";
+import { CopyValue, KeyValues, pillTabClass, Tag } from "@/components/ui/misc";
+import { StatusPill, type Tone } from "@/components/ui/pill";
 import { Modal } from "@/components/ui/overlay";
 import {
   PageHeader,
@@ -33,6 +34,12 @@ import { useSession } from "@/lib/session";
 import { Timeline } from "../alerts/alerts";
 
 import { EntityLink } from "../entities/link";
+
+const CASE_TONE: Record<Schemas["CaseStatus"], Tone> = {
+  open: "warning",
+  investigating: "info",
+  resolved: "success",
+};
 
 const STATUS_LABEL: Record<Schemas["CaseStatus"], string> = {
   open: "Open",
@@ -97,7 +104,7 @@ export function CaseList() {
             role="tab"
             aria-selected={status === s}
             onClick={() => setStatus(s)}
-            className={`h-control-sm rounded-md px-3 text-body-sm ${status === s ? "bg-accent-subtle text-text-primary" : "text-text-secondary hover:bg-bg-raised"}`}
+            className={pillTabClass(status === s)}
           >
             {s === "all" ? "All" : STATUS_LABEL[s]}
           </button>
@@ -134,7 +141,9 @@ export function CaseList() {
                   </span>
                 </Td>
                 <Td>
-                  <Tag>{STATUS_LABEL[c.status]}</Tag>
+                  <StatusPill tone={CASE_TONE[c.status]}>
+                    {STATUS_LABEL[c.status]}
+                  </StatusPill>
                 </Td>
                 <Td className="text-body-sm text-text-secondary">
                   {userName(c.assignee)}
@@ -402,7 +411,9 @@ export function CaseWorkspace({ id }: { id: string }) {
             <PanelBody className="flex flex-col gap-4">
               <div className="flex items-center gap-2">
                 <RiskBadge band={c.priority as RiskBand} showScore={false} />
-                <Tag>{STATUS_LABEL[c.status]}</Tag>
+                <StatusPill tone={CASE_TONE[c.status]}>
+                  {STATUS_LABEL[c.status]}
+                </StatusPill>
               </div>
               <KeyValues
                 items={[

@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/cn";
 
 import {
   BAND_BADGE,
@@ -57,7 +57,7 @@ export function RiskBadge({
   return (
     <span
       className={cn(
-        "inline-flex items-center gap-1 rounded-sm px-2 py-0.5 text-label whitespace-nowrap",
+        "inline-flex items-center gap-1.5 rounded-full px-2.5 py-0.5 text-label whitespace-nowrap",
         BAND_BADGE[b],
         className,
       )}
@@ -67,7 +67,7 @@ export function RiskBadge({
       <BandIcon shape={info.shape} />
       <span aria-hidden="true">
         {info.label}
-        {withScore ? <span className="mono"> · {score}</span> : null}
+        {withScore ? <span className="tabular"> · {score}</span> : null}
       </span>
     </span>
   );

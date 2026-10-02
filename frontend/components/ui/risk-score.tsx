@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/cn";
 
 import {
   BAND_FILL,
@@ -41,7 +41,7 @@ export function RiskMeter({
   ];
   return (
     <div className={cn("w-full", className)} aria-hidden="true">
-      <div className="relative flex h-2 gap-0.5">
+      <div className="relative flex h-2.5 gap-[3px]">
         {ranges.map((r) => {
           const above =
             current !== null && order.indexOf(r.band) > order.indexOf(current);
@@ -49,7 +49,7 @@ export function RiskMeter({
             <span
               key={r.band}
               className={cn(
-                "rounded-sm",
+                "rounded-full",
                 BAND_FILL[r.band],
                 current === null || above ? "opacity-35" : "",
               )}
@@ -59,12 +59,12 @@ export function RiskMeter({
         })}
         {score !== undefined ? (
           <span
-            className="absolute -top-1 h-4 w-0.5 bg-text-primary transition-[left] duration-200 ease-out"
+            className="absolute -top-1.5 h-5.5 w-1 rounded-full bg-ink ring-2 ring-bg-surface transition-[left] duration-200 ease-out"
             style={{ left: `calc(${Math.max(0, Math.min(100, score))}% - 1px)` }}
           />
         ) : null}
       </div>
-      <div className="mono relative mt-2 h-4 text-label text-text-muted">
+      <div className="tabular relative mt-2 h-4 text-label text-text-muted">
         {legend.map((v, i) => (
           <span
             key={`${v}-${i}`}
@@ -118,8 +118,8 @@ export function RiskScore({
         aria-label={`Risk score ${score}, ${bandInfo(b).label}`}
         className="flex items-baseline gap-2"
       >
-        <span className={cn("mono text-score-xl", BAND_TEXT[b])}>{score}</span>
-        <span className="mono text-data text-text-muted">/ 100</span>
+        <span className={cn("tabular text-score-xl", BAND_TEXT[b])}>{score}</span>
+        <span className="tabular text-body-sm text-text-muted">/ 100</span>
         <RiskBadge band={b} showScore={false} className="ml-auto" />
       </div>
       <RiskMeter score={score} thresholds={thresholds} />

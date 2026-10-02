@@ -3,7 +3,13 @@
 import { useMemo, useState } from "react";
 
 import { TrendLine } from "@/components/ui/chart";
-import { Tab, TabList, TabPanel, Tabs } from "@/components/ui/misc";
+import {
+  pillTabClass,
+  Tab,
+  TabList,
+  TabPanel,
+  Tabs,
+} from "@/components/ui/misc";
 import { Metric, PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { Empty, ErrorState, Loading } from "@/components/ui/states";
 import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
@@ -199,14 +205,18 @@ export function Analytics() {
         title="Analytics"
         description="Decisions, scores and signals over time in this environment."
         actions={
-          <div role="tablist" aria-label="Window" className="flex gap-1">
+          <div
+            role="tablist"
+            aria-label="Window"
+            className="flex flex-wrap gap-2"
+          >
             {WINDOWS.map((w) => (
               <button
                 key={w.value}
                 role="tab"
                 aria-selected={window === w.value}
                 onClick={() => setWindow(w.value)}
-                className={`h-control-sm rounded-md px-3 text-body-sm transition-colors duration-150 ${window === w.value ? "bg-accent-subtle text-text-primary" : "text-text-secondary hover:bg-bg-raised"}`}
+                className={pillTabClass(window === w.value)}
               >
                 {w.label}
               </button>
@@ -311,11 +321,11 @@ export function Analytics() {
                       </Td>
                       <Td className="w-1/3">
                         <span
-                          className="block h-1.5 overflow-hidden rounded-full bg-bg-sunken"
+                          className="block h-1.5 overflow-hidden rounded-full bg-blue-50"
                           aria-hidden="true"
                         >
                           <i
-                            className="block h-full bg-text-secondary"
+                            className="block h-full rounded-full bg-brand-blue"
                             style={{ width: `${(s.hits / maxHits) * 100}%` }}
                           />
                         </span>

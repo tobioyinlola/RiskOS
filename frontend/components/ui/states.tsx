@@ -1,8 +1,8 @@
-import { cn } from "cn";
-import { CircleCheck, CircleX, Info, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/cn";
 import type { ReactNode } from "react";
 
 import { ApiError } from "@/lib/api/client";
+import { Alert, CheckCircle, Info, XCircle } from "@/components/ui/icons";
 
 /** Loading: skeleton blocks at the shape of what is coming, never a spinner over data. */
 export function Loading({
@@ -23,7 +23,7 @@ export function Loading({
         <span
           key={w}
           aria-hidden="true"
-          className="block h-3 rounded-sm bg-bg-raised"
+          className="block h-3 rounded-full bg-bg-sunken"
           style={{ width: `${w}%`, animation: "pulse-soft 1.4s ease-in-out infinite" }}
         />
       ))}
@@ -50,7 +50,7 @@ export function SkeletonRows({
           {Array.from({ length: columns }, (_, c) => (
             <td key={c} className="px-3">
               <span
-                className="block h-2.5 w-3/4 rounded-sm bg-bg-raised"
+                className="block h-2.5 w-3/4 rounded-full bg-bg-sunken"
                 style={{ animation: "pulse-soft 1.4s ease-in-out infinite" }}
               />
             </td>
@@ -74,7 +74,7 @@ export function Empty({
   className?: string;
 }) {
   return (
-    <div className={cn("flex flex-col items-start gap-2 px-4 py-7", className)}>
+    <div className={cn("flex flex-col items-start gap-2 px-5 py-7", className)}>
       <p className="text-heading-3">{title}</p>
       {children ? (
         <div className="max-w-prose text-body text-text-secondary">
@@ -99,12 +99,12 @@ export function ErrorState({
     <div
       role="alert"
       className={cn(
-        "flex gap-2 rounded-md border border-status-danger bg-risk-critical-bg px-4 py-3",
+        "flex gap-2 rounded-md border border-status-danger/30 bg-status-danger-bg px-4 py-3",
         className,
       )}
     >
-      <CircleX
-        className="mt-0.5 size-icon-sm shrink-0 stroke-[1.5] text-status-danger"
+      <XCircle
+        className="mt-0.5 size-icon-sm shrink-0 text-status-danger"
         aria-hidden="true"
       />
       <div className="flex flex-col gap-1">
@@ -124,9 +124,9 @@ export function ErrorState({
 
 const NOTICE = {
   info: { Icon: Info, color: "text-status-info" },
-  ok: { Icon: CircleCheck, color: "text-status-success" },
-  warn: { Icon: TriangleAlert, color: "text-status-warning" },
-  error: { Icon: CircleX, color: "text-status-danger" },
+  ok: { Icon: CheckCircle, color: "text-status-success" },
+  warn: { Icon: Alert, color: "text-status-warning" },
+  error: { Icon: XCircle, color: "text-status-danger" },
 } as const;
 
 /** An inline notice, always with its icon so it never relies on color. */
@@ -141,11 +141,11 @@ export function Notice({
   return (
     <div
       role={tone === "error" ? "alert" : "status"}
-      className="flex gap-2 rounded-md border border-border-subtle bg-bg-surface px-3 py-2 text-body-sm"
+      className="flex gap-2 rounded-md border border-border-subtle bg-bg-surface px-3.5 py-2.5 text-body-sm shadow-card"
       style={{ animation: "fade-in 150ms ease-out" }}
     >
       <Icon
-        className={cn("mt-px size-icon-sm shrink-0 stroke-[1.5]", color)}
+        className={cn("mt-px size-icon-sm shrink-0", color)}
         aria-hidden="true"
       />
       <div className="text-text-primary">{children}</div>

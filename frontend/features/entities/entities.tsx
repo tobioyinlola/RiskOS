@@ -1,13 +1,13 @@
 "use client";
 
-import { cn } from "cn";
-import { Smartphone, UserRound, Wallet } from "lucide-react";
+import { cn } from "@/lib/cn";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
+import { SegmentedBar } from "@/components/ui/bars";
 import { CopyValue } from "@/components/ui/misc";
 import { Metric, PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { RiskBadge } from "@/components/ui/risk-badge";
@@ -32,6 +32,8 @@ import { EventTable } from "../events/events";
 
 import { DenyEntityButton } from "../deny/deny";
 import { entityHref, EntityLink } from "./link";
+import { Device, User, Wallet, type Icon } from "@/components/ui/icons";
+import { DECISION_FILL, DECISION_LABEL } from "@/lib/risk";
 
 export { entityHref, EntityLink };
 
@@ -41,10 +43,10 @@ export const KIND_LABEL: Record<EntityKind, string> = {
   device: "Device",
 };
 
-const KIND_ICON: Record<EntityKind, typeof UserRound> = {
-  user: UserRound,
+const KIND_ICON: Record<EntityKind, Icon> = {
+  user: User,
   account: Wallet,
-  device: Smartphone,
+  device: Device,
 };
 
 /** Look up a user, account or device; below, the highest-risk users of the last 24 hours. */
@@ -220,10 +222,7 @@ export function EntityProfile({
       actions={<DenyEntityButton kind={kind} refId={refId} />}
       description={
         <span className="inline-flex items-center gap-2">
-          <Icon
-            className="size-icon-sm stroke-[1.5] text-text-muted"
-            aria-hidden="true"
-          />
+          <Icon className="size-icon-sm text-text-muted" aria-hidden="true" />
           <CopyValue value={refId} />
         </span>
       }
@@ -343,50 +342,30 @@ export function EntityProfile({
   );
 }
 
-/** Decisions as one proportional bar with a legend (and the counts as text). */
+/** Decisions as one segmented bar with a legend (and the counts as text). */
 export function DecisionBar({ counts }: { counts: Schemas["DecisionCounts"] }) {
-  const parts: { key: string; label: string; n: number; cls: string }[] = [
-    // Decisions are not bands: a neutral ramp, with the words carrying the meaning.
-    { key: "allow", label: "Allow", n: counts.allow, cls: "bg-border-control" },
-    {
-      key: "step_up",
-      label: "Step-up",
-      n: counts.step_up,
-      cls: "bg-text-muted",
-    },
-    {
-      key: "review",
-      label: "Review",
-      n: counts.review,
-      cls: "bg-text-secondary",
-    },
-    { key: "block", label: "Block", n: counts.block, cls: "bg-text-primary" },
-  ];
-  const total = parts.reduce((s, p) => s + p.n, 0) || 1;
+  const parts = (["allow", "step_up", "review", "block"] as const).map((d) => ({
+    key: d,
+    label: DECISION_LABEL[d],
+    value: counts[d],
+    fill: DECISION_FILL[d],
+  }));
+  const total = parts.reduce((s, p) => s + p.value, 0) || 1;
   return (
-    <div className="flex flex-col gap-3 p-4">
-      <div
-        className="flex h-2 gap-0.5 overflow-hidden rounded-full bg-bg-sunken"
-        aria-hidden="true"
-      >
-        {parts
-          .filter((p) => p.n > 0)
-          .map((p) => (
-            <span key={p.key} className={p.cls} style={{ flexGrow: p.n }} />
-          ))}
-      </div>
+    <div className="flex flex-col gap-3 px-5 pb-5">
+      <SegmentedBar parts={parts} />
       <dl className="flex flex-wrap gap-x-5 gap-y-1 text-body-sm">
         {parts.map((p) => (
           <div key={p.key} className="flex items-center gap-2">
             <span
-              className={cn("size-2 rounded-full", p.cls)}
+              className={cn("size-2 rounded-full", p.fill)}
               aria-hidden="true"
             />
             <dt className="text-text-secondary">{p.label}</dt>
-            <dd className="mono text-data">
-              {formatCount(p.n)}{" "}
-              <span className="text-text-muted">
-                ({Math.round((p.n / total) * 100)}%)
+            <dd className="tabular font-medium">
+              {formatCount(p.value)}{" "}
+              <span className="font-normal text-text-muted">
+                ({Math.round((p.value / total) * 100)}%)
               </span>
             </dd>
           </div>

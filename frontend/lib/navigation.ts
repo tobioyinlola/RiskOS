@@ -11,7 +11,8 @@ type Scope = Schemas["Scope"];
 export interface NavSection {
   href: Route;
   label: string;
-  group: "Monitor" | "Investigate" | "Configure" | "Organization";
+  /** "Main" items are listed first without a heading; the others under their label. */
+  group: "Main" | "Workflows" | "Organization";
   icon:
     | "gauge"
     | "radio"
@@ -35,84 +36,84 @@ export const navSections = [
   {
     href: "/",
     label: "Overview",
-    group: "Monitor",
+    group: "Main",
     icon: "gauge",
     anyOf: ["events:read", "alerts:read"],
   },
   {
     href: "/live",
     label: "Live monitor",
-    group: "Monitor",
+    group: "Main",
     icon: "radio",
     anyOf: ["events:read"],
   },
   {
     href: "/alerts",
     label: "Alerts",
-    group: "Monitor",
+    group: "Main",
     icon: "alert",
     anyOf: ["alerts:read"],
   },
   {
     href: "/cases",
     label: "Cases",
-    group: "Monitor",
+    group: "Main",
     icon: "folder",
     anyOf: ["cases:read"],
   },
   {
     href: "/events",
     label: "Events",
-    group: "Investigate",
+    group: "Main",
     icon: "activity",
     anyOf: ["events:read"],
   },
   {
     href: "/transactions",
     label: "Transactions",
-    group: "Investigate",
+    group: "Main",
     icon: "receipt",
     anyOf: ["events:read"],
   },
   {
     href: "/entities",
     label: "Entities",
-    group: "Investigate",
+    group: "Main",
     icon: "fingerprint",
     anyOf: ["events:read"],
   },
   {
     href: "/analytics",
     label: "Analytics",
-    group: "Investigate",
+    group: "Main",
     icon: "chart",
     anyOf: ["events:read"],
   },
   {
     href: "/rules",
     label: "Rules",
-    group: "Configure",
+    group: "Workflows",
     icon: "shield",
     anyOf: ["rules:read"],
   },
   {
     href: "/deny-lists",
     label: "Deny lists",
-    group: "Configure",
+    group: "Workflows",
     icon: "ban",
     anyOf: ["rules:read", "risk:configure"],
   },
   {
     href: "/settings",
     label: "Risk settings",
-    group: "Configure",
+    group: "Workflows",
     icon: "sliders",
     anyOf: ["risk:configure"],
   },
   {
     href: "/developer",
     label: "Developer",
-    group: "Configure",
+    group: "Workflows",
     icon: "code",
     anyOf: ["api_keys:read", "webhooks:read"],
   },

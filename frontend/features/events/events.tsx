@@ -1,6 +1,5 @@
 "use client";
 
-import { X } from "lucide-react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { useCallback, useEffect, useMemo, useState } from "react";
 
@@ -39,6 +38,8 @@ import {
 
 import { EntityLink } from "../entities/link";
 import { DecisionReading } from "../risk/explain";
+import { Close } from "@/components/ui/icons";
+import { DecisionPill } from "@/components/ui/pill";
 
 const EVENT_TYPES: Schemas["EventType"][] = [
   "transaction",
@@ -160,7 +161,7 @@ export function EventFilters({
             onChange({});
           }}
         >
-          <X /> Clear filters
+          <Close /> Clear filters
         </Button>
       ) : null}
     </div>
@@ -248,8 +249,8 @@ export function EventTable({
                   <EntityLink kind="user" refId={e.actor.user_id} />
                 ) : null}
               </Td>
-              <Td className="text-body-sm">
-                {DECISION_LABEL[e.decision as Decision]}
+              <Td>
+                <DecisionPill decision={e.decision} />
               </Td>
               <DataCell
                 className="text-text-muted"

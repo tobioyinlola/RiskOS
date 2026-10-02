@@ -25,7 +25,7 @@ export function Tooltip({
         <T.Content
           side={side}
           sideOffset={8}
-          className="z-50 rounded-md border border-border-subtle bg-bg-raised px-2 py-1 text-label text-text-primary shadow-overlay"
+          className="z-50 rounded-sm bg-ink px-2.5 py-1.5 text-label text-white shadow-overlay"
           style={{ animation: "fade-in 120ms ease-out" }}
         >
           {content}

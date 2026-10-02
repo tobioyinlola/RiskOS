@@ -1,11 +1,26 @@
 "use client";
 
-import { cn } from "cn";
-import { Check, CircleCheck, CircleX, Copy, Minus, TriangleAlert } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { Tabs as T } from "radix-ui";
 import { useState, type ComponentProps, type ReactNode } from "react";
 
-/** Tabs: the selected tab is underlined in accent. */
+import { Alert, Check, CheckCircle, Copy, Minus, XCircle } from "./icons";
+
+/**
+ * The pill tab look, for tab buttons that drive a URL or a filter rather than Radix Tabs: the
+ * selected tab is the ink pill, the others white with a 1px edge.
+ */
+export function pillTabClass(selected: boolean, className?: string) {
+  return cn(
+    "inline-flex h-control-sm items-center gap-1.5 rounded-full border px-3.5 text-body-sm font-medium whitespace-nowrap transition-colors duration-150",
+    selected
+      ? "border-ink bg-ink text-white"
+      : "border-border-strong bg-bg-surface text-text-secondary hover:border-border-control hover:text-text-primary",
+    className,
+  );
+}
+
+/** Tabs: pills; the selected tab is the ink pill, the others white with a 1px edge. */
 export const Tabs = T.Root;
 
 export function TabList({
@@ -14,7 +29,7 @@ export function TabList({
 }: ComponentProps<typeof T.List>) {
   return (
     <T.List
-      className={cn("flex gap-4 border-b border-border-subtle", className)}
+      className={cn("flex flex-wrap gap-2", className)}
       {...props}
     />
   );
@@ -24,7 +39,7 @@ export function Tab({ className, ...props }: ComponentProps<typeof T.Trigger>) {
   return (
     <T.Trigger
       className={cn(
-        "-mb-px border-b-2 border-transparent pb-2 text-body text-text-secondary transition-colors duration-150 hover:text-text-primary data-[state=active]:border-accent data-[state=active]:text-text-primary",
+        "inline-flex h-control-sm items-center gap-1.5 rounded-full border border-border-strong bg-bg-surface px-3.5 text-body-sm font-medium text-text-secondary transition-colors duration-150 hover:border-border-control hover:text-text-primary data-[state=active]:border-ink data-[state=active]:bg-ink data-[state=active]:text-white",
         className,
       )}
       {...props}
@@ -107,9 +122,9 @@ export function CopyValue({
         title={copied ? "Copied" : "Copy"}
       >
         {copied ? (
-          <Check className="size-3.5 stroke-[1.5] text-status-success" />
+          <Check className="size-3.5 text-status-success" />
         ) : (
-          <Copy className="size-3.5 stroke-[1.5]" />
+          <Copy className="size-3.5" />
         )}
       </button>
     </span>
@@ -131,7 +146,7 @@ export function CodeBlock({
     <div className="relative">
       <pre
         className={cn(
-          "mono max-h-96 overflow-auto rounded-md bg-bg-sunken p-3 pr-10 text-data text-text-secondary",
+          "mono max-h-96 overflow-auto rounded-md border border-border-subtle bg-bg-sunken p-3 pr-10 text-data text-text-secondary",
           className,
         )}
       >
@@ -153,9 +168,9 @@ export function CodeBlock({
         title={copied ? "Copied" : "Copy"}
       >
         {copied ? (
-          <Check className="size-3.5 stroke-[1.5] text-status-success" />
+          <Check className="size-3.5 text-status-success" />
         ) : (
-          <Copy className="size-3.5 stroke-[1.5]" />
+          <Copy className="size-3.5" />
         )}
       </button>
     </div>
@@ -163,9 +178,9 @@ export function CodeBlock({
 }
 
 const STATUS = {
-  ok: { Icon: CircleCheck, color: "text-status-success" },
-  warn: { Icon: TriangleAlert, color: "text-status-warning" },
-  error: { Icon: CircleX, color: "text-status-danger" },
+  ok: { Icon: CheckCircle, color: "text-status-success" },
+  warn: { Icon: Alert, color: "text-status-warning" },
+  error: { Icon: XCircle, color: "text-status-danger" },
   off: { Icon: Minus, color: "text-text-muted" },
 } as const;
 
@@ -182,7 +197,7 @@ export function Status({
     <span className="inline-flex items-center gap-1 text-label">
       <Icon
         aria-hidden="true"
-        className={cn("size-icon-sm shrink-0 stroke-[1.5]", color)}
+        className={cn("size-icon-sm shrink-0", color)}
       />
       <span className="text-text-primary">{children}</span>
     </span>
@@ -200,7 +215,7 @@ export function Tag({
   return (
     <span
       className={cn(
-        "inline-flex items-center rounded-sm border border-border-subtle px-2 py-0.5 text-label whitespace-nowrap text-text-secondary",
+        "inline-flex items-center rounded-full border border-border-strong bg-bg-surface px-2.5 py-0.5 text-label whitespace-nowrap text-text-secondary",
         className,
       )}
     >

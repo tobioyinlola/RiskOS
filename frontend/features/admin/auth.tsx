@@ -1,7 +1,6 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
-import { KeyRound } from "lucide-react";
 import { useRouter } from "next/navigation";
 import { useState, useSyncExternalStore, type FormEvent } from "react";
 
@@ -15,6 +14,7 @@ import {
   createPasskey,
   passkeysSupported,
 } from "@/lib/webauthn";
+import { Key } from "@/components/ui/icons";
 
 function message(err: unknown, fallback: string): string {
   if (err instanceof ApiError) return err.message;
@@ -68,7 +68,7 @@ export function StaffLogin() {
       )}
       <Button
         variant="primary"
-        icon={<KeyRound />}
+        icon={<Key />}
         disabled={busy}
         onClick={() => void signIn()}
       >
@@ -160,7 +160,7 @@ export function StaffEnroll() {
       <Button
         type="submit"
         variant="primary"
-        icon={<KeyRound />}
+        icon={<Key />}
         disabled={busy || token === null}
       >
         Register passkey

@@ -16,10 +16,11 @@ import {
   humanize,
 } from "@/lib/format";
 import { useEvents, type EventFilter } from "@/lib/queries";
-import { DECISION_LABEL, type Decision, type RiskBand } from "@/lib/risk";
+import { type RiskBand } from "@/lib/risk";
 
 import { EntityLink } from "../entities/link";
 import { EventDrawer, EventFilters } from "../events/events";
+import { DecisionPill } from "@/components/ui/pill";
 
 /** Transactions: the transaction events with the fields an analyst scans for. */
 export function Transactions() {
@@ -118,8 +119,8 @@ export function Transactions() {
                   <Td className="text-body-sm text-text-secondary">
                     {t?.channel ? humanize(t.channel) : "—"}
                   </Td>
-                  <Td className="text-body-sm">
-                    {DECISION_LABEL[e.decision as Decision]}
+                  <Td>
+                    <DecisionPill decision={e.decision} />
                   </Td>
                   <DataCell
                     className="text-text-muted"

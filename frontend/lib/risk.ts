@@ -64,6 +64,14 @@ export const DECISION_LABEL: Record<Decision, string> = {
   block: "Block",
 };
 
+/** Decision fills for bars: the blue family, darker as the intervention grows. */
+export const DECISION_FILL: Record<Decision, string> = {
+  allow: "bg-blue-200",
+  step_up: "bg-blue-300",
+  review: "bg-brand-blue",
+  block: "bg-blue-600",
+};
+
 /** Text, badge and fill classes per band (tokens only). */
 export const BAND_TEXT: Record<RiskBand, string> = {
   minimal: "text-risk-minimal",
@@ -81,10 +89,11 @@ export const BAND_BADGE: Record<RiskBand, string> = {
   critical: "text-risk-critical bg-risk-critical-bg",
 };
 
+/** Vivid fills for meters, bars and chart marks (text uses BAND_TEXT, which meets AA). */
 export const BAND_FILL: Record<RiskBand, string> = {
-  minimal: "bg-risk-minimal",
-  low: "bg-risk-low",
-  elevated: "bg-risk-elevated",
-  high: "bg-risk-high",
-  critical: "bg-risk-critical",
+  minimal: "bg-risk-minimal-fill",
+  low: "bg-risk-low-fill",
+  elevated: "bg-risk-elevated-fill",
+  high: "bg-risk-high-fill",
+  critical: "bg-risk-critical-fill",
 };
