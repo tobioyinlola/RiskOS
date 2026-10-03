@@ -67,6 +67,7 @@ type LibraryHandlers interface {
 	CloseComplianceTask(ctx context.Context, req apigen.CloseComplianceTaskRequestObject) (apigen.CloseComplianceTaskResponseObject, error)
 	ExportComplianceReport(ctx context.Context, req apigen.ExportComplianceReportRequestObject) (apigen.ExportComplianceReportResponseObject, error)
 	ConfirmSuspicion(ctx context.Context, req apigen.ConfirmSuspicionRequestObject) (apigen.ConfirmSuspicionResponseObject, error)
+	PrepareFraudReport(ctx context.Context, req apigen.PrepareFraudReportRequestObject) (apigen.PrepareFraudReportResponseObject, error)
 }
 
 // Module is the rules module.
@@ -172,7 +173,7 @@ func (s alertSource) OpenAlertsBefore(ctx context.Context, before time.Time, lim
 	}
 	out := make([]service.OpenAlert, len(list))
 	for i, a := range list {
-		out[i] = service.OpenAlert{ID: a.ID, Title: a.Title, SubjectRef: a.SubjectRef, CreatedAt: a.CreatedAt}
+		out[i] = service.OpenAlert{ID: a.ID, Title: a.Title, SubjectRef: a.SubjectRef, Severity: a.Severity, CreatedAt: a.CreatedAt}
 	}
 	return out, nil
 }
@@ -194,6 +195,50 @@ func (s caseSource) CaseSubject(ctx context.Context, id uuid.UUID) (string, erro
 	return "", nil
 }
 
+// FraudCase returns a case with whether it was resolved as confirmed fraud.
+func (s caseSource) FraudCase(ctx context.Context, id uuid.UUID) (service.FraudCase, error) {
+	d, err := s.m.Get(ctx, id)
+	if errors.Is(err, cases.ErrNotFound) {
+		return service.FraudCase{}, fmt.Errorf("%w: case", ErrNotFound)
+	}
+	if err != nil {
+		return service.FraudCase{}, err
+	}
+	out := fraudCase(d.Case)
+	for _, a := range d.Alerts {
+		out.SubjectRef = a.SubjectRef
+		break
+	}
+	return out, nil
+}
+
+// ConfirmedFraud lists cases resolved as confirmed fraud, newest first.
+func (s caseSource) ConfirmedFraud(ctx context.Context, limit int) ([]service.FraudCase, error) {
+	list, err := s.m.ConfirmedFraud(ctx, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]service.FraudCase, len(list))
+	for i, c := range list {
+		out[i] = fraudCase(c)
+	}
+	return out, nil
+}
+
+func fraudCase(c cases.Case) service.FraudCase {
+	out := service.FraudCase{ID: c.ID, Title: c.Title}
+	if c.Resolution != nil && *c.Resolution == "confirmed_fraud" {
+		out.Confirmed = true
+	}
+	if c.ResolvedAt != nil {
+		out.ResolvedAt = *c.ResolvedAt
+	}
+	if c.ResolutionNote != nil {
+		out.Note = *c.ResolutionNote
+	}
+	return out
+}
+
 // TasksArgs is the job recording the compliance work of a decision. It carries identifiers and
 // the controls that fired, never payloads.
 type TasksArgs struct {
@@ -201,9 +246,12 @@ type TasksArgs struct {
 	EvaluationID, EventID   uuid.UUID
 	OccurredAt              time.Time
 	SubjectRef              string
-	Amount                  int64
-	Currency                string
-	Controls                []TaskControl
+	// AccountRef and HasBVN feed the account register of REG-16's daily check.
+	AccountRef string `json:",omitempty"`
+	HasBVN     *bool  `json:",omitempty"`
+	Amount     int64
+	Currency   string
+	Controls   []TaskControl
 }
 
 // Kind implements jobs.Args.
@@ -227,7 +275,50 @@ func (m *Module) TasksJob(scopes *tenants.Module, clk clock.Clock, logger *slog.
 		}
 		return m.svc.CreateTasks(ctx, service.TasksInput{
 			EvaluationID: a.EvaluationID, EventID: a.EventID, OccurredAt: a.OccurredAt, SubjectRef: a.SubjectRef,
-			Amount: a.Amount, Currency: a.Currency, Controls: a.Controls,
+			AccountRef: a.AccountRef, HasBVN: a.HasBVN, Amount: a.Amount, Currency: a.Currency, Controls: a.Controls,
 		}, clk.Now())
+	}
+}
+
+// FactHasBVN is the event fact saying whether the event's account has a BVN on file.
+const FactHasBVN = "account.has_bvn"
+
+// DailyArgs is the daily compliance check (REG-16's accounts without a BVN). It carries nothing:
+// the job visits every environment with accounts in the register.
+type DailyArgs struct{}
+
+// Kind implements jobs.Args.
+func (DailyArgs) Kind() string { return "compliance_daily" }
+
+// DailyJob returns the handler of DailyArgs. It lists the environments to visit on db, outside
+// any tenant scope (identifiers only), then checks each inside its tenant's scope with the
+// single system permission it needs. One failing environment does not stop the others.
+func (m *Module) DailyJob(db store.DBTX, scopes *tenants.Module, clk clock.Clock, logger *slog.Logger) func(context.Context, DailyArgs) error {
+	return func(ctx context.Context, _ DailyArgs) error {
+		list, err := store.AccountScopes(ctx, db)
+		if err != nil {
+			return err
+		}
+		var errs []error
+		for _, sc := range list {
+			scoped, err := scopes.JobScope(ctx, sc.TenantID, sc.EnvironmentID, tasksActor, []string{authz.ComplianceTasksCreate})
+			if errors.Is(err, tenants.ErrNotFound) || errors.Is(err, tenants.ErrNotActive) {
+				continue
+			}
+			if err != nil {
+				errs = append(errs, err)
+				continue
+			}
+			res, err := m.svc.DailyCheck(scoped, clk.Now())
+			if err != nil {
+				errs = append(errs, fmt.Errorf("daily compliance check of tenant %s: %w", sc.TenantID, err))
+				continue
+			}
+			if res.Opened > 0 || res.Closed > 0 {
+				logger.InfoContext(ctx, "daily compliance check", slog.String("tenant_id", sc.TenantID.String()),
+					slog.Int("opened", res.Opened), slog.Int("closed", res.Closed))
+			}
+		}
+		return errors.Join(errs...)
 	}
 }

@@ -82,6 +82,9 @@ func (Store) List(ctx context.Context, f domain.Filter) ([]domain.Case, error) {
 	if f.Status != nil {
 		p.Status = new(string(*f.Status))
 	}
+	if f.Resolution != nil {
+		p.Resolution = new(string(*f.Resolution))
+	}
 	rows, err := q.ListCases(ctx, p)
 	if err != nil {
 		return nil, fmt.Errorf("list cases: %w", err)

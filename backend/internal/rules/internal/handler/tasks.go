@@ -17,7 +17,7 @@ func taskToAPI(t store.Task, now time.Time) apigen.ComplianceTask {
 		Id: ids.Format(ids.PrefixComplianceTask, t.ID), Kind: t.Kind, Rule: t.RuleID,
 		Status: apigen.ComplianceTaskStatus(t.Status), Sensitive: t.Sensitive, DueAt: t.DueAt,
 		Overdue:    t.DueAt != nil && now.After(*t.DueAt) && (t.Status == service.TaskOpen || t.Status == service.TaskApproved),
-		SubjectRef: t.SubjectRef, Report: t.Report, CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy, UpdatedAt: t.UpdatedAt,
+		SubjectRef: t.SubjectRef, AccountRef: t.AccountRef, Report: t.Report, CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy, UpdatedAt: t.UpdatedAt,
 		ApprovedBy: t.ApprovedBy, ApprovedAt: t.ApprovedAt, ClosedBy: t.ClosedBy, ClosedAt: t.ClosedAt,
 		CloseNote: t.CloseNote, FilingRef: t.FilingRef,
 	}
@@ -57,14 +57,21 @@ func (h *Handlers) ListComplianceTasks(ctx context.Context, req apigen.ListCompl
 	}
 	out := apigen.ListComplianceTasks200JSONResponse{
 		Data: make([]apigen.ComplianceTask, len(q.Tasks)), Escalations: make([]apigen.ScreeningEscalation, len(q.Escalations)),
+		UnreportedFraud: make([]apigen.UnreportedFraudCase, len(q.Unreported)),
 	}
 	for i, t := range q.Tasks {
 		out.Data[i] = taskToAPI(t, now)
 	}
 	for i, e := range q.Escalations {
 		out.Escalations[i] = apigen.ScreeningEscalation{
-			AlertId: ids.Format(ids.PrefixAlert, e.Alert.ID), Title: e.Alert.Title, SubjectRef: e.Alert.SubjectRef,
+			AlertId: ids.Format(ids.PrefixAlert, e.Alert.ID), Rule: apigen.ScreeningEscalationRule(e.Rule), Title: e.Alert.Title,
+			SubjectRef: e.Alert.SubjectRef, Severity: apigen.ScreeningEscalationSeverity(e.Alert.Severity),
 			CreatedAt: e.Alert.CreatedAt, DueAt: e.DueAt,
+		}
+	}
+	for i, c := range q.Unreported {
+		out.UnreportedFraud[i] = apigen.UnreportedFraudCase{
+			CaseId: ids.Format(ids.PrefixCase, c.ID), Title: c.Title, ResolvedAt: c.ResolvedAt,
 		}
 	}
 	return out, nil
@@ -186,4 +193,20 @@ func (h *Handlers) ConfirmSuspicion(ctx context.Context, req apigen.ConfirmSuspi
 		return nil, configError(err)
 	}
 	return apigen.ConfirmSuspicion201JSONResponse(taskToAPI(t, h.clock.Now())), nil
+}
+
+// PrepareFraudReport implements POST /api/v1/compliance/fraud-reports.
+func (h *Handlers) PrepareFraudReport(ctx context.Context, req apigen.PrepareFraudReportRequestObject) (apigen.PrepareFraudReportResponseObject, error) {
+	if req.Body == nil {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	caseID, err := ids.Parse(ids.PrefixCase, req.Body.CaseId)
+	if err != nil {
+		return nil, httpx.NewError(http.StatusNotFound, httpx.CodeNotFound, "No such case.", err)
+	}
+	t, err := h.svc.PrepareFraudReport(ctx, caseID, h.clock.Now())
+	if err != nil {
+		return nil, configError(err)
+	}
+	return apigen.PrepareFraudReport201JSONResponse(taskToAPI(t, h.clock.Now())), nil
 }

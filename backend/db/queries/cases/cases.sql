@@ -22,6 +22,7 @@ FOR UPDATE;
 SELECT * FROM cases
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id
   AND (sqlc.narg('status')::text IS NULL OR status = sqlc.narg('status')::text)
+  AND (sqlc.narg('resolution')::text IS NULL OR resolution = sqlc.narg('resolution')::text)
   AND (sqlc.narg('before_id')::uuid IS NULL OR id < sqlc.narg('before_id')::uuid)
 ORDER BY id DESC
 LIMIT @row_limit;

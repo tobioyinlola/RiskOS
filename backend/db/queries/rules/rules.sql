@@ -110,9 +110,9 @@ DELETE FROM compliance_fx_rates WHERE tenant_id = @tenant_id AND currency = @cur
 
 -- name: InsertTask :execrows
 INSERT INTO compliance_tasks (tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id,
-  subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
+  subject_ref, account_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
 VALUES (@tenant_id, @environment_id, @id, @kind, @rule_id, @evaluation_id, @event_id, @case_id,
-  @subject_ref, @sensitive, 'open', @due_at, @report, @created_at, @created_by, @created_at)
+  @subject_ref, @account_ref, @sensitive, 'open', @due_at, @report, @created_at, @created_by, @created_at)
 ON CONFLICT DO NOTHING;
 
 -- name: GetTask :one
@@ -133,3 +133,47 @@ UPDATE compliance_tasks
 SET status = @status, report = @report, updated_at = @updated_at, approved_by = @approved_by, approved_at = @approved_at,
     closed_by = @closed_by, closed_at = @closed_at, close_note = @close_note, filing_ref = @filing_ref
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id;
+
+-- name: TaskCaseIDs :many
+-- The cases that have a task of rule and kind not dismissed (GOV-12's reported cases).
+SELECT DISTINCT case_id::uuid FROM compliance_tasks
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND rule_id = @rule_id AND kind = @kind
+  AND case_id IS NOT NULL AND status <> 'dismissed';
+
+-- Account register (REG-16).
+
+-- name: UpsertComplianceAccount :exec
+INSERT INTO compliance_accounts (tenant_id, environment_id, account_ref, subject_ref, has_bvn, first_seen_at, observed_at)
+VALUES (@tenant_id, @environment_id, @account_ref, @subject_ref, @has_bvn, @observed_at, @observed_at)
+ON CONFLICT (tenant_id, environment_id, account_ref) DO UPDATE SET
+  first_seen_at = least(compliance_accounts.first_seen_at, EXCLUDED.first_seen_at),
+  has_bvn = CASE WHEN EXCLUDED.observed_at >= compliance_accounts.observed_at
+                 THEN EXCLUDED.has_bvn ELSE compliance_accounts.has_bvn END,
+  subject_ref = coalesce(compliance_accounts.subject_ref, EXCLUDED.subject_ref),
+  observed_at = greatest(compliance_accounts.observed_at, EXCLUDED.observed_at);
+
+-- name: AccountsWithoutTask :many
+-- Accounts without a BVN that never had a task of rule and kind.
+SELECT a.* FROM compliance_accounts a
+WHERE a.tenant_id = @tenant_id AND a.environment_id = @environment_id AND NOT a.has_bvn
+  AND NOT EXISTS (
+    SELECT 1 FROM compliance_tasks t
+    WHERE t.tenant_id = a.tenant_id AND t.environment_id = a.environment_id
+      AND t.rule_id = @rule_id AND t.kind = @kind AND t.account_ref = a.account_ref)
+ORDER BY a.first_seen_at
+LIMIT @row_limit;
+
+-- name: OpenTasksOfAccountsWithBVN :many
+-- Open tasks of rule and kind whose account now has a BVN.
+SELECT t.* FROM compliance_tasks t
+JOIN compliance_accounts a ON a.tenant_id = t.tenant_id AND a.environment_id = t.environment_id
+  AND a.account_ref = t.account_ref
+WHERE t.tenant_id = @tenant_id AND t.environment_id = @environment_id AND t.rule_id = @rule_id AND t.kind = @kind
+  AND t.status = 'open' AND a.has_bvn
+ORDER BY t.id
+LIMIT @row_limit
+FOR UPDATE OF t;
+
+-- name: AccountScopes :many
+-- Every environment with accounts in the register; called outside any tenant scope.
+SELECT s.tenant_id::uuid AS tenant_id, s.environment_id::uuid AS environment_id FROM compliance_account_scopes() s;

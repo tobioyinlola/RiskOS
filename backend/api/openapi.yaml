@@ -3177,7 +3177,10 @@ paths:
         enhanced due diligence, freezing or closing an account), open ones first by deadline, at
         most 500. Suspicious transaction reports are listed only for `compliance:sensitive`
         (GOV-09). For callers who read alerts, `escalations` lists alerts still open past REG-14's
-        screening deadline (72 hours by default).
+        screening deadline (72 hours by default) and high or critical alerts nobody acted on
+        within GOV-11's response target (30 minutes by default). For callers who read cases,
+        `unreported_fraud` lists cases resolved as confirmed fraud without an industry fraud
+        report (GOV-12), at most 200.
       parameters:
         - name: status
           in: query
@@ -3429,6 +3432,48 @@ paths:
           $ref: "#/components/responses/Forbidden"
         "404":
           $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/fraud-reports:
+    post:
+      operationId: prepareFraudReport
+      tags: [compliance]
+      summary: Prepare an industry fraud report for a confirmed-fraud case
+      description: |
+        Requires `compliance:write`. Opens a draft industry fraud report (GOV-12) for a case
+        resolved as confirmed fraud, prefilled from the case. A compliance officer approves it and
+        a person files it with the industry channel (NIBSS) and records the reference: RiskOS
+        never submits it. One report per case unless it was dismissed (409). No deadline is
+        set: the source does not state one. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [case_id]
+              properties:
+                case_id:
+                  type: string
+                  maxLength: 64
+      responses:
+        "201":
+          description: The report, a draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/suspicion:
@@ -4178,14 +4223,14 @@ components:
     ComplianceTask:
       type: object
       additionalProperties: false
-      required: [id, kind, rule, status, sensitive, due_at, overdue, subject_ref, evaluation_id, event_id, case_id, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref]
+      required: [id, kind, rule, status, sensitive, due_at, overdue, subject_ref, account_ref, evaluation_id, event_id, case_id, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref]
       properties:
         id:
           type: string
           example: ctk_01j9x2k7m3q4r5s6t7v8w9x0yz
         kind:
           type: string
-          description: report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account.
+          description: report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, report.industry_fraud, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account.
         rule:
           type: string
         status:
@@ -4202,6 +4247,10 @@ components:
         subject_ref:
           type: string
           nullable: true
+        account_ref:
+          type: string
+          nullable: true
+          description: The account it concerns (REG-16 closes accounts without a BVN).
         evaluation_id:
           type: string
           nullable: true
@@ -4246,25 +4295,46 @@ components:
     ScreeningEscalation:
       type: object
       additionalProperties: false
-      required: [alert_id, title, subject_ref, created_at, due_at]
+      description: An alert still open past a deadline of the pack.
+      required: [alert_id, rule, title, subject_ref, severity, created_at, due_at]
       properties:
         alert_id:
           type: string
+        rule:
+          type: string
+          description: REG-14 (screening deadline) or GOV-11 (fraud response target).
+          enum: [REG-14, GOV-11]
         title:
           type: string
         subject_ref:
           type: string
+        severity:
+          type: string
+          enum: [low, medium, high, critical]
         created_at:
           type: string
           format: date-time
         due_at:
           type: string
           format: date-time
-          description: When screening was due (REG-14).
+          description: When the alert was due.
+    UnreportedFraudCase:
+      type: object
+      additionalProperties: false
+      description: A case resolved as confirmed fraud without an industry fraud report (GOV-12).
+      required: [case_id, title, resolved_at]
+      properties:
+        case_id:
+          type: string
+        title:
+          type: string
+        resolved_at:
+          type: string
+          format: date-time
     ComplianceQueue:
       type: object
       additionalProperties: false
-      required: [data, escalations]
+      required: [data, escalations, unreported_fraud]
       properties:
         data:
           type: array
@@ -4274,6 +4344,10 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ScreeningEscalation"
+        unreported_fraud:
+          type: array
+          items:
+            $ref: "#/components/schemas/UnreportedFraudCase"
     PackRuleMode:
       type: string
       description: live (it acts), shadow (it is evaluated and recorded only) or off.

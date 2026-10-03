@@ -12,6 +12,90 @@ import (
 	"github.com/google/uuid"
 )
 
+const accountScopes = `-- name: AccountScopes :many
+SELECT s.tenant_id::uuid AS tenant_id, s.environment_id::uuid AS environment_id FROM compliance_account_scopes() s
+`
+
+type AccountScopesRow struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+// Every environment with accounts in the register; called outside any tenant scope.
+func (q *Queries) AccountScopes(ctx context.Context) ([]AccountScopesRow, error) {
+	rows, err := q.db.Query(ctx, accountScopes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AccountScopesRow
+	for rows.Next() {
+		var i AccountScopesRow
+		if err := rows.Scan(&i.TenantID, &i.EnvironmentID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const accountsWithoutTask = `-- name: AccountsWithoutTask :many
+SELECT a.tenant_id, a.environment_id, a.account_ref, a.subject_ref, a.has_bvn, a.first_seen_at, a.observed_at FROM compliance_accounts a
+WHERE a.tenant_id = $1 AND a.environment_id = $2 AND NOT a.has_bvn
+  AND NOT EXISTS (
+    SELECT 1 FROM compliance_tasks t
+    WHERE t.tenant_id = a.tenant_id AND t.environment_id = a.environment_id
+      AND t.rule_id = $3 AND t.kind = $4 AND t.account_ref = a.account_ref)
+ORDER BY a.first_seen_at
+LIMIT $5
+`
+
+type AccountsWithoutTaskParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RuleID        string
+	Kind          string
+	RowLimit      int32
+}
+
+// Accounts without a BVN that never had a task of rule and kind.
+func (q *Queries) AccountsWithoutTask(ctx context.Context, arg AccountsWithoutTaskParams) ([]ComplianceAccount, error) {
+	rows, err := q.db.Query(ctx, accountsWithoutTask,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.RuleID,
+		arg.Kind,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ComplianceAccount
+	for rows.Next() {
+		var i ComplianceAccount
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.AccountRef,
+			&i.SubjectRef,
+			&i.HasBvn,
+			&i.FirstSeenAt,
+			&i.ObservedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const currentRuleVersions = `-- name: CurrentRuleVersions :many
 
 SELECT DISTINCT ON (rule_id) rule_id, version, mode, settings, reason, created_at, created_by, change_id, restored_from
@@ -262,7 +346,7 @@ func (q *Queries) GetRuleChange(ctx context.Context, arg GetRuleChangeParams) (G
 }
 
 const getTask = `-- name: GetTask :one
-SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref FROM compliance_tasks
+SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref, account_ref FROM compliance_tasks
 WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
 FOR UPDATE
 `
@@ -299,6 +383,7 @@ func (q *Queries) GetTask(ctx context.Context, arg GetTaskParams) (ComplianceTas
 		&i.ClosedAt,
 		&i.CloseNote,
 		&i.FilingRef,
+		&i.AccountRef,
 	)
 	return i, err
 }
@@ -434,9 +519,9 @@ func (q *Queries) InsertRuleVersion(ctx context.Context, arg InsertRuleVersionPa
 const insertTask = `-- name: InsertTask :execrows
 
 INSERT INTO compliance_tasks (tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id,
-  subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
+  subject_ref, account_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-  $9, $10, 'open', $11, $12, $13, $14, $13)
+  $9, $10, $11, 'open', $12, $13, $14, $15, $14)
 ON CONFLICT DO NOTHING
 `
 
@@ -450,6 +535,7 @@ type InsertTaskParams struct {
 	EventID       *uuid.UUID
 	CaseID        *uuid.UUID
 	SubjectRef    *string
+	AccountRef    *string
 	Sensitive     bool
 	DueAt         *time.Time
 	Report        []byte
@@ -469,6 +555,7 @@ func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (int64, 
 		arg.EventID,
 		arg.CaseID,
 		arg.SubjectRef,
+		arg.AccountRef,
 		arg.Sensitive,
 		arg.DueAt,
 		arg.Report,
@@ -620,7 +707,7 @@ func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref FROM compliance_tasks
+SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref, account_ref FROM compliance_tasks
 WHERE tenant_id = $1 AND environment_id = $2
   AND ($3::text IS NULL OR status = $3::text)
   AND ($4::boolean OR NOT sensitive)
@@ -672,6 +759,77 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]Complia
 			&i.ClosedAt,
 			&i.CloseNote,
 			&i.FilingRef,
+			&i.AccountRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const openTasksOfAccountsWithBVN = `-- name: OpenTasksOfAccountsWithBVN :many
+SELECT t.tenant_id, t.environment_id, t.id, t.kind, t.rule_id, t.evaluation_id, t.event_id, t.case_id, t.subject_ref, t.sensitive, t.status, t.due_at, t.report, t.created_at, t.created_by, t.updated_at, t.approved_by, t.approved_at, t.closed_by, t.closed_at, t.close_note, t.filing_ref, t.account_ref FROM compliance_tasks t
+JOIN compliance_accounts a ON a.tenant_id = t.tenant_id AND a.environment_id = t.environment_id
+  AND a.account_ref = t.account_ref
+WHERE t.tenant_id = $1 AND t.environment_id = $2 AND t.rule_id = $3 AND t.kind = $4
+  AND t.status = 'open' AND a.has_bvn
+ORDER BY t.id
+LIMIT $5
+FOR UPDATE OF t
+`
+
+type OpenTasksOfAccountsWithBVNParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RuleID        string
+	Kind          string
+	RowLimit      int32
+}
+
+// Open tasks of rule and kind whose account now has a BVN.
+func (q *Queries) OpenTasksOfAccountsWithBVN(ctx context.Context, arg OpenTasksOfAccountsWithBVNParams) ([]ComplianceTask, error) {
+	rows, err := q.db.Query(ctx, openTasksOfAccountsWithBVN,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.RuleID,
+		arg.Kind,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ComplianceTask
+	for rows.Next() {
+		var i ComplianceTask
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.Kind,
+			&i.RuleID,
+			&i.EvaluationID,
+			&i.EventID,
+			&i.CaseID,
+			&i.SubjectRef,
+			&i.Sensitive,
+			&i.Status,
+			&i.DueAt,
+			&i.Report,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.ApprovedBy,
+			&i.ApprovedAt,
+			&i.ClosedBy,
+			&i.ClosedAt,
+			&i.CloseNote,
+			&i.FilingRef,
+			&i.AccountRef,
 		); err != nil {
 			return nil, err
 		}
@@ -761,6 +919,45 @@ func (q *Queries) RuleVersions(ctx context.Context, arg RuleVersionsParams) ([]R
 	return items, nil
 }
 
+const taskCaseIDs = `-- name: TaskCaseIDs :many
+SELECT DISTINCT case_id::uuid FROM compliance_tasks
+WHERE tenant_id = $1 AND environment_id = $2 AND rule_id = $3 AND kind = $4
+  AND case_id IS NOT NULL AND status <> 'dismissed'
+`
+
+type TaskCaseIDsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RuleID        string
+	Kind          string
+}
+
+// The cases that have a task of rule and kind not dismissed (GOV-12's reported cases).
+func (q *Queries) TaskCaseIDs(ctx context.Context, arg TaskCaseIDsParams) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, taskCaseIDs,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.RuleID,
+		arg.Kind,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var case_id uuid.UUID
+		if err := rows.Scan(&case_id); err != nil {
+			return nil, err
+		}
+		items = append(items, case_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateTask = `-- name: UpdateTask :exec
 UPDATE compliance_tasks
 SET status = $1, report = $2, updated_at = $3, approved_by = $4, approved_at = $5,
@@ -842,6 +1039,40 @@ func (q *Queries) UpsertCompliance(ctx context.Context, arg UpsertCompliancePara
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const upsertComplianceAccount = `-- name: UpsertComplianceAccount :exec
+
+INSERT INTO compliance_accounts (tenant_id, environment_id, account_ref, subject_ref, has_bvn, first_seen_at, observed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $6)
+ON CONFLICT (tenant_id, environment_id, account_ref) DO UPDATE SET
+  first_seen_at = least(compliance_accounts.first_seen_at, EXCLUDED.first_seen_at),
+  has_bvn = CASE WHEN EXCLUDED.observed_at >= compliance_accounts.observed_at
+                 THEN EXCLUDED.has_bvn ELSE compliance_accounts.has_bvn END,
+  subject_ref = coalesce(compliance_accounts.subject_ref, EXCLUDED.subject_ref),
+  observed_at = greatest(compliance_accounts.observed_at, EXCLUDED.observed_at)
+`
+
+type UpsertComplianceAccountParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	AccountRef    string
+	SubjectRef    *string
+	HasBvn        bool
+	ObservedAt    time.Time
+}
+
+// Account register (REG-16).
+func (q *Queries) UpsertComplianceAccount(ctx context.Context, arg UpsertComplianceAccountParams) error {
+	_, err := q.db.Exec(ctx, upsertComplianceAccount,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.AccountRef,
+		arg.SubjectRef,
+		arg.HasBvn,
+		arg.ObservedAt,
+	)
+	return err
 }
 
 const upsertFXRate = `-- name: UpsertFXRate :exec

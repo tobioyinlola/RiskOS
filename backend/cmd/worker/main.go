@@ -109,7 +109,9 @@ func run() (err error) {
 	}
 	jobs.Register(registry, jobs.NoopHandler(logger))
 	jobs.Register(registry, alertsModule.RaiseJob(tenantsModule))
-	jobs.Register(registry, rules.New(runner, auditModule.Recorder()).TasksJob(tenantsModule, clk, logger))
+	rulesModule := rules.New(runner, auditModule.Recorder())
+	jobs.Register(registry, rulesModule.TasksJob(tenantsModule, clk, logger))
+	jobs.RegisterPeriodic(registry, 24*time.Hour, rules.DailyArgs{}, rulesModule.DailyJob(pool, tenantsModule, clk, logger))
 	jobs.Register(registry, webhooksModule.DeliverJob(tenantsModule))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, jobs.EnsurePartitionsArgs{}, func(ctx context.Context, _ jobs.EnsurePartitionsArgs) error {
 		created, err := db.EnsureTimePartitions(ctx, pool, db.PartitionMonthsAhead)

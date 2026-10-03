@@ -137,6 +137,16 @@ type CaseNote struct {
 	CreatedAt     time.Time
 }
 
+type ComplianceAccount struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	AccountRef    string
+	SubjectRef    *string
+	HasBvn        bool
+	FirstSeenAt   time.Time
+	ObservedAt    time.Time
+}
+
 type ComplianceFxRate struct {
 	TenantID   uuid.UUID
 	Currency   string
@@ -168,6 +178,7 @@ type ComplianceTask struct {
 	ClosedAt      *time.Time
 	CloseNote     *string
 	FilingRef     *string
+	AccountRef    *string
 }
 
 type ConsoleSession struct {

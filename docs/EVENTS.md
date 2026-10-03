@@ -65,7 +65,10 @@ evaluated, never treated as no risk.
   `false`, a number at least 0 (durations in seconds; scores up to 100; hours up to 24), one of
   the fact's listed values, or `{"amount": <whole minor units>, "currency": "NGN"}`. Facts RiskOS
   computes are refused: behaviour history, workflow facts, identifiers (sent as `refs`), and the
-  event's own amount, local hour and changed profile fields. At most 64.
+  event's own amount, local hour and changed profile fields. At most 64. `account.has_bvn`
+  sent with an `actor.account_id` also updates the account register REG-16's daily check reads
+  (whether the account has a BVN, never the BVN): send it on `account_opened` and whenever it
+  changes ([WORKFLOW.md](compliance/WORKFLOW.md#tasks)).
 - **`refs`** are opaque references for the entities rules keep time windows for: `card`, `bvn`,
   `phone`, `address`, `loan`, `inflow`, `merchant`, `api_key`, `sender`, `reporter`,
   `funding_source`. Never the value itself: a `bvn` of 11 digits or a `phone` that is a phone

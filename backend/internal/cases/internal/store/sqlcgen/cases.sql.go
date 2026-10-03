@@ -272,15 +272,17 @@ const listCases = `-- name: ListCases :many
 SELECT tenant_id, environment_id, id, title, description, status, priority, assignee, resolution, resolution_note, resolved_at, resolved_by, created_at, created_by, updated_at FROM cases
 WHERE tenant_id = $1 AND environment_id = $2
   AND ($3::text IS NULL OR status = $3::text)
-  AND ($4::uuid IS NULL OR id < $4::uuid)
+  AND ($4::text IS NULL OR resolution = $4::text)
+  AND ($5::uuid IS NULL OR id < $5::uuid)
 ORDER BY id DESC
-LIMIT $5
+LIMIT $6
 `
 
 type ListCasesParams struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID
 	Status        *string
+	Resolution    *string
 	BeforeID      *uuid.UUID
 	RowLimit      int32
 }
@@ -290,6 +292,7 @@ func (q *Queries) ListCases(ctx context.Context, arg ListCasesParams) ([]Case, e
 		arg.TenantID,
 		arg.EnvironmentID,
 		arg.Status,
+		arg.Resolution,
 		arg.BeforeID,
 		arg.RowLimit,
 	)
