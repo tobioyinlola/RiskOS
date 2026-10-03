@@ -238,13 +238,20 @@ function RuleView({
                 legend="for engineers and administrators"
               />
               <div className="flex flex-col gap-3 px-5 pb-5">
-                <CodeBlock value={rule.engineering_logic} />
+                <CodeBlock
+                  value={rule.engineering_logic}
+                  label="Engineering logic"
+                />
                 {rule.definition ? (
                   <details>
                     <summary className="cursor-pointer text-body-sm text-text-secondary">
                       Machine definition the engine interprets
                     </summary>
-                    <CodeBlock value={rule.definition} className="mt-2" />
+                    <CodeBlock
+                      value={rule.definition}
+                      label="Rule definition"
+                      className="mt-2"
+                    />
                   </details>
                 ) : null}
               </div>

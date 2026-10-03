@@ -162,7 +162,11 @@ export function WorkQueue() {
                   </StatusPill>
                 </Td>
                 <Td className="text-right">
-                  <Button size="sm" onClick={() => setOpen(t)}>
+                  <Button
+                    size="sm"
+                    aria-label={`Open ${TASK_LABEL[t.kind] ?? t.kind}${t.subject_ref ? ` for ${t.subject_ref}` : ""}`}
+                    onClick={() => setOpen(t)}
+                  >
                     Open
                   </Button>
                 </Td>
