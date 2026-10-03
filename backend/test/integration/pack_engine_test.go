@@ -21,7 +21,7 @@ import (
 func money(id, kind, account string, amount int64, currency string, facts map[string]any) map[string]any {
 	e := txn(id)
 	e["actor"] = map[string]any{"user_id": "u_" + account, "account_id": account, "device_id": "dev_" + account}
-	data := e["data"].(map[string]any) //nolint:forcetypeassert // built by txn
+	data, _ := e["data"].(map[string]any) // built by txn
 	data["amount"], data["currency"] = amount, currency
 	c := map[string]any{"kind": kind}
 	if len(facts) > 0 {

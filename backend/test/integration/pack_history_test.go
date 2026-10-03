@@ -49,11 +49,12 @@ func TestPackFlowsTravelAndVersions(t *testing.T) {
 				kind = "transfer_inbound"
 			}
 			e := money(id, kind, "acc_pool", naira*100, "NGN", nil)
-			data := e["data"].(map[string]any) //nolint:forcetypeassert // built by txn
+			data, _ := e["data"].(map[string]any) // built by txn
 			data["direction"] = direction
 			if direction == "credit" {
 				delete(data, "beneficiary_id")
-				e["compliance"].(map[string]any)["refs"] = map[string]any{"sender": counterparty} //nolint:forcetypeassert // built by money
+				c, _ := e["compliance"].(map[string]any) // built by money
+				c["refs"] = map[string]any{"sender": counterparty}
 			} else {
 				data["beneficiary_id"] = counterparty
 			}
