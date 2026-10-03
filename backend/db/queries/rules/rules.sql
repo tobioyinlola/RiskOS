@@ -89,3 +89,18 @@ UPDATE pack_rule_changes
 SET status = @status, decided_by = @decided_by, decided_at = @decided_at, decision_note = @decision_note,
     applied_version = @applied_version
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id;
+
+-- Exchange rates (per tenant).
+
+-- name: FXRates :many
+SELECT currency, usd_per_unit::float8 AS usd_per_unit, updated_at, updated_by
+FROM compliance_fx_rates WHERE tenant_id = @tenant_id ORDER BY currency;
+
+-- name: UpsertFXRate :exec
+INSERT INTO compliance_fx_rates (tenant_id, currency, usd_per_unit, updated_at, updated_by)
+VALUES (@tenant_id, @currency, @usd_per_unit::float8, @updated_at, @updated_by)
+ON CONFLICT (tenant_id, currency) DO UPDATE SET
+  usd_per_unit = EXCLUDED.usd_per_unit, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by;
+
+-- name: DeleteFXRate :execrows
+DELETE FROM compliance_fx_rates WHERE tenant_id = @tenant_id AND currency = @currency;

@@ -19,7 +19,13 @@ type TenantPack struct {
 	// Ref is "<pack>@<version>", recorded with every evaluation.
 	Ref   string
 	rules []tenantRule
+	// rates are the institution's exchange rates: US dollars per one unit of a currency.
+	rates map[string]float64
 }
+
+// AmountUSD converts an amount to US dollars with the institution's rates; ok is false without
+// a rate for its currency.
+func (p *TenantPack) AmountUSD(m interp.Money) (interp.Money, bool) { return ToUSD(m, p.rates) }
 
 type tenantRule struct {
 	r    *interp.Rule
@@ -55,7 +61,14 @@ func (s *Service) TenantPack(ctx context.Context) (*TenantPack, error) {
 		if err != nil {
 			return err
 		}
-		out = &TenantPack{Ref: p.ID + "@" + p.Version}
+		rates, err := s.store.FXRates(ctx)
+		if err != nil {
+			return err
+		}
+		out = &TenantPack{Ref: p.ID + "@" + p.Version, rates: map[string]float64{}}
+		for _, r := range rates {
+			out.rates[r.Currency] = r.USDPerUnit
+		}
 		for i := range p.Rules {
 			def := &p.Rules[i]
 			applies := applies(def, &c)

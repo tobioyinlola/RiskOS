@@ -229,3 +229,44 @@ func TestPackRuleBacktest(t *testing.T) {
 	d := decode[apigen.RiskDecision](t, s.ingest(t, a.testKey, money("bt-live", "atm_withdrawal", "acc_bt", 100, "NGN", nil)))
 	assert.Equal(t, apigen.Decision("decline"), d.Decision)
 }
+
+// Institutions set exchange rates so rules on US dollar amounts (REG-10) can convert; an amount
+// the event sends wins, and without a rate the rule is not evaluated.
+func TestComplianceFXRates(t *testing.T) {
+	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, withConsole(auth.ConsoleConfig{}, false))
+	a := s.createTenant(t, "FX")
+	admin := s.onboard(t, a, "admin@fx.example", authz.RoleCustomerAdmin)
+	r := admin.b.do(t, http.MethodPut, "/api/v1/compliance/profile",
+		map[string]any{"jurisdiction": "NG", "licence_type": "bank", "capabilities": []string{}})
+	require.Equal(t, http.StatusOK, r.status, r.String())
+
+	r = admin.b.do(t, http.MethodPut, "/api/v1/compliance/fx-rates/NGN", map[string]any{"usd_per_unit": 0.00065})
+	require.Equal(t, http.StatusOK, r.status, r.String())
+	for name, path := range map[string]string{"dollars": "/api/v1/compliance/fx-rates/USD", "not a currency": "/api/v1/compliance/fx-rates/XYZ"} {
+		r := admin.b.do(t, http.MethodPut, path, map[string]any{"usd_per_unit": 1})
+		assert.Equal(t, http.StatusBadRequest, r.status, "%s: %s", name, r.String())
+	}
+	r = s.call(t, http.MethodPut, "/api/v1/compliance/fx-rates/GHS", a.testKey, map[string]any{"usd_per_unit": 0.08})
+	assert.Equal(t, http.StatusForbidden, r.status, "people only: %s", r.String())
+	rates := decode[apigen.FXRateList](t, s.call(t, http.MethodGet, "/api/v1/compliance/fx-rates", a.testKey, nil)).Data
+	require.Len(t, rates, 1)
+	assert.InDelta(t, 0.00065, rates[0].UsdPerUnit, 1e-12)
+	assert.Contains(t, auditActions(t, s.call(t, http.MethodGet, "/api/v1/audit-logs?limit=100", a.testKey, nil)), "compliance.fx_rate_set")
+
+	abroad := func(id string, naira int64, facts map[string]any) apigen.RiskDecision {
+		t.Helper()
+		r := s.ingest(t, a.testKey, money(id, "transfer_international", "acc_fx", naira*100, "NGN", facts))
+		require.Equal(t, http.StatusOK, r.status, r.String())
+		return decode[apigen.RiskDecision](t, r)
+	}
+	c := controlOf(abroad("fx-1", 16_000_000, nil), "REG-10")
+	require.NotNil(t, c, "₦16,000,000 is $10,400: a foreign transaction report is due")
+	assert.Equal(t, []string{"report.FTR"}, c.Tasks)
+	assert.Nil(t, controlOf(abroad("fx-2", 15_000_000, nil), "REG-10"), "₦15,000,000 is $9,750")
+	sent := abroad("fx-3", 15_000_000, map[string]any{"txn.amount_usd": map[string]any{"amount": 1_000_000, "currency": "USD"}})
+	assert.NotNil(t, controlOf(sent, "REG-10"), "the amount the event sends wins")
+
+	r = admin.b.do(t, http.MethodDelete, "/api/v1/compliance/fx-rates/NGN", nil)
+	require.Equal(t, http.StatusNoContent, r.status, r.String())
+	assert.Equal(t, http.StatusNotFound, admin.b.do(t, http.MethodDelete, "/api/v1/compliance/fx-rates/NGN", nil).status)
+}

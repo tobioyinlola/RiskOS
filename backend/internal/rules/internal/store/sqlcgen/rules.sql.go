@@ -102,6 +102,62 @@ func (q *Queries) DecideRuleChange(ctx context.Context, arg DecideRuleChangePara
 	return err
 }
 
+const deleteFXRate = `-- name: DeleteFXRate :execrows
+DELETE FROM compliance_fx_rates WHERE tenant_id = $1 AND currency = $2
+`
+
+type DeleteFXRateParams struct {
+	TenantID uuid.UUID
+	Currency string
+}
+
+func (q *Queries) DeleteFXRate(ctx context.Context, arg DeleteFXRateParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteFXRate, arg.TenantID, arg.Currency)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const fXRates = `-- name: FXRates :many
+
+SELECT currency, usd_per_unit::float8 AS usd_per_unit, updated_at, updated_by
+FROM compliance_fx_rates WHERE tenant_id = $1 ORDER BY currency
+`
+
+type FXRatesRow struct {
+	Currency   string
+	UsdPerUnit float64
+	UpdatedAt  time.Time
+	UpdatedBy  string
+}
+
+// Exchange rates (per tenant).
+func (q *Queries) FXRates(ctx context.Context, tenantID uuid.UUID) ([]FXRatesRow, error) {
+	rows, err := q.db.Query(ctx, fXRates, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FXRatesRow
+	for rows.Next() {
+		var i FXRatesRow
+		if err := rows.Scan(
+			&i.Currency,
+			&i.UsdPerUnit,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getCompliance = `-- name: GetCompliance :one
 
 SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by
@@ -589,4 +645,30 @@ func (q *Queries) UpsertCompliance(ctx context.Context, arg UpsertCompliancePara
 		&i.UpdatedBy,
 	)
 	return i, err
+}
+
+const upsertFXRate = `-- name: UpsertFXRate :exec
+INSERT INTO compliance_fx_rates (tenant_id, currency, usd_per_unit, updated_at, updated_by)
+VALUES ($1, $2, $3::float8, $4, $5)
+ON CONFLICT (tenant_id, currency) DO UPDATE SET
+  usd_per_unit = EXCLUDED.usd_per_unit, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
+`
+
+type UpsertFXRateParams struct {
+	TenantID   uuid.UUID
+	Currency   string
+	UsdPerUnit float64
+	UpdatedAt  time.Time
+	UpdatedBy  string
+}
+
+func (q *Queries) UpsertFXRate(ctx context.Context, arg UpsertFXRateParams) error {
+	_, err := q.db.Exec(ctx, upsertFXRate,
+		arg.TenantID,
+		arg.Currency,
+		arg.UsdPerUnit,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+	)
+	return err
 }

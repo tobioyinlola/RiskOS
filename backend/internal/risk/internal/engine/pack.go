@@ -88,7 +88,7 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	record, read := p.Windows(out.Kinds)
 	// Filters are checked on what is known before the round trip (the event, the customer's
 	// facts and behaviour history); none uses the activity history.
-	pre := features.PackFacts(e, v, features.Activity{})
+	pre := withUSD(features.PackFacts(e, v, features.Activity{}), p)
 	ops := map[string]*features.WindowOp{}
 	var order []string
 	op := func(ref rulepack.Window) *features.WindowOp {
@@ -150,7 +150,7 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	if v.Warming {
 		activity = features.Activity{}
 	}
-	out.Facts = features.PackFacts(e, v, activity)
+	out.Facts = withUSD(features.PackFacts(e, v, activity), p)
 	out.Seen = map[string]map[string]any{}
 	for _, o := range p.Evaluate(rulepack.Env{Kinds: out.Kinds, Facts: out.Facts, Aggs: aggs}) {
 		switch o.Status {
@@ -189,6 +189,19 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 		out.Controls = append(out.Controls, c)
 	}
 	return out
+}
+
+// withUSD adds the event's amount in US dollars from the institution's rates, unless the event
+// sent it.
+func withUSD(f rulepack.Facts, p *rulepack.TenantPack) rulepack.Facts {
+	amount, ok := f["txn.amount"].(rulepack.Money)
+	if _, sent := f["txn.amount_usd"]; sent || !ok {
+		return f
+	}
+	if usd, ok := p.AmountUSD(amount); ok {
+		f["txn.amount_usd"] = usd
+	}
+	return f
 }
 
 func nonNilTasks(t []string) []string {

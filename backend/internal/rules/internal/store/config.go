@@ -260,3 +260,58 @@ func (Store) Decide(ctx context.Context, id uuid.UUID, status, by string, at tim
 	}
 	return nil
 }
+
+// FXRate is US dollars per one unit of a currency, set by the institution.
+type FXRate struct {
+	Currency   string
+	USDPerUnit float64
+	UpdatedAt  time.Time
+	UpdatedBy  string
+}
+
+// FXRates returns the tenant's exchange rates.
+func (Store) FXRates(ctx context.Context) ([]FXRate, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.FXRates(ctx, scope.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("exchange rates: %w", err)
+	}
+	out := make([]FXRate, len(rows))
+	for i, r := range rows {
+		out[i] = FXRate{Currency: r.Currency, USDPerUnit: r.UsdPerUnit, UpdatedAt: r.UpdatedAt, UpdatedBy: r.UpdatedBy}
+	}
+	return out, nil
+}
+
+// SetFXRate creates or replaces an exchange rate.
+func (Store) SetFXRate(ctx context.Context, r FXRate) error {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return err
+	}
+	if err := q.UpsertFXRate(ctx, sqlcgen.UpsertFXRateParams{
+		TenantID: scope.TenantID, Currency: r.Currency, UsdPerUnit: r.USDPerUnit, UpdatedAt: r.UpdatedAt, UpdatedBy: r.UpdatedBy,
+	}); err != nil {
+		return fmt.Errorf("set exchange rate: %w", err)
+	}
+	return nil
+}
+
+// DeleteFXRate removes an exchange rate; ErrNotFound when there was none.
+func (Store) DeleteFXRate(ctx context.Context, currency string) error {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return err
+	}
+	n, err := q.DeleteFXRate(ctx, sqlcgen.DeleteFXRateParams{TenantID: scope.TenantID, Currency: currency})
+	if err != nil {
+		return fmt.Errorf("delete exchange rate: %w", err)
+	}
+	if n == 0 {
+		return ErrNotFound
+	}
+	return nil
+}

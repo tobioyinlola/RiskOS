@@ -1655,6 +1655,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The institution's exchange rates
+         * @description Requires `compliance:read`. US dollars per one unit of each currency, used to compute
+         *     `txn.amount_usd` for rules on US dollar amounts (REG-10) when the event does not send it.
+         */
+        get: operations["listComplianceFXRates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/fx-rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a currency's exchange rate
+         * @description Requires `compliance:write` (people only) and, in the console, a recent second factor.
+         *     Audited. Applies to every environment within 5 seconds.
+         */
+        put: operations["putComplianceFXRate"];
+        post?: never;
+        /**
+         * Remove a currency's exchange rate
+         * @description Requires `compliance:write` (people only). Audited.
+         */
+        delete: operations["deleteComplianceFXRate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/changes": {
         parameters: {
             query?: never;
@@ -1943,6 +1991,17 @@ export interface components {
         BacktestMissing: {
             item: string;
             events: number;
+        };
+        FXRate: {
+            currency: string;
+            /** Format: double */
+            usd_per_unit: number;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by: string;
+        };
+        FXRateList: {
+            data: components["schemas"]["FXRate"][];
         };
         /**
          * @description live (it acts), shadow (it is evaluated and recorded only) or off.
@@ -6179,6 +6238,89 @@ export interface operations {
                 };
             };
             400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceFXRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRateList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putComplianceFXRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: double
+                     * @description US dollars per one unit of the currency (for NGN, about 0.00065).
+                     */
+                    usd_per_unit: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The rate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRate"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deleteComplianceFXRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

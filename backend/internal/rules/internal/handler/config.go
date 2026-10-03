@@ -168,3 +168,40 @@ func (h *Handlers) RejectPackRuleChange(ctx context.Context, req apigen.RejectPa
 	}
 	return apigen.RejectPackRuleChange200JSONResponse(changeToAPI(c)), nil
 }
+
+func rateToAPI(r store.FXRate) apigen.FXRate {
+	return apigen.FXRate{Currency: r.Currency, UsdPerUnit: r.USDPerUnit, UpdatedAt: r.UpdatedAt, UpdatedBy: r.UpdatedBy}
+}
+
+// ListComplianceFXRates implements GET /api/v1/compliance/fx-rates.
+func (h *Handlers) ListComplianceFXRates(ctx context.Context, _ apigen.ListComplianceFXRatesRequestObject) (apigen.ListComplianceFXRatesResponseObject, error) {
+	rates, err := h.svc.FXRates(ctx)
+	if err != nil {
+		return nil, configError(err)
+	}
+	data := make([]apigen.FXRate, len(rates))
+	for i, r := range rates {
+		data[i] = rateToAPI(r)
+	}
+	return apigen.ListComplianceFXRates200JSONResponse{Data: data}, nil
+}
+
+// PutComplianceFXRate implements PUT /api/v1/compliance/fx-rates/{currency}.
+func (h *Handlers) PutComplianceFXRate(ctx context.Context, req apigen.PutComplianceFXRateRequestObject) (apigen.PutComplianceFXRateResponseObject, error) {
+	if req.Body == nil {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	r, err := h.svc.SetFXRate(ctx, req.Currency, req.Body.UsdPerUnit, h.clock.Now())
+	if err != nil {
+		return nil, configError(err)
+	}
+	return apigen.PutComplianceFXRate200JSONResponse(rateToAPI(r)), nil
+}
+
+// DeleteComplianceFXRate implements DELETE /api/v1/compliance/fx-rates/{currency}.
+func (h *Handlers) DeleteComplianceFXRate(ctx context.Context, req apigen.DeleteComplianceFXRateRequestObject) (apigen.DeleteComplianceFXRateResponseObject, error) {
+	if err := h.svc.DeleteFXRate(ctx, req.Currency); err != nil {
+		return nil, configError(err)
+	}
+	return apigen.DeleteComplianceFXRate204Response{}, nil
+}

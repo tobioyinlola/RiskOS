@@ -47,6 +47,9 @@ type LibraryHandlers interface {
 	ListPackRuleChanges(ctx context.Context, req apigen.ListPackRuleChangesRequestObject) (apigen.ListPackRuleChangesResponseObject, error)
 	ApprovePackRuleChange(ctx context.Context, req apigen.ApprovePackRuleChangeRequestObject) (apigen.ApprovePackRuleChangeResponseObject, error)
 	RejectPackRuleChange(ctx context.Context, req apigen.RejectPackRuleChangeRequestObject) (apigen.RejectPackRuleChangeResponseObject, error)
+	ListComplianceFXRates(ctx context.Context, req apigen.ListComplianceFXRatesRequestObject) (apigen.ListComplianceFXRatesResponseObject, error)
+	PutComplianceFXRate(ctx context.Context, req apigen.PutComplianceFXRateRequestObject) (apigen.PutComplianceFXRateResponseObject, error)
+	DeleteComplianceFXRate(ctx context.Context, req apigen.DeleteComplianceFXRateRequestObject) (apigen.DeleteComplianceFXRateResponseObject, error)
 }
 
 // Module is the rules module.

@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Alert struct {
@@ -134,6 +135,14 @@ type CaseNote struct {
 	Body          string
 	Author        string
 	CreatedAt     time.Time
+}
+
+type ComplianceFxRate struct {
+	TenantID   uuid.UUID
+	Currency   string
+	UsdPerUnit pgtype.Numeric
+	UpdatedAt  time.Time
+	UpdatedBy  string
 }
 
 type ConsoleSession struct {

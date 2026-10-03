@@ -8,6 +8,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/interp"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/packs/ng"
 )
@@ -68,4 +69,19 @@ func TestNormalize(t *testing.T) {
 	}
 	_, err = normalize(reg, ConfigInput{Mode: "on", Reason: "x"})
 	assert.ErrorIs(t, err, ErrInvalidInput)
+}
+
+func TestToUSD(t *testing.T) {
+	rates := map[string]float64{"NGN": 0.00065, "JPY": 0.0067}
+	usd, ok := ToUSD(interp.Money{Minor: 1_600_000_000, Currency: "NGN"}, rates)
+	require.True(t, ok)
+	assert.Equal(t, interp.Money{Minor: 1_040_000, Currency: "USD"}, usd, "₦16,000,000 is $10,400")
+	usd, ok = ToUSD(interp.Money{Minor: 150_000, Currency: "JPY"}, rates)
+	require.True(t, ok)
+	assert.Equal(t, interp.Money{Minor: 100_500, Currency: "USD"}, usd, "yen have no minor units: ¥150,000 is $1,005")
+	usd, ok = ToUSD(interp.Money{Minor: 1234, Currency: "USD"}, nil)
+	require.True(t, ok)
+	assert.Equal(t, interp.Money{Minor: 1234, Currency: "USD"}, usd)
+	_, ok = ToUSD(interp.Money{Minor: 100, Currency: "GHS"}, rates)
+	assert.False(t, ok, "no rate, no conversion")
 }

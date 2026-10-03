@@ -3049,6 +3049,89 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/fx-rates:
+    get:
+      operationId: listComplianceFXRates
+      tags: [compliance]
+      summary: The institution's exchange rates
+      description: |
+        Requires `compliance:read`. US dollars per one unit of each currency, used to compute
+        `txn.amount_usd` for rules on US dollar amounts (REG-10) when the event does not send it.
+      responses:
+        "200":
+          description: The rates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRateList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/fx-rates/{currency}:
+    parameters:
+      - name: currency
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[A-Z]{3}$"
+    put:
+      operationId: putComplianceFXRate
+      tags: [compliance]
+      summary: Set a currency's exchange rate
+      description: |
+        Requires `compliance:write` (people only) and, in the console, a recent second factor.
+        Audited. Applies to every environment within 5 seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [usd_per_unit]
+              properties:
+                usd_per_unit:
+                  type: number
+                  format: double
+                  description: US dollars per one unit of the currency (for NGN, about 0.00065).
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 1000000
+      responses:
+        "200":
+          description: The rate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRate"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: deleteComplianceFXRate
+      tags: [compliance]
+      summary: Remove a currency's exchange rate
+      description: Requires `compliance:write` (people only). Audited.
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/changes:
     get:
       operationId: listPackRuleChanges
@@ -3664,6 +3747,30 @@ components:
           type: string
         events:
           type: integer
+    FXRate:
+      type: object
+      additionalProperties: false
+      required: [currency, usd_per_unit, updated_at, updated_by]
+      properties:
+        currency:
+          type: string
+        usd_per_unit:
+          type: number
+          format: double
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+    FXRateList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FXRate"
     PackRuleMode:
       type: string
       description: live (it acts), shadow (it is evaluated and recorded only) or off.

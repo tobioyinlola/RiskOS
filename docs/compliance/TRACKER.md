@@ -5,7 +5,6 @@ each with the phase that closes it. An item leaves this list in the commit that 
 
 | Item | Effect today | Closes in |
 |---|---|---|
-| `txn.amount_usd` comes only from the customer | REG-10 is not evaluated unless the event sends it | Phase 4 (exchange rates set by the institution) |
 | `history.hour_usual` not tracked | BEH-03 not evaluated | Phase 4 (hour-of-day history per user) |
 | `export.rows_to_user_baseline`, `export.rows_to_tenant_baseline` not tracked | SEC-12 not evaluated | Phase 4 (export size baselines; needs `export.rows` on data_export events) |
 | `sender.related`, `flows.prior_sender_outflow_share` not tracked | PON-01 not evaluated | Phase 5 (money-flow history between accounts) |

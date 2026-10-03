@@ -252,8 +252,11 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
   known finding is enough to fire a rule ("any of"), and one known failure to clear it ("all of").
 - **Exemptions.** A control whose exemption cannot be checked (REG-04's raised limit) applies,
   and says so (`exemption_unknown`): an unknown exemption never lifts a legal limit.
-- **Amounts** are compared in one currency only: there is no conversion on the hot path. Rules
-  on US dollar amounts read `txn.amount_usd`, sent by the customer from its own rates.
+- **Amounts** are compared in one currency only. Rules on US dollar amounts (REG-10) read
+  `txn.amount_usd`: the amount the event sends, else the event's amount converted with the
+  institution's rates (`PUT /api/v1/compliance/fx-rates/{currency}`, US dollars per one unit,
+  `compliance:write`, audited), rounded to the cent with the currency's own minor units. Without
+  either, the rule is not evaluated.
 
 ### Configuration
 
