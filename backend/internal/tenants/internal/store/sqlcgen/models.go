@@ -192,6 +192,8 @@ type Evaluation struct {
 	PolicyReasons   []string
 	ShadowSignals   []byte
 	WarmingSignals  []string
+	Controls        []byte
+	NotEvaluated    []byte
 }
 
 type Event struct {

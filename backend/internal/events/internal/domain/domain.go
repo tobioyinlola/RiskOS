@@ -217,6 +217,29 @@ type Outcome struct {
 	DegradedSignals []string   `json:"degraded_signals"`
 	// WarmingSignals is absent from outcomes stored before it existed.
 	WarmingSignals []string `json:"warming_signals,omitempty"`
+	// Controls and NotEvaluated are the rule pack's results (absent from older outcomes).
+	Controls     []Control      `json:"controls,omitempty"`
+	NotEvaluated []NotEvaluated `json:"not_evaluated,omitempty"`
+}
+
+// Control mirrors the risk module's rule pack control in the stored outcome.
+type Control struct {
+	Rule             string   `json:"rule"`
+	Name             string   `json:"name"`
+	Mode             string   `json:"mode"`
+	Decision         string   `json:"decision,omitempty"`
+	Reason           string   `json:"reason"`
+	Tasks            []string `json:"tasks"`
+	FeePercent       float64  `json:"fee_percent,omitempty"`
+	HoldSeconds      int64    `json:"hold_seconds,omitempty"`
+	Branch           string   `json:"branch,omitempty"`
+	ExemptionUnknown bool     `json:"exemption_unknown,omitempty"`
+}
+
+// NotEvaluated mirrors a rule pack rule that could not be evaluated.
+type NotEvaluated struct {
+	Rule    string   `json:"rule"`
+	Missing []string `json:"missing"`
 }
 
 // Signal mirrors the risk module's signal in the stored outcome.

@@ -39,10 +39,11 @@ type Output struct {
 // Engine evaluates events.
 type Engine struct {
 	features FeatureSource
+	windows  WindowSource
 }
 
-// New returns an Engine reading features from src.
-func New(src FeatureSource) Engine { return Engine{features: src} }
+// New returns an Engine reading features from src and rule pack windows from ws.
+func New(src FeatureSource, ws WindowSource) Engine { return Engine{features: src, windows: ws} }
 
 // Evaluate derives signals for e. write is false for dry runs and rule tests, which must never
 // change feature state. Rules are evaluated in the order given; disabled rules are skipped.

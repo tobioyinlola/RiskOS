@@ -221,6 +221,81 @@ In a production environment, creating, changing or rolling back a rule does not 
 
 Rules only add weight; hard blocks come from [deny lists](#deny-lists).
 
+## Rule packs
+
+A workspace with a compliance profile (Compliance → Rules library) is evaluated against its
+jurisdiction's rule pack ([ADR-0006](adr/ADR-0006-jurisdiction-rule-packs.md)), after the
+built-in signals and tenant rules, in the same evaluation:
+
+```
+event ─▶ pack event kinds (named in compliance.kind, or derived)
+      ─▶ facts: the event, the customer's compliance.facts, behaviour history
+      ─▶ pack windows + activity history (Redis: a second pipelined round trip)
+      ─▶ every rule the kinds trigger: fired, clear, not evaluated or not applicable
+      ─▶ live signals add weight; live controls and signal floors raise the decision
+```
+
+- **Which rules.** Only rules that apply to the profile (licence type and capabilities) and are
+  on by default. Regulatory controls run live; risk-scoring rules start in shadow (recorded in
+  `shadow_signals`, never scored). Governance presets are workflows, not event rules.
+- **Decisions.** A live control sets the action the law requires (`decline`, `hold`,
+  `block_session`, `restrict`, `flag`, `fee`, `review`, `block`); a live signal can require at
+  least `review` or `step_up`. The most severe of these and the score's decision is returned
+  (severity: allow, fee, flag, step_up, review, restrict, hold, block_session, decline, block),
+  and each one that reached it is recorded in `policy_reasons` (`control:REG-01`,
+  `min_decision:ATO-01`). Every control that applied, live or shadow, is in `controls`, with its
+  tasks, fee or hold.
+- **Missing data is reported, never read as no risk.** Evaluation is three-valued: a missing
+  fact, an unset setting (amounts the institution must choose, such as ATO-01's floor), an
+  unavailable window or an amount in another currency than the rule's makes a comparison
+  unknown; a rule that cannot be decided is listed in `not_evaluated` with what it lacked. One
+  known finding is enough to fire a rule ("any of"), and one known failure to clear it ("all of").
+- **Exemptions.** A control whose exemption cannot be checked (REG-04's raised limit) applies,
+  and says so (`exemption_unknown`): an unknown exemption never lifts a legal limit.
+- **Amounts** are compared in one currency only: there is no conversion on the hot path. Rules
+  on US dollar amounts read `txn.amount_usd`, sent by the customer from its own rates.
+
+### Pack windows
+
+Windowed aggregates (counts, sums, daily averages, distinct counts) are kept in Redis, never
+queried from Postgres per event:
+
+- One sorted set per window definition and entity (`rk:<tenant>:<env>:{w:<entity kind>:<hmac>}:<key>`),
+  scored by the event's `occurred_at`, trimmed to the longest window the rule's setting allows
+  and to 20,000 entries. Identifiers and event IDs are HMAC'd like every feature-store key.
+- A window's key covers the events it holds, the entity, the identifier it counts and its filter
+  with the filter's settings: aggregates that differ only by function or length share a window,
+  and changing a filter's setting starts a fresh one.
+- An event is recorded in every window of the pack over one of its kinds whose filter it passes.
+  An event whose filter cannot be checked (a fact it needs is missing) is recorded as unknown, and
+  a window holding one reads as unavailable for as long as it holds it, rather than undercounting.
+- Sums count only amounts in the event's currency. Dry runs and rule tests count the event
+  without storing it; idempotent replays are not evaluated again.
+- While behavioural history warms up after a reset, windows and history facts are unavailable,
+  so the rules on them are not evaluated.
+- The same round trip keeps each user's first activity, each account's last activity (400 days)
+  and each user's largest amount per currency: `customer.history_age`, `account.inactive_for` and
+  `history.amount_to_max`.
+
+### History facts not tracked yet
+
+`history.hour_usual`, `geo.speed_from_previous`, `flows.prior_sender_outflow_share`,
+`sender.related` and `export.rows_to_*_baseline` need behaviour RiskOS does not record yet. The
+rules on them (BEH-02's impossible-travel branch, BEH-03, PON-01, SEC-12) are reported as not
+evaluated until it does.
+
+### Reproducibility
+
+The evaluation records the pack version (`pack:ng@2026.10.0` in `rule_versions`), the event's
+kinds, the facts the pack saw, and the values each fired rule compared, next to `controls` and
+`not_evaluated`.
+
+### Cost
+
+`BenchmarkOutboundTransfer` (the 34 rules an outbound transfer triggers in the Nigeria pack, with
+windows already read): about 66 µs mean and 125 µs p95 per event on a laptop. The decision path's
+end-to-end p95 with the pack is measured in the hardening phase.
+
 ## Feature store
 
 Redis, one pipelined round trip per evaluation (plus one write for the amount baseline after a

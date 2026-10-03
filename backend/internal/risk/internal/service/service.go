@@ -9,6 +9,7 @@ import (
 	"fmt"
 	"log/slog"
 	"net/netip"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -23,15 +24,23 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/engine"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/features"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/store"
+	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // ErrNotFound is returned when an evaluation does not exist in the caller's environment.
 var ErrNotFound = store.ErrNotFound
 
-// FeatureStore reads and updates behavioral features.
+// FeatureStore reads and updates behavioral features and rule pack windows.
 type FeatureStore interface {
 	engine.FeatureSource
+	engine.WindowSource
 	RecordAmount(ctx context.Context, e features.Event) error
+}
+
+// PackSource gives the tenant's rule pack compiled for evaluation (nil without a compliance
+// profile). The rules module implements it.
+type PackSource interface {
+	TenantPack(ctx context.Context) (*rulepack.TenantPack, error)
 }
 
 // Service evaluates events and manages rules and settings.
@@ -44,13 +53,14 @@ type Service struct {
 	clock    clock.Clock
 	logger   *slog.Logger
 	config   *configCache
+	packs    PackSource
 }
 
-// New returns a Service.
-func New(fs FeatureStore, runner txn.Runner, rec audit.Recorder, clk clock.Clock, logger *slog.Logger) *Service {
+// New returns a Service. packs may be nil: no rule packs are evaluated.
+func New(fs FeatureStore, runner txn.Runner, rec audit.Recorder, clk clock.Clock, logger *slog.Logger, packs PackSource) *Service {
 	return &Service{
-		engine: engine.New(fs), features: fs, runner: runner, audit: rec, clock: clk, logger: logger,
-		config: newConfigCache(configTTL),
+		engine: engine.New(fs, fs), features: fs, runner: runner, audit: rec, clock: clk, logger: logger,
+		config: newConfigCache(configTTL), packs: packs,
 	}
 }
 
@@ -60,6 +70,17 @@ func New(fs FeatureStore, runner txn.Runner, rec audit.Recorder, clk clock.Clock
 type storedFeatures struct {
 	Event json.RawMessage `json:"event,omitempty"`
 	Facts map[string]any  `json:"facts"`
+	// Pack is what the tenant's rule pack saw, when it has one.
+	Pack *storedPack `json:"pack,omitempty"`
+}
+
+// storedPack records a rule pack evaluation: the pack version, the event's kinds, the facts the
+// rules saw and the values each fired rule compared.
+type storedPack struct {
+	Ref   string                    `json:"ref"`
+	Kinds []string                  `json:"kinds"`
+	Facts map[string]any            `json:"facts"`
+	Seen  map[string]map[string]any `json:"seen,omitempty"`
 }
 
 // Evaluate scores an event and stores the evaluation, joining the caller's transaction when
@@ -80,6 +101,13 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			return err
 		}
 		out := s.engine.Evaluate(ctx, ev, write, cfg.settings, cfg.rules)
+		var pk engine.PackOutput
+		if cfg.pack != nil {
+			pk = s.engine.EvaluatePack(ctx, ev, out.Values, cfg.pack, write, in.EventKey)
+			out.Signals = append(out.Signals, pk.Signals...)
+			out.Shadow = append(out.Shadow, pk.Shadow...)
+			out.RuleVersions = append(out.RuleVersions, "pack:"+pk.Ref)
+		}
 		denied := cfg.deny.Match(denyRefs(ev))
 		for _, m := range denied {
 			out.Signals = append(out.Signals, m.Signal())
@@ -90,10 +118,23 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			EventType: ev.Type, Level: level, Signals: out.Signals, Degraded: out.Degraded,
 			HighValue: highValue(ev, cfg.settings), Settings: cfg.settings, DenyListed: len(denied) > 0,
 		})
+		// The pack's controls and signal floors raise the decision: the most severe action wins,
+		// and every floor that reached it is a recorded reason.
+		for _, f := range pk.Floors {
+			policy.Decision = domain.AtLeast(policy.Decision, f.Decision)
+		}
+		for _, f := range pk.Floors {
+			if f.Decision == policy.Decision {
+				policy.Reasons = append(policy.Reasons, f.Reason)
+			}
+		}
+		slices.Sort(policy.Reasons)
+		policy.Reasons = slices.Compact(policy.Reasons)
 		id := ids.NewV7()
 		res = domain.Result{
 			ID: id, CreatedAt: ids.Time(id), EventID: in.EventID, EngineVersion: engine.Version,
 			Score: score, Level: level, Decision: policy.Decision,
+			Controls: pk.Controls, NotEvaluated: pk.NotEvaluated,
 			Signals: nonNil(out.Signals), DegradedSignals: nonNilStrings(out.Degraded), RequestID: in.RequestID,
 			WarmingSignals: nonNilStrings(out.Warming),
 			PolicyReasons:  nonNilStrings(policy.Reasons), ShadowSignals: nonNil(out.Shadow),
@@ -112,6 +153,9 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			}
 		}
 		record := storedFeatures{Facts: out.Facts}
+		if cfg.pack != nil {
+			record.Pack = &storedPack{Ref: pk.Ref, Kinds: pk.Kinds, Facts: pk.Facts, Seen: pk.Seen}
+		}
 		if !write {
 			// A dry run's event is stored nowhere else; an ingested event is in events.
 			record.Event = in.Features.Normalized
@@ -193,7 +237,13 @@ func (s *Service) load(ctx context.Context) (config, error) {
 	if err != nil {
 		return config{}, err
 	}
-	return config{settings: settings, rules: compiled, deny: deny}, nil
+	cfg := config{settings: settings, rules: compiled, deny: deny}
+	if s.packs != nil {
+		if cfg.pack, err = s.packs.TenantPack(ctx); err != nil {
+			return config{}, err
+		}
+	}
+	return cfg, nil
 }
 
 // scopeKey identifies an environment in caches.

@@ -217,7 +217,10 @@ const testFeatureKey = "integration-feature-key-0123456789abcdef"
 
 // newRisk returns the risk module wired like cmd/api.
 func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock, opts ...func(*risk.Config)) *risk.Module {
-	cfg := risk.Config{FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond}
+	cfg := risk.Config{
+		FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond,
+		Packs: rules.New(runner, auditModule.Recorder()),
+	}
 	for _, o := range opts {
 		o(&cfg)
 	}

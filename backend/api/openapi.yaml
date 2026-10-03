@@ -5303,7 +5303,7 @@ components:
         100. degraded_signals lists sources that could not be evaluated for this event.
         warming_signals lists history signals held back while behavioural history rebuilds after
         RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
-      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals, warming_signals]
+      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals, warming_signals, controls, not_evaluated]
       properties:
         request_id:
           type: string
@@ -5337,6 +5337,72 @@ components:
             type: string
         warming_signals:
           type: array
+          items:
+            type: string
+        controls:
+          type: array
+          description: |
+            The regulatory controls of the workspace's rule pack that applied to the event (see the
+            console's Rules library). A live control's decision is reflected in `decision`; a shadow
+            control is reported only. Empty without a compliance profile.
+          items:
+            $ref: "#/components/schemas/ControlResult"
+        not_evaluated:
+          type: array
+          description: |
+            Rules of the pack the event triggered that could not be evaluated because data or a
+            setting they need was unavailable. Missing data is never treated as no risk: send the
+            listed facts in the event's `compliance` block, or set the listed settings.
+          items:
+            $ref: "#/components/schemas/NotEvaluatedRule"
+    ControlResult:
+      type: object
+      additionalProperties: false
+      required: [rule, name, mode, reason, tasks, exemption_unknown]
+      properties:
+        rule:
+          type: string
+          example: REG-01
+        name:
+          type: string
+        mode:
+          type: string
+          enum: [live, shadow]
+        decision:
+          $ref: "#/components/schemas/Decision"
+        reason:
+          type: string
+        tasks:
+          type: array
+          description: What the institution must do (report.CTR, case.open, edd...).
+          items:
+            type: string
+        fee_percent:
+          type: number
+          format: double
+        hold_seconds:
+          type: integer
+          format: int64
+          description: The longest the funds may be held.
+        branch:
+          type: string
+        exemption_unknown:
+          type: boolean
+          description: The control applied because its exemption could not be checked.
+    NotEvaluatedRule:
+      type: object
+      additionalProperties: false
+      required: [rule, missing]
+      properties:
+        rule:
+          type: string
+          example: ATO-04
+        missing:
+          type: array
+          description: |
+            What was unavailable: `fact:<name>` (send it in `compliance.facts`), `setting:<name>`
+            (set it for the rule), `history:<window>` (behaviour history, or a reference the window
+            is kept for) or `currency:<fact>` (an amount in another currency than the rule's).
           items:
             type: string
     EventSummary:

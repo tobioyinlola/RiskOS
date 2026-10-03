@@ -308,6 +308,29 @@ func toAPI(o domain.Outcome) apigen.RiskDecision {
 	if d.WarmingSignals == nil {
 		d.WarmingSignals = []string{}
 	}
+	d.Controls = make([]apigen.ControlResult, len(o.Controls))
+	for i, c := range o.Controls {
+		d.Controls[i] = apigen.ControlResult{
+			Rule: c.Rule, Name: c.Name, Mode: apigen.ControlResultMode(c.Mode), Reason: c.Reason, Tasks: c.Tasks,
+			ExemptionUnknown: c.ExemptionUnknown,
+		}
+		if c.Decision != "" {
+			d.Controls[i].Decision = new(apigen.Decision(c.Decision))
+		}
+		if c.FeePercent != 0 {
+			d.Controls[i].FeePercent = new(c.FeePercent)
+		}
+		if c.HoldSeconds != 0 {
+			d.Controls[i].HoldSeconds = new(c.HoldSeconds)
+		}
+		if c.Branch != "" {
+			d.Controls[i].Branch = new(c.Branch)
+		}
+	}
+	d.NotEvaluated = make([]apigen.NotEvaluatedRule, len(o.NotEvaluated))
+	for i, n := range o.NotEvaluated {
+		d.NotEvaluated[i] = apigen.NotEvaluatedRule{Rule: n.Rule, Missing: n.Missing}
+	}
 	if o.EventID != nil {
 		d.EventId = new(ids.Format(ids.PrefixEvent, *o.EventID))
 	}

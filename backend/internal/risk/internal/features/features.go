@@ -11,6 +11,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/rules"
+	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Event is the risk module's view of a normalized event (EVENTS.md). It is parsed from the
@@ -28,6 +29,8 @@ type Event struct {
 		IP      string `json:"ip"`
 	} `json:"context"`
 	Data json.RawMessage `json:"data"`
+	// Compliance is the event's compliance block (EVENTS.md#compliance), or nil.
+	Compliance *rulepack.EventContext `json:"compliance"`
 
 	Transaction *Transaction `json:"-"`
 	Login       *Login       `json:"-"`

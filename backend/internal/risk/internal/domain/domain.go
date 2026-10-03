@@ -155,9 +155,41 @@ type Result struct {
 	PolicyReasons []string
 	ShadowSignals []Signal
 	RuleVersions  []string
+	// Controls are the rule pack's regulatory controls that applied to the event (ADR-0006),
+	// live or in shadow; NotEvaluated the pack rules it triggered whose data was unavailable.
+	Controls     []Control
+	NotEvaluated []NotEvaluated
 	// RaiseAlert is set when the decision reaches the environment's alert threshold. Not stored:
 	// the caller acts on it in the same transaction (dry runs never raise alerts).
 	RaiseAlert bool
+}
+
+// Control is a regulatory control of the workspace's rule pack that applied to an event.
+type Control struct {
+	Rule string `json:"rule"`
+	Name string `json:"name"`
+	// Mode is live (it set the decision) or shadow (recorded only).
+	Mode string `json:"mode"`
+	// Decision is the action the control requires; empty for controls that only create tasks.
+	Decision Decision `json:"decision,omitempty"`
+	Reason   string   `json:"reason"`
+	// Tasks are what the institution must do: report.CTR, case.open, edd...
+	Tasks []string `json:"tasks"`
+	// FeePercent and HoldSeconds detail fee and hold decisions; Branch names the variant that
+	// applied.
+	FeePercent  float64 `json:"fee_percent,omitempty"`
+	HoldSeconds int64   `json:"hold_seconds,omitempty"`
+	Branch      string  `json:"branch,omitempty"`
+	// ExemptionUnknown is set when the control applied because its exemption could not be
+	// checked (the legal limit applies until it is shown).
+	ExemptionUnknown bool `json:"exemption_unknown,omitempty"`
+}
+
+// NotEvaluated is a pack rule an event triggered that could not be evaluated: what it needed
+// was unavailable ("fact:telco.sim_swap", "setting:floor", "history:count ... by card").
+type NotEvaluated struct {
+	Rule    string   `json:"rule"`
+	Missing []string `json:"missing"`
 }
 
 // SignalCount is how often a signal fired over a window (analytics).

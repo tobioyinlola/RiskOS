@@ -2832,6 +2832,49 @@ export interface components {
             signals: components["schemas"]["Signal"][];
             degraded_signals: string[];
             warming_signals: string[];
+            /**
+             * @description The regulatory controls of the workspace's rule pack that applied to the event (see the
+             *     console's Rules library). A live control's decision is reflected in `decision`; a shadow
+             *     control is reported only. Empty without a compliance profile.
+             */
+            controls: components["schemas"]["ControlResult"][];
+            /**
+             * @description Rules of the pack the event triggered that could not be evaluated because data or a
+             *     setting they need was unavailable. Missing data is never treated as no risk: send the
+             *     listed facts in the event's `compliance` block, or set the listed settings.
+             */
+            not_evaluated: components["schemas"]["NotEvaluatedRule"][];
+        };
+        ControlResult: {
+            /** @example REG-01 */
+            rule: string;
+            name: string;
+            /** @enum {string} */
+            mode: "live" | "shadow";
+            decision?: components["schemas"]["Decision"];
+            reason: string;
+            /** @description What the institution must do (report.CTR, case.open, edd...). */
+            tasks: string[];
+            /** Format: double */
+            fee_percent?: number;
+            /**
+             * Format: int64
+             * @description The longest the funds may be held.
+             */
+            hold_seconds?: number;
+            branch?: string;
+            /** @description The control applied because its exemption could not be checked. */
+            exemption_unknown: boolean;
+        };
+        NotEvaluatedRule: {
+            /** @example ATO-04 */
+            rule: string;
+            /**
+             * @description What was unavailable: `fact:<name>` (send it in `compliance.facts`), `setting:<name>`
+             *     (set it for the rule), `history:<window>` (behaviour history, or a reference the window
+             *     is kept for) or `currency:<fact>` (an amount in another currency than the rule's).
+             */
+            missing: string[];
         };
         EventSummary: {
             id: string;

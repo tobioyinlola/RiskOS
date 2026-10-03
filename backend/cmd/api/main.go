@@ -158,7 +158,9 @@ func run() (err error) {
 	}
 	authModule := auth.New(pool, runner, auditModule.Recorder(), clk, authCfg)
 
+	rulesModule := rules.New(runner, auditModule.Recorder())
 	riskModule := risk.New(rdb, runner, auditModule.Recorder(), clk, logger, risk.Config{
+		Packs:          rulesModule,
 		FeatureHashKey: []byte(cfg.Risk.FeatureHashKey),
 		FeatureTimeout: cfg.Risk.FeatureTimeout,
 		StateDB:        pool,
@@ -196,7 +198,7 @@ func run() (err error) {
 		Cases:     casesModule,
 		Webhooks:  webhooksModule,
 		Tenants:   tenantsModule,
-		Rules:     rules.New(runner, auditModule.Recorder()),
+		Rules:     rulesModule,
 		Admin:     adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		RateLimits: httpapi.RateLimits{

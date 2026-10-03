@@ -244,12 +244,22 @@ func toOutcome(r risk.Result) domain.Outcome {
 	if degraded == nil {
 		degraded = []string{}
 	}
-	return domain.Outcome{
+	out := domain.Outcome{
 		RequestID: r.RequestID, EventID: r.EventID, EvaluationID: r.ID,
 		Score: r.Score, Level: string(r.Level), Decision: string(r.Decision),
 		EngineVersion: r.EngineVersion, Signals: signals, DegradedSignals: degraded,
 		WarmingSignals: r.WarmingSignals,
 	}
+	for _, c := range r.Controls {
+		out.Controls = append(out.Controls, domain.Control{
+			Rule: c.Rule, Name: c.Name, Mode: c.Mode, Decision: string(c.Decision), Reason: c.Reason, Tasks: c.Tasks,
+			FeePercent: c.FeePercent, HoldSeconds: c.HoldSeconds, Branch: c.Branch, ExemptionUnknown: c.ExemptionUnknown,
+		})
+	}
+	for _, n := range r.NotEvaluated {
+		out.NotEvaluated = append(out.NotEvaluated, domain.NotEvaluated{Rule: n.Rule, Missing: n.Missing})
+	}
+	return out
 }
 
 // Profile returns an entity's profile. Requires events:read.

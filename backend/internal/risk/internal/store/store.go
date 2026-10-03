@@ -51,6 +51,14 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 	if err != nil {
 		return fmt.Errorf("encode shadow signals: %w", err)
 	}
+	controls, err := json.Marshal(nonNilControls(r.Controls))
+	if err != nil {
+		return fmt.Errorf("encode controls: %w", err)
+	}
+	notEvaluated, err := json.Marshal(nonNilNotEvaluated(r.NotEvaluated))
+	if err != nil {
+		return fmt.Errorf("encode rules not evaluated: %w", err)
+	}
 	us := min(duration.Microseconds(), int64(math.MaxInt32))
 	if err := q.InsertEvaluation(ctx, sqlcgen.InsertEvaluationParams{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID,
@@ -61,6 +69,7 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 		DurationUs:    int32(us), //nolint:gosec // clamped above
 		PolicyReasons: nonNilStrings(r.PolicyReasons), ShadowSignals: shadow,
 		WarmingSignals: nonNilStrings(r.WarmingSignals),
+		Controls:       controls, NotEvaluated: notEvaluated,
 	}); err != nil {
 		return fmt.Errorf("insert evaluation: %w", err)
 	}
@@ -87,11 +96,34 @@ func (Store) Get(ctx context.Context, id uuid.UUID, createdAt time.Time) (domain
 	if err := json.Unmarshal(row.Signals, &signals); err != nil {
 		return domain.Result{}, fmt.Errorf("decode signals: %w", err)
 	}
+	var controls []domain.Control
+	if err := json.Unmarshal(row.Controls, &controls); err != nil {
+		return domain.Result{}, fmt.Errorf("decode controls: %w", err)
+	}
+	var notEvaluated []domain.NotEvaluated
+	if err := json.Unmarshal(row.NotEvaluated, &notEvaluated); err != nil {
+		return domain.Result{}, fmt.Errorf("decode rules not evaluated: %w", err)
+	}
 	return domain.Result{
 		ID: row.ID, CreatedAt: row.CreatedAt, EventID: row.EventID, EngineVersion: row.EngineVersion,
 		Score: int(row.RiskScore), Level: domain.Level(row.RiskLevel), Decision: domain.Decision(row.Decision),
 		Signals: nonNil(signals), DegradedSignals: nonNilStrings(row.DegradedSignals), RequestID: row.RequestID,
+		Controls: nonNilControls(controls), NotEvaluated: nonNilNotEvaluated(notEvaluated),
 	}, nil
+}
+
+func nonNilControls(c []domain.Control) []domain.Control {
+	if c == nil {
+		return []domain.Control{}
+	}
+	return c
+}
+
+func nonNilNotEvaluated(n []domain.NotEvaluated) []domain.NotEvaluated {
+	if n == nil {
+		return []domain.NotEvaluated{}
+	}
+	return n
 }
 
 func nonNil(s []domain.Signal) []domain.Signal {

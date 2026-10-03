@@ -13,7 +13,8 @@ import (
 )
 
 const getEvaluation = `-- name: GetEvaluation :one
-SELECT id, created_at, event_id, engine_version, risk_score, risk_level, decision, signals, degraded_signals, request_id
+SELECT id, created_at, event_id, engine_version, risk_score, risk_level, decision, signals, degraded_signals, request_id,
+       controls, not_evaluated
 FROM evaluations
 WHERE tenant_id = $1 AND environment_id = $2 AND created_at = $3 AND id = $4
 `
@@ -36,6 +37,8 @@ type GetEvaluationRow struct {
 	Signals         []byte
 	DegradedSignals []string
 	RequestID       string
+	Controls        []byte
+	NotEvaluated    []byte
 }
 
 // created_at is derived from the id, so this reads exactly one partition.
@@ -58,6 +61,8 @@ func (q *Queries) GetEvaluation(ctx context.Context, arg GetEvaluationParams) (G
 		&i.Signals,
 		&i.DegradedSignals,
 		&i.RequestID,
+		&i.Controls,
+		&i.NotEvaluated,
 	)
 	return i, err
 }
@@ -68,12 +73,12 @@ INSERT INTO evaluations (
   tenant_id, environment_id, id, created_at, event_id, event_key, dry_run,
   engine_version, rule_versions, features, risk_score, risk_level, decision,
   signals, degraded_signals, request_id, duration_us, policy_reasons, shadow_signals,
-  warming_signals
+  warming_signals, controls, not_evaluated
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7,
   $8, $9, $10, $11, $12, $13,
   $14, $15, $16, $17, $18, $19,
-  $20
+  $20, $21, $22
 )
 `
 
@@ -98,6 +103,8 @@ type InsertEvaluationParams struct {
 	PolicyReasons   []string
 	ShadowSignals   []byte
 	WarmingSignals  []string
+	Controls        []byte
+	NotEvaluated    []byte
 }
 
 // Every query takes tenant_id and environment_id explicitly (TENANCY.md, layer 1).
@@ -123,6 +130,8 @@ func (q *Queries) InsertEvaluation(ctx context.Context, arg InsertEvaluationPara
 		arg.PolicyReasons,
 		arg.ShadowSignals,
 		arg.WarmingSignals,
+		arg.Controls,
+		arg.NotEvaluated,
 	)
 	return err
 }

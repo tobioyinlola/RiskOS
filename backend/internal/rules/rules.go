@@ -10,6 +10,8 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/handler"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/interp"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/packs/ng"
@@ -54,4 +56,54 @@ func BuiltInPacks() []fs.FS { return []fs.FS{ng.Files} }
 // packs). Idempotent; a loaded version whose files changed returns ErrChecksumChanged.
 func LoadPacks(ctx context.Context, pool Pool, packs []fs.FS, logger *slog.Logger) error {
 	return service.LoadPacks(ctx, pool, packs, logger)
+}
+
+// Evaluation of a tenant's pack by the risk engine.
+type (
+	// TenantPack is a tenant's pack compiled for evaluation; nil when it has no profile.
+	TenantPack = service.TenantPack
+	// Outcome is one triggered rule's evaluation.
+	Outcome = service.Outcome
+	// Window is one windowed aggregate a rule reads.
+	Window = interp.AggRef
+	// Facts are an event's known values by catalog name.
+	Facts = interp.Facts
+	// Money is an amount in minor units of a currency.
+	Money = interp.Money
+	// Aggs answers windowed aggregates.
+	Aggs = interp.Aggs
+	// Env is what one evaluation sees.
+	Env = interp.Env
+)
+
+// Rule outcome statuses.
+const (
+	StatusFired        = interp.StatusFired
+	StatusClear        = interp.StatusClear
+	StatusNotEvaluated = interp.StatusNotEvaluated
+)
+
+// Rule kinds and modes.
+const (
+	KindControl = pack.KindControl
+	KindSignal  = pack.KindSignal
+	ModeLive    = pack.ModeLive
+)
+
+// TenantPack returns the caller's tenant's pack compiled for evaluation, or nil without a
+// compliance profile. It runs in the caller's transaction.
+func (m *Module) TenantPack(ctx context.Context) (*TenantPack, error) { return m.svc.TenantPack(ctx) }
+
+// Record reports whether an event passes a window's filter (record) and whether the filter could
+// be checked (known): an unchecked event is recorded as unknown, so the window reads as
+// unavailable rather than undercounting.
+func Record(w Window, facts Facts) (record, known bool) {
+	switch interp.Where(w, facts) {
+	case interp.True:
+		return true, true
+	case interp.Unknown:
+		return true, false
+	default:
+		return false, true
+	}
 }
