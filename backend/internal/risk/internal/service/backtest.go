@@ -12,6 +12,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/engine"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/store"
 	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
@@ -142,6 +143,24 @@ func (s *Service) Backtest(ctx context.Context, in BacktestInput) (BacktestResul
 		out.Candidate = tallyOf(engine.Backtest(candidate, events), eventIDs)
 		out.Current = tallyOf(engine.Backtest(current, events), eventIDs)
 		return nil
+	})
+	return out, err
+}
+
+// RestrictedSignals lists the environment's evaluations with compliance-only signals in the last
+// days days (GOV-09). Requires compliance:sensitive, held only by compliance officers.
+func (s *Service) RestrictedSignals(ctx context.Context, days int) ([]store.RestrictedEvaluation, error) {
+	if err := authz.Require(ctx, authz.ComplianceSensitive); err != nil {
+		return nil, err
+	}
+	if days < 1 || days > MaxBacktestDays {
+		return nil, fmt.Errorf("%w: days must be 1 to %d", domain.ErrBacktestInvalid, MaxBacktestDays)
+	}
+	var out []store.RestrictedEvaluation
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		var err error
+		out, err = s.store.RestrictedSignals(ctx, s.clock.Now().Add(-time.Duration(days)*24*time.Hour))
+		return err
 	})
 	return out, err
 }

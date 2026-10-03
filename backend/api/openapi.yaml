@@ -3132,6 +3132,41 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/restricted-signals:
+    get:
+      operationId: listRestrictedSignals
+      tags: [compliance]
+      summary: Compliance-only signals (no tipping off)
+      description: |
+        Requires `compliance:sensitive`, held only by compliance officers (GOV-09). Rules marked
+        compliance-only (such as INS-01, staff-linked accounts) add their points to the score
+        under the code `compliance_review` everywhere else: in decisions, events, alerts, webhooks
+        and analytics. This lists the evaluations where one fired, with the rule itself, newest
+        first, at most 200.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 7
+      responses:
+        "200":
+          description: The evaluations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestrictedEvaluationList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/changes:
     get:
       operationId: listPackRuleChanges
@@ -3771,6 +3806,45 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/FXRate"
+    RestrictedSignal:
+      type: object
+      additionalProperties: false
+      required: [rule, name, weight, mode]
+      properties:
+        rule:
+          type: string
+        name:
+          type: string
+        weight:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+    RestrictedEvaluation:
+      type: object
+      additionalProperties: false
+      required: [evaluation_id, event_id, created_at, signals]
+      properties:
+        evaluation_id:
+          type: string
+        event_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestrictedSignal"
+    RestrictedEvaluationList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestrictedEvaluation"
     PackRuleMode:
       type: string
       description: live (it acts), shadow (it is evaluated and recorded only) or off.
@@ -5248,10 +5322,12 @@ components:
     Scope:
       type: string
       description: |
-        A permission. API keys can hold any except `rules:approve`, `compliance:write` and
-        `compliance:configure`, which only people hold (a second person approves production rule
-        changes; a person sets the compliance profile and configures pack rules).
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write, compliance:read, compliance:engineering, compliance:write, compliance:configure]
+        A permission. API keys can hold any except `rules:approve`, `compliance:write`,
+        `compliance:configure` and `compliance:sensitive`, which only people hold (a second person
+        approves production rule changes; a person sets the compliance profile and configures pack
+        rules; only compliance officers see suspicious transaction reports and compliance-only
+        signals).
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write, compliance:read, compliance:engineering, compliance:write, compliance:configure, compliance:sensitive]
     Whoami:
       type: object
       additionalProperties: false

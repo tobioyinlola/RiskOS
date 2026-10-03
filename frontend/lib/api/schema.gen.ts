@@ -1703,6 +1703,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/restricted-signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compliance-only signals (no tipping off)
+         * @description Requires `compliance:sensitive`, held only by compliance officers (GOV-09). Rules marked
+         *     compliance-only (such as INS-01, staff-linked accounts) add their points to the score
+         *     under the code `compliance_review` everywhere else: in decisions, events, alerts, webhooks
+         *     and analytics. This lists the evaluations where one fired, with the rule itself, newest
+         *     first, at most 200.
+         */
+        get: operations["listRestrictedSignals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/changes": {
         parameters: {
             query?: never;
@@ -2002,6 +2026,22 @@ export interface components {
         };
         FXRateList: {
             data: components["schemas"]["FXRate"][];
+        };
+        RestrictedSignal: {
+            rule: string;
+            name: string;
+            weight: number;
+            mode: components["schemas"]["PackRuleMode"];
+        };
+        RestrictedEvaluation: {
+            evaluation_id: string;
+            event_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            signals: components["schemas"]["RestrictedSignal"][];
+        };
+        RestrictedEvaluationList: {
+            data: components["schemas"]["RestrictedEvaluation"][];
         };
         /**
          * @description live (it acts), shadow (it is evaluated and recorded only) or off.
@@ -2718,12 +2758,14 @@ export interface components {
         /** @enum {string} */
         Environment: "test" | "production";
         /**
-         * @description A permission. API keys can hold any except `rules:approve`, `compliance:write` and
-         *     `compliance:configure`, which only people hold (a second person approves production rule
-         *     changes; a person sets the compliance profile and configures pack rules).
+         * @description A permission. API keys can hold any except `rules:approve`, `compliance:write`,
+         *     `compliance:configure` and `compliance:sensitive`, which only people hold (a second person
+         *     approves production rule changes; a person sets the compliance profile and configures pack
+         *     rules; only compliance officers see suspicious transaction reports and compliance-only
+         *     signals).
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write" | "compliance:read" | "compliance:engineering" | "compliance:write" | "compliance:configure";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write" | "compliance:read" | "compliance:engineering" | "compliance:write" | "compliance:configure" | "compliance:sensitive";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -6324,6 +6366,32 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listRestrictedSignals: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The evaluations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestrictedEvaluationList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["DefaultError"];
         };
     };

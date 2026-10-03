@@ -5,12 +5,12 @@ INSERT INTO evaluations (
   tenant_id, environment_id, id, created_at, event_id, event_key, dry_run,
   engine_version, rule_versions, features, risk_score, risk_level, decision,
   signals, degraded_signals, request_id, duration_us, policy_reasons, shadow_signals,
-  warming_signals, controls, not_evaluated
+  warming_signals, controls, not_evaluated, restricted_signals
 ) VALUES (
   @tenant_id, @environment_id, @id, @created_at, @event_id, @event_key, @dry_run,
   @engine_version, @rule_versions, @features, @risk_score, @risk_level, @decision,
   @signals, @degraded_signals, @request_id, @duration_us, @policy_reasons, @shadow_signals,
-  @warming_signals, @controls, @not_evaluated
+  @warming_signals, @controls, @not_evaluated, @restricted_signals
 );
 
 -- name: GetEvaluation :one
@@ -39,3 +39,12 @@ WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at
   AND NOT dry_run AND features #> '{pack,replay}' IS NOT NULL
 ORDER BY created_at
 LIMIT @max_rows;
+
+-- name: RestrictedSignals :many
+-- Compliance-only signals (GOV-09) of ingested events since @since, newest first.
+SELECT id, event_id, created_at, restricted_signals
+FROM evaluations
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since
+  AND NOT dry_run AND restricted_signals <> '[]'::jsonb
+ORDER BY created_at DESC
+LIMIT 200;

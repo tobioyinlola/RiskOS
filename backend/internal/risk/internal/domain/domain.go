@@ -74,7 +74,16 @@ type Signal struct {
 	Code   string `json:"code"`
 	Label  string `json:"label"`
 	Weight int    `json:"weight"`
+	// Mode is set on restricted signals only: live or shadow.
+	Mode string `json:"mode,omitempty"`
 }
+
+// The masked form of a compliance-only signal (GOV-09): it explains its points without saying
+// what compliance is looking at. Tenant rules cannot use the code.
+const (
+	SignalComplianceReview = "compliance_review"
+	ComplianceReviewLabel  = "Compliance review"
+)
 
 // MaxScore caps the score.
 const MaxScore = 100
@@ -160,6 +169,9 @@ type Result struct {
 	// live or in shadow; NotEvaluated the pack rules it triggered whose data was unavailable.
 	Controls     []Control
 	NotEvaluated []NotEvaluated
+	// Restricted are compliance-only signals as they fired (GOV-09). Stored, never returned
+	// with the evaluation: only compliance roles read them, through the compliance API.
+	Restricted []Signal
 	// RaiseAlert is set when the decision reaches the environment's alert threshold. Not stored:
 	// the caller acts on it in the same transaction (dry runs never raise alerts).
 	RaiseAlert bool

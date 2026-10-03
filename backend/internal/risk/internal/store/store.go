@@ -59,6 +59,10 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 	if err != nil {
 		return fmt.Errorf("encode rules not evaluated: %w", err)
 	}
+	restricted, err := json.Marshal(nonNil(r.Restricted))
+	if err != nil {
+		return fmt.Errorf("encode restricted signals: %w", err)
+	}
 	us := min(duration.Microseconds(), int64(math.MaxInt32))
 	if err := q.InsertEvaluation(ctx, sqlcgen.InsertEvaluationParams{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID,
@@ -69,7 +73,7 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 		DurationUs:    int32(us), //nolint:gosec // clamped above
 		PolicyReasons: nonNilStrings(r.PolicyReasons), ShadowSignals: shadow,
 		WarmingSignals: nonNilStrings(r.WarmingSignals),
-		Controls:       controls, NotEvaluated: notEvaluated,
+		Controls:       controls, NotEvaluated: notEvaluated, RestrictedSignals: restricted,
 	}); err != nil {
 		return fmt.Errorf("insert evaluation: %w", err)
 	}
@@ -179,6 +183,34 @@ func (Store) PackReplays(ctx context.Context, since time.Time, limit int) ([]Pac
 	out := make([]PackReplay, len(rows))
 	for i, r := range rows {
 		out[i] = PackReplay{EventID: r.EventID, Features: r.Features}
+	}
+	return out, nil
+}
+
+// RestrictedEvaluation is an evaluation with compliance-only signals.
+type RestrictedEvaluation struct {
+	ID        uuid.UUID
+	EventID   *uuid.UUID
+	CreatedAt time.Time
+	Signals   []domain.Signal
+}
+
+// RestrictedSignals lists evaluations with compliance-only signals since since, newest first.
+func (Store) RestrictedSignals(ctx context.Context, since time.Time) ([]RestrictedEvaluation, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.RestrictedSignals(ctx, sqlcgen.RestrictedSignalsParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since})
+	if err != nil {
+		return nil, fmt.Errorf("restricted signals: %w", err)
+	}
+	out := make([]RestrictedEvaluation, len(rows))
+	for i, r := range rows {
+		out[i] = RestrictedEvaluation{ID: r.ID, EventID: r.EventID, CreatedAt: r.CreatedAt}
+		if err := json.Unmarshal(r.RestrictedSignals, &out[i].Signals); err != nil {
+			return nil, fmt.Errorf("decode restricted signals: %w", err)
+		}
 	}
 	return out, nil
 }

@@ -250,6 +250,11 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
   unavailable window or an amount in another currency than the rule's makes a comparison
   unknown; a rule that cannot be decided is listed in `not_evaluated` with what it lacked. One
   known finding is enough to fire a rule ("any of"), and one known failure to clear it ("all of").
+- **No tipping off (GOV-09).** A compliance-only signal (INS-01, staff-linked accounts) keeps its
+  points but is listed as `compliance_review` ("Compliance review") in the decision, the stored
+  evaluation, alerts, webhooks and analytics. The rule that fired is stored apart and read only
+  by compliance officers (`compliance:sensitive`, which administrators and API keys never hold)
+  through `GET /api/v1/compliance/restricted-signals`. Tenant rules cannot use the code.
 - **Exemptions.** A control whose exemption cannot be checked (REG-04's raised limit) applies,
   and says so (`exemption_unknown`): an unknown exemption never lifts a legal limit.
 - **Amounts** are compared in one currency only. Rules on US dollar amounts (REG-10) read

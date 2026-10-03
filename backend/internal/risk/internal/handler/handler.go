@@ -446,3 +446,29 @@ func (h *Handlers) BacktestPackRule(ctx context.Context, req apigen.BacktestPack
 		Candidate: tallyToAPI(res.Candidate), Current: tallyToAPI(res.Current),
 	}, nil
 }
+
+// ListRestrictedSignals implements GET /api/v1/compliance/restricted-signals.
+func (h *Handlers) ListRestrictedSignals(ctx context.Context, req apigen.ListRestrictedSignalsRequestObject) (apigen.ListRestrictedSignalsResponseObject, error) {
+	days := 7
+	if req.Params.Days != nil {
+		days = *req.Params.Days
+	}
+	rows, err := h.svc.RestrictedSignals(ctx, days)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	data := make([]apigen.RestrictedEvaluation, len(rows))
+	for i, r := range rows {
+		signals := make([]apigen.RestrictedSignal, len(r.Signals))
+		for j, s := range r.Signals {
+			signals[j] = apigen.RestrictedSignal{Rule: s.Code, Name: s.Label, Weight: s.Weight, Mode: apigen.PackRuleMode(s.Mode)}
+		}
+		data[i] = apigen.RestrictedEvaluation{
+			EvaluationId: ids.Format(ids.PrefixEvaluation, r.ID), CreatedAt: r.CreatedAt, Signals: signals,
+		}
+		if r.EventID != nil {
+			data[i].EventId = new(ids.Format(ids.PrefixEvent, *r.EventID))
+		}
+	}
+	return apigen.ListRestrictedSignals200JSONResponse{Data: data}, nil
+}

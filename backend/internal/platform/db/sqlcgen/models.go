@@ -181,28 +181,29 @@ type Environment struct {
 }
 
 type Evaluation struct {
-	TenantID        uuid.UUID
-	EnvironmentID   uuid.UUID
-	ID              uuid.UUID
-	CreatedAt       time.Time
-	EventID         *uuid.UUID
-	EventKey        string
-	DryRun          bool
-	EngineVersion   string
-	RuleVersions    []string
-	Features        []byte
-	RiskScore       int16
-	RiskLevel       string
-	Decision        string
-	Signals         []byte
-	DegradedSignals []string
-	RequestID       string
-	DurationUs      int32
-	PolicyReasons   []string
-	ShadowSignals   []byte
-	WarmingSignals  []string
-	Controls        []byte
-	NotEvaluated    []byte
+	TenantID          uuid.UUID
+	EnvironmentID     uuid.UUID
+	ID                uuid.UUID
+	CreatedAt         time.Time
+	EventID           *uuid.UUID
+	EventKey          string
+	DryRun            bool
+	EngineVersion     string
+	RuleVersions      []string
+	Features          []byte
+	RiskScore         int16
+	RiskLevel         string
+	Decision          string
+	Signals           []byte
+	DegradedSignals   []string
+	RequestID         string
+	DurationUs        int32
+	PolicyReasons     []string
+	ShadowSignals     []byte
+	WarmingSignals    []string
+	Controls          []byte
+	NotEvaluated      []byte
+	RestrictedSignals []byte
 }
 
 type Event struct {

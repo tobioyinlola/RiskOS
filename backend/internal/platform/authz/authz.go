@@ -65,6 +65,13 @@ const ComplianceWrite Permission = "compliance:write"
 //nolint:gosec // G101 false positive: a permission name
 const ComplianceConfigure Permission = "compliance:configure"
 
+// ComplianceSensitive sees what must never tip off a customer (GOV-09): suspicious transaction
+// reports, confirmed suspicion and compliance-only signals. Only compliance officers hold it,
+// not even administrators, and never an API key.
+//
+//nolint:gosec // G101 false positive: a permission name
+const ComplianceSensitive Permission = "compliance:sensitive"
+
 // System permissions are held only by RiskOS's own background jobs, never by a customer
 // credential or role.
 const (
@@ -86,7 +93,7 @@ func CustomerPermissions() []Permission {
 // PersonPermissions returns every permission a customer role can hold: the customer
 // permissions plus those reserved for people.
 func PersonPermissions() []Permission {
-	return append(CustomerPermissions(), RulesApprove, ComplianceWrite, ComplianceConfigure)
+	return append(CustomerPermissions(), RulesApprove, ComplianceWrite, ComplianceConfigure, ComplianceSensitive)
 }
 
 // IsCustomerPermission reports whether p exists and may be granted to a customer credential.
@@ -125,7 +132,8 @@ const (
 func RolePermissions(r Role) []Permission {
 	switch r {
 	case RoleCustomerAdmin:
-		return PersonPermissions()
+		// Everything but compliance-sensitive data, which only compliance roles see (GOV-09).
+		return slices.DeleteFunc(PersonPermissions(), func(p Permission) bool { return p == ComplianceSensitive })
 	case RoleDeveloper:
 		return []Permission{
 			APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead, WebhooksRead, WebhooksWrite,
@@ -141,7 +149,7 @@ func RolePermissions(r Role) []Permission {
 	case RoleComplianceOfficer:
 		return []Permission{
 			EventsRead, RulesRead, RulesApprove, AlertsRead, AlertsWrite, CasesRead, CasesWrite, AuditLogsRead,
-			TeamRead, ComplianceRead, ComplianceWrite, ComplianceConfigure,
+			TeamRead, ComplianceRead, ComplianceWrite, ComplianceConfigure, ComplianceSensitive,
 		}
 	case RoleAuditor:
 		return []Permission{EventsRead, RulesRead, AlertsRead, CasesRead, AuditLogsRead, TeamRead, ComplianceRead}

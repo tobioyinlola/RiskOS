@@ -73,38 +73,39 @@ INSERT INTO evaluations (
   tenant_id, environment_id, id, created_at, event_id, event_key, dry_run,
   engine_version, rule_versions, features, risk_score, risk_level, decision,
   signals, degraded_signals, request_id, duration_us, policy_reasons, shadow_signals,
-  warming_signals, controls, not_evaluated
+  warming_signals, controls, not_evaluated, restricted_signals
 ) VALUES (
   $1, $2, $3, $4, $5, $6, $7,
   $8, $9, $10, $11, $12, $13,
   $14, $15, $16, $17, $18, $19,
-  $20, $21, $22
+  $20, $21, $22, $23
 )
 `
 
 type InsertEvaluationParams struct {
-	TenantID        uuid.UUID
-	EnvironmentID   uuid.UUID
-	ID              uuid.UUID
-	CreatedAt       time.Time
-	EventID         *uuid.UUID
-	EventKey        string
-	DryRun          bool
-	EngineVersion   string
-	RuleVersions    []string
-	Features        []byte
-	RiskScore       int16
-	RiskLevel       string
-	Decision        string
-	Signals         []byte
-	DegradedSignals []string
-	RequestID       string
-	DurationUs      int32
-	PolicyReasons   []string
-	ShadowSignals   []byte
-	WarmingSignals  []string
-	Controls        []byte
-	NotEvaluated    []byte
+	TenantID          uuid.UUID
+	EnvironmentID     uuid.UUID
+	ID                uuid.UUID
+	CreatedAt         time.Time
+	EventID           *uuid.UUID
+	EventKey          string
+	DryRun            bool
+	EngineVersion     string
+	RuleVersions      []string
+	Features          []byte
+	RiskScore         int16
+	RiskLevel         string
+	Decision          string
+	Signals           []byte
+	DegradedSignals   []string
+	RequestID         string
+	DurationUs        int32
+	PolicyReasons     []string
+	ShadowSignals     []byte
+	WarmingSignals    []string
+	Controls          []byte
+	NotEvaluated      []byte
+	RestrictedSignals []byte
 }
 
 // Every query takes tenant_id and environment_id explicitly (TENANCY.md, layer 1).
@@ -132,6 +133,7 @@ func (q *Queries) InsertEvaluation(ctx context.Context, arg InsertEvaluationPara
 		arg.WarmingSignals,
 		arg.Controls,
 		arg.NotEvaluated,
+		arg.RestrictedSignals,
 	)
 	return err
 }
@@ -180,6 +182,54 @@ func (q *Queries) PackReplays(ctx context.Context, arg PackReplaysParams) ([]Pac
 			&i.EventID,
 			&i.CreatedAt,
 			&i.Features,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const restrictedSignals = `-- name: RestrictedSignals :many
+SELECT id, event_id, created_at, restricted_signals
+FROM evaluations
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3
+  AND NOT dry_run AND restricted_signals <> '[]'::jsonb
+ORDER BY created_at DESC
+LIMIT 200
+`
+
+type RestrictedSignalsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+}
+
+type RestrictedSignalsRow struct {
+	ID                uuid.UUID
+	EventID           *uuid.UUID
+	CreatedAt         time.Time
+	RestrictedSignals []byte
+}
+
+// Compliance-only signals (GOV-09) of ingested events since @since, newest first.
+func (q *Queries) RestrictedSignals(ctx context.Context, arg RestrictedSignalsParams) ([]RestrictedSignalsRow, error) {
+	rows, err := q.db.Query(ctx, restrictedSignals, arg.TenantID, arg.EnvironmentID, arg.Since)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RestrictedSignalsRow
+	for rows.Next() {
+		var i RestrictedSignalsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventID,
+			&i.CreatedAt,
+			&i.RestrictedSignals,
 		); err != nil {
 			return nil, err
 		}

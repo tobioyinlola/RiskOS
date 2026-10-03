@@ -31,6 +31,9 @@ type PackOutput struct {
 	Controls     []domain.Control
 	NotEvaluated []domain.NotEvaluated
 	Floors       []Floor
+	// Restricted are compliance-only signals as they fired (GOV-09), stored apart from the
+	// signals every role and system sees.
+	Restricted []domain.Signal
 	// Facts and Seen are recorded with the evaluation so it can be reproduced: the facts pack
 	// rules saw, and the values each fired rule compared.
 	Facts rulepack.Facts
@@ -168,6 +171,13 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 		live := o.Mode == rulepack.ModeLive
 		if o.Kind == rulepack.KindSignal {
 			sig := domain.Signal{Code: o.Rule, Label: o.Name, Weight: o.Weight}
+			if o.Restricted {
+				// No tipping off (GOV-09): the score keeps the points, under a code that says
+				// nothing about the suspicion; the rule itself is kept for compliance roles.
+				out.Restricted = append(out.Restricted, domain.Signal{Code: o.Rule, Label: o.Name, Weight: o.Weight, Mode: string(o.Mode)})
+				delete(out.Seen, o.Rule)
+				sig = domain.Signal{Code: domain.SignalComplianceReview, Label: domain.ComplianceReviewLabel, Weight: o.Weight}
+			}
 			switch {
 			case !live:
 				out.Shadow = append(out.Shadow, sig)

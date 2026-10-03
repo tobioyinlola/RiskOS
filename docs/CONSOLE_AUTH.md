@@ -11,7 +11,9 @@ Status: **built (build step 7).** API keys (machine access) are unchanged ([TENA
 - Roles: `customer_admin`, `developer`, `risk_manager`, `analyst`, `compliance_officer` and
   `auditor` (read-only), with the same permissions as API key scopes (`platform/authz`).
   `rules:approve` and `compliance:write` are held only by people, never by API keys; only
-  `customer_admin` and `developer` hold `compliance:engineering` (ADR-0006).
+  `customer_admin` and `developer` hold `compliance:engineering` (ADR-0006). Only
+  `compliance_officer` holds `compliance:sensitive` (suspicious transaction reports and
+  compliance-only signals, GOV-09): not even `customer_admin`.
 - **Getting an account.** A tenant's first administrator is invited by an operator
   (`riskosctl user invite --tenant ten_… --email … --operator …`, which prints the link), and
   administrators invite others from the console (Team). Either way the result is a single-use

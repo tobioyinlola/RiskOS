@@ -118,6 +118,8 @@ type Outcome struct {
 	Reason                string
 	Tasks                 []string
 	Severity              string
+	// Restricted marks a compliance-only signal (GOV-09): only compliance roles may see it.
+	Restricted bool
 }
 
 // Evaluate evaluates every rule the event triggers, in rule order.
@@ -131,7 +133,7 @@ func (p *TenantPack) Evaluate(env interp.Env) []Outcome {
 		o := Outcome{
 			Result: interp.Evaluate(t.r, env), Name: def.Text.Name, Kind: def.Kind, Mode: t.mode,
 			Decision: def.Outcome.Decision, MinDecision: def.Outcome.MinDecision, Reason: def.Outcome.Reason,
-			Severity: def.Outcome.Severity,
+			Severity: def.Outcome.Severity, Restricted: def.Outcome.Visibility == "compliance_only",
 		}
 		for _, task := range def.Outcome.Tasks {
 			// A task tied to another event (REG-14's escalation) is not this event's.

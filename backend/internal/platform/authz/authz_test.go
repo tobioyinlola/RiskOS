@@ -13,7 +13,13 @@ import (
 )
 
 func TestRolePermissions(t *testing.T) {
-	assert.ElementsMatch(t, authz.PersonPermissions(), authz.RolePermissions(authz.RoleCustomerAdmin))
+	assert.Subset(t, authz.PersonPermissions(), authz.RolePermissions(authz.RoleCustomerAdmin))
+	assert.Len(t, authz.RolePermissions(authz.RoleCustomerAdmin), len(authz.PersonPermissions())-1)
+	// Compliance-sensitive data (GOV-09): compliance officers only, never an API key.
+	for _, r := range authz.CustomerRoles() {
+		assert.Equal(t, r == authz.RoleComplianceOfficer, slices.Contains(authz.RolePermissions(r), authz.ComplianceSensitive), "role %s", r)
+	}
+	assert.False(t, authz.IsCustomerPermission(authz.ComplianceSensitive))
 	assert.False(t, authz.IsCustomerPermission(authz.RulesApprove), "API keys can never approve rule changes")
 	assert.NotContains(t, authz.RolePermissions(authz.RoleDeveloper), authz.AuditLogsRead)
 	assert.False(t, authz.IsCustomerPermission(authz.ComplianceWrite), "API keys can never set the compliance profile")

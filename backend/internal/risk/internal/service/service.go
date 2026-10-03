@@ -138,7 +138,7 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		res = domain.Result{
 			ID: id, CreatedAt: ids.Time(id), EventID: in.EventID, EngineVersion: engine.Version,
 			Score: score, Level: level, Decision: policy.Decision,
-			Controls: pk.Controls, NotEvaluated: pk.NotEvaluated,
+			Controls: pk.Controls, NotEvaluated: pk.NotEvaluated, Restricted: pk.Restricted,
 			Signals: nonNil(out.Signals), DegradedSignals: nonNilStrings(out.Degraded), RequestID: in.RequestID,
 			WarmingSignals: nonNilStrings(out.Warming),
 			PolicyReasons:  nonNilStrings(policy.Reasons), ShadowSignals: nonNil(out.Shadow),
