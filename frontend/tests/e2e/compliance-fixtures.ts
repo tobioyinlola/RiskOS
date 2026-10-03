@@ -11,6 +11,7 @@ export const PACK = {
   jurisdiction: "NG",
   name: "Nigeria",
   version: "2026.10.0",
+  latest_version: "2026.10.0",
   checksum: "a".repeat(64),
   loaded_at: NOW,
   groups: [
@@ -220,4 +221,37 @@ export function applies(
       rule.applies_to.includes(profile.licence_type)) &&
     rule.requires.every((c) => profile.capabilities.includes(c))
   );
+}
+
+/** A compliance task as GET /api/v1/compliance/tasks returns it. */
+export function task(
+  id: string,
+  kind: string,
+  rule: string,
+  extra: Record<string, unknown> = {},
+) {
+  return {
+    id,
+    kind,
+    rule,
+    status: "open",
+    sensitive: kind === "report.STR",
+    due_at: new Date(Date.now() + 5 * 3_600_000).toISOString(),
+    overdue: false,
+    subject_ref: "usr_4812",
+    evaluation_id: null,
+    event_id: null,
+    case_id: null,
+    report: {},
+    created_at: NOW,
+    created_by: "system:compliance",
+    updated_at: NOW,
+    approved_by: null,
+    approved_at: null,
+    closed_by: null,
+    closed_at: null,
+    close_note: null,
+    filing_ref: null,
+    ...extra,
+  };
 }

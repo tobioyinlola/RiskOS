@@ -34,6 +34,7 @@ import { useSession } from "@/lib/session";
 import { Timeline } from "../alerts/alerts";
 
 import { EntityLink } from "../entities/link";
+import { ConfirmSuspicion } from "../compliance/suspicion";
 
 const CASE_TONE: Record<Schemas["CaseStatus"], Tone> = {
   open: "warning",
@@ -280,6 +281,7 @@ export function CaseWorkspace({ id }: { id: string }) {
         actions={
           writable ? (
             <>
+              <ConfirmSuspicion caseId={c.id} />
               {c.status === "open" ? (
                 <Button
                   onClick={() => void update.run({ status: "investigating" })}

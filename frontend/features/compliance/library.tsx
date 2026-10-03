@@ -24,7 +24,8 @@ import {
   SkeletonRows,
 } from "@/components/ui/states";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
-import { ApiError, type Schemas } from "@/lib/api/client";
+import { useAction } from "@/lib/action";
+import { ApiError, api, unwrap, type Schemas } from "@/lib/api/client";
 import {
   defaultLabel,
   MODE_LABEL,
@@ -106,6 +107,7 @@ function Library({ pack }: { pack: Pack }) {
         description="Every rule in the pack, in the library's own words, with its legal source, when it took effect and how far its facts are confirmed. Where sources conflict, it says so."
       />
       <ProfileBar pack={pack} />
+      <NewerVersion pack={pack} />
       <PendingApprovals />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric
@@ -562,6 +564,49 @@ function PendingApprovals() {
           {pending.map((c) => (
             <RuleLink key={c.id} id={c.rule} />
           ))}
+        </span>
+      </Notice>
+    </div>
+  );
+}
+
+/** A newer pack version is loaded: saving the profile adopts it. */
+function NewerVersion({ pack }: { pack: Pack }) {
+  const { can } = useSession();
+  const profile = useComplianceProfile();
+  const p = profile.data;
+  const adopt = useAction(
+    async () =>
+      unwrap(
+        await api().PUT("/api/v1/compliance/profile", {
+          body: {
+            jurisdiction: pack.jurisdiction,
+            licence_type: p!.licence_type,
+            capabilities: p!.capabilities,
+          },
+        }),
+      ),
+    { invalidate: ["compliance"] },
+  );
+  if (!p || pack.latest_version === pack.version) return null;
+  return (
+    <div className="mb-5">
+      <Notice tone="info">
+        <span className="flex flex-wrap items-center gap-3">
+          <span>
+            Version {pack.latest_version} of the {pack.name} pack is available
+            (you are on {pack.version}). Your rule settings carry over.
+          </span>
+          {can("compliance:write") ? (
+            <Button
+              size="sm"
+              variant="primary"
+              disabled={adopt.busy}
+              onClick={() => void adopt.run()}
+            >
+              Adopt {pack.latest_version}
+            </Button>
+          ) : null}
         </span>
       </Notice>
     </div>

@@ -8,6 +8,7 @@ import {
   GLOSSARY,
   PACK,
   RULES,
+  task,
 } from "./compliance-fixtures";
 
 /**
@@ -46,6 +47,7 @@ const ALL_PERMISSIONS = [
   "compliance:engineering",
   "compliance:write",
   "compliance:configure",
+  "compliance:sensitive",
 ];
 
 const THRESHOLDS = { low: 20, elevated: 50, high: 70, critical: 90 };
@@ -121,6 +123,8 @@ export interface MockApi {
   /** Pack rule configuration by "<environment>/<rule>", and changes awaiting approval. */
   ruleConfigs: Record<string, MockRuleConfig>;
   ruleChanges: MockRuleChange[];
+  /** Compliance tasks (ReturnType<typeof task>). */
+  tasks: ReturnType<typeof task>[];
   /** Exchange rates by currency. */
   fxRates: Record<string, number>;
   /** The workspace's compliance profile (null until set). */
@@ -322,6 +326,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     ruleConfigs: {},
     ruleChanges: [],
     fxRates: {},
+    tasks: [],
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -579,6 +584,52 @@ export async function mockApi(page: Page): Promise<MockApi> {
       Object.assign(c, { decided_by: "usr_admin", decided_at: NOW });
       return json(route, c);
     }
+    const sensitive = state.permissions.includes("compliance:sensitive");
+    const taskAction = path.match(
+      /^\/compliance\/tasks\/([^/]+)(?:\/(approve|file|close|report|export))?$/,
+    );
+    if (taskAction) {
+      const t = state.tasks.find((x) => x.id === taskAction[1]);
+      if (!t || (t.sensitive && !sensitive)) {
+        return error(route, 404, "NOT_FOUND", "No such task.");
+      }
+      switch (taskAction[2]) {
+        case "approve":
+          if (!sensitive) return error(route, 403, "FORBIDDEN", "Not allowed.");
+          Object.assign(t, {
+            status: "approved",
+            approved_by: "usr_admin",
+            approved_at: NOW,
+          });
+          break;
+        case "file":
+          Object.assign(t, {
+            status: "filed",
+            filing_ref: String(body?.filing_ref),
+          });
+          break;
+        case "close":
+          Object.assign(t, {
+            status: String(body?.status),
+            close_note: body?.note ?? null,
+          });
+          break;
+        case "report":
+          Object.assign(t, { report: { ...t.report, ...body } });
+          break;
+        default:
+          break;
+      }
+      return json(route, t);
+    }
+    if (path === "/compliance/suspicion") {
+      const t = task(`ctk_${state.tasks.length + 1}`, "report.STR", "REG-14", {
+        case_id: body?.case_id,
+        report: { narrative: body?.note ?? "" },
+      });
+      state.tasks.push(t);
+      return json(route, t, 201);
+    }
     const fx = path.match(/^\/compliance\/fx-rates\/([A-Z]{3})$/);
     if (fx) {
       const code = fx[1]!;
@@ -605,6 +656,20 @@ export async function mockApi(page: Page): Promise<MockApi> {
           ),
         });
       }
+      case "/compliance/tasks": {
+        const status = new URL(route.request().url()).searchParams.get(
+          "status",
+        );
+        return json(route, {
+          data: state.tasks.filter(
+            (t) =>
+              (sensitive || !t.sensitive) && (!status || t.status === status),
+          ),
+          escalations: [],
+        });
+      }
+      case "/compliance/restricted-signals":
+        return json(route, { data: [] });
       case "/compliance/fx-rates":
         return json(route, {
           data: Object.entries(state.fxRates).map(([currency, usd]) => ({

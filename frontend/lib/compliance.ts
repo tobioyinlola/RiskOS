@@ -206,3 +206,36 @@ export function fromInput(
   const whole = ["money", "count", "duration", "hour", "points", "flag"];
   return whole.includes(p.type) ? Math.round(v) : Math.round(v * 1e6) / 1e6;
 }
+
+/** What each kind of compliance task is, in plain words. */
+export const TASK_LABEL: Record<string, string> = {
+  "report.STR": "Suspicious transaction report",
+  "report.CTR": "Currency transaction report",
+  "report.FTR": "Foreign transaction report",
+  "report.PEP_monthly": "Monthly PEP transaction report",
+  "report.sanctions": "Sanctions match report",
+  "case.open": "Open a case",
+  edd: "Enhanced due diligence",
+  source_of_funds: "Source of funds",
+  source_of_wealth: "Source of wealth",
+  senior_approval: "Senior management approval",
+  freeze_account: "Freeze the account",
+  close_account: "Close the account",
+};
+
+export const isReport = (kind: string) => kind.startsWith("report.");
+
+/** "due in 3h 20m" or "overdue by 2d 4h", against now. */
+export function formatDue(dueAt: string, now: Date = new Date()): string {
+  const ms = new Date(dueAt).getTime() - now.getTime();
+  const minutes = Math.floor(Math.abs(ms) / 60_000);
+  const days = Math.floor(minutes / 1440);
+  const hours = Math.floor((minutes % 1440) / 60);
+  const mins = minutes % 60;
+  const span = days
+    ? `${days}d ${hours}h`
+    : hours
+      ? `${hours}h ${mins}m`
+      : `${mins}m`;
+  return ms >= 0 ? `due in ${span}` : `overdue by ${span}`;
+}

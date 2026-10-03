@@ -1,5 +1,6 @@
 import { expect, test } from "@playwright/test";
 
+import { PACK, task } from "./compliance-fixtures";
 import { mockApi } from "./mock-api";
 
 test("the rules library: wording, conflicts, settings and what applies", async ({
@@ -223,4 +224,89 @@ test("exchange rates", async ({ page }) => {
     page.getByRole("table", { name: "Exchange rates" }),
   ).toContainText("0.00065");
   expect(api.problems).toEqual([]);
+});
+
+test("the work queue: approve a report and record its filing", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.tasks.push(
+    task("ctk_ftr", "report.FTR", "REG-10", {
+      report: { amount: 1_600_000_000, currency: "NGN" },
+    }),
+    task("ctk_str", "report.STR", "REG-14"),
+  );
+  await page.goto("/compliance/work");
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Work queue" }),
+  ).toBeVisible();
+  const table = page.getByRole("table", { name: "Compliance tasks" });
+  await expect(table).toContainText("Foreign transaction report");
+  await expect(table).toContainText("Suspicious transaction report");
+  await expect(table).toContainText(/due in 4h 5\dm/);
+
+  await table
+    .getByRole("row", { name: /Foreign transaction report/ })
+    .getByRole("button", { name: "Open" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("16,000,000.00 NGN");
+  await dialog.getByRole("button", { name: "Approve for filing" }).click();
+  await expect(dialog.getByRole("button", { name: "Export" })).toBeVisible();
+  await dialog.getByLabel("Filing reference").fill("NFIU-FTR-0001");
+  await dialog.getByRole("button", { name: "Record filing" }).click();
+  await expect(dialog).toContainText("filed as NFIU-FTR-0001");
+  expect(api.problems).toEqual([]);
+});
+
+test("without compliance:sensitive, suspicious transaction reports do not exist", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.permissions = api.permissions.filter((p) => p !== "compliance:sensitive");
+  api.tasks.push(
+    task("ctk_ftr", "report.FTR", "REG-10"),
+    task("ctk_str", "report.STR", "REG-14"),
+  );
+  await page.goto("/compliance/work");
+  const table = page.getByRole("table", { name: "Compliance tasks" });
+  await expect(table).toContainText("Foreign transaction report");
+  await expect(table).not.toContainText("Suspicious transaction report");
+  await expect(
+    page.getByRole("table", { name: "Compliance-only signals" }),
+  ).toHaveCount(0);
+  await table.getByRole("button", { name: "Open" }).click();
+  await expect(
+    page.getByRole("button", { name: "Approve for filing" }),
+  ).toHaveCount(0);
+  await expect(
+    page.getByText("A compliance officer approves reports"),
+  ).toBeVisible();
+  expect(api.problems).toEqual([]);
+});
+
+test("a newer pack version can be adopted", async ({ page }) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.complianceProfile = {
+    jurisdiction: "NG",
+    licence_type: "bank",
+    capabilities: [],
+  };
+  await page.route("**/api/v1/compliance/pack", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ ...PACK, latest_version: "2026.10.1" }),
+    }),
+  );
+  await page.goto("/compliance");
+  await expect(
+    page.getByText(/Version 2026.10.1 of the Nigeria pack is available/),
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Adopt 2026.10.1" }).click();
+  await expect
+    .poll(() => api.calls.filter((c) => c === "PUT /compliance/profile").length)
+    .toBe(1);
 });

@@ -516,3 +516,28 @@ export function useFXRates() {
     queryFn: async () => unwrap(await api().GET("/api/v1/compliance/fx-rates")),
   });
 }
+
+/** The compliance work queue of the current environment. */
+export function useComplianceTasks(status?: Schemas["ComplianceTaskStatus"]) {
+  const key = useKey("compliance", "tasks", status ?? "all");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/tasks", {
+          params: { query: status ? { status } : {} },
+        }),
+      ),
+  });
+}
+
+/** Compliance-only signals (compliance officers only, GOV-09). */
+export function useRestrictedSignals(enabled: boolean) {
+  const key = useKey("compliance", "restricted-signals");
+  return useQuery({
+    queryKey: key,
+    enabled,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/restricted-signals")),
+  });
+}

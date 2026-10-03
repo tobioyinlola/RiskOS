@@ -126,6 +126,13 @@ export const navSections = [
     anyOf: ["compliance:read"],
   },
   {
+    href: "/compliance/work",
+    label: "Work queue",
+    group: "Compliance",
+    icon: "folder",
+    anyOf: ["compliance:read"],
+  },
+  {
     href: "/team",
     label: "Team",
     group: "Organization",
@@ -161,5 +168,12 @@ export function isActiveSection(href: string, pathname: string): boolean {
   if (href === "/") {
     return pathname === "/";
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  // The most specific section wins: /compliance/work is not inside /compliance.
+  const deeper = navSections.some(
+    (s) =>
+      s.href !== href &&
+      s.href.startsWith(`${href}/`) &&
+      (pathname === s.href || pathname.startsWith(`${s.href}/`)),
+  );
+  return !deeper && (pathname === href || pathname.startsWith(`${href}/`));
 }
