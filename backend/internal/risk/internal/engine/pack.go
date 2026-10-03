@@ -35,6 +35,8 @@ type PackOutput struct {
 	// rules saw, and the values each fired rule compared.
 	Facts rulepack.Facts
 	Seen  map[string]map[string]any
+	// Replay is what a backtest needs to replay the event.
+	Replay features.Replay
 }
 
 // windowAggs answers the interpreter from one round trip's window values.
@@ -79,7 +81,7 @@ func distinctFn(fn string) bool {
 // the windows the triggered rules need and the activity history (one round trip), then evaluates
 // each triggered rule. Windows are unavailable while behavioural history warms up after a reset.
 func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.Values, p *rulepack.TenantPack, write bool, eventKey string) PackOutput {
-	out := PackOutput{Ref: p.Ref, Kinds: e.Kinds()}
+	out := PackOutput{Ref: p.Ref, Kinds: e.Kinds(), Replay: e.Replay()}
 	if len(out.Kinds) == 0 {
 		return out
 	}

@@ -156,3 +156,29 @@ func (Store) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCo
 	}
 	return out, nil
 }
+
+// PackReplay is a stored evaluation's features, for a backtest.
+type PackReplay struct {
+	EventID  *uuid.UUID
+	Features []byte
+}
+
+// PackReplays returns the features of ingested evaluations with a rule pack replay record since
+// since, oldest first, at most limit: one batch read per backtest.
+func (Store) PackReplays(ctx context.Context, since time.Time, limit int) ([]PackReplay, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.PackReplays(ctx, sqlcgen.PackReplaysParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since, MaxRows: int32(limit), //nolint:gosec // bounded by the caller
+	})
+	if err != nil {
+		return nil, fmt.Errorf("pack replays: %w", err)
+	}
+	out := make([]PackReplay, len(rows))
+	for i, r := range rows {
+		out[i] = PackReplay{EventID: r.EventID, Features: r.Features}
+	}
+	return out, nil
+}

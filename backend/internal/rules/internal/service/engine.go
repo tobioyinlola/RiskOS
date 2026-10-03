@@ -3,8 +3,10 @@ package service
 import (
 	"context"
 	"errors"
+	"fmt"
 	"slices"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/interp"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
@@ -127,4 +129,41 @@ func (p *TenantPack) Evaluate(env interp.Env) []Outcome {
 		out = append(out, o)
 	}
 	return out
+}
+
+// Candidates compiles one rule of the tenant's pack for a backtest, whatever its mode: with the
+// given settings (checked against the pack's bounds) and with the environment's current
+// configuration. nil settings mean the current configuration for both. Requires
+// compliance:read.
+func (s *Service) Candidates(ctx context.Context, ruleID string, settings map[string]float64) (candidate, current *TenantPack, err error) {
+	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
+		return nil, nil, err
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = s.runner.Run(ctx, func(ctx context.Context) error {
+		lib, def, cur, err := s.rule(ctx, scope, ruleID)
+		if err != nil {
+			return err
+		}
+		if def.Kind == pack.KindGovernance || def.Trigger == nil {
+			return fmt.Errorf("%w: %s is a workflow, not an event rule; it cannot be backtested", ErrInvalidInput, ruleID)
+		}
+		ref := lib.pack.ID + "@" + lib.pack.Version
+		one := func(settings map[string]float64) *TenantPack {
+			return &TenantPack{Ref: ref, rules: []tenantRule{{r: interp.Compile(def, settings), mode: pack.ModeLive}}}
+		}
+		current, candidate = one(cur.Settings), one(cur.Settings)
+		if settings != nil {
+			in, err := normalize(def, ConfigInput{Mode: ModeLive, Settings: settings, Reason: "backtest"})
+			if err != nil {
+				return err
+			}
+			candidate = one(in.Settings)
+		}
+		return nil
+	})
+	return candidate, current, err
 }

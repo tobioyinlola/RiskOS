@@ -79,6 +79,7 @@ type RuleHandlers interface {
 	ListDenyEntries(ctx context.Context, req apigen.ListDenyEntriesRequestObject) (apigen.ListDenyEntriesResponseObject, error)
 	CreateDenyEntry(ctx context.Context, req apigen.CreateDenyEntryRequestObject) (apigen.CreateDenyEntryResponseObject, error)
 	DeleteDenyEntry(ctx context.Context, req apigen.DeleteDenyEntryRequestObject) (apigen.DeleteDenyEntryResponseObject, error)
+	BacktestPackRule(ctx context.Context, req apigen.BacktestPackRuleRequestObject) (apigen.BacktestPackRuleResponseObject, error)
 }
 
 // Config configures the risk module.

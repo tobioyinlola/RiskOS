@@ -41,6 +41,8 @@ type FeatureStore interface {
 // profile). The rules module implements it.
 type PackSource interface {
 	TenantPack(ctx context.Context) (*rulepack.TenantPack, error)
+	// Candidates compiles one rule for a backtest (see rules.Module.Candidates).
+	Candidates(ctx context.Context, ruleID string, settings map[string]float64) (candidate, current *rulepack.TenantPack, err error)
 }
 
 // Service evaluates events and manages rules and settings.
@@ -81,6 +83,8 @@ type storedPack struct {
 	Kinds []string                  `json:"kinds"`
 	Facts map[string]any            `json:"facts"`
 	Seen  map[string]map[string]any `json:"seen,omitempty"`
+	// Replay lets backtests replay the event through the pack's windows.
+	Replay *features.Replay `json:"replay,omitempty"`
 }
 
 // Evaluate scores an event and stores the evaluation, joining the caller's transaction when
@@ -154,7 +158,7 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		}
 		record := storedFeatures{Facts: out.Facts}
 		if cfg.pack != nil {
-			record.Pack = &storedPack{Ref: pk.Ref, Kinds: pk.Kinds, Facts: pk.Facts, Seen: pk.Seen}
+			record.Pack = &storedPack{Ref: pk.Ref, Kinds: pk.Kinds, Facts: pk.Facts, Seen: pk.Seen, Replay: &pk.Replay}
 		}
 		if !write {
 			// A dry run's event is stored nowhere else; an ingested event is in events.

@@ -1630,6 +1630,31 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/rules/{rule_id}/backtest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a rule would have done over recent events
+         * @description Requires `compliance:read` and `events:read`. Replays this environment's ingested events of
+         *     the last `days` (default 7, at most 30; at most 20,000 events) through the rule with
+         *     `settings` (values that differ from the defaults; omitted: the current configuration) and
+         *     with its current configuration, whatever its mode, with time windows rebuilt in memory.
+         *     Nothing is stored and live state is untouched. Events evaluated before the rule pack ran
+         *     are not replayed.
+         */
+        post: operations["backtestPackRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/changes": {
         parameters: {
             query?: never;
@@ -1891,6 +1916,33 @@ export interface components {
             dpo_email?: string;
             accept_terms?: boolean;
             accept_dpa?: boolean;
+        };
+        Backtest: {
+            rule: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** @description Events replayed. */
+            replayed: number;
+            /** @description The event limit cut the period short; the replay covers its oldest events. */
+            truncated: boolean;
+            candidate: components["schemas"]["BacktestTally"];
+            current: components["schemas"]["BacktestTally"];
+        };
+        BacktestTally: {
+            triggered: number;
+            fired: number;
+            clear: number;
+            not_evaluated: number;
+            /** @description What made the rule not evaluated, most frequent first. */
+            missing: components["schemas"]["BacktestMissing"][];
+            /** @description Events the rule fired on (at most 20, oldest first). */
+            fired_samples: string[];
+        };
+        BacktestMissing: {
+            item: string;
+            events: number;
         };
         /**
          * @description live (it acts), shadow (it is evaluated and recorded only) or off.
@@ -6096,6 +6148,40 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    backtestPackRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    days?: number;
+                    settings?: components["schemas"]["PackRuleSettings"];
+                };
+            };
+        };
+        responses: {
+            /** @description The two configurations' results over the same events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backtest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

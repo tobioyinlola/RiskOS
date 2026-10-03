@@ -4,6 +4,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -198,3 +199,6 @@ type SignalCount struct {
 	Label string
 	Hits  int
 }
+
+// ErrBacktestInvalid means a backtest request is malformed; the message says why.
+var ErrBacktestInvalid = errors.New("invalid backtest")

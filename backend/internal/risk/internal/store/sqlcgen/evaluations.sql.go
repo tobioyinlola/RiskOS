@@ -136,6 +136,61 @@ func (q *Queries) InsertEvaluation(ctx context.Context, arg InsertEvaluationPara
 	return err
 }
 
+const packReplays = `-- name: PackReplays :many
+SELECT id, event_id, created_at, features
+FROM evaluations
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3
+  AND NOT dry_run AND features #> '{pack,replay}' IS NOT NULL
+ORDER BY created_at
+LIMIT $4
+`
+
+type PackReplaysParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	MaxRows       int32
+}
+
+type PackReplaysRow struct {
+	ID        uuid.UUID
+	EventID   *uuid.UUID
+	CreatedAt time.Time
+	Features  []byte
+}
+
+// Backtests: evaluations of ingested events with a rule pack replay record, oldest first. One
+// batch read per backtest, never per event.
+func (q *Queries) PackReplays(ctx context.Context, arg PackReplaysParams) ([]PackReplaysRow, error) {
+	rows, err := q.db.Query(ctx, packReplays,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []PackReplaysRow
+	for rows.Next() {
+		var i PackReplaysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventID,
+			&i.CreatedAt,
+			&i.Features,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const topSignals = `-- name: TopSignals :many
 SELECT (sig->>'code')::text AS code, coalesce(max(sig->>'label'), '')::text AS label, count(*)::bigint AS hits
 FROM evaluations, jsonb_array_elements(signals) AS sig

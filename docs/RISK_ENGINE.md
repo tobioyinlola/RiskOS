@@ -278,6 +278,17 @@ second factor in the console):
 - **Effect.** The engine runs each rule with its environment's configuration; other API
   instances pick a change up within 5 seconds (the risk configuration cache).
 
+### Backtests
+
+`POST /api/v1/compliance/rules/{rule_id}/backtest` (`compliance:read` and `events:read`) answers
+"what would this rule have done?": it replays the environment's ingested events of the last 1 to
+30 days (at most 20,000, oldest first) through the rule with candidate settings and with its
+current configuration, side by side, whatever its mode. Time windows are rebuilt in memory with
+the same rules as the Redis windows, from a replay record each evaluation keeps (event time,
+amount, and the entities and identifiers windows use, hashed). Nothing is stored and live
+windows are untouched; it is one batch read, never a query per event. Events evaluated before an
+evaluation kept a replay record are not replayed, and the response says how many were.
+
 ### Pack windows
 
 Windowed aggregates (counts, sums, daily averages, distinct counts) are kept in Redis, never

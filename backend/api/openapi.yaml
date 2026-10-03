@@ -2999,6 +2999,56 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/backtest:
+    post:
+      operationId: backtestPackRule
+      tags: [compliance]
+      summary: What a rule would have done over recent events
+      description: |
+        Requires `compliance:read` and `events:read`. Replays this environment's ingested events of
+        the last `days` (default 7, at most 30; at most 20,000 events) through the rule with
+        `settings` (values that differ from the defaults; omitted: the current configuration) and
+        with its current configuration, whatever its mode, with time windows rebuilt in memory.
+        Nothing is stored and live state is untouched. Events evaluated before the rule pack ran
+        are not replayed.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                settings:
+                  $ref: "#/components/schemas/PackRuleSettings"
+      responses:
+        "200":
+          description: The two configurations' results over the same events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backtest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/changes:
     get:
       operationId: listPackRuleChanges
@@ -3559,6 +3609,61 @@ components:
           type: boolean
         accept_dpa:
           type: boolean
+    Backtest:
+      type: object
+      additionalProperties: false
+      required: [rule, from, to, replayed, truncated, candidate, current]
+      properties:
+        rule:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        replayed:
+          type: integer
+          description: Events replayed.
+        truncated:
+          type: boolean
+          description: The event limit cut the period short; the replay covers its oldest events.
+        candidate:
+          $ref: "#/components/schemas/BacktestTally"
+        current:
+          $ref: "#/components/schemas/BacktestTally"
+    BacktestTally:
+      type: object
+      additionalProperties: false
+      required: [triggered, fired, clear, not_evaluated, missing, fired_samples]
+      properties:
+        triggered:
+          type: integer
+        fired:
+          type: integer
+        clear:
+          type: integer
+        not_evaluated:
+          type: integer
+        missing:
+          type: array
+          description: What made the rule not evaluated, most frequent first.
+          items:
+            $ref: "#/components/schemas/BacktestMissing"
+        fired_samples:
+          type: array
+          description: Events the rule fired on (at most 20, oldest first).
+          items:
+            type: string
+    BacktestMissing:
+      type: object
+      additionalProperties: false
+      required: [item, events]
+      properties:
+        item:
+          type: string
+        events:
+          type: integer
     PackRuleMode:
       type: string
       description: live (it acts), shadow (it is evaluated and recorded only) or off.

@@ -3,6 +3,7 @@
 package integration
 
 import (
+	"fmt"
 	"net/http"
 	"testing"
 	"time"
@@ -176,4 +177,55 @@ func TestPackRuleConfiguration(t *testing.T) {
 		assert.Equal(t, 0, ruleOf(t, s.call(t, http.MethodGet, "/api/v1/compliance/rules/REG-01", a.testKey, nil)).ConfigVersion,
 			"production's REG-01 change does not touch the test environment")
 	})
+}
+
+// A backtest replays recent events through a rule with candidate settings and with the current
+// ones, windows rebuilt in memory, without touching live state.
+func TestPackRuleBacktest(t *testing.T) {
+	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, withConsole(auth.ConsoleConfig{}, false))
+	a := s.createTenant(t, "Backtest")
+	admin := s.onboard(t, a, "admin@backtest.example", authz.RoleCustomerAdmin)
+	r := admin.b.do(t, http.MethodPut, "/api/v1/compliance/profile",
+		map[string]any{"jurisdiction": "NG", "licence_type": "bank", "capabilities": []string{}})
+	require.Equal(t, http.StatusOK, r.status, r.String())
+	// ATM withdrawals of ₦60,000, ₦30,000 and ₦20,000 by one customer in a day.
+	for i, naira := range []int64{60_000, 30_000, 20_000} {
+		r := s.ingest(t, a.testKey, money(fmt.Sprintf("bt-%d", i), "atm_withdrawal", "acc_bt", naira*100, "NGN", nil))
+		require.Equal(t, http.StatusOK, r.status, r.String())
+	}
+	backtest := func(body map[string]any) response {
+		return s.call(t, http.MethodPost, "/api/v1/compliance/rules/REG-09/backtest", a.testKey, body)
+	}
+	r = backtest(map[string]any{"days": 1, "settings": map[string]any{"atm_daily": 8_000_000}})
+	require.Equal(t, http.StatusOK, r.status, r.String())
+	bt := decode[apigen.Backtest](t, r)
+	assert.Equal(t, 3, bt.Replayed)
+	assert.Equal(t, 3, bt.Current.Triggered)
+	assert.Equal(t, 1, bt.Current.Fired, "the ₦100,000 limit is passed once, at ₦110,000")
+	assert.Equal(t, 2, bt.Candidate.Fired, "an ₦80,000 limit is passed at ₦90,000 and ₦110,000")
+	assert.Len(t, bt.Candidate.FiredSamples, 2)
+
+	for name, tc := range map[string]struct {
+		rule   string
+		body   map[string]any
+		status int
+	}{
+		"above the legal maximum": {"REG-09", map[string]any{"settings": map[string]any{"atm_daily": 20_000_000}}, http.StatusBadRequest},
+		"too long a period":       {"REG-09", map[string]any{"days": 31}, http.StatusBadRequest},
+		"a governance preset":     {"GOV-01", map[string]any{}, http.StatusBadRequest},
+		"no such rule":            {"ZZZ-99", map[string]any{}, http.StatusNotFound},
+	} {
+		r := s.call(t, http.MethodPost, "/api/v1/compliance/rules/"+tc.rule+"/backtest", a.testKey, tc.body)
+		assert.Equal(t, tc.status, r.status, "%s: %s", name, r.String())
+		if tc.rule == "GOV-01" {
+			assert.Contains(t, r.String(), "is a workflow", name)
+		}
+	}
+	_, compliance := s.createKey(t, a.testKey, "compliance only", authz.ComplianceRead)
+	r = s.call(t, http.MethodPost, "/api/v1/compliance/rules/REG-09/backtest", compliance, map[string]any{})
+	assert.Equal(t, http.StatusForbidden, r.status, "backtests read events: %s", r.String())
+
+	// The backtest left the live window alone: one more ₦1 withdrawal still sees ₦110,001.
+	d := decode[apigen.RiskDecision](t, s.ingest(t, a.testKey, money("bt-live", "atm_withdrawal", "acc_bt", 100, "NGN", nil)))
+	assert.Equal(t, apigen.Decision("decline"), d.Decision)
 }

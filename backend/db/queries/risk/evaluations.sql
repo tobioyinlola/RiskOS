@@ -29,3 +29,13 @@ WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at
 GROUP BY sig->>'code'
 ORDER BY count(*) DESC
 LIMIT 15;
+
+-- name: PackReplays :many
+-- Backtests: evaluations of ingested events with a rule pack replay record, oldest first. One
+-- batch read per backtest, never per event.
+SELECT id, event_id, created_at, features
+FROM evaluations
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since
+  AND NOT dry_run AND features #> '{pack,replay}' IS NOT NULL
+ORDER BY created_at
+LIMIT @max_rows;

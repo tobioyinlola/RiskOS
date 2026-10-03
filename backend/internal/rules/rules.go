@@ -20,8 +20,15 @@ import (
 // Pool is the database pool (*pgxpool.Pool).
 type Pool = store.Pool
 
-// ErrChecksumChanged means a loaded pack version's files have changed: publish a new version.
-var ErrChecksumChanged = store.ErrChecksumChanged
+// Errors.
+var (
+	// ErrChecksumChanged means a loaded pack version's files have changed: publish a new version.
+	ErrChecksumChanged = store.ErrChecksumChanged
+	// ErrInvalidInput means a request about a rule is malformed; the message says why.
+	ErrInvalidInput = service.ErrInvalidInput
+	// ErrNotFound means there is no such rule or pack.
+	ErrNotFound = service.ErrNotFound
+)
 
 // LibraryHandlers are the compliance library operations of the public API.
 type LibraryHandlers interface {
@@ -100,6 +107,12 @@ const (
 // TenantPack returns the caller's tenant's pack compiled for evaluation, or nil without a
 // compliance profile. It runs in the caller's transaction.
 func (m *Module) TenantPack(ctx context.Context) (*TenantPack, error) { return m.svc.TenantPack(ctx) }
+
+// Candidates compiles one rule for a backtest: with settings (nil: the current configuration)
+// and with the environment's current configuration.
+func (m *Module) Candidates(ctx context.Context, ruleID string, settings map[string]float64) (candidate, current *TenantPack, err error) {
+	return m.svc.Candidates(ctx, ruleID, settings)
+}
 
 // Record reports whether an event passes a window's filter (record) and whether the filter could
 // be checked (known): an unchecked event is recorded as unknown, so the window reads as
