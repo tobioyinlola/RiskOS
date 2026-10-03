@@ -272,7 +272,7 @@ func (c *Console) VerifySignup(ctx context.Context, token, code string, cl Clien
 	if err := c.store.VerifySignupEmail(ctx, sg.ID, c.clock.Now()); err != nil {
 		return SignIn{}, err
 	}
-	return c.createWorkspace(ctx, sg, *sg.BusinessName, "password", cl)
+	return c.createWorkspace(ctx, sg, *sg.BusinessName, cl)
 }
 
 // CompleteSignup names the workspace of a Google sign-up (whose email Google verified) and
@@ -292,12 +292,16 @@ func (c *Console) CompleteSignup(ctx context.Context, token, businessName string
 	if err := c.store.SetSignupBusiness(ctx, sg.ID, business); err != nil {
 		return SignIn{}, err
 	}
-	return c.createWorkspace(ctx, sg, business, "google", cl)
+	return c.createWorkspace(ctx, sg, business, cl)
 }
 
 // createWorkspace creates the tenant, its first administrator and a session that must enroll a
 // second factor, in one transaction.
-func (c *Console) createWorkspace(ctx context.Context, sg *store.Signup, business, method string, cl Client) (SignIn, error) {
+func (c *Console) createWorkspace(ctx context.Context, sg *store.Signup, business string, cl Client) (SignIn, error) {
+	method := "password"
+	if sg.GoogleSubject != nil {
+		method = "google"
+	}
 	if err := c.throttle(ctx,
 		ratelimit.Rule{Key: limitKey("workspace-ip", cl.ipString()), Limit: ratelimit.Limit{PerSecond: 5.0 / 86400, Burst: 5}},
 	); err != nil {
