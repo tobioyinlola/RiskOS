@@ -134,7 +134,10 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	for i, k := range order {
 		list[i] = *ops[k]
 	}
-	we := features.WindowEvent{ID: eventKey, At: e.OccurredAt, UserID: e.Actor.UserID, AccountID: e.Actor.AccountID}
+	we := features.WindowEvent{
+		ID: eventKey, At: e.OccurredAt, UserID: e.Actor.UserID, AccountID: e.Actor.AccountID,
+		Hour: e.OccurredAt.In(features.Lagos).Hour(), ExportRows: e.ExportRows(),
+	}
 	if t := e.Transaction; t != nil {
 		we.Amount, we.Currency = t.Amount, t.Currency
 	}

@@ -310,16 +310,20 @@ queried from Postgres per event:
   without storing it; idempotent replays are not evaluated again.
 - While behavioural history warms up after a reset, windows and history facts are unavailable,
   so the rules on them are not evaluated.
-- The same round trip keeps each user's first activity, each account's last activity (400 days)
-  and each user's largest amount per currency: `customer.history_age`, `account.inactive_for` and
-  `history.amount_to_max`.
+- The same round trip keeps each user's first activity, each account's last activity (400 days),
+  each user's largest amount per currency and the hours of the day (Lagos time) each user was
+  active in: `customer.history_age`, `account.inactive_for` (unknown for an account RiskOS has not
+  seen before, never "not dormant"), `history.amount_to_max` and `history.hour_usual` (true when
+  the user was active in this hour before).
+- For data exports that send `export.rows`, a running mean of rows per export per user and per
+  environment (about the last 500 exports): `export.rows_to_user_baseline` and
+  `export.rows_to_tenant_baseline`, once a baseline has at least 5 exports.
 
 ### History facts not tracked yet
 
-`history.hour_usual`, `geo.speed_from_previous`, `flows.prior_sender_outflow_share`,
-`sender.related` and `export.rows_to_*_baseline` need behaviour RiskOS does not record yet. The
-rules on them (BEH-02's impossible-travel branch, BEH-03, PON-01, SEC-12) are reported as not
-evaluated until it does; [the tracker](compliance/TRACKER.md) names the phase that adds each.
+`geo.speed_from_previous`, `flows.prior_sender_outflow_share` and `sender.related` need behaviour
+RiskOS does not record yet. The rules on them (BEH-02's impossible-travel branch, PON-01) are
+reported as not evaluated until it does; [the tracker](compliance/TRACKER.md) names the phase that adds each.
 
 ### Reproducibility
 

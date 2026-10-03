@@ -167,3 +167,53 @@ func TestRulePackEngine(t *testing.T) {
 		}
 	})
 }
+
+// Behaviour history added for rule pack facts: export size baselines (SEC-12) and account
+// activity (MUL-05's dormancy).
+func TestPackHistoryFacts(t *testing.T) {
+	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, withConsole(auth.ConsoleConfig{}, false))
+	a := s.createTenant(t, "Pack history")
+	admin := s.onboard(t, a, "admin@pack-history.example", authz.RoleCustomerAdmin)
+	r := admin.b.do(t, http.MethodPut, "/api/v1/compliance/profile",
+		map[string]any{"jurisdiction": "NG", "licence_type": "bank", "capabilities": []string{}})
+	require.Equal(t, http.StatusOK, r.status, r.String())
+	for rule, body := range map[string]map[string]any{
+		"SEC-12": {"mode": "live", "settings": map[string]any{}, "reason": "Watch exports"},
+		"MUL-05": {"mode": "live", "settings": map[string]any{"large": 100_000_000}, "reason": "Our large amount"},
+	} {
+		r := admin.b.do(t, http.MethodPut, "/api/v1/compliance/rules/"+rule+"/config", body)
+		require.Equal(t, http.StatusOK, r.status, r.String())
+	}
+
+	export := func(i, rows int) apigen.RiskDecision {
+		t.Helper()
+		e := map[string]any{
+			"event_id": fmt.Sprintf("exp-%d", i), "type": "activity", "occurred_at": time.Now().Add(-time.Minute).Format(time.RFC3339Nano),
+			"actor":      map[string]any{"user_id": "u_exporter"},
+			"compliance": map[string]any{"kind": "data_export", "facts": map[string]any{"export.rows": rows}},
+		}
+		r := s.ingest(t, a.testKey, e)
+		require.Equal(t, http.StatusOK, r.status, r.String())
+		return decode[apigen.RiskDecision](t, r)
+	}
+	for i := range 5 {
+		assert.Contains(t, notEvaluated(export(i, 100), "SEC-12"), "fact:export.rows_to_user_baseline",
+			"export %d: no baseline yet", i)
+	}
+	d := export(5, 600)
+	assert.Empty(t, notEvaluated(d, "SEC-12"))
+	assert.True(t, slices.ContainsFunc(d.Signals, func(s apigen.Signal) bool { return s.Code == "SEC-12" }),
+		"six times the user's usual export: %+v", d.Signals)
+
+	first := decide(t, s, a.testKey, money("dorm-1", "transfer_outbound", "acc_dorm", 200_000_000, "NGN", nil))
+	assert.Contains(t, notEvaluated(first, "MUL-05"), "fact:account.inactive_for", "a first transfer: inactivity unknown")
+	second := decide(t, s, a.testKey, money("dorm-2", "transfer_outbound", "acc_dorm", 200_000_000, "NGN", nil))
+	assert.NotContains(t, notEvaluated(second, "MUL-05"), "fact:account.inactive_for", "the account was seen a minute ago")
+}
+
+func decide(t *testing.T, s stack, key string, e map[string]any) apigen.RiskDecision {
+	t.Helper()
+	r := s.ingest(t, key, e)
+	require.Equal(t, http.StatusOK, r.status, r.String())
+	return decode[apigen.RiskDecision](t, r)
+}

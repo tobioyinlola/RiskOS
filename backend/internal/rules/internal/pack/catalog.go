@@ -270,6 +270,7 @@ var Facts = map[string]FactInfo{ //nolint:gochecknoglobals // fixed vocabulary
 	"api_key.country_known":          fact(FactBool, "api_gateway"),
 	"api_key.rate_to_baseline":       fact(FactRatio, "api_gateway"),
 	"api_key.error_ratio":            fact(FactRatio, "api_gateway"),
+	"export.rows":                    fact(FactCount, "events"),
 	"export.rows_to_user_baseline":   fact(FactRatio, "history"),
 	"export.rows_to_tenant_baseline": fact(FactRatio, "history"),
 	// Merchants, lending and crypto.

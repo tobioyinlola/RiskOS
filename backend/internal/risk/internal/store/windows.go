@@ -101,9 +101,11 @@ end
 return out
 `
 
-// profileScript keeps first activity per user (KEYS[1]), last activity per account (KEYS[2]) and
-// the largest amount per user and currency, all by event time. Returns the user's first activity,
-// the account's previous activity and the previous largest amount ("" when unknown).
+// profileScript keeps first activity per user (KEYS[1]), last activity per account (KEYS[2]), the
+// largest amount per user and currency, and the hours of the day (ARGV[6], Lagos time) the user
+// was active in as a 24-bit mask, all by event time. Returns the user's first activity, the
+// account's previous activity, the previous largest amount and the previous hour mask ("" when
+// unknown).
 const profileScript = `
 local now = tonumber(ARGV[2])
 local first = redis.call('HGET', KEYS[1], 'first')
@@ -112,14 +114,41 @@ if KEYS[2] ~= KEYS[1] then last = redis.call('HGET', KEYS[2], 'last') or '' end
 local maxf = 'max:' .. ARGV[4]
 local max = ''
 if ARGV[4] ~= '' then max = redis.call('HGET', KEYS[1], maxf) or '' end
+local hours = redis.call('HGET', KEYS[1], 'hours') or ''
 if ARGV[1] == '1' then
+  if ARGV[6] ~= '' then
+    local mask = tonumber(hours ~= '' and hours or '0')
+    redis.call('HSET', KEYS[1], 'hours', bit.bor(mask, bit.lshift(1, tonumber(ARGV[6]))))
+  end
   if not first then redis.call('HSET', KEYS[1], 'first', now) end
   if KEYS[2] ~= KEYS[1] and (last == '' or tonumber(last) < now) then redis.call('HSET', KEYS[2], 'last', now) end
   if ARGV[4] ~= '' and (max == '' or tonumber(max) < tonumber(ARGV[3])) then redis.call('HSET', KEYS[1], maxf, ARGV[3]) end
   redis.call('PEXPIRE', KEYS[1], ARGV[5])
   if KEYS[2] ~= KEYS[1] then redis.call('PEXPIRE', KEYS[2], ARGV[5]) end
 end
-return {first or '', last, max}
+return {first or '', last, max, hours}
+`
+
+// exportScript keeps a running mean of rows per export for a user (KEYS[1]) and an environment
+// (KEYS[2]), over about the last ARGV[3] exports, and returns each mean and count before this
+// export.
+const exportScript = `
+local out = {}
+for i = 1, 2 do
+  local n = tonumber(redis.call('HGET', KEYS[i], 'n') or '0')
+  local mean = tonumber(redis.call('HGET', KEYS[i], 'mean') or '0')
+  out[#out + 1] = tostring(n)
+  out[#out + 1] = string.format('%.6f', mean)
+  if ARGV[1] == '1' then
+    local cap = tonumber(ARGV[3])
+    if n >= cap then n = cap - 1 end
+    n = n + 1
+    mean = mean + (tonumber(ARGV[2]) - mean) / n
+    redis.call('HSET', KEYS[i], 'n', n, 'mean', string.format('%.6f', mean))
+    redis.call('PEXPIRE', KEYS[i], ARGV[4])
+  end
+end
+return out
 `
 
 // Windows records the event in, and reads, the given windows, and reads (and in write mode
@@ -166,11 +195,23 @@ func (s *FeatureStore) Windows(ctx context.Context, ops []features.WindowOp, e f
 	if e.AccountID != "" {
 		account = k.entity("a", e.AccountID) + ":pf"
 	}
-	prof := s.profile.EvalSha(ctx, pipe, []string{user, account}, boolArg(write), at, e.Amount, e.Currency, profileTTL.Milliseconds())
+	hour := ""
+	if e.Hour >= 0 {
+		hour = strconv.Itoa(e.Hour)
+	}
+	prof := s.profile.EvalSha(ctx, pipe, []string{user, account}, boolArg(write), at, e.Amount, e.Currency, profileTTL.Milliseconds(), hour)
+	var exp *redis.Cmd
+	if e.ExportRows != nil {
+		exp = s.export.EvalSha(ctx, pipe, []string{k.entity("u", e.UserID) + ":exp", k.entity("n", "*") + ":exp"},
+			boolArg(write), *e.ExportRows, amountBaselineN, historyTTL.Milliseconds())
+	}
 	if _, err := pipe.Exec(ctx); err != nil && !errors.Is(err, redis.Nil) && !isCommandError(err) {
 		return nil, features.Activity{}, false
 	}
-	for _, cmd := range append(cmds, prof) {
+	for _, cmd := range append(cmds, prof, exp) {
+		if cmd == nil {
+			continue
+		}
 		if redis.HasErrorPrefix(cmd.Err(), "NOSCRIPT") {
 			s.scriptsLoaded.Store(false)
 			break
@@ -189,8 +230,13 @@ func (s *FeatureStore) Windows(ctx context.Context, ops []features.WindowOp, e f
 			}
 		}
 	}
-	if p, err := prof.StringSlice(); err == nil && len(p) == 3 {
+	if p, err := prof.StringSlice(); err == nil && len(p) == 4 {
 		profile = parseProfile(p)
+	}
+	if exp != nil {
+		if b, err := exp.StringSlice(); err == nil && len(b) == 4 {
+			profile.ExportUser, profile.ExportTenant = parseBaseline(b[0], b[1]), parseBaseline(b[2], b[3])
+		}
 	}
 	return values, profile, true
 }
@@ -209,5 +255,14 @@ func parseProfile(p []string) features.Activity {
 	if f, err := strconv.ParseFloat(p[2], 64); err == nil {
 		out.MaxAmount = &f
 	}
+	if h, err := strconv.ParseInt(p[3], 10, 64); err == nil {
+		out.Hours = &h
+	}
 	return out
+}
+
+func parseBaseline(n, mean string) features.Baseline {
+	c, _ := strconv.ParseInt(n, 10, 64)
+	m, _ := strconv.ParseFloat(mean, 64)
+	return features.Baseline{Count: c, Mean: m}
 }

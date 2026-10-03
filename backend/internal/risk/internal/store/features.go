@@ -44,6 +44,7 @@ type FeatureStore struct {
 	amount   *redis.Script
 	window   *redis.Script
 	profile  *redis.Script
+	export   *redis.Script
 	// scriptsLoaded is set once the pipelined scripts are known to be in the Redis script
 	// cache, so Observe can send EVALSHA instead of the whole script body (which costs Redis a
 	// hash and a lookup on every call). Cleared when Redis reports NOSCRIPT (after a restart).
@@ -67,6 +68,7 @@ func NewFeatureStore(rdb Redis, hashKey []byte, timeout time.Duration) *FeatureS
 		amount:   redis.NewScript(amountScript),
 		window:   redis.NewScript(windowScript),
 		profile:  redis.NewScript(profileScript),
+		export:   redis.NewScript(exportScript),
 	}
 }
 
@@ -368,7 +370,7 @@ func (s *FeatureStore) loadScripts(ctx context.Context) {
 	// Not Script.Load: on a pipeline it replaces the script's hash with the not-yet-available
 	// reply (an empty string) in go-redis v9.22.
 	pipe := s.rdb.Pipeline()
-	for _, src := range []string{seenScript, velocityScript, windowScript, profileScript} {
+	for _, src := range []string{seenScript, velocityScript, windowScript, profileScript, exportScript} {
 		pipe.ScriptLoad(ctx, src)
 	}
 	if _, err := pipe.Exec(ctx); err == nil {

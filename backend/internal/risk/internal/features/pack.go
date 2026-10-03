@@ -27,8 +27,8 @@ func (e Event) Kinds() []string {
 	return rulepack.Kinds(in)
 }
 
-// lagos is West Africa Time (UTC+1, no daylight saving): pack hours are Lagos hours.
-var lagos = time.FixedZone("WAT", 3600) //nolint:gochecknoglobals // a fixed zone, never mutated
+// Lagos is West Africa Time (UTC+1, no daylight saving): pack hours are Lagos hours.
+var Lagos = time.FixedZone("WAT", 3600) //nolint:gochecknoglobals // a fixed zone, never mutated
 
 // authFactors maps login methods to the pack's authentication factors.
 func authFactor(method string) (string, bool) {
@@ -66,7 +66,7 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 			f[name] = value
 		}
 	}
-	at := e.OccurredAt.In(lagos)
+	at := e.OccurredAt.In(Lagos)
 	if t := e.Transaction; t != nil {
 		f["txn.amount"] = rulepack.Money{Minor: float64(t.Amount), Currency: t.Currency}
 		f["txn.local_hour"] = float64(at.Hour())
@@ -114,6 +114,18 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 	}
 	if p.AccountLast != nil {
 		f["account.inactive_for"] = math.Max(0, e.OccurredAt.Sub(*p.AccountLast).Seconds())
+	}
+	// A usual hour is one the user was active in before (Lagos time).
+	if p.Hours != nil && *p.Hours != 0 {
+		f["history.hour_usual"] = (*p.Hours>>at.Hour())&1 == 1
+	}
+	if rows := e.ExportRows(); rows != nil {
+		if r, ok := ratioTo(*rows, p.ExportUser); ok {
+			f["export.rows_to_user_baseline"] = r
+		}
+		if r, ok := ratioTo(*rows, p.ExportTenant); ok {
+			f["export.rows_to_tenant_baseline"] = r
+		}
 	}
 	if e.Transaction != nil && p.MaxAmount != nil && *p.MaxAmount > 0 {
 		f["history.amount_to_max"] = math.Round(float64(e.Transaction.Amount) / *p.MaxAmount * 100) / 100
@@ -200,6 +212,16 @@ type WindowEvent struct {
 	Currency string
 	// UserID and AccountID key the activity profile.
 	UserID, AccountID string
+	// Hour is the hour of the day in Lagos (-1: none recorded); ExportRows the rows of a data
+	// export, when the event says.
+	Hour       int
+	ExportRows *float64
+}
+
+// Baseline is a running mean and how many observations it has.
+type Baseline struct {
+	Count int64
+	Mean  float64
 }
 
 // WindowValue is one aggregate: OK is false when the store failed or the window holds an event
@@ -214,4 +236,27 @@ type WindowValue struct {
 type Activity struct {
 	UserFirst, AccountLast *time.Time
 	MaxAmount              *float64
+	// Hours is the user's mask of hours of the day (Lagos) active in before this event.
+	Hours *int64
+	// ExportUser and ExportTenant are the rows-per-export baselines before this event.
+	ExportUser, ExportTenant Baseline
+}
+
+// ExportRows returns the rows of a data export the event sends.
+func (e Event) ExportRows() *float64 {
+	if e.Compliance == nil {
+		return nil
+	}
+	if n, ok := e.Compliance.Facts["export.rows"].(float64); ok {
+		return &n
+	}
+	return nil
+}
+
+// ratioTo returns value over a baseline's mean, once it has enough history.
+func ratioTo(value float64, b Baseline) (float64, bool) {
+	if b.Count < domain.AmountMinHistory || b.Mean <= 0 {
+		return 0, false
+	}
+	return math.Round(value/b.Mean*100) / 100, true
 }
