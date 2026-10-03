@@ -32,6 +32,8 @@ type browser struct {
 	s      stack
 	cookie string
 	sso    string
+	signup string
+	google string
 	csrf   string
 	env    string
 	origin string
@@ -57,6 +59,12 @@ func (b *browser) do(t *testing.T, method, path string, body any) response {
 	if b.sso != "" {
 		req.AddCookie(&http.Cookie{Name: "riskos_sso", Value: b.sso})
 	}
+	if b.signup != "" {
+		req.AddCookie(&http.Cookie{Name: "riskos_signup", Value: b.signup})
+	}
+	if b.google != "" {
+		req.AddCookie(&http.Cookie{Name: "riskos_google", Value: b.google})
+	}
 	if b.csrf != "" {
 		req.Header.Set("X-CSRF-Token", b.csrf)
 	}
@@ -74,6 +82,10 @@ func (b *browser) do(t *testing.T, method, path string, body any) response {
 			b.cookie = c.Value
 		case "riskos_sso":
 			b.sso = c.Value
+		case "riskos_signup":
+			b.signup = c.Value
+		case "riskos_google":
+			b.google = c.Value
 		}
 	}
 	return response{status: rec.Code, raw: rec.Body.Bytes(), header: rec.Header()}

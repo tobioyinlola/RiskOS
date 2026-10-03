@@ -27,6 +27,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
+	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 )
 
 // Errors.
@@ -63,6 +64,8 @@ func DefaultConfig() Config {
 // Tenants gives staff a tenant scope (the tenants module).
 type Tenants interface {
 	StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, staffRef string, permissions []string) (context.Context, error)
+	StaffOnboarding(ctx context.Context) (tenants.Onboarding, error)
+	ReviewOnboarding(ctx context.Context, approve bool, note string, now time.Time) (tenants.Onboarding, error)
 }
 
 // TenantErrors classifies the tenants module's errors.

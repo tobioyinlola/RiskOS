@@ -9,12 +9,37 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"io"
 	"net/http"
 	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
 )
+
+// Defines values for OnboardingStatus.
+const (
+	OnboardingStatusApproved  OnboardingStatus = "approved"
+	OnboardingStatusDraft     OnboardingStatus = "draft"
+	OnboardingStatusRejected  OnboardingStatus = "rejected"
+	OnboardingStatusSubmitted OnboardingStatus = "submitted"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingStatus enum.
+func (e OnboardingStatus) Valid() bool {
+	switch e {
+	case OnboardingStatusApproved:
+		return true
+	case OnboardingStatusDraft:
+		return true
+	case OnboardingStatusRejected:
+		return true
+	case OnboardingStatusSubmitted:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for StaffRole.
 const (
@@ -36,25 +61,25 @@ func (e StaffRole) Valid() bool {
 
 // Defines values for SupportAccessStatus.
 const (
-	Approved SupportAccessStatus = "approved"
-	Expired  SupportAccessStatus = "expired"
-	Pending  SupportAccessStatus = "pending"
-	Rejected SupportAccessStatus = "rejected"
-	Revoked  SupportAccessStatus = "revoked"
+	SupportAccessStatusApproved SupportAccessStatus = "approved"
+	SupportAccessStatusExpired  SupportAccessStatus = "expired"
+	SupportAccessStatusPending  SupportAccessStatus = "pending"
+	SupportAccessStatusRejected SupportAccessStatus = "rejected"
+	SupportAccessStatusRevoked  SupportAccessStatus = "revoked"
 )
 
 // Valid indicates whether the value is a known member of the SupportAccessStatus enum.
 func (e SupportAccessStatus) Valid() bool {
 	switch e {
-	case Approved:
+	case SupportAccessStatusApproved:
 		return true
-	case Expired:
+	case SupportAccessStatusExpired:
 		return true
-	case Pending:
+	case SupportAccessStatusPending:
 		return true
-	case Rejected:
+	case SupportAccessStatusRejected:
 		return true
-	case Revoked:
+	case SupportAccessStatusRevoked:
 		return true
 	default:
 		return false
@@ -109,6 +134,46 @@ type LoginRequest struct {
 	CeremonyId string                 `json:"ceremony_id"`
 	Credential map[string]interface{} `json:"credential"`
 }
+
+// OnboardingDecision defines model for OnboardingDecision.
+type OnboardingDecision struct {
+	Note *string `json:"note,omitempty"`
+}
+
+// OnboardingQueue defines model for OnboardingQueue.
+type OnboardingQueue struct {
+	Data []OnboardingQueueItem `json:"data"`
+}
+
+// OnboardingQueueItem defines model for OnboardingQueueItem.
+type OnboardingQueueItem struct {
+	ReviewedAt      *time.Time       `json:"reviewed_at"`
+	Status          OnboardingStatus `json:"status"`
+	SubmittedAt     *time.Time       `json:"submitted_at"`
+	TenantCreatedAt time.Time        `json:"tenant_created_at"`
+	TenantId        string           `json:"tenant_id"`
+	TenantName      string           `json:"tenant_name"`
+	TenantStatus    string           `json:"tenant_status"`
+}
+
+// OnboardingReview defines model for OnboardingReview.
+type OnboardingReview struct {
+	// Answers The customer's answers (the customer API's OnboardingAnswers).
+	Answers           map[string]interface{} `json:"answers"`
+	Missing           []string               `json:"missing"`
+	ProductionEnabled bool                   `json:"production_enabled"`
+	ReviewNote        *string                `json:"review_note"`
+	ReviewedAt        *time.Time             `json:"reviewed_at"`
+	ReviewedBy        *string                `json:"reviewed_by"`
+	Status            OnboardingStatus       `json:"status"`
+	SubmittedAt       *time.Time             `json:"submitted_at"`
+	SubmittedBy       *string                `json:"submitted_by"`
+	TenantId          string                 `json:"tenant_id"`
+	TenantName        string                 `json:"tenant_name"`
+}
+
+// OnboardingStatus defines model for OnboardingStatus.
+type OnboardingStatus string
 
 // SecurityOverview defines model for SecurityOverview.
 type SecurityOverview struct {
@@ -219,6 +284,9 @@ type WebAuthnOptions map[string]interface{}
 // AccessID Example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
 type AccessID = string
 
+// TenantID Example: ten_01j9x2k7m3q4r5s6t7v8w9x0yz
+type TenantID = string
+
 // Conflict defines model for Conflict.
 type Conflict = Error
 
@@ -254,6 +322,12 @@ type StaffEnrollOptionsJSONRequestBody = EnrollOptionsRequest
 // StaffLoginJSONRequestBody defines body for StaffLogin for application/json ContentType.
 type StaffLoginJSONRequestBody = LoginRequest
 
+// ApproveOnboardingJSONRequestBody defines body for ApproveOnboarding for application/json ContentType.
+type ApproveOnboardingJSONRequestBody = OnboardingDecision
+
+// RejectOnboardingJSONRequestBody defines body for RejectOnboarding for application/json ContentType.
+type RejectOnboardingJSONRequestBody = OnboardingDecision
+
 // RequestSupportAccessJSONRequestBody defines body for RequestSupportAccess for application/json ContentType.
 type RequestSupportAccessJSONRequestBody = SupportAccessRequest
 
@@ -280,6 +354,18 @@ type ServerInterface interface {
 	// GetStaffSession The current staff session
 	// (GET /api/admin/v1/auth/session)
 	GetStaffSession(w http.ResponseWriter, r *http.Request)
+	// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
+	// (GET /api/admin/v1/onboarding)
+	ListOnboardingReviews(w http.ResponseWriter, r *http.Request)
+	// GetOnboardingReview One workspace's onboarding answers
+	// (GET /api/admin/v1/onboarding/{tenant_id})
+	GetOnboardingReview(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// ApproveOnboarding Approve a submitted onboarding
+	// (POST /api/admin/v1/onboarding/{tenant_id}/approve)
+	ApproveOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// RejectOnboarding Send a submitted onboarding back with a note
+	// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
+	RejectOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID)
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(w http.ResponseWriter, r *http.Request)
@@ -346,6 +432,30 @@ func (_ Unimplemented) StaffLogout(w http.ResponseWriter, r *http.Request) {
 // GetStaffSession The current staff session
 // (GET /api/admin/v1/auth/session)
 func (_ Unimplemented) GetStaffSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
+// (GET /api/admin/v1/onboarding)
+func (_ Unimplemented) ListOnboardingReviews(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOnboardingReview One workspace's onboarding answers
+// (GET /api/admin/v1/onboarding/{tenant_id})
+func (_ Unimplemented) GetOnboardingReview(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveOnboarding Approve a submitted onboarding
+// (POST /api/admin/v1/onboarding/{tenant_id}/approve)
+func (_ Unimplemented) ApproveOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectOnboarding Send a submitted onboarding back with a note
+// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
+func (_ Unimplemented) RejectOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -508,6 +618,98 @@ func (siw *ServerInterfaceWrapper) GetStaffSession(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetStaffSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListOnboardingReviews operation middleware
+func (siw *ServerInterfaceWrapper) ListOnboardingReviews(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListOnboardingReviews(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOnboardingReview operation middleware
+func (siw *ServerInterfaceWrapper) GetOnboardingReview(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOnboardingReview(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveOnboarding operation middleware
+func (siw *ServerInterfaceWrapper) ApproveOnboarding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveOnboarding(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectOnboarding operation middleware
+func (siw *ServerInterfaceWrapper) RejectOnboarding(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectOnboarding(w, r, tenantId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -802,6 +1004,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/support-access/{access_id}/revoke", wrapper.RevokeSupportAccess)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/onboarding", wrapper.ListOnboardingReviews)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/onboarding/{tenant_id}", wrapper.GetOnboardingReview)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/onboarding/{tenant_id}/approve", wrapper.ApproveOnboarding)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/onboarding/{tenant_id}/reject", wrapper.RejectOnboarding)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/audit-log", wrapper.ListStaffAudit)
@@ -1287,6 +1501,359 @@ type GetStaffSessiondefaultJSONResponse struct {
 }
 
 func (response GetStaffSessiondefaultJSONResponse) VisitGetStaffSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOnboardingReviewsRequestObject struct {
+}
+
+type ListOnboardingReviewsResponseObject interface {
+	VisitListOnboardingReviewsResponse(w http.ResponseWriter) error
+}
+
+type ListOnboardingReviews200JSONResponse OnboardingQueue
+
+func (response ListOnboardingReviews200JSONResponse) VisitListOnboardingReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOnboardingReviews401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListOnboardingReviews401JSONResponse) VisitListOnboardingReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOnboardingReviews403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListOnboardingReviews403JSONResponse) VisitListOnboardingReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListOnboardingReviewsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListOnboardingReviewsdefaultJSONResponse) VisitListOnboardingReviewsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReviewRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetOnboardingReviewResponseObject interface {
+	VisitGetOnboardingReviewResponse(w http.ResponseWriter) error
+}
+
+type GetOnboardingReview200JSONResponse OnboardingReview
+
+func (response GetOnboardingReview200JSONResponse) VisitGetOnboardingReviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReview401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetOnboardingReview401JSONResponse) VisitGetOnboardingReviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReview403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetOnboardingReview403JSONResponse) VisitGetOnboardingReviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReview404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetOnboardingReview404JSONResponse) VisitGetOnboardingReviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingReviewdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetOnboardingReviewdefaultJSONResponse) VisitGetOnboardingReviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveOnboardingRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *ApproveOnboardingJSONRequestBody
+}
+
+type ApproveOnboardingResponseObject interface {
+	VisitApproveOnboardingResponse(w http.ResponseWriter) error
+}
+
+type ApproveOnboarding200JSONResponse OnboardingReview
+
+func (response ApproveOnboarding200JSONResponse) VisitApproveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveOnboarding401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApproveOnboarding401JSONResponse) VisitApproveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveOnboarding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveOnboarding403JSONResponse) VisitApproveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveOnboarding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveOnboarding404JSONResponse) VisitApproveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveOnboarding409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveOnboarding409JSONResponse) VisitApproveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveOnboardingdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ApproveOnboardingdefaultJSONResponse) VisitApproveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboardingRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *RejectOnboardingJSONRequestBody
+}
+
+type RejectOnboardingResponseObject interface {
+	VisitRejectOnboardingResponse(w http.ResponseWriter) error
+}
+
+type RejectOnboarding200JSONResponse OnboardingReview
+
+func (response RejectOnboarding200JSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboarding400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RejectOnboarding400JSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboarding401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RejectOnboarding401JSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboarding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectOnboarding403JSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboarding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectOnboarding404JSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboarding409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectOnboarding409JSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectOnboardingdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RejectOnboardingdefaultJSONResponse) VisitRejectOnboardingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1843,6 +2410,18 @@ type StrictServerInterface interface {
 	// GetStaffSession The current staff session
 	// (GET /api/admin/v1/auth/session)
 	GetStaffSession(ctx context.Context, request GetStaffSessionRequestObject) (GetStaffSessionResponseObject, error)
+	// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
+	// (GET /api/admin/v1/onboarding)
+	ListOnboardingReviews(ctx context.Context, request ListOnboardingReviewsRequestObject) (ListOnboardingReviewsResponseObject, error)
+	// GetOnboardingReview One workspace's onboarding answers
+	// (GET /api/admin/v1/onboarding/{tenant_id})
+	GetOnboardingReview(ctx context.Context, request GetOnboardingReviewRequestObject) (GetOnboardingReviewResponseObject, error)
+	// ApproveOnboarding Approve a submitted onboarding
+	// (POST /api/admin/v1/onboarding/{tenant_id}/approve)
+	ApproveOnboarding(ctx context.Context, request ApproveOnboardingRequestObject) (ApproveOnboardingResponseObject, error)
+	// RejectOnboarding Send a submitted onboarding back with a note
+	// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
+	RejectOnboarding(ctx context.Context, request RejectOnboardingRequestObject) (RejectOnboardingResponseObject, error)
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(ctx context.Context, request GetSecurityOverviewRequestObject) (GetSecurityOverviewResponseObject, error)
@@ -2089,6 +2668,125 @@ func (sh *strictHandler) GetStaffSession(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetStaffSessionResponseObject); ok {
 		if err := validResponse.VisitGetStaffSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListOnboardingReviews operation middleware
+func (sh *strictHandler) ListOnboardingReviews(w http.ResponseWriter, r *http.Request) {
+	var request ListOnboardingReviewsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListOnboardingReviews(ctx, request.(ListOnboardingReviewsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListOnboardingReviews")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListOnboardingReviewsResponseObject); ok {
+		if err := validResponse.VisitListOnboardingReviewsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOnboardingReview operation middleware
+func (sh *strictHandler) GetOnboardingReview(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetOnboardingReviewRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOnboardingReview(ctx, request.(GetOnboardingReviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOnboardingReview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOnboardingReviewResponseObject); ok {
+		if err := validResponse.VisitGetOnboardingReviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveOnboarding operation middleware
+func (sh *strictHandler) ApproveOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request ApproveOnboardingRequestObject
+
+	request.TenantId = tenantId
+
+	var body ApproveOnboardingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveOnboarding(ctx, request.(ApproveOnboardingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveOnboarding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveOnboardingResponseObject); ok {
+		if err := validResponse.VisitApproveOnboardingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectOnboarding operation middleware
+func (sh *strictHandler) RejectOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request RejectOnboardingRequestObject
+
+	request.TenantId = tenantId
+
+	var body RejectOnboardingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectOnboarding(ctx, request.(RejectOnboardingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectOnboarding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectOnboardingResponseObject); ok {
+		if err := validResponse.VisitRejectOnboardingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

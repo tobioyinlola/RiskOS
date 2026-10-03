@@ -345,12 +345,15 @@ func (h *ConsoleHandlers) GetSession(ctx context.Context, _ apigen.GetSessionReq
 	if err != nil {
 		return nil, err
 	}
+	envs := []apigen.Environment{apigen.Environment(tenancy.EnvironmentTest)}
+	if s.ProductionEnabled {
+		envs = append(envs, apigen.Environment(tenancy.EnvironmentProduction))
+	}
 	out := apigen.GetSession200JSONResponse{
-		State: apigen.SessionState(s.State), CsrfToken: s.CSRF, ExpiresAt: s.ExpiresAt,
-		Environments: []apigen.Environment{apigen.Environment(tenancy.EnvironmentTest), apigen.Environment(tenancy.EnvironmentProduction)},
+		State: apigen.SessionState(s.State), CsrfToken: s.CSRF, ExpiresAt: s.ExpiresAt, Environments: envs,
 	}
 	out.User.Id, out.User.Email, out.User.Name, out.User.Role = ids.Format(ids.PrefixUser, p.User.ID), p.User.Email, p.User.Name, apigen.Role(p.User.Role)
-	out.Tenant.Id, out.Tenant.Name = ids.Format(ids.PrefixTenant, s.TenantID), s.TenantName
+	out.Tenant.Id, out.Tenant.Name, out.Tenant.ProductionEnabled = ids.Format(ids.PrefixTenant, s.TenantID), s.TenantName, s.ProductionEnabled
 	out.Permissions = []apigen.Scope{}
 	if s.State == service.StateActive {
 		for _, perm := range authz.RolePermissions(s.Role) {

@@ -6,18 +6,23 @@ export function formatCount(n: number): string {
   return numberFormat.format(n);
 }
 
-/** Minor units to a currency amount with its code, e.g. 450000 NGN → "4,500.00 NGN". */
-export function formatAmount(minor: number, currency: string): string {
-  let digits = 2;
+/** How many minor-unit digits a currency has (2 for NGN, 0 for JPY). */
+export function currencyDigits(currency: string): number {
   try {
-    digits =
+    return (
       new Intl.NumberFormat("en", {
         style: "currency",
         currency,
-      }).resolvedOptions().maximumFractionDigits ?? 2;
+      }).resolvedOptions().maximumFractionDigits ?? 2
+    );
   } catch {
-    digits = 2;
+    return 2;
   }
+}
+
+/** Minor units to a currency amount with its code, e.g. 450000 NGN → "4,500.00 NGN". */
+export function formatAmount(minor: number, currency: string): string {
+  const digits = currencyDigits(currency);
   const major = minor / 10 ** digits;
   return `${new Intl.NumberFormat("en-GB", {
     minimumFractionDigits: digits,

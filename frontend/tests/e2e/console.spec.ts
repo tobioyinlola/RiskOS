@@ -34,13 +34,15 @@ function watchCsp(page: Page): string[] {
 async function signIn(page: Page) {
   await page.getByLabel("Email").fill("ada@example.com");
   await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
 }
 
 test("sign-in with a new passkey, every section, sign-out and back in", async ({
   page,
   isMobile,
 }) => {
+  // A walk through every section: its length grows with the console.
+  test.slow();
   const csp = watchCsp(page);
   const api = await mockApi(page);
   await virtualAuthenticator(page);
@@ -51,14 +53,14 @@ test("sign-in with a new passkey, every section, sign-out and back in", async ({
 
   await page.getByLabel("Email").fill("ada@example.com");
   await page.getByLabel("Password").fill("wrong password");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(
     page.getByText("The email or password is incorrect."),
   ).toBeVisible();
 
   // First sign-in: a second factor is mandatory; the passkey is created by the browser.
   await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(
     page.getByRole("heading", { name: "Add a second factor" }),
   ).toBeVisible();
@@ -90,13 +92,19 @@ test("sign-in with a new passkey, every section, sign-out and back in", async ({
       .click();
     await expect(page).toHaveURL(section.href);
     await expect(
-      page.getByRole("heading", { level: 1, name: section.label }),
+      page.getByRole("heading", {
+        level: 1,
+        // The overview greets the user; every other section is titled by its label.
+        name: section.href === "/" ? /^Welcome back/ : section.label,
+      }),
     ).toBeVisible();
   }
 
   // Production is marked unmistakably.
   await page.getByRole("radio", { name: "Production" }).click();
-  await expect(page.getByText(/production/i).first()).toBeVisible();
+  await expect(
+    page.getByText("Production: live data and live keys"),
+  ).toBeVisible();
   await page.getByRole("radio", { name: "Test" }).click();
 
   await page.getByRole("button", { name: "Ada Lovelace" }).click();
@@ -110,7 +118,7 @@ test("sign-in with a new passkey, every section, sign-out and back in", async ({
   ).toBeVisible();
   await page.getByRole("button", { name: "Use your passkey" }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Overview" }),
+    page.getByRole("heading", { level: 1, name: /^Welcome back/ }),
   ).toBeVisible();
 
   expect(api.problems).toEqual([]);
@@ -166,7 +174,7 @@ test("a production rule change is approved by a second person", async ({
   expect(api.problems).toEqual([]);
 });
 
-test("the shell: collapsible navigation, command palette, theme and density", async ({
+test("the shell: collapsible navigation, command palette and density", async ({
   page,
   isMobile,
 }) => {
@@ -208,12 +216,10 @@ test("the shell: collapsible navigation, command palette, theme and density", as
     page.getByRole("heading", { level: 1, name: "Audit log" }),
   ).toBeVisible();
 
-  // Theme and density are preferences, applied before first paint after a reload.
-  await page.getByRole("button", { name: "Use light theme" }).click();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
+  // Density is a preference that survives a reload. The product is light only.
+  await expect(page.locator("html")).not.toHaveAttribute("data-theme");
   await page.getByRole("button", { name: "Use compact rows" }).click();
   await page.reload();
-  await expect(page.locator("html")).toHaveAttribute("data-theme", "light");
   await expect(
     page.getByRole("button", { name: "Use default rows" }),
   ).toBeVisible();
@@ -307,7 +313,7 @@ test("single sign-on: the provider round trip ends signed in", async ({
     .getByRole("button", { name: "Sign in with single sign-on" })
     .click();
   await page.getByLabel("Work email").fill("ada@example.com");
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await expect(page).not.toHaveURL(/\/(login|sso)/);
   expect(api.calls).toContain("POST /auth/sso/callback");
   expect(api.calls.filter((c) => c === "POST /auth/sso/callback")).toHaveLength(
@@ -343,4 +349,30 @@ test("pages carry security headers and a nonce-based CSP", async ({
   expect(again.headers()["content-security-policy"]).not.toContain(
     `'nonce-${nonce}'`,
   );
+});
+
+test("the public site: landing page, indexable, no session needed", async ({
+  page,
+}) => {
+  const csp = watchCsp(page);
+  const api = await mockApi(page);
+  await page.goto("/home");
+  await expect(
+    page.getByRole("heading", { level: 1, name: /Stop fraud before it/ }),
+  ).toBeVisible();
+  await expect(page.locator('meta[name="robots"]')).toHaveAttribute(
+    "content",
+    "index, follow",
+  );
+  await page.getByRole("tab", { name: "Developers" }).click();
+  await expect(
+    page.getByRole("heading", { name: /One API call per/ }),
+  ).toBeVisible();
+  await page
+    .getByRole("navigation", { name: "Site" })
+    .getByRole("link", { name: "Log in" })
+    .click();
+  await expect(page).toHaveURL(/\/login$/);
+  expect(api.calls.filter((c) => !c.startsWith("GET /auth"))).toEqual([]);
+  expect(csp).toEqual([]);
 });

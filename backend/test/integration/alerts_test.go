@@ -19,6 +19,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 )
 
@@ -27,6 +28,7 @@ func (s stack) startWorker(t *testing.T) {
 	t.Helper()
 	registry := jobs.NewRegistry()
 	jobs.Register(registry, s.alerts.RaiseJob(s.tenants))
+	jobs.Register(registry, s.rules.TasksJob(s.tenants, clock.System{}, shared.logger))
 	jobs.Register(registry, s.webhooks.DeliverJob(s.tenants))
 	queue, err := jobs.NewQueue(shared.pool, registry, jobs.QueueConfig{
 		Concurrency: 4, JobTimeout: 10 * time.Second, Queues: map[string]int{jobs.QueueWebhooks: 4},

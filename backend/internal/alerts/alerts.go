@@ -22,6 +22,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
@@ -150,4 +151,11 @@ func (m *Module) RaiseJob(scopes *tenants.Module) func(context.Context, RaiseArg
 			EvaluatedAt: a.EvaluatedAt, Risk: a.Risk, Security: a.Security,
 		})
 	}
+}
+
+// OpenBefore lists alerts created before before and still open, newest first, at most limit.
+// Requires alerts:read.
+func (m *Module) OpenBefore(ctx context.Context, before time.Time, limit int) ([]Alert, error) {
+	status, bound := domain.StatusOpen, ids.V7At(before)
+	return m.svc.List(ctx, domain.Filter{Status: &status, Before: &bound, Limit: limit})
 }

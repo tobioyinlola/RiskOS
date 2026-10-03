@@ -19,6 +19,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Error codes specific to events (EVENTS.md).
@@ -195,13 +196,60 @@ func toDomain(body *apigen.Event) (domain.Event, error) {
 		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
 	case apigen.ProfileChangeEvent:
 		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), ev.Data
+	case apigen.ActivityEvent:
+		e, data = common(ev.EventId, string(ev.Type), ev.OccurredAt, ev.Actor, ev.Context), struct{}{}
 	default:
 		return domain.Event{}, httpx.InvalidRequest("Unknown event type.", fmt.Errorf("unexpected %T", v))
 	}
 	if e.Data, err = json.Marshal(data); err != nil {
 		return domain.Event{}, fmt.Errorf("encode event data: %w", err)
 	}
+	e.Compliance = complianceFromAPI(v)
 	return e, nil
+}
+
+// complianceFromAPI reads the compliance block every event type may carry.
+func complianceFromAPI(v any) *rules.EventContext {
+	var c *apigen.ComplianceContext
+	switch ev := v.(type) {
+	case apigen.LoginEvent:
+		c = ev.Compliance
+	case apigen.TransactionEvent:
+		c = ev.Compliance
+	case apigen.BeneficiaryAddedEvent:
+		c = ev.Compliance
+	case apigen.DeviceChangeEvent:
+		c = ev.Compliance
+	case apigen.SessionChangeEvent:
+		c = ev.Compliance
+	case apigen.ProfileChangeEvent:
+		c = ev.Compliance
+	case apigen.ActivityEvent:
+		c = &ev.Compliance
+	}
+	if c == nil {
+		return nil
+	}
+	out := &rules.EventContext{}
+	if c.Kind != nil {
+		out.Kind = string(*c.Kind)
+	}
+	if c.Facts != nil {
+		out.Facts = *c.Facts
+	}
+	if r := c.Refs; r != nil {
+		out.Refs = map[string]string{}
+		for k, ref := range map[string]*string{
+			"card": r.Card, "bvn": r.Bvn, "phone": r.Phone, "address": r.Address, "loan": r.Loan, "inflow": r.Inflow,
+			"merchant": r.Merchant, "api_key": r.ApiKey, "sender": r.Sender, "reporter": r.Reporter,
+			"funding_source": r.FundingSource,
+		} {
+			if ref != nil {
+				out.Refs[k] = *ref
+			}
+		}
+	}
+	return out
 }
 
 func common(key, typ string, occurredAt time.Time, a apigen.Actor, c *apigen.EventContext) domain.Event {
@@ -211,6 +259,9 @@ func common(key, typ string, occurredAt time.Time, a apigen.Actor, c *apigen.Eve
 	}
 	if c != nil {
 		e.Context = domain.Context{IP: deref(c.Ip), UserAgent: deref(c.UserAgent), Country: deref(c.Country)}
+		if c.Geo != nil {
+			e.Context.Geo = &domain.Geo{Lat: c.Geo.Lat, Lon: c.Geo.Lon}
+		}
 	}
 	return e
 }
@@ -234,6 +285,8 @@ func mapError(err error) error {
 		return httpx.NewError(http.StatusUnprocessableEntity, CodeStaleEvent, detail(domain.ErrStaleEvent)+".", err)
 	case errors.Is(err, domain.ErrInvalidEvent):
 		return httpx.NewError(http.StatusUnprocessableEntity, CodeInvalidEvent, detail(domain.ErrInvalidEvent)+".", err)
+	case errors.Is(err, rules.ErrSensitiveData):
+		return httpx.NewError(http.StatusUnprocessableEntity, CodeSensitiveData, detail(rules.ErrSensitiveData)+".", err)
 	case errors.Is(err, domain.ErrSensitiveData):
 		return httpx.NewError(http.StatusUnprocessableEntity, CodeSensitiveData,
 			"The event contains a value that looks like a card number. Never send card numbers, CVVs, PINs or passwords; use opaque references.", err)
@@ -257,6 +310,29 @@ func toAPI(o domain.Outcome) apigen.RiskDecision {
 	}
 	if d.WarmingSignals == nil {
 		d.WarmingSignals = []string{}
+	}
+	d.Controls = make([]apigen.ControlResult, len(o.Controls))
+	for i, c := range o.Controls {
+		d.Controls[i] = apigen.ControlResult{
+			Rule: c.Rule, Name: c.Name, Mode: apigen.ControlResultMode(c.Mode), Reason: c.Reason, Tasks: c.Tasks,
+			ExemptionUnknown: c.ExemptionUnknown,
+		}
+		if c.Decision != "" {
+			d.Controls[i].Decision = new(apigen.Decision(c.Decision))
+		}
+		if c.FeePercent != 0 {
+			d.Controls[i].FeePercent = new(c.FeePercent)
+		}
+		if c.HoldSeconds != 0 {
+			d.Controls[i].HoldSeconds = new(c.HoldSeconds)
+		}
+		if c.Branch != "" {
+			d.Controls[i].Branch = new(c.Branch)
+		}
+	}
+	d.NotEvaluated = make([]apigen.NotEvaluatedRule, len(o.NotEvaluated))
+	for i, n := range o.NotEvaluated {
+		d.NotEvaluated[i] = apigen.NotEvaluatedRule{Rule: n.Rule, Missing: n.Missing}
 	}
 	if o.EventID != nil {
 		d.EventId = new(ids.Format(ids.PrefixEvent, *o.EventID))

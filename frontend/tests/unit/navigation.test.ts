@@ -21,6 +21,8 @@ describe("navigation", () => {
       "Deny lists",
       "Risk settings",
       "Developer",
+      "Rules library",
+      "Work queue",
       "Team",
       "Single sign-on",
       "Audit log",
@@ -57,5 +59,10 @@ describe("navigation", () => {
     expect(isActiveSection("/", "/alerts")).toBe(false);
     expect(isActiveSection("/cases", "/cases/cas_1")).toBe(true);
     expect(isActiveSection("/cases", "/casesx")).toBe(false);
+    expect(isActiveSection("/compliance", "/compliance/rules/REG-01")).toBe(
+      true,
+    );
+    expect(isActiveSection("/compliance", "/compliance/work")).toBe(false);
+    expect(isActiveSection("/compliance/work", "/compliance/work")).toBe(true);
   });
 });

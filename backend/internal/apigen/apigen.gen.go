@@ -23,6 +23,21 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for ActivityEventType.
+const (
+	ActivityEventTypeActivity ActivityEventType = "activity"
+)
+
+// Valid indicates whether the value is a known member of the ActivityEventType enum.
+func (e ActivityEventType) Valid() bool {
+	switch e {
+	case ActivityEventTypeActivity:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for AlertSubjectType.
 const (
 	AlertSubjectEnvironment AlertSubjectType = "environment"
@@ -88,16 +103,16 @@ func (e AlertStatus) Valid() bool {
 
 // Defines values for AnalyticsBucket.
 const (
-	Day  AnalyticsBucket = "day"
-	Hour AnalyticsBucket = "hour"
+	AnalyticsBucketDay  AnalyticsBucket = "day"
+	AnalyticsBucketHour AnalyticsBucket = "hour"
 )
 
 // Valid indicates whether the value is a known member of the AnalyticsBucket enum.
 func (e AnalyticsBucket) Valid() bool {
 	switch e {
-	case Day:
+	case AnalyticsBucketDay:
 		return true
-	case Hour:
+	case AnalyticsBucketHour:
 		return true
 	default:
 		return false
@@ -293,12 +308,363 @@ func (e CaseStatus) Valid() bool {
 	}
 }
 
+// Defines values for ComplianceDefaultsMode.
+const (
+	ComplianceDefaultsModeLive   ComplianceDefaultsMode = "live"
+	ComplianceDefaultsModeShadow ComplianceDefaultsMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceDefaultsMode enum.
+func (e ComplianceDefaultsMode) Valid() bool {
+	switch e {
+	case ComplianceDefaultsModeLive:
+		return true
+	case ComplianceDefaultsModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceEventKind.
+const (
+	ComplianceEventKindAccountOpened         ComplianceEventKind = "account_opened"
+	ComplianceEventKindAccountReactivated    ComplianceEventKind = "account_reactivated"
+	ComplianceEventKindApiLookup             ComplianceEventKind = "api_lookup"
+	ComplianceEventKindApiRequest            ComplianceEventKind = "api_request"
+	ComplianceEventKindAtmWithdrawal         ComplianceEventKind = "atm_withdrawal"
+	ComplianceEventKindAuthFailure           ComplianceEventKind = "auth_failure"
+	ComplianceEventKindAuthSuccess           ComplianceEventKind = "auth_success"
+	ComplianceEventKindBeneficiaryAdded      ComplianceEventKind = "beneficiary_added"
+	ComplianceEventKindCardAuthorization     ComplianceEventKind = "card_authorization"
+	ComplianceEventKindCashDeposit           ComplianceEventKind = "cash_deposit"
+	ComplianceEventKindCashPayment           ComplianceEventKind = "cash_payment"
+	ComplianceEventKindCashWithdrawal        ComplianceEventKind = "cash_withdrawal"
+	ComplianceEventKindConfigChange          ComplianceEventKind = "config_change"
+	ComplianceEventKindCreditRequested       ComplianceEventKind = "credit_requested"
+	ComplianceEventKindCryptoPurchase        ComplianceEventKind = "crypto_purchase"
+	ComplianceEventKindCryptoTransfer        ComplianceEventKind = "crypto_transfer"
+	ComplianceEventKindCryptoWithdrawal      ComplianceEventKind = "crypto_withdrawal"
+	ComplianceEventKindCustomerOnboarded     ComplianceEventKind = "customer_onboarded"
+	ComplianceEventKindCustomerReview        ComplianceEventKind = "customer_review"
+	ComplianceEventKindDataExport            ComplianceEventKind = "data_export"
+	ComplianceEventKindDeviceBound           ComplianceEventKind = "device_bound"
+	ComplianceEventKindDeviceReregistered    ComplianceEventKind = "device_reregistered"
+	ComplianceEventKindFiatInflow            ComplianceEventKind = "fiat_inflow"
+	ComplianceEventKindFraudReport           ComplianceEventKind = "fraud_report"
+	ComplianceEventKindFunding               ComplianceEventKind = "funding"
+	ComplianceEventKindListUpdated           ComplianceEventKind = "list_updated"
+	ComplianceEventKindLoanApplication       ComplianceEventKind = "loan_application"
+	ComplianceEventKindLoanDisbursement      ComplianceEventKind = "loan_disbursement"
+	ComplianceEventKindLoanRepayment         ComplianceEventKind = "loan_repayment"
+	ComplianceEventKindLogin                 ComplianceEventKind = "login"
+	ComplianceEventKindMerchantDaily         ComplianceEventKind = "merchant_daily"
+	ComplianceEventKindMfaPrompt             ComplianceEventKind = "mfa_prompt"
+	ComplianceEventKindPosPurchase           ComplianceEventKind = "pos_purchase"
+	ComplianceEventKindProfileChange         ComplianceEventKind = "profile_change"
+	ComplianceEventKindRoleChange            ComplianceEventKind = "role_change"
+	ComplianceEventKindSessionActivity       ComplianceEventKind = "session_activity"
+	ComplianceEventKindSimReregistered       ComplianceEventKind = "sim_reregistered"
+	ComplianceEventKindStaffAction           ComplianceEventKind = "staff_action"
+	ComplianceEventKindTelcoLookup           ComplianceEventKind = "telco_lookup"
+	ComplianceEventKindTerminalActivity      ComplianceEventKind = "terminal_activity"
+	ComplianceEventKindTransferInbound       ComplianceEventKind = "transfer_inbound"
+	ComplianceEventKindTransferInternational ComplianceEventKind = "transfer_international"
+	ComplianceEventKindTransferOutbound      ComplianceEventKind = "transfer_outbound"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceEventKind enum.
+func (e ComplianceEventKind) Valid() bool {
+	switch e {
+	case ComplianceEventKindAccountOpened:
+		return true
+	case ComplianceEventKindAccountReactivated:
+		return true
+	case ComplianceEventKindApiLookup:
+		return true
+	case ComplianceEventKindApiRequest:
+		return true
+	case ComplianceEventKindAtmWithdrawal:
+		return true
+	case ComplianceEventKindAuthFailure:
+		return true
+	case ComplianceEventKindAuthSuccess:
+		return true
+	case ComplianceEventKindBeneficiaryAdded:
+		return true
+	case ComplianceEventKindCardAuthorization:
+		return true
+	case ComplianceEventKindCashDeposit:
+		return true
+	case ComplianceEventKindCashPayment:
+		return true
+	case ComplianceEventKindCashWithdrawal:
+		return true
+	case ComplianceEventKindConfigChange:
+		return true
+	case ComplianceEventKindCreditRequested:
+		return true
+	case ComplianceEventKindCryptoPurchase:
+		return true
+	case ComplianceEventKindCryptoTransfer:
+		return true
+	case ComplianceEventKindCryptoWithdrawal:
+		return true
+	case ComplianceEventKindCustomerOnboarded:
+		return true
+	case ComplianceEventKindCustomerReview:
+		return true
+	case ComplianceEventKindDataExport:
+		return true
+	case ComplianceEventKindDeviceBound:
+		return true
+	case ComplianceEventKindDeviceReregistered:
+		return true
+	case ComplianceEventKindFiatInflow:
+		return true
+	case ComplianceEventKindFraudReport:
+		return true
+	case ComplianceEventKindFunding:
+		return true
+	case ComplianceEventKindListUpdated:
+		return true
+	case ComplianceEventKindLoanApplication:
+		return true
+	case ComplianceEventKindLoanDisbursement:
+		return true
+	case ComplianceEventKindLoanRepayment:
+		return true
+	case ComplianceEventKindLogin:
+		return true
+	case ComplianceEventKindMerchantDaily:
+		return true
+	case ComplianceEventKindMfaPrompt:
+		return true
+	case ComplianceEventKindPosPurchase:
+		return true
+	case ComplianceEventKindProfileChange:
+		return true
+	case ComplianceEventKindRoleChange:
+		return true
+	case ComplianceEventKindSessionActivity:
+		return true
+	case ComplianceEventKindSimReregistered:
+		return true
+	case ComplianceEventKindStaffAction:
+		return true
+	case ComplianceEventKindTelcoLookup:
+		return true
+	case ComplianceEventKindTerminalActivity:
+		return true
+	case ComplianceEventKindTransferInbound:
+		return true
+	case ComplianceEventKindTransferInternational:
+		return true
+	case ComplianceEventKindTransferOutbound:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceParameterType.
+const (
+	ComplianceParameterTypeCount    ComplianceParameterType = "count"
+	ComplianceParameterTypeDuration ComplianceParameterType = "duration"
+	ComplianceParameterTypeFlag     ComplianceParameterType = "flag"
+	ComplianceParameterTypeHour     ComplianceParameterType = "hour"
+	ComplianceParameterTypeMoney    ComplianceParameterType = "money"
+	ComplianceParameterTypePercent  ComplianceParameterType = "percent"
+	ComplianceParameterTypePoints   ComplianceParameterType = "points"
+	ComplianceParameterTypeRatio    ComplianceParameterType = "ratio"
+	ComplianceParameterTypeScore    ComplianceParameterType = "score"
+	ComplianceParameterTypeSpeed    ComplianceParameterType = "speed"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceParameterType enum.
+func (e ComplianceParameterType) Valid() bool {
+	switch e {
+	case ComplianceParameterTypeCount:
+		return true
+	case ComplianceParameterTypeDuration:
+		return true
+	case ComplianceParameterTypeFlag:
+		return true
+	case ComplianceParameterTypeHour:
+		return true
+	case ComplianceParameterTypeMoney:
+		return true
+	case ComplianceParameterTypePercent:
+		return true
+	case ComplianceParameterTypePoints:
+		return true
+	case ComplianceParameterTypeRatio:
+		return true
+	case ComplianceParameterTypeScore:
+		return true
+	case ComplianceParameterTypeSpeed:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceReportFieldsCategory.
+const (
+	ComplianceReportFieldsCategoryCorruption         ComplianceReportFieldsCategory = "corruption"
+	ComplianceReportFieldsCategoryDrugTrafficking    ComplianceReportFieldsCategory = "drug_trafficking"
+	ComplianceReportFieldsCategoryFraud              ComplianceReportFieldsCategory = "fraud"
+	ComplianceReportFieldsCategoryGeneral            ComplianceReportFieldsCategory = "general"
+	ComplianceReportFieldsCategoryKidnappingRansom   ComplianceReportFieldsCategory = "kidnapping_ransom"
+	ComplianceReportFieldsCategoryOther              ComplianceReportFieldsCategory = "other"
+	ComplianceReportFieldsCategoryTerrorismFinancing ComplianceReportFieldsCategory = "terrorism_financing"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceReportFieldsCategory enum.
+func (e ComplianceReportFieldsCategory) Valid() bool {
+	switch e {
+	case ComplianceReportFieldsCategoryCorruption:
+		return true
+	case ComplianceReportFieldsCategoryDrugTrafficking:
+		return true
+	case ComplianceReportFieldsCategoryFraud:
+		return true
+	case ComplianceReportFieldsCategoryGeneral:
+		return true
+	case ComplianceReportFieldsCategoryKidnappingRansom:
+		return true
+	case ComplianceReportFieldsCategoryOther:
+		return true
+	case ComplianceReportFieldsCategoryTerrorismFinancing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceRuleStatus.
+const (
+	ComplianceRuleStatusGovernance  ComplianceRuleStatus = "governance"
+	ComplianceRuleStatusRecommended ComplianceRuleStatus = "recommended"
+	ComplianceRuleStatusRegulatory  ComplianceRuleStatus = "regulatory"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceRuleStatus enum.
+func (e ComplianceRuleStatus) Valid() bool {
+	switch e {
+	case ComplianceRuleStatusGovernance:
+		return true
+	case ComplianceRuleStatusRecommended:
+		return true
+	case ComplianceRuleStatusRegulatory:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceRuleKind.
+const (
+	ComplianceRuleKindControl    ComplianceRuleKind = "control"
+	ComplianceRuleKindGovernance ComplianceRuleKind = "governance"
+	ComplianceRuleKindSignal     ComplianceRuleKind = "signal"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceRuleKind enum.
+func (e ComplianceRuleKind) Valid() bool {
+	switch e {
+	case ComplianceRuleKindControl:
+		return true
+	case ComplianceRuleKindGovernance:
+		return true
+	case ComplianceRuleKindSignal:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceTaskStatus.
+const (
+	ComplianceTaskStatusApproved  ComplianceTaskStatus = "approved"
+	ComplianceTaskStatusDismissed ComplianceTaskStatus = "dismissed"
+	ComplianceTaskStatusDone      ComplianceTaskStatus = "done"
+	ComplianceTaskStatusFiled     ComplianceTaskStatus = "filed"
+	ComplianceTaskStatusOpen      ComplianceTaskStatus = "open"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceTaskStatus enum.
+func (e ComplianceTaskStatus) Valid() bool {
+	switch e {
+	case ComplianceTaskStatusApproved:
+		return true
+	case ComplianceTaskStatusDismissed:
+		return true
+	case ComplianceTaskStatusDone:
+		return true
+	case ComplianceTaskStatusFiled:
+		return true
+	case ComplianceTaskStatusOpen:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceVerification.
+const (
+	AwaitingRegulator   ComplianceVerification = "awaiting_regulator"
+	Confirmed           ComplianceVerification = "confirmed"
+	Conflicting         ComplianceVerification = "conflicting"
+	SecondarySourceOnly ComplianceVerification = "secondary_source_only"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceVerification enum.
+func (e ComplianceVerification) Valid() bool {
+	switch e {
+	case AwaitingRegulator:
+		return true
+	case Confirmed:
+		return true
+	case Conflicting:
+		return true
+	case SecondarySourceOnly:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ControlResultMode.
+const (
+	ControlResultModeLive   ControlResultMode = "live"
+	ControlResultModeShadow ControlResultMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the ControlResultMode enum.
+func (e ControlResultMode) Valid() bool {
+	switch e {
+	case ControlResultModeLive:
+		return true
+	case ControlResultModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for Decision.
 const (
-	DecisionAllow  Decision = "allow"
-	DecisionBlock  Decision = "block"
-	DecisionReview Decision = "review"
-	DecisionStepUp Decision = "step_up"
+	DecisionAllow        Decision = "allow"
+	DecisionBlock        Decision = "block"
+	DecisionBlockSession Decision = "block_session"
+	DecisionDecline      Decision = "decline"
+	DecisionFee          Decision = "fee"
+	DecisionFlag         Decision = "flag"
+	DecisionHold         Decision = "hold"
+	DecisionRestrict     Decision = "restrict"
+	DecisionReview       Decision = "review"
+	DecisionStepUp       Decision = "step_up"
 )
 
 // Valid indicates whether the value is a known member of the Decision enum.
@@ -307,6 +673,18 @@ func (e Decision) Valid() bool {
 	case DecisionAllow:
 		return true
 	case DecisionBlock:
+		return true
+	case DecisionBlockSession:
+		return true
+	case DecisionDecline:
+		return true
+	case DecisionFee:
+		return true
+	case DecisionFlag:
+		return true
+	case DecisionHold:
+		return true
+	case DecisionRestrict:
 		return true
 	case DecisionReview:
 		return true
@@ -403,6 +781,7 @@ func (e Environment) Valid() bool {
 
 // Defines values for EventType.
 const (
+	EventTypeActivity         EventType = "activity"
 	EventTypeBeneficiaryAdded EventType = "beneficiary_added"
 	EventTypeDeviceChange     EventType = "device_change"
 	EventTypeLogin            EventType = "login"
@@ -414,6 +793,8 @@ const (
 // Valid indicates whether the value is a known member of the EventType enum.
 func (e EventType) Valid() bool {
 	switch e {
+	case EventTypeActivity:
+		return true
 	case EventTypeBeneficiaryAdded:
 		return true
 	case EventTypeDeviceChange:
@@ -425,6 +806,24 @@ func (e EventType) Valid() bool {
 	case EventTypeSessionChange:
 		return true
 	case EventTypeTransaction:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for GoogleResultOutcome.
+const (
+	NeedsBusiness GoogleResultOutcome = "needs_business"
+	SignedIn      GoogleResultOutcome = "signed_in"
+)
+
+// Valid indicates whether the value is a known member of the GoogleResultOutcome enum.
+func (e GoogleResultOutcome) Valid() bool {
+	switch e {
+	case NeedsBusiness:
+		return true
+	case SignedIn:
 		return true
 	default:
 		return false
@@ -524,6 +923,249 @@ const (
 func (e LoginEventType) Valid() bool {
 	switch e {
 	case LoginEventTypeLogin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingAnswersDataProtection.
+const (
+	OnboardingAnswersDataProtectionCcpa   OnboardingAnswersDataProtection = "ccpa"
+	OnboardingAnswersDataProtectionGdpr   OnboardingAnswersDataProtection = "gdpr"
+	OnboardingAnswersDataProtectionLgpd   OnboardingAnswersDataProtection = "lgpd"
+	OnboardingAnswersDataProtectionNdpr   OnboardingAnswersDataProtection = "ndpr"
+	OnboardingAnswersDataProtectionOther  OnboardingAnswersDataProtection = "other"
+	OnboardingAnswersDataProtectionPopia  OnboardingAnswersDataProtection = "popia"
+	OnboardingAnswersDataProtectionUkGdpr OnboardingAnswersDataProtection = "uk_gdpr"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingAnswersDataProtection enum.
+func (e OnboardingAnswersDataProtection) Valid() bool {
+	switch e {
+	case OnboardingAnswersDataProtectionCcpa:
+		return true
+	case OnboardingAnswersDataProtectionGdpr:
+		return true
+	case OnboardingAnswersDataProtectionLgpd:
+		return true
+	case OnboardingAnswersDataProtectionNdpr:
+		return true
+	case OnboardingAnswersDataProtectionOther:
+		return true
+	case OnboardingAnswersDataProtectionPopia:
+		return true
+	case OnboardingAnswersDataProtectionUkGdpr:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingAnswersDataResidency.
+const (
+	Africa       OnboardingAnswersDataResidency = "africa"
+	Eu           OnboardingAnswersDataResidency = "eu"
+	NoPreference OnboardingAnswersDataResidency = "no_preference"
+	Uk           OnboardingAnswersDataResidency = "uk"
+	Us           OnboardingAnswersDataResidency = "us"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingAnswersDataResidency enum.
+func (e OnboardingAnswersDataResidency) Valid() bool {
+	switch e {
+	case Africa:
+		return true
+	case Eu:
+		return true
+	case NoPreference:
+		return true
+	case Uk:
+		return true
+	case Us:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingAnswersGoLive.
+const (
+	Later         OnboardingAnswersGoLive = "later"
+	Now           OnboardingAnswersGoLive = "now"
+	Within3Months OnboardingAnswersGoLive = "within_3_months"
+	Within6Months OnboardingAnswersGoLive = "within_6_months"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingAnswersGoLive enum.
+func (e OnboardingAnswersGoLive) Valid() bool {
+	switch e {
+	case Later:
+		return true
+	case Now:
+		return true
+	case Within3Months:
+		return true
+	case Within6Months:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingAnswersIndustry.
+const (
+	OnboardingAnswersIndustryBanking     OnboardingAnswersIndustry = "banking"
+	OnboardingAnswersIndustryCrypto      OnboardingAnswersIndustry = "crypto"
+	OnboardingAnswersIndustryGaming      OnboardingAnswersIndustry = "gaming"
+	OnboardingAnswersIndustryInsurance   OnboardingAnswersIndustry = "insurance"
+	OnboardingAnswersIndustryLending     OnboardingAnswersIndustry = "lending"
+	OnboardingAnswersIndustryMarketplace OnboardingAnswersIndustry = "marketplace"
+	OnboardingAnswersIndustryOther       OnboardingAnswersIndustry = "other"
+	OnboardingAnswersIndustryPayments    OnboardingAnswersIndustry = "payments"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingAnswersIndustry enum.
+func (e OnboardingAnswersIndustry) Valid() bool {
+	switch e {
+	case OnboardingAnswersIndustryBanking:
+		return true
+	case OnboardingAnswersIndustryCrypto:
+		return true
+	case OnboardingAnswersIndustryGaming:
+		return true
+	case OnboardingAnswersIndustryInsurance:
+		return true
+	case OnboardingAnswersIndustryLending:
+		return true
+	case OnboardingAnswersIndustryMarketplace:
+		return true
+	case OnboardingAnswersIndustryOther:
+		return true
+	case OnboardingAnswersIndustryPayments:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingAnswersMonitoredEvents.
+const (
+	OnboardingAnswersMonitoredEventsCardTransactions OnboardingAnswersMonitoredEvents = "card_transactions"
+	OnboardingAnswersMonitoredEventsLogins           OnboardingAnswersMonitoredEvents = "logins"
+	OnboardingAnswersMonitoredEventsPayments         OnboardingAnswersMonitoredEvents = "payments"
+	OnboardingAnswersMonitoredEventsPayouts          OnboardingAnswersMonitoredEvents = "payouts"
+	OnboardingAnswersMonitoredEventsSignups          OnboardingAnswersMonitoredEvents = "signups"
+	OnboardingAnswersMonitoredEventsTransfers        OnboardingAnswersMonitoredEvents = "transfers"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingAnswersMonitoredEvents enum.
+func (e OnboardingAnswersMonitoredEvents) Valid() bool {
+	switch e {
+	case OnboardingAnswersMonitoredEventsCardTransactions:
+		return true
+	case OnboardingAnswersMonitoredEventsLogins:
+		return true
+	case OnboardingAnswersMonitoredEventsPayments:
+		return true
+	case OnboardingAnswersMonitoredEventsPayouts:
+		return true
+	case OnboardingAnswersMonitoredEventsSignups:
+		return true
+	case OnboardingAnswersMonitoredEventsTransfers:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingAnswersMonthlyVolume.
+const (
+	N100k1m  OnboardingAnswersMonthlyVolume = "100k_1m"
+	N10k100k OnboardingAnswersMonthlyVolume = "10k_100k"
+	N1m10m   OnboardingAnswersMonthlyVolume = "1m_10m"
+	Over10m  OnboardingAnswersMonthlyVolume = "over_10m"
+	Under10k OnboardingAnswersMonthlyVolume = "under_10k"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingAnswersMonthlyVolume enum.
+func (e OnboardingAnswersMonthlyVolume) Valid() bool {
+	switch e {
+	case N100k1m:
+		return true
+	case N10k100k:
+		return true
+	case N1m10m:
+		return true
+	case Over10m:
+		return true
+	case Under10k:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for OnboardingStatus.
+const (
+	OnboardingStatusApproved  OnboardingStatus = "approved"
+	OnboardingStatusDraft     OnboardingStatus = "draft"
+	OnboardingStatusRejected  OnboardingStatus = "rejected"
+	OnboardingStatusSubmitted OnboardingStatus = "submitted"
+)
+
+// Valid indicates whether the value is a known member of the OnboardingStatus enum.
+func (e OnboardingStatus) Valid() bool {
+	switch e {
+	case OnboardingStatusApproved:
+		return true
+	case OnboardingStatusDraft:
+		return true
+	case OnboardingStatusRejected:
+		return true
+	case OnboardingStatusSubmitted:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackRuleChangeStatus.
+const (
+	PackRuleChangeStatusApproved PackRuleChangeStatus = "approved"
+	PackRuleChangeStatusPending  PackRuleChangeStatus = "pending"
+	PackRuleChangeStatusRejected PackRuleChangeStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the PackRuleChangeStatus enum.
+func (e PackRuleChangeStatus) Valid() bool {
+	switch e {
+	case PackRuleChangeStatusApproved:
+		return true
+	case PackRuleChangeStatusPending:
+		return true
+	case PackRuleChangeStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for PackRuleMode.
+const (
+	PackRuleModeLive   PackRuleMode = "live"
+	PackRuleModeOff    PackRuleMode = "off"
+	PackRuleModeShadow PackRuleMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the PackRuleMode enum.
+func (e PackRuleMode) Valid() bool {
+	switch e {
+	case PackRuleModeLive:
+		return true
+	case PackRuleModeOff:
+		return true
+	case PackRuleModeShadow:
 		return true
 	default:
 		return false
@@ -733,16 +1375,22 @@ func (e RiskSettingsFailPolicies) Valid() bool {
 
 // Defines values for Role.
 const (
-	Analyst       Role = "analyst"
-	CustomerAdmin Role = "customer_admin"
-	Developer     Role = "developer"
-	RiskManager   Role = "risk_manager"
+	Analyst           Role = "analyst"
+	Auditor           Role = "auditor"
+	ComplianceOfficer Role = "compliance_officer"
+	CustomerAdmin     Role = "customer_admin"
+	Developer         Role = "developer"
+	RiskManager       Role = "risk_manager"
 )
 
 // Valid indicates whether the value is a known member of the Role enum.
 func (e Role) Valid() bool {
 	switch e {
 	case Analyst:
+		return true
+	case Auditor:
+		return true
+	case ComplianceOfficer:
 		return true
 	case CustomerAdmin:
 		return true
@@ -817,24 +1465,29 @@ func (e RuleMode) Valid() bool {
 
 // Defines values for Scope.
 const (
-	AlertsRead    Scope = "alerts:read"
-	AlertsWrite   Scope = "alerts:write"
-	ApiKeysRead   Scope = "api_keys:read"
-	ApiKeysWrite  Scope = "api_keys:write"
-	AuditLogsRead Scope = "audit_logs:read"
-	CasesRead     Scope = "cases:read"
-	CasesWrite    Scope = "cases:write"
-	EventsRead    Scope = "events:read"
-	EventsWrite   Scope = "events:write"
-	RiskConfigure Scope = "risk:configure"
-	RiskEvaluate  Scope = "risk:evaluate"
-	RulesApprove  Scope = "rules:approve"
-	RulesRead     Scope = "rules:read"
-	RulesWrite    Scope = "rules:write"
-	TeamRead      Scope = "team:read"
-	TeamWrite     Scope = "team:write"
-	WebhooksRead  Scope = "webhooks:read"
-	WebhooksWrite Scope = "webhooks:write"
+	AlertsRead            Scope = "alerts:read"
+	AlertsWrite           Scope = "alerts:write"
+	ApiKeysRead           Scope = "api_keys:read"
+	ApiKeysWrite          Scope = "api_keys:write"
+	AuditLogsRead         Scope = "audit_logs:read"
+	CasesRead             Scope = "cases:read"
+	CasesWrite            Scope = "cases:write"
+	ComplianceConfigure   Scope = "compliance:configure"
+	ComplianceEngineering Scope = "compliance:engineering"
+	ComplianceRead        Scope = "compliance:read"
+	ComplianceSensitive   Scope = "compliance:sensitive"
+	ComplianceWrite       Scope = "compliance:write"
+	EventsRead            Scope = "events:read"
+	EventsWrite           Scope = "events:write"
+	RiskConfigure         Scope = "risk:configure"
+	RiskEvaluate          Scope = "risk:evaluate"
+	RulesApprove          Scope = "rules:approve"
+	RulesRead             Scope = "rules:read"
+	RulesWrite            Scope = "rules:write"
+	TeamRead              Scope = "team:read"
+	TeamWrite             Scope = "team:write"
+	WebhooksRead          Scope = "webhooks:read"
+	WebhooksWrite         Scope = "webhooks:write"
 )
 
 // Valid indicates whether the value is a known member of the Scope enum.
@@ -853,6 +1506,16 @@ func (e Scope) Valid() bool {
 	case CasesRead:
 		return true
 	case CasesWrite:
+		return true
+	case ComplianceConfigure:
+		return true
+	case ComplianceEngineering:
+		return true
+	case ComplianceRead:
+		return true
+	case ComplianceSensitive:
+		return true
+	case ComplianceWrite:
 		return true
 	case EventsRead:
 		return true
@@ -982,25 +1645,25 @@ func (e TeamMemberStatus) Valid() bool {
 
 // Defines values for TransactionDataChannel.
 const (
-	BankTransfer   TransactionDataChannel = "bank_transfer"
-	Card           TransactionDataChannel = "card"
-	InstantPayment TransactionDataChannel = "instant_payment"
-	Other          TransactionDataChannel = "other"
-	Wallet         TransactionDataChannel = "wallet"
+	TransactionDataChannelBankTransfer   TransactionDataChannel = "bank_transfer"
+	TransactionDataChannelCard           TransactionDataChannel = "card"
+	TransactionDataChannelInstantPayment TransactionDataChannel = "instant_payment"
+	TransactionDataChannelOther          TransactionDataChannel = "other"
+	TransactionDataChannelWallet         TransactionDataChannel = "wallet"
 )
 
 // Valid indicates whether the value is a known member of the TransactionDataChannel enum.
 func (e TransactionDataChannel) Valid() bool {
 	switch e {
-	case BankTransfer:
+	case TransactionDataChannelBankTransfer:
 		return true
-	case Card:
+	case TransactionDataChannelCard:
 		return true
-	case InstantPayment:
+	case TransactionDataChannelInstantPayment:
 		return true
-	case Other:
+	case TransactionDataChannelOther:
 		return true
-	case Wallet:
+	case TransactionDataChannelWallet:
 		return true
 	default:
 		return false
@@ -1184,6 +1847,45 @@ func (e GetAnalyticsParamsWindow) Valid() bool {
 	}
 }
 
+// Defines values for ListPackRuleChangesParamsStatus.
+const (
+	ListPackRuleChangesParamsStatusApproved ListPackRuleChangesParamsStatus = "approved"
+	ListPackRuleChangesParamsStatusPending  ListPackRuleChangesParamsStatus = "pending"
+	ListPackRuleChangesParamsStatusRejected ListPackRuleChangesParamsStatus = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListPackRuleChangesParamsStatus enum.
+func (e ListPackRuleChangesParamsStatus) Valid() bool {
+	switch e {
+	case ListPackRuleChangesParamsStatusApproved:
+		return true
+	case ListPackRuleChangesParamsStatusPending:
+		return true
+	case ListPackRuleChangesParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for CloseComplianceTaskJSONBodyStatus.
+const (
+	CloseComplianceTaskJSONBodyStatusDismissed CloseComplianceTaskJSONBodyStatus = "dismissed"
+	CloseComplianceTaskJSONBodyStatusDone      CloseComplianceTaskJSONBodyStatus = "done"
+)
+
+// Valid indicates whether the value is a known member of the CloseComplianceTaskJSONBodyStatus enum.
+func (e CloseComplianceTaskJSONBodyStatus) Valid() bool {
+	switch e {
+	case CloseComplianceTaskJSONBodyStatusDismissed:
+		return true
+	case CloseComplianceTaskJSONBodyStatusDone:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for GetEntityProfileParamsKind.
 const (
 	GetEntityProfileParamsKindAccount GetEntityProfileParamsKind = "account"
@@ -1248,6 +1950,28 @@ type ActivityEntry struct {
 	Id        string                 `json:"id"`
 }
 
+// ActivityEvent Account or platform activity that is neither a money movement nor a sign-in (an account
+// opened, an API request, a data export, a staff action...). `compliance.kind` says which.
+type ActivityEvent struct {
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance ComplianceContext `json:"compliance"`
+	Context    *EventContext     `json:"context,omitempty"`
+
+	// EventId The customer's unique ID for the event; the idempotency key.
+	//
+	// Example: txn_2026_000123
+	EventId    EventKey          `json:"event_id"`
+	OccurredAt time.Time         `json:"occurred_at"`
+	Type       ActivityEventType `json:"type"`
+}
+
+// ActivityEventType defines model for ActivityEvent.Type.
+type ActivityEventType string
+
 // Actor defines model for Actor.
 type Actor struct {
 	// AccountId An opaque customer-side identifier.
@@ -1307,8 +2031,19 @@ type AlertDetail struct {
 
 // AlertEvaluation defines model for AlertEvaluation.
 type AlertEvaluation struct {
-	// Decision `block` is produced only for Critical scores in an environment that switched automatic
-	// blocking on (see AutoBlockStatus).
+	// Decision The recommended action, from least to most severe. The score policy produces `allow`,
+	// `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+	// where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+	// the action the law requires (see `controls` on the decision):
+	// - `fee`: allow, and charge the regulatory fee given in the control;
+	// - `flag`: allow, and do the follow-up the control names;
+	// - `restrict`: limit the account until the requirement is met;
+	// - `hold`: hold the funds for review, for at most the control's hold period;
+	// - `block_session`: end the session and require fresh authentication;
+	// - `decline`: decline this transaction (a legal limit);
+	// - `block`: stop the event.
+	// The most severe applicable action is returned. Clients that switch on the decision must
+	// handle every value.
 	Decision        Decision  `json:"decision"`
 	DegradedSignals []string  `json:"degraded_signals"`
 	EvaluatedAt     time.Time `json:"evaluated_at"`
@@ -1499,6 +2234,41 @@ type AutoBlockStatus struct {
 	WouldBlockLast14Days int `json:"would_block_last_14_days"`
 }
 
+// Backtest defines model for Backtest.
+type Backtest struct {
+	Candidate BacktestTally `json:"candidate"`
+	Current   BacktestTally `json:"current"`
+	From      time.Time     `json:"from"`
+
+	// Replayed Events replayed.
+	Replayed int       `json:"replayed"`
+	Rule     string    `json:"rule"`
+	To       time.Time `json:"to"`
+
+	// Truncated The event limit cut the period short; the replay covers its oldest events.
+	Truncated bool `json:"truncated"`
+}
+
+// BacktestMissing defines model for BacktestMissing.
+type BacktestMissing struct {
+	Events int    `json:"events"`
+	Item   string `json:"item"`
+}
+
+// BacktestTally defines model for BacktestTally.
+type BacktestTally struct {
+	Clear int `json:"clear"`
+	Fired int `json:"fired"`
+
+	// FiredSamples Events the rule fired on (at most 20, oldest first).
+	FiredSamples []string `json:"fired_samples"`
+
+	// Missing What made the rule not evaluated, most frequent first.
+	Missing      []BacktestMissing `json:"missing"`
+	NotEvaluated int               `json:"not_evaluated"`
+	Triggered    int               `json:"triggered"`
+}
+
 // BandCounts defines model for BandCounts.
 type BandCounts struct {
 	Critical int `json:"critical"`
@@ -1517,9 +2287,14 @@ type BeneficiaryAddedData struct {
 
 // BeneficiaryAddedEvent A new payee.
 type BeneficiaryAddedEvent struct {
-	Actor   Actor                `json:"actor"`
-	Context *EventContext        `json:"context,omitempty"`
-	Data    BeneficiaryAddedData `json:"data"`
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance *ComplianceContext   `json:"compliance,omitempty"`
+	Context    *EventContext        `json:"context,omitempty"`
+	Data       BeneficiaryAddedData `json:"data"`
 
 	// EventId The customer's unique ID for the event; the idempotency key.
 	//
@@ -1589,6 +2364,369 @@ type CodeRequest struct {
 	Code string `json:"code"`
 }
 
+// ComplianceClock defines model for ComplianceClock.
+type ComplianceClock struct {
+	AppliesTo string `json:"applies_to"`
+	Duration  string `json:"duration"`
+	Duty      string `json:"duty"`
+
+	// Hours The deadline in hours.
+	Hours       int      `json:"hours"`
+	Id          string   `json:"id"`
+	Requirement string   `json:"requirement"`
+	Rules       []string `json:"rules"`
+	Sources     []string `json:"sources"`
+}
+
+// ComplianceClockList defines model for ComplianceClockList.
+type ComplianceClockList struct {
+	Data []ComplianceClock `json:"data"`
+}
+
+// ComplianceContext What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+// treated as no risk.
+type ComplianceContext struct {
+	// Facts Facts from your systems and providers, by the names in the pack's catalog
+	// (`device.rooted`, `telco.sim_swap`, `customer.type`...): true or false, a number (a
+	// duration in seconds, a count, a ratio, a score), one of the fact's listed values, or
+	// for amounts `{"amount": <minor units>, "currency": "NGN"}`. Facts RiskOS computes
+	// itself (behaviour history, workflows, the amount and identifiers of the event) are
+	// refused.
+	Facts *map[string]interface{} `json:"facts,omitempty"`
+
+	// Kind What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
+	// sign-in kinds with `login`, `device_bound` and `device_reregistered` with `device_change`,
+	// and the others with `activity`. Without it, RiskOS derives the kind from the event (a debit
+	// is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
+	Kind *ComplianceEventKind `json:"kind,omitempty"`
+
+	// Refs Opaque references for the entities rules keep time windows for. Never the BVN, phone
+	// number, card number or address itself: send your own reference for it.
+	Refs *ComplianceRefs `json:"refs,omitempty"`
+}
+
+// ComplianceCounts defines model for ComplianceCounts.
+type ComplianceCounts struct {
+	Controls   int `json:"controls"`
+	Governance int `json:"governance"`
+	Signals    int `json:"signals"`
+}
+
+// ComplianceDefaults defines model for ComplianceDefaults.
+type ComplianceDefaults struct {
+	Enabled bool                   `json:"enabled"`
+	Mode    ComplianceDefaultsMode `json:"mode"`
+}
+
+// ComplianceDefaultsMode defines model for ComplianceDefaults.Mode.
+type ComplianceDefaultsMode string
+
+// ComplianceEffective defines model for ComplianceEffective.
+type ComplianceEffective struct {
+	// Date YYYY-MM-DD, set only when the source states a full date.
+	Date *string `json:"date,omitempty"`
+	Text string  `json:"text"`
+}
+
+// ComplianceEventKind What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
+// sign-in kinds with `login`, `device_bound` and `device_reregistered` with `device_change`,
+// and the others with `activity`. Without it, RiskOS derives the kind from the event (a debit
+// is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
+type ComplianceEventKind string
+
+// ComplianceGap defines model for ComplianceGap.
+type ComplianceGap struct {
+	Detail  string   `json:"detail"`
+	Id      string   `json:"id"`
+	Rules   []string `json:"rules"`
+	Sources []string `json:"sources"`
+	Title   string   `json:"title"`
+}
+
+// ComplianceGapList defines model for ComplianceGapList.
+type ComplianceGapList struct {
+	Data []ComplianceGap `json:"data"`
+}
+
+// ComplianceGroup defines model for ComplianceGroup.
+type ComplianceGroup struct {
+	Id    string `json:"id"`
+	Label string `json:"label"`
+
+	// Rules How many rules the group has.
+	Rules int `json:"rules"`
+}
+
+// ComplianceLink defines model for ComplianceLink.
+type ComplianceLink struct {
+	Title string `json:"title"`
+	Url   string `json:"url"`
+}
+
+// ComplianceOption defines model for ComplianceOption.
+type ComplianceOption struct {
+	Id    string `json:"id"`
+	Label string `json:"label"`
+}
+
+// ComplianceOutcome defines model for ComplianceOutcome.
+type ComplianceOutcome struct {
+	Decision *string  `json:"decision,omitempty"`
+	Severity *string  `json:"severity,omitempty"`
+	Tasks    []string `json:"tasks"`
+}
+
+// CompliancePack defines model for CompliancePack.
+type CompliancePack struct {
+	Capabilities []ComplianceOption `json:"capabilities"`
+
+	// Checksum SHA-256 of the pack's files. A loaded version never changes.
+	Checksum string            `json:"checksum"`
+	Counts   ComplianceCounts  `json:"counts"`
+	Groups   []ComplianceGroup `json:"groups"`
+	Id       string            `json:"id"`
+
+	// Jurisdiction ISO 3166-1 alpha-2 country code.
+	Jurisdiction string `json:"jurisdiction"`
+
+	// LatestVersion The newest loaded version for the jurisdiction. When it differs from `version`, saving the compliance profile adopts it.
+	LatestVersion string             `json:"latest_version"`
+	LicenceTypes  []ComplianceOption `json:"licence_types"`
+	LoadedAt      time.Time          `json:"loaded_at"`
+	Name          string             `json:"name"`
+	Sources       []ComplianceSource `json:"sources"`
+	Version       string             `json:"version"`
+}
+
+// ComplianceParameter defines model for ComplianceParameter.
+type ComplianceParameter struct {
+	Currency *string `json:"currency,omitempty"`
+
+	// Default Null when the institution must set the value.
+	Default *float64 `json:"default"`
+	Label   string   `json:"label"`
+
+	// Max For regulatory limits, the legal maximum.
+	Max  float64 `json:"max"`
+	Min  float64 `json:"min"`
+	Name string  `json:"name"`
+
+	// Type The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
+	// the day in Africa/Lagos time; flag is 0 or 1.
+	Type ComplianceParameterType `json:"type"`
+
+	// Value The value in this environment (configured, else the default); null when unset.
+	Value *float64 `json:"value"`
+}
+
+// ComplianceParameterType The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
+// the day in Africa/Lagos time; flag is 0 or 1.
+type ComplianceParameterType string
+
+// ComplianceProfile defines model for ComplianceProfile.
+type ComplianceProfile struct {
+	Capabilities []string  `json:"capabilities"`
+	Jurisdiction string    `json:"jurisdiction"`
+	LicenceType  string    `json:"licence_type"`
+	PackId       string    `json:"pack_id"`
+	PackVersion  string    `json:"pack_version"`
+	UpdatedAt    time.Time `json:"updated_at"`
+	UpdatedBy    string    `json:"updated_by"`
+}
+
+// ComplianceProfileRequest defines model for ComplianceProfileRequest.
+type ComplianceProfileRequest struct {
+	Capabilities []string `json:"capabilities"`
+	Jurisdiction string   `json:"jurisdiction"`
+	LicenceType  string   `json:"licence_type"`
+}
+
+// ComplianceQueue defines model for ComplianceQueue.
+type ComplianceQueue struct {
+	Data        []ComplianceTask      `json:"data"`
+	Escalations []ScreeningEscalation `json:"escalations"`
+}
+
+// ComplianceRefs Opaque references for the entities rules keep time windows for. Never the BVN, phone
+// number, card number or address itself: send your own reference for it.
+type ComplianceRefs struct {
+	// Address An opaque customer-side identifier.
+	Address *Reference `json:"address,omitempty"`
+
+	// ApiKey An opaque customer-side identifier.
+	ApiKey *Reference `json:"api_key,omitempty"`
+
+	// Bvn An opaque customer-side identifier.
+	Bvn *Reference `json:"bvn,omitempty"`
+
+	// Card An opaque customer-side identifier.
+	Card *Reference `json:"card,omitempty"`
+
+	// FundingSource An opaque customer-side identifier.
+	FundingSource *Reference `json:"funding_source,omitempty"`
+
+	// Inflow An opaque customer-side identifier.
+	Inflow *Reference `json:"inflow,omitempty"`
+
+	// Loan An opaque customer-side identifier.
+	Loan *Reference `json:"loan,omitempty"`
+
+	// Merchant An opaque customer-side identifier.
+	Merchant *Reference `json:"merchant,omitempty"`
+
+	// Phone An opaque customer-side identifier.
+	Phone *Reference `json:"phone,omitempty"`
+
+	// Reporter An opaque customer-side identifier.
+	Reporter *Reference `json:"reporter,omitempty"`
+
+	// Sender An opaque customer-side identifier.
+	Sender *Reference `json:"sender,omitempty"`
+}
+
+// ComplianceReportFields defines model for ComplianceReportFields.
+type ComplianceReportFields struct {
+	Category         *ComplianceReportFieldsCategory `json:"category,omitempty"`
+	Indicators       *[]string                       `json:"indicators,omitempty"`
+	Narrative        *string                         `json:"narrative,omitempty"`
+	PredicateOffence *string                         `json:"predicate_offence,omitempty"`
+}
+
+// ComplianceReportFieldsCategory defines model for ComplianceReportFields.Category.
+type ComplianceReportFieldsCategory string
+
+// ComplianceRule defines model for ComplianceRule.
+type ComplianceRule struct {
+	// Action What the system does (controls only), verbatim.
+	Action *string `json:"action,omitempty"`
+
+	// Applicable Whether the rule applies to the workspace's profile; null without a profile.
+	Applicable *bool `json:"applicable"`
+
+	// AppliesTo Licence types the rule applies to. Empty means every institution.
+	AppliesTo []string `json:"applies_to"`
+	Caveat    *string  `json:"caveat,omitempty"`
+
+	// ConfigVersion The rule's configuration version in this environment; 0 means the library's defaults.
+	ConfigVersion int                `json:"config_version"`
+	Defaults      ComplianceDefaults `json:"defaults"`
+
+	// Definition The machine definition the engine interprets. Only for `compliance:engineering`.
+	Definition *map[string]interface{} `json:"definition,omitempty"`
+
+	// Description The library's plain-English description, verbatim.
+	Description string              `json:"description"`
+	Effective   ComplianceEffective `json:"effective"`
+
+	// EngineeringLogic The library's section 7B logic. Only for `compliance:engineering`.
+	EngineeringLogic *string `json:"engineering_logic,omitempty"`
+
+	// Events The event types the rule is evaluated on.
+	Events []string `json:"events"`
+	Group  string   `json:"group"`
+	Id     string   `json:"id"`
+
+	// Inputs The data the rule needs. When one is unavailable the rule is reported as not evaluated.
+	Inputs []string `json:"inputs"`
+
+	// Kind control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+	Kind ComplianceRuleKind `json:"kind"`
+
+	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
+	Mode PackRuleMode `json:"mode"`
+
+	// Name The library's plain-English name, verbatim.
+	Name       string                `json:"name"`
+	Outcome    ComplianceOutcome     `json:"outcome"`
+	Parameters []ComplianceParameter `json:"parameters"`
+
+	// Points The library's points column (signals only), verbatim.
+	Points     *string  `json:"points,omitempty"`
+	Regulators []string `json:"regulators"`
+
+	// Requires Capabilities the workspace must have for the rule to apply.
+	Requires []string `json:"requires"`
+
+	// Sources Source IDs (see the pack's sources).
+	Sources []string             `json:"sources"`
+	Status  ComplianceRuleStatus `json:"status"`
+
+	// Verification How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
+	Verification ComplianceVerification `json:"verification"`
+}
+
+// ComplianceRuleStatus defines model for ComplianceRule.Status.
+type ComplianceRuleStatus string
+
+// ComplianceRuleKind control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+type ComplianceRuleKind string
+
+// ComplianceRuleList defines model for ComplianceRuleList.
+type ComplianceRuleList struct {
+	Data []ComplianceRule `json:"data"`
+}
+
+// ComplianceSource defines model for ComplianceSource.
+type ComplianceSource struct {
+	Id    string           `json:"id"`
+	Links []ComplianceLink `json:"links"`
+	Title string           `json:"title"`
+}
+
+// ComplianceTask defines model for ComplianceTask.
+type ComplianceTask struct {
+	ApprovedAt   *time.Time `json:"approved_at"`
+	ApprovedBy   *string    `json:"approved_by"`
+	CaseId       *string    `json:"case_id"`
+	CloseNote    *string    `json:"close_note"`
+	ClosedAt     *time.Time `json:"closed_at"`
+	ClosedBy     *string    `json:"closed_by"`
+	CreatedAt    time.Time  `json:"created_at"`
+	CreatedBy    string     `json:"created_by"`
+	DueAt        *time.Time `json:"due_at"`
+	EvaluationId *string    `json:"evaluation_id"`
+	EventId      *string    `json:"event_id"`
+	FilingRef    *string    `json:"filing_ref"`
+
+	// Id Example: ctk_01j9x2k7m3q4r5s6t7v8w9x0yz
+	Id string `json:"id"`
+
+	// Kind report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account.
+	Kind    string `json:"kind"`
+	Overdue bool   `json:"overdue"`
+
+	// Report The report's fields (category, predicate offence, indicators, narrative, amount...).
+	Report map[string]interface{} `json:"report"`
+	Rule   string                 `json:"rule"`
+
+	// Sensitive A suspicious transaction report, seen only by compliance officers.
+	Sensitive bool `json:"sensitive"`
+
+	// Status Reports go open (a draft), approved, filed; other tasks open, done. Any may be dismissed.
+	Status     ComplianceTaskStatus `json:"status"`
+	SubjectRef *string              `json:"subject_ref"`
+	UpdatedAt  time.Time            `json:"updated_at"`
+}
+
+// ComplianceTaskStatus Reports go open (a draft), approved, filed; other tasks open, done. Any may be dismissed.
+type ComplianceTaskStatus string
+
+// ComplianceTerm defines model for ComplianceTerm.
+type ComplianceTerm struct {
+	Definition string `json:"definition"`
+	Expansion  string `json:"expansion"`
+	Term       string `json:"term"`
+}
+
+// ComplianceTermList defines model for ComplianceTermList.
+type ComplianceTermList struct {
+	Data []ComplianceTerm `json:"data"`
+}
+
+// ComplianceVerification How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
+type ComplianceVerification string
+
 // ConsoleSession defines model for ConsoleSession.
 type ConsoleSession struct {
 	CsrfToken string `json:"csrf_token"`
@@ -1609,6 +2747,9 @@ type ConsoleSession struct {
 	Tenant           struct {
 		Id   string `json:"id"`
 		Name string `json:"name"`
+
+		// ProductionEnabled False for a self-serve workspace until RiskOS approves its onboarding; production requests get 403 `PRODUCTION_LOCKED` meanwhile.
+		ProductionEnabled bool `json:"production_enabled"`
 	} `json:"tenant"`
 	User struct {
 		Email string `json:"email"`
@@ -1617,6 +2758,45 @@ type ConsoleSession struct {
 		Role  Role   `json:"role"`
 	} `json:"user"`
 }
+
+// ControlResult defines model for ControlResult.
+type ControlResult struct {
+	Branch *string `json:"branch,omitempty"`
+
+	// Decision The recommended action, from least to most severe. The score policy produces `allow`,
+	// `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+	// where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+	// the action the law requires (see `controls` on the decision):
+	// - `fee`: allow, and charge the regulatory fee given in the control;
+	// - `flag`: allow, and do the follow-up the control names;
+	// - `restrict`: limit the account until the requirement is met;
+	// - `hold`: hold the funds for review, for at most the control's hold period;
+	// - `block_session`: end the session and require fresh authentication;
+	// - `decline`: decline this transaction (a legal limit);
+	// - `block`: stop the event.
+	// The most severe applicable action is returned. Clients that switch on the decision must
+	// handle every value.
+	Decision *Decision `json:"decision,omitempty"`
+
+	// ExemptionUnknown The control applied because its exemption could not be checked.
+	ExemptionUnknown bool     `json:"exemption_unknown"`
+	FeePercent       *float64 `json:"fee_percent,omitempty"`
+
+	// HoldSeconds The longest the funds may be held.
+	HoldSeconds *int64            `json:"hold_seconds,omitempty"`
+	Mode        ControlResultMode `json:"mode"`
+	Name        string            `json:"name"`
+	Reason      string            `json:"reason"`
+
+	// Rule Example: REG-01
+	Rule string `json:"rule"`
+
+	// Tasks What the institution must do (report.CTR, case.open, edd...).
+	Tasks []string `json:"tasks"`
+}
+
+// ControlResultMode defines model for ControlResult.Mode.
+type ControlResultMode string
 
 // CreateApiKeyRequest defines model for CreateApiKeyRequest.
 type CreateApiKeyRequest struct {
@@ -1699,16 +2879,38 @@ type CreatedInvite struct {
 	InviteUrl string `json:"invite_url"`
 }
 
-// Decision `block` is produced only for Critical scores in an environment that switched automatic
-// blocking on (see AutoBlockStatus).
+// Decision The recommended action, from least to most severe. The score policy produces `allow`,
+// `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+// where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+// the action the law requires (see `controls` on the decision):
+// - `fee`: allow, and charge the regulatory fee given in the control;
+// - `flag`: allow, and do the follow-up the control names;
+// - `restrict`: limit the account until the requirement is met;
+// - `hold`: hold the funds for review, for at most the control's hold period;
+// - `block_session`: end the session and require fresh authentication;
+// - `decline`: decline this transaction (a legal limit);
+// - `block`: stop the event.
+// The most severe applicable action is returned. Clients that switch on the decision must
+// handle every value.
 type Decision string
 
 // DecisionCounts defines model for DecisionCounts.
 type DecisionCounts struct {
-	Allow  int `json:"allow"`
-	Block  int `json:"block"`
-	Review int `json:"review"`
-	StepUp int `json:"step_up"`
+	Allow        int `json:"allow"`
+	Block        int `json:"block"`
+	BlockSession int `json:"block_session"`
+	Decline      int `json:"decline"`
+	Fee          int `json:"fee"`
+	Flag         int `json:"flag"`
+	Hold         int `json:"hold"`
+	Restrict     int `json:"restrict"`
+	Review       int `json:"review"`
+	StepUp       int `json:"step_up"`
+}
+
+// DecisionNote defines model for DecisionNote.
+type DecisionNote struct {
+	Note *string `json:"note,omitempty"`
 }
 
 // DenyEntry defines model for DenyEntry.
@@ -1749,9 +2951,14 @@ type DeviceChangeData struct {
 
 // DeviceChangeEvent A user's device changed.
 type DeviceChangeEvent struct {
-	Actor   Actor            `json:"actor"`
-	Context *EventContext    `json:"context,omitempty"`
-	Data    DeviceChangeData `json:"data"`
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance *ComplianceContext `json:"compliance,omitempty"`
+	Context    *EventContext      `json:"context,omitempty"`
+	Data       DeviceChangeData   `json:"data"`
 
 	// EventId The customer's unique ID for the event; the idempotency key.
 	//
@@ -1834,6 +3041,10 @@ type EventContext struct {
 	// Country ISO 3166-1 alpha-2.
 	Country *string `json:"country,omitempty"`
 
+	// Geo Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
+	// decimals (about 1 km) before storing it.
+	Geo *GeoPoint `json:"geo,omitempty"`
+
 	// Ip IPv4 or IPv6 address of the end user.
 	Ip        *string `json:"ip,omitempty"`
 	UserAgent *string `json:"user_agent,omitempty"`
@@ -1877,8 +3088,19 @@ type EventSummary struct {
 	Actor   *EventActorRefs `json:"actor,omitempty"`
 	Country *string         `json:"country,omitempty"`
 
-	// Decision `block` is produced only for Critical scores in an environment that switched automatic
-	// blocking on (see AutoBlockStatus).
+	// Decision The recommended action, from least to most severe. The score policy produces `allow`,
+	// `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+	// where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+	// the action the law requires (see `controls` on the decision):
+	// - `fee`: allow, and charge the regulatory fee given in the control;
+	// - `flag`: allow, and do the follow-up the control names;
+	// - `restrict`: limit the account until the requirement is met;
+	// - `hold`: hold the funds for review, for at most the control's hold period;
+	// - `block_session`: end the session and require fresh authentication;
+	// - `decline`: decline this transaction (a legal limit);
+	// - `block`: stop the event.
+	// The most severe applicable action is returned. Clients that switch on the decision must
+	// handle every value.
 	Decision   Decision  `json:"decision"`
 	EventKey   string    `json:"event_key"`
 	Id         string    `json:"id"`
@@ -1897,6 +3119,41 @@ type EventSummary struct {
 
 // EventType defines model for EventType.
 type EventType string
+
+// FXRate defines model for FXRate.
+type FXRate struct {
+	Currency   string    `json:"currency"`
+	UpdatedAt  time.Time `json:"updated_at"`
+	UpdatedBy  string    `json:"updated_by"`
+	UsdPerUnit float64   `json:"usd_per_unit"`
+}
+
+// FXRateList defines model for FXRateList.
+type FXRateList struct {
+	Data []FXRate `json:"data"`
+}
+
+// GeoPoint Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
+// decimals (about 1 km) before storing it.
+type GeoPoint struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
+}
+
+// GoogleResult defines model for GoogleResult.
+type GoogleResult struct {
+	Auth *AuthState `json:"auth,omitempty"`
+
+	// Email The Google account's email (needs_business).
+	Email *string `json:"email,omitempty"`
+
+	// Name The Google account's name (needs_business).
+	Name    *string             `json:"name,omitempty"`
+	Outcome GoogleResultOutcome `json:"outcome"`
+}
+
+// GoogleResultOutcome defines model for GoogleResult.Outcome.
+type GoogleResultOutcome string
 
 // Invite defines model for Invite.
 type Invite struct {
@@ -1949,9 +3206,14 @@ type LoginDataOutcome string
 
 // LoginEvent A sign-in attempt.
 type LoginEvent struct {
-	Actor   Actor         `json:"actor"`
-	Context *EventContext `json:"context,omitempty"`
-	Data    LoginData     `json:"data"`
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance *ComplianceContext `json:"compliance,omitempty"`
+	Context    *EventContext      `json:"context,omitempty"`
+	Data       LoginData          `json:"data"`
 
 	// EventId The customer's unique ID for the event; the idempotency key.
 	//
@@ -1968,6 +3230,181 @@ type LoginEventType string
 type LoginRequest struct {
 	Email    string `json:"email"`
 	Password string `json:"password"`
+}
+
+// NotEvaluatedRule defines model for NotEvaluatedRule.
+type NotEvaluatedRule struct {
+	// Missing What was unavailable: `fact:<name>` (send it in `compliance.facts`), `setting:<name>`
+	// (set it for the rule), `history:<window>` (behaviour history, or a reference the window
+	// is kept for) or `currency:<fact>` (an amount in another currency than the rule's).
+	Missing []string `json:"missing"`
+
+	// Rule Example: ATO-04
+	Rule string `json:"rule"`
+}
+
+// Onboarding defines model for Onboarding.
+type Onboarding struct {
+	// Answers Know-your-business answers. Every field is optional while drafting; `submitOnboarding`
+	// requires the ones listed in `Onboarding.missing`.
+	Answers OnboardingAnswers `json:"answers"`
+
+	// Missing Answers still needed before submitting, by field name.
+	Missing           []string `json:"missing"`
+	ProductionEnabled bool     `json:"production_enabled"`
+
+	// ReviewNote The reviewer's note (always given when rejected).
+	ReviewNote  *string          `json:"review_note"`
+	ReviewedAt  *time.Time       `json:"reviewed_at"`
+	Status      OnboardingStatus `json:"status"`
+	SubmittedAt *time.Time       `json:"submitted_at"`
+	UpdatedAt   time.Time        `json:"updated_at"`
+}
+
+// OnboardingAnswers Know-your-business answers. Every field is optional while drafting; `submitOnboarding`
+// requires the ones listed in `Onboarding.missing`.
+type OnboardingAnswers struct {
+	AcceptDpa   *bool `json:"accept_dpa,omitempty"`
+	AcceptTerms *bool `json:"accept_terms,omitempty"`
+
+	// AmlProgram Has a documented AML/CFT programme.
+	AmlProgram             *bool   `json:"aml_program,omitempty"`
+	ComplianceOfficerEmail *string `json:"compliance_officer_email,omitempty"`
+	ComplianceOfficerName  *string `json:"compliance_officer_name,omitempty"`
+
+	// Country Country of incorporation, ISO 3166-1 alpha-2.
+	Country            *string                             `json:"country,omitempty"`
+	DataProtection     *[]OnboardingAnswersDataProtection  `json:"data_protection,omitempty"`
+	DataResidency      *OnboardingAnswersDataResidency     `json:"data_residency,omitempty"`
+	DpoEmail           *string                             `json:"dpo_email,omitempty"`
+	GoLive             *OnboardingAnswersGoLive            `json:"go_live,omitempty"`
+	Industry           *OnboardingAnswersIndustry          `json:"industry,omitempty"`
+	LegalName          *string                             `json:"legal_name,omitempty"`
+	LicenceNumber      *string                             `json:"licence_number,omitempty"`
+	MonitoredEvents    *[]OnboardingAnswersMonitoredEvents `json:"monitored_events,omitempty"`
+	MonthlyVolume      *OnboardingAnswersMonthlyVolume     `json:"monthly_volume,omitempty"`
+	RegionsServed      *[]string                           `json:"regions_served,omitempty"`
+	RegistrationNumber *string                             `json:"registration_number,omitempty"`
+
+	// Regulated Licensed or registered with a financial regulator.
+	Regulated *bool   `json:"regulated,omitempty"`
+	Regulator *string `json:"regulator,omitempty"`
+
+	// ScreeningProvider Sanctions and PEP screening provider, if any.
+	ScreeningProvider *string `json:"screening_provider,omitempty"`
+	TradingName       *string `json:"trading_name,omitempty"`
+	Website           *string `json:"website,omitempty"`
+}
+
+// OnboardingAnswersDataProtection defines model for OnboardingAnswers.DataProtection.
+type OnboardingAnswersDataProtection string
+
+// OnboardingAnswersDataResidency defines model for OnboardingAnswers.DataResidency.
+type OnboardingAnswersDataResidency string
+
+// OnboardingAnswersGoLive defines model for OnboardingAnswers.GoLive.
+type OnboardingAnswersGoLive string
+
+// OnboardingAnswersIndustry defines model for OnboardingAnswers.Industry.
+type OnboardingAnswersIndustry string
+
+// OnboardingAnswersMonitoredEvents defines model for OnboardingAnswers.MonitoredEvents.
+type OnboardingAnswersMonitoredEvents string
+
+// OnboardingAnswersMonthlyVolume defines model for OnboardingAnswers.MonthlyVolume.
+type OnboardingAnswersMonthlyVolume string
+
+// OnboardingStatus defines model for OnboardingStatus.
+type OnboardingStatus string
+
+// PackRuleChange defines model for PackRuleChange.
+type PackRuleChange struct {
+	AppliedVersion *int       `json:"applied_version"`
+	BaseVersion    int        `json:"base_version"`
+	DecidedAt      *time.Time `json:"decided_at"`
+	DecidedBy      *string    `json:"decided_by"`
+	DecisionNote   *string    `json:"decision_note"`
+
+	// Id Example: pch_01j9x2k7m3q4r5s6t7v8w9x0yz
+	Id string `json:"id"`
+
+	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
+	Mode         PackRuleMode `json:"mode"`
+	ProposedAt   time.Time    `json:"proposed_at"`
+	ProposedBy   string       `json:"proposed_by"`
+	Reason       string       `json:"reason"`
+	RestoredFrom *int         `json:"restored_from"`
+	Rule         string       `json:"rule"`
+
+	// Settings Settings that differ from the library's defaults, by name, in the setting's unit.
+	Settings PackRuleSettings     `json:"settings"`
+	Status   PackRuleChangeStatus `json:"status"`
+}
+
+// PackRuleChangeStatus defines model for PackRuleChange.Status.
+type PackRuleChangeStatus string
+
+// PackRuleChangeList defines model for PackRuleChangeList.
+type PackRuleChangeList struct {
+	Data []PackRuleChange `json:"data"`
+}
+
+// PackRuleConfig defines model for PackRuleConfig.
+type PackRuleConfig struct {
+	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
+	Mode PackRuleMode `json:"mode"`
+
+	// Pending The change awaiting a second person, if any.
+	Pending *PackRuleChange `json:"pending"`
+	Reason  string          `json:"reason"`
+	Rule    string          `json:"rule"`
+
+	// Settings Settings that differ from the library's defaults, by name, in the setting's unit.
+	Settings  PackRuleSettings `json:"settings"`
+	UpdatedAt *time.Time       `json:"updated_at"`
+	UpdatedBy *string          `json:"updated_by"`
+
+	// Version 0 while the rule runs with the library's defaults.
+	Version int `json:"version"`
+}
+
+// PackRuleConfigRequest defines model for PackRuleConfigRequest.
+type PackRuleConfigRequest struct {
+	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
+	Mode PackRuleMode `json:"mode"`
+
+	// Reason Why, for the audit log and the approver.
+	Reason string `json:"reason"`
+
+	// Settings Settings that differ from the library's defaults, by name, in the setting's unit.
+	Settings PackRuleSettings `json:"settings"`
+}
+
+// PackRuleMode live (it acts), shadow (it is evaluated and recorded only) or off.
+type PackRuleMode string
+
+// PackRuleSettings Settings that differ from the library's defaults, by name, in the setting's unit.
+type PackRuleSettings map[string]float64
+
+// PackRuleVersion defines model for PackRuleVersion.
+type PackRuleVersion struct {
+	ChangeId  *string   `json:"change_id"`
+	CreatedAt time.Time `json:"created_at"`
+	CreatedBy string    `json:"created_by"`
+
+	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
+	Mode         PackRuleMode `json:"mode"`
+	Reason       string       `json:"reason"`
+	RestoredFrom *int         `json:"restored_from"`
+
+	// Settings Settings that differ from the library's defaults, by name, in the setting's unit.
+	Settings PackRuleSettings `json:"settings"`
+	Version  int              `json:"version"`
+}
+
+// PackRuleVersionList defines model for PackRuleVersionList.
+type PackRuleVersionList struct {
+	Data []PackRuleVersion `json:"data"`
 }
 
 // Passkey defines model for Passkey.
@@ -2001,9 +3438,14 @@ type ProfileChangeDataFields string
 
 // ProfileChangeEvent Account profile fields changed.
 type ProfileChangeEvent struct {
-	Actor   Actor             `json:"actor"`
-	Context *EventContext     `json:"context,omitempty"`
-	Data    ProfileChangeData `json:"data"`
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance *ComplianceContext `json:"compliance,omitempty"`
+	Context    *EventContext      `json:"context,omitempty"`
+	Data       ProfileChangeData  `json:"data"`
 
 	// EventId The customer's unique ID for the event; the idempotency key.
 	//
@@ -2042,6 +3484,28 @@ type RejectRuleChangeRequest struct {
 	Reason *string `json:"reason,omitempty"`
 }
 
+// RestrictedEvaluation defines model for RestrictedEvaluation.
+type RestrictedEvaluation struct {
+	CreatedAt    time.Time          `json:"created_at"`
+	EvaluationId string             `json:"evaluation_id"`
+	EventId      *string            `json:"event_id"`
+	Signals      []RestrictedSignal `json:"signals"`
+}
+
+// RestrictedEvaluationList defines model for RestrictedEvaluationList.
+type RestrictedEvaluationList struct {
+	Data []RestrictedEvaluation `json:"data"`
+}
+
+// RestrictedSignal defines model for RestrictedSignal.
+type RestrictedSignal struct {
+	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
+	Mode   PackRuleMode `json:"mode"`
+	Name   string       `json:"name"`
+	Rule   string       `json:"rule"`
+	Weight int          `json:"weight"`
+}
+
 // RiskCatalog defines model for RiskCatalog.
 type RiskCatalog struct {
 	EngineVersion string `json:"engine_version"`
@@ -2075,8 +3539,24 @@ type RiskCatalogSignalsSource string
 // warming_signals lists history signals held back while behavioural history rebuilds after
 // RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
 type RiskDecision struct {
-	// Decision `block` is produced only for Critical scores in an environment that switched automatic
-	// blocking on (see AutoBlockStatus).
+	// Controls The regulatory controls of the workspace's rule pack that applied to the event (see the
+	// console's Rules library). A live control's decision is reflected in `decision`; a shadow
+	// control is reported only. Empty without a compliance profile.
+	Controls []ControlResult `json:"controls"`
+
+	// Decision The recommended action, from least to most severe. The score policy produces `allow`,
+	// `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+	// where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+	// the action the law requires (see `controls` on the decision):
+	// - `fee`: allow, and charge the regulatory fee given in the control;
+	// - `flag`: allow, and do the follow-up the control names;
+	// - `restrict`: limit the account until the requirement is met;
+	// - `hold`: hold the funds for review, for at most the control's hold period;
+	// - `block_session`: end the session and require fresh authentication;
+	// - `decline`: decline this transaction (a legal limit);
+	// - `block`: stop the event.
+	// The most severe applicable action is returned. Clients that switch on the decision must
+	// handle every value.
 	Decision        Decision `json:"decision"`
 	DegradedSignals []string `json:"degraded_signals"`
 
@@ -2090,6 +3570,11 @@ type RiskDecision struct {
 	//
 	// Example: evt_01j9x2k7m3q4r5s6t7v8w9x0yz
 	EventId *string `json:"event_id"`
+
+	// NotEvaluated Rules of the pack the event triggered that could not be evaluated because data or a
+	// setting they need was unavailable. Missing data is never treated as no risk: send the
+	// listed facts in the event's `compliance` block, or set the listed settings.
+	NotEvaluated []NotEvaluatedRule `json:"not_evaluated"`
 
 	// RequestId The request that produced this decision (for replays, the original request).
 	RequestId string `json:"request_id"`
@@ -2115,8 +3600,19 @@ type RiskPolicy struct {
 		// 20/50/70/90, adjustable per environment; see `GET /api/v1/risk/policy`).
 		Band RiskLevel `json:"band"`
 
-		// DefaultDecision `block` is produced only for Critical scores in an environment that switched automatic
-		// blocking on (see AutoBlockStatus).
+		// DefaultDecision The recommended action, from least to most severe. The score policy produces `allow`,
+		// `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+		// where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+		// the action the law requires (see `controls` on the decision):
+		// - `fee`: allow, and charge the regulatory fee given in the control;
+		// - `flag`: allow, and do the follow-up the control names;
+		// - `restrict`: limit the account until the requirement is met;
+		// - `hold`: hold the funds for review, for at most the control's hold period;
+		// - `block_session`: end the session and require fresh authentication;
+		// - `decline`: decline this transaction (a legal limit);
+		// - `block`: stop the event.
+		// The most severe applicable action is returned. Clients that switch on the decision must
+		// handle every value.
 		DefaultDecision Decision `json:"default_decision"`
 		MaxScore        int      `json:"max_score"`
 		MinScore        int      `json:"min_score"`
@@ -2402,9 +3898,23 @@ type SSOStartRequest struct {
 	Email string `json:"email"`
 }
 
-// Scope A permission. API keys can hold any except `rules:approve`, which only people hold (a
-// second person approves production rule changes).
+// Scope A permission. API keys can hold any except `rules:approve`, `compliance:write`,
+// `compliance:configure` and `compliance:sensitive`, which only people hold (a second person
+// approves production rule changes; a person sets the compliance profile and configures pack
+// rules; only compliance officers see suspicious transaction reports and compliance-only
+// signals).
 type Scope string
+
+// ScreeningEscalation defines model for ScreeningEscalation.
+type ScreeningEscalation struct {
+	AlertId   string    `json:"alert_id"`
+	CreatedAt time.Time `json:"created_at"`
+
+	// DueAt When screening was due (REG-14).
+	DueAt      time.Time `json:"due_at"`
+	SubjectRef string    `json:"subject_ref"`
+	Title      string    `json:"title"`
+}
 
 // SessionChangeData defines model for SessionChangeData.
 type SessionChangeData struct {
@@ -2416,9 +3926,14 @@ type SessionChangeDataChange string
 
 // SessionChangeEvent A session was created, refreshed or ended.
 type SessionChangeEvent struct {
-	Actor   Actor             `json:"actor"`
-	Context *EventContext     `json:"context,omitempty"`
-	Data    SessionChangeData `json:"data"`
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance *ComplianceContext `json:"compliance,omitempty"`
+	Context    *EventContext      `json:"context,omitempty"`
+	Data       SessionChangeData  `json:"data"`
 
 	// EventId The customer's unique ID for the event; the idempotency key.
 	//
@@ -2452,6 +3967,45 @@ type SignalCount struct {
 	Code  string `json:"code"`
 	Hits  int    `json:"hits"`
 	Label string `json:"label"`
+}
+
+// SignupCompleteRequest defines model for SignupCompleteRequest.
+type SignupCompleteRequest struct {
+	BusinessName string `json:"business_name"`
+}
+
+// SignupOptions defines model for SignupOptions.
+type SignupOptions struct {
+	// Email Sign-up with email, business name and password is available.
+	Email bool `json:"email"`
+
+	// Google Signing in and up with Google is available.
+	Google bool `json:"google"`
+}
+
+// SignupPending defines model for SignupPending.
+type SignupPending struct {
+	// Email Where the code was sent.
+	Email string `json:"email"`
+
+	// ExpiresAt When the sign-up lapses (start again after).
+	ExpiresAt time.Time `json:"expires_at"`
+
+	// ResendAfterSeconds How long until another code can be requested.
+	ResendAfterSeconds int `json:"resend_after_seconds"`
+}
+
+// SignupRequest defines model for SignupRequest.
+type SignupRequest struct {
+	BusinessName string `json:"business_name"`
+	Email        string `json:"email"`
+	Name         string `json:"name"`
+	Password     string `json:"password"`
+}
+
+// SignupVerifyRequest defines model for SignupVerifyRequest.
+type SignupVerifyRequest struct {
+	Code string `json:"code"`
 }
 
 // TeamMember defines model for TeamMember.
@@ -2549,9 +4103,14 @@ type TransactionDataDirection string
 
 // TransactionEvent A money movement.
 type TransactionEvent struct {
-	Actor   Actor           `json:"actor"`
-	Context *EventContext   `json:"context,omitempty"`
-	Data    TransactionData `json:"data"`
+	Actor Actor `json:"actor"`
+
+	// Compliance What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+	// Everything is optional: a rule whose data is missing is reported as not evaluated, never
+	// treated as no risk.
+	Compliance *ComplianceContext `json:"compliance,omitempty"`
+	Context    *EventContext      `json:"context,omitempty"`
+	Data       TransactionData    `json:"data"`
 
 	// EventId The customer's unique ID for the event; the idempotency key.
 	//
@@ -2824,6 +4383,26 @@ type ListAuditLogsParams struct {
 	Cursor *Cursor `form:"cursor,omitempty" json:"cursor,omitempty"`
 }
 
+// FinishGoogleParams defines parameters for FinishGoogle.
+type FinishGoogleParams struct {
+	RiskosGoogle *string `form:"riskos_google,omitempty" json:"riskos_google,omitempty"`
+}
+
+// CompleteSignupParams defines parameters for CompleteSignup.
+type CompleteSignupParams struct {
+	RiskosSignup *string `form:"riskos_signup,omitempty" json:"riskos_signup,omitempty"`
+}
+
+// ResendSignupCodeParams defines parameters for ResendSignupCode.
+type ResendSignupCodeParams struct {
+	RiskosSignup *string `form:"riskos_signup,omitempty" json:"riskos_signup,omitempty"`
+}
+
+// VerifySignupParams defines parameters for VerifySignup.
+type VerifySignupParams struct {
+	RiskosSignup *string `form:"riskos_signup,omitempty" json:"riskos_signup,omitempty"`
+}
+
 // FinishSSOParams defines parameters for FinishSSO.
 type FinishSSOParams struct {
 	RiskosSso *string `form:"riskos_sso,omitempty" json:"riskos_sso,omitempty"`
@@ -2837,6 +4416,87 @@ type ListCasesParams struct {
 	// Cursor The `next_cursor` of the previous page.
 	Cursor *Cursor     `form:"cursor,omitempty" json:"cursor,omitempty"`
 	Status *CaseStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListPackRuleChangesParams defines parameters for ListPackRuleChanges.
+type ListPackRuleChangesParams struct {
+	Status *ListPackRuleChangesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListPackRuleChangesParamsStatus defines parameters for ListPackRuleChanges.
+type ListPackRuleChangesParamsStatus string
+
+// PutComplianceFXRateJSONBody defines parameters for PutComplianceFXRate.
+type PutComplianceFXRateJSONBody struct {
+	// UsdPerUnit US dollars per one unit of the currency (for NGN, about 0.00065).
+	UsdPerUnit float64 `json:"usd_per_unit"`
+}
+
+// ListRestrictedSignalsParams defines parameters for ListRestrictedSignals.
+type ListRestrictedSignalsParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// ListComplianceRulesParams defines parameters for ListComplianceRules.
+type ListComplianceRulesParams struct {
+	// Group Only rules in this group.
+	Group *string `form:"group,omitempty" json:"group,omitempty"`
+
+	// Kind Only rules of this kind.
+	Kind *ComplianceRuleKind `form:"kind,omitempty" json:"kind,omitempty"`
+
+	// Regulator Only rules involving this regulator (CBN, NFIU and so on).
+	Regulator *string `form:"regulator,omitempty" json:"regulator,omitempty"`
+
+	// Verification Only rules with this verification status.
+	Verification *ComplianceVerification `form:"verification,omitempty" json:"verification,omitempty"`
+
+	// Q Words to find in a rule's ID, name or description.
+	Q *string `form:"q,omitempty" json:"q,omitempty"`
+
+	// Applicable Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile.
+	Applicable *bool `form:"applicable,omitempty" json:"applicable,omitempty"`
+}
+
+// BacktestPackRuleJSONBody defines parameters for BacktestPackRule.
+type BacktestPackRuleJSONBody struct {
+	Days *int `json:"days,omitempty"`
+
+	// Settings Settings that differ from the library's defaults, by name, in the setting's unit.
+	Settings *PackRuleSettings `json:"settings,omitempty"`
+}
+
+// RollbackPackRuleJSONBody defines parameters for RollbackPackRule.
+type RollbackPackRuleJSONBody struct {
+	Reason  string `json:"reason"`
+	Version int    `json:"version"`
+}
+
+// ConfirmSuspicionJSONBody defines parameters for ConfirmSuspicion.
+type ConfirmSuspicionJSONBody struct {
+	CaseId string `json:"case_id"`
+
+	// Note The first lines of the report's narrative.
+	Note *string `json:"note,omitempty"`
+}
+
+// ListComplianceTasksParams defines parameters for ListComplianceTasks.
+type ListComplianceTasksParams struct {
+	Status *ComplianceTaskStatus `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// CloseComplianceTaskJSONBody defines parameters for CloseComplianceTask.
+type CloseComplianceTaskJSONBody struct {
+	Note   *string                           `json:"note,omitempty"`
+	Status CloseComplianceTaskJSONBodyStatus `json:"status"`
+}
+
+// CloseComplianceTaskJSONBodyStatus defines parameters for CloseComplianceTask.
+type CloseComplianceTaskJSONBodyStatus string
+
+// FileComplianceReportJSONBody defines parameters for FileComplianceReport.
+type FileComplianceReportJSONBody struct {
+	FilingRef string `json:"filing_ref"`
 }
 
 // ListDenyEntriesParams defines parameters for ListDenyEntries.
@@ -2899,6 +4559,9 @@ type CreateAPIKeyJSONRequestBody = CreateApiKeyRequest
 // RotateAPIKeyJSONRequestBody defines body for RotateAPIKey for application/json ContentType.
 type RotateAPIKeyJSONRequestBody = RotateApiKeyRequest
 
+// FinishGoogleJSONRequestBody defines body for FinishGoogle for application/json ContentType.
+type FinishGoogleJSONRequestBody = SSOCallbackRequest
+
 // AcceptInviteJSONRequestBody defines body for AcceptInvite for application/json ContentType.
 type AcceptInviteJSONRequestBody = AcceptInviteRequest
 
@@ -2920,6 +4583,15 @@ type ConfirmTotpJSONRequestBody = CodeRequest
 // VerifyTotpJSONRequestBody defines body for VerifyTotp for application/json ContentType.
 type VerifyTotpJSONRequestBody = CodeRequest
 
+// StartSignupJSONRequestBody defines body for StartSignup for application/json ContentType.
+type StartSignupJSONRequestBody = SignupRequest
+
+// CompleteSignupJSONRequestBody defines body for CompleteSignup for application/json ContentType.
+type CompleteSignupJSONRequestBody = SignupCompleteRequest
+
+// VerifySignupJSONRequestBody defines body for VerifySignup for application/json ContentType.
+type VerifySignupJSONRequestBody = SignupVerifyRequest
+
 // FinishSSOJSONRequestBody defines body for FinishSSO for application/json ContentType.
 type FinishSSOJSONRequestBody = SSOCallbackRequest
 
@@ -2935,11 +4607,47 @@ type UpdateCaseJSONRequestBody = UpdateCaseRequest
 // AddCaseNoteJSONRequestBody defines body for AddCaseNote for application/json ContentType.
 type AddCaseNoteJSONRequestBody = CreateCaseNoteRequest
 
+// ApprovePackRuleChangeJSONRequestBody defines body for ApprovePackRuleChange for application/json ContentType.
+type ApprovePackRuleChangeJSONRequestBody = DecisionNote
+
+// RejectPackRuleChangeJSONRequestBody defines body for RejectPackRuleChange for application/json ContentType.
+type RejectPackRuleChangeJSONRequestBody = DecisionNote
+
+// PutComplianceFXRateJSONRequestBody defines body for PutComplianceFXRate for application/json ContentType.
+type PutComplianceFXRateJSONRequestBody PutComplianceFXRateJSONBody
+
+// PutComplianceProfileJSONRequestBody defines body for PutComplianceProfile for application/json ContentType.
+type PutComplianceProfileJSONRequestBody = ComplianceProfileRequest
+
+// BacktestPackRuleJSONRequestBody defines body for BacktestPackRule for application/json ContentType.
+type BacktestPackRuleJSONRequestBody BacktestPackRuleJSONBody
+
+// PutPackRuleConfigJSONRequestBody defines body for PutPackRuleConfig for application/json ContentType.
+type PutPackRuleConfigJSONRequestBody = PackRuleConfigRequest
+
+// RollbackPackRuleJSONRequestBody defines body for RollbackPackRule for application/json ContentType.
+type RollbackPackRuleJSONRequestBody RollbackPackRuleJSONBody
+
+// ConfirmSuspicionJSONRequestBody defines body for ConfirmSuspicion for application/json ContentType.
+type ConfirmSuspicionJSONRequestBody ConfirmSuspicionJSONBody
+
+// CloseComplianceTaskJSONRequestBody defines body for CloseComplianceTask for application/json ContentType.
+type CloseComplianceTaskJSONRequestBody CloseComplianceTaskJSONBody
+
+// FileComplianceReportJSONRequestBody defines body for FileComplianceReport for application/json ContentType.
+type FileComplianceReportJSONRequestBody FileComplianceReportJSONBody
+
+// EditComplianceReportJSONRequestBody defines body for EditComplianceReport for application/json ContentType.
+type EditComplianceReportJSONRequestBody = ComplianceReportFields
+
 // CreateDenyEntryJSONRequestBody defines body for CreateDenyEntry for application/json ContentType.
 type CreateDenyEntryJSONRequestBody = CreateDenyEntryRequest
 
 // IngestEventJSONRequestBody defines body for IngestEvent for application/json ContentType.
 type IngestEventJSONRequestBody = Event
+
+// SaveOnboardingJSONRequestBody defines body for SaveOnboarding for application/json ContentType.
+type SaveOnboardingJSONRequestBody = OnboardingAnswers
 
 // EvaluateRiskJSONRequestBody defines body for EvaluateRisk for application/json ContentType.
 type EvaluateRiskJSONRequestBody = Event
@@ -3184,6 +4892,40 @@ func (t *Event) MergeProfileChangeEvent(v ProfileChangeEvent) error {
 	return err
 }
 
+// AsActivityEvent returns the union data inside the Event as a ActivityEvent
+func (t Event) AsActivityEvent() (ActivityEvent, error) {
+	var body ActivityEvent
+	err := json.Unmarshal(t.union, &body)
+	return body, err
+}
+
+// FromActivityEvent overwrites any union data inside the Event as the provided ActivityEvent
+func (t *Event) FromActivityEvent(v ActivityEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"activity"}`))
+	t.union = b
+	return err
+}
+
+// MergeActivityEvent performs a merge with any union data inside the Event, using the provided ActivityEvent
+func (t *Event) MergeActivityEvent(v ActivityEvent) error {
+	b, err := json.Marshal(v)
+	if err != nil {
+		return err
+	}
+	b, err = runtime.JSONMerge(b, []byte(`{"type":"activity"}`))
+	if err != nil {
+		return err
+	}
+
+	merged, err := runtime.JSONMerge(t.union, b)
+	t.union = merged
+	return err
+}
+
 func (t Event) Discriminator() (string, error) {
 	var discriminator struct {
 		Discriminator string `json:"type"`
@@ -3198,6 +4940,8 @@ func (t Event) ValueByDiscriminator() (interface{}, error) {
 		return nil, err
 	}
 	switch discriminator {
+	case "activity":
+		return t.AsActivityEvent()
 	case "beneficiary_added":
 		return t.AsBeneficiaryAddedEvent()
 	case "device_change":
@@ -3254,6 +4998,12 @@ type ServerInterface interface {
 	// ListAuditLogs List audit entries
 	// (GET /api/v1/audit-logs)
 	ListAuditLogs(w http.ResponseWriter, r *http.Request, params ListAuditLogsParams)
+	// FinishGoogle Finish signing in or up with Google
+	// (POST /api/v1/auth/google/callback)
+	FinishGoogle(w http.ResponseWriter, r *http.Request, params FinishGoogleParams)
+	// StartGoogle Start signing in or up with Google
+	// (POST /api/v1/auth/google/start)
+	StartGoogle(w http.ResponseWriter, r *http.Request)
 	// AcceptInvite Accept an invite
 	// (POST /api/v1/auth/invites/accept)
 	AcceptInvite(w http.ResponseWriter, r *http.Request)
@@ -3296,6 +5046,21 @@ type ServerInterface interface {
 	// GetSession The current console session
 	// (GET /api/v1/auth/session)
 	GetSession(w http.ResponseWriter, r *http.Request)
+	// StartSignup Start creating a workspace with email and password
+	// (POST /api/v1/auth/signup)
+	StartSignup(w http.ResponseWriter, r *http.Request)
+	// CompleteSignup Name the workspace and create it (Google sign-ups)
+	// (POST /api/v1/auth/signup/complete)
+	CompleteSignup(w http.ResponseWriter, r *http.Request, params CompleteSignupParams)
+	// GetSignupOptions Which ways to sign up are available
+	// (GET /api/v1/auth/signup/options)
+	GetSignupOptions(w http.ResponseWriter, r *http.Request)
+	// ResendSignupCode Send a new code
+	// (POST /api/v1/auth/signup/resend)
+	ResendSignupCode(w http.ResponseWriter, r *http.Request, params ResendSignupCodeParams)
+	// VerifySignup Verify the emailed code and create the workspace
+	// (POST /api/v1/auth/signup/verify)
+	VerifySignup(w http.ResponseWriter, r *http.Request, params VerifySignupParams)
 	// FinishSSO Finish signing in with the tenant's identity provider
 	// (POST /api/v1/auth/sso/callback)
 	FinishSSO(w http.ResponseWriter, r *http.Request, params FinishSSOParams)
@@ -3317,6 +5082,90 @@ type ServerInterface interface {
 	// AddCaseNote Add a note to a case
 	// (POST /api/v1/cases/{case_id}/notes)
 	AddCaseNote(w http.ResponseWriter, r *http.Request, caseId string)
+	// ListPackRuleChanges Configuration changes in this environment
+	// (GET /api/v1/compliance/changes)
+	ListPackRuleChanges(w http.ResponseWriter, r *http.Request, params ListPackRuleChangesParams)
+	// ApprovePackRuleChange Approve a pending change
+	// (POST /api/v1/compliance/changes/{change_id}/approve)
+	ApprovePackRuleChange(w http.ResponseWriter, r *http.Request, changeId string)
+	// RejectPackRuleChange Reject or withdraw a pending change
+	// (POST /api/v1/compliance/changes/{change_id}/reject)
+	RejectPackRuleChange(w http.ResponseWriter, r *http.Request, changeId string)
+	// ListComplianceClocks The pack's legal deadlines
+	// (GET /api/v1/compliance/clocks)
+	ListComplianceClocks(w http.ResponseWriter, r *http.Request)
+	// ListComplianceFXRates The institution's exchange rates
+	// (GET /api/v1/compliance/fx-rates)
+	ListComplianceFXRates(w http.ResponseWriter, r *http.Request)
+	// DeleteComplianceFXRate Remove a currency's exchange rate
+	// (DELETE /api/v1/compliance/fx-rates/{currency})
+	DeleteComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string)
+	// PutComplianceFXRate Set a currency's exchange rate
+	// (PUT /api/v1/compliance/fx-rates/{currency})
+	PutComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string)
+	// ListComplianceGaps The pack's open questions
+	// (GET /api/v1/compliance/gaps)
+	ListComplianceGaps(w http.ResponseWriter, r *http.Request)
+	// ListComplianceGlossary The pack's glossary
+	// (GET /api/v1/compliance/glossary)
+	ListComplianceGlossary(w http.ResponseWriter, r *http.Request)
+	// GetCompliancePack The workspace's rule pack
+	// (GET /api/v1/compliance/pack)
+	GetCompliancePack(w http.ResponseWriter, r *http.Request)
+	// GetComplianceProfile The workspace's compliance profile
+	// (GET /api/v1/compliance/profile)
+	GetComplianceProfile(w http.ResponseWriter, r *http.Request)
+	// PutComplianceProfile Set the workspace's compliance profile
+	// (PUT /api/v1/compliance/profile)
+	PutComplianceProfile(w http.ResponseWriter, r *http.Request)
+	// ListRestrictedSignals Compliance-only signals (no tipping off)
+	// (GET /api/v1/compliance/restricted-signals)
+	ListRestrictedSignals(w http.ResponseWriter, r *http.Request, params ListRestrictedSignalsParams)
+	// ListComplianceRules The pack's rules
+	// (GET /api/v1/compliance/rules)
+	ListComplianceRules(w http.ResponseWriter, r *http.Request, params ListComplianceRulesParams)
+	// GetComplianceRule One rule
+	// (GET /api/v1/compliance/rules/{rule_id})
+	GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string)
+	// BacktestPackRule What a rule would have done over recent events
+	// (POST /api/v1/compliance/rules/{rule_id}/backtest)
+	BacktestPackRule(w http.ResponseWriter, r *http.Request, ruleId string)
+	// GetPackRuleConfig A rule's configuration in this environment
+	// (GET /api/v1/compliance/rules/{rule_id}/config)
+	GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string)
+	// PutPackRuleConfig Set a rule's mode and settings in this environment
+	// (PUT /api/v1/compliance/rules/{rule_id}/config)
+	PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string)
+	// ListPackRuleVersions A rule's configuration versions in this environment
+	// (GET /api/v1/compliance/rules/{rule_id}/history)
+	ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string)
+	// RollbackPackRule Restore an earlier configuration as a new version
+	// (POST /api/v1/compliance/rules/{rule_id}/rollback)
+	RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string)
+	// ConfirmSuspicion Confirm suspicion on a case
+	// (POST /api/v1/compliance/suspicion)
+	ConfirmSuspicion(w http.ResponseWriter, r *http.Request)
+	// ListComplianceTasks The compliance work queue
+	// (GET /api/v1/compliance/tasks)
+	ListComplianceTasks(w http.ResponseWriter, r *http.Request, params ListComplianceTasksParams)
+	// GetComplianceTask One compliance task
+	// (GET /api/v1/compliance/tasks/{task_id})
+	GetComplianceTask(w http.ResponseWriter, r *http.Request, taskId string)
+	// ApproveComplianceReport Approve a report for filing
+	// (POST /api/v1/compliance/tasks/{task_id}/approve)
+	ApproveComplianceReport(w http.ResponseWriter, r *http.Request, taskId string)
+	// CloseComplianceTask Mark a task done or dismiss it
+	// (POST /api/v1/compliance/tasks/{task_id}/close)
+	CloseComplianceTask(w http.ResponseWriter, r *http.Request, taskId string)
+	// ExportComplianceReport An approved report, for filing by hand
+	// (GET /api/v1/compliance/tasks/{task_id}/export)
+	ExportComplianceReport(w http.ResponseWriter, r *http.Request, taskId string)
+	// FileComplianceReport Record that a report was filed
+	// (POST /api/v1/compliance/tasks/{task_id}/file)
+	FileComplianceReport(w http.ResponseWriter, r *http.Request, taskId string)
+	// EditComplianceReport Edit a draft report
+	// (PATCH /api/v1/compliance/tasks/{task_id}/report)
+	EditComplianceReport(w http.ResponseWriter, r *http.Request, taskId string)
 	// ListDenyEntries List the deny list
 	// (GET /api/v1/deny-list)
 	ListDenyEntries(w http.ResponseWriter, r *http.Request, params ListDenyEntriesParams)
@@ -3338,6 +5187,15 @@ type ServerInterface interface {
 	// GetEvent Get an event with its payloads and evaluation
 	// (GET /api/v1/events/{event_id})
 	GetEvent(w http.ResponseWriter, r *http.Request, eventId string)
+	// GetOnboarding The workspace's compliance onboarding
+	// (GET /api/v1/onboarding)
+	GetOnboarding(w http.ResponseWriter, r *http.Request)
+	// SaveOnboarding Save onboarding answers (a draft)
+	// (PUT /api/v1/onboarding)
+	SaveOnboarding(w http.ResponseWriter, r *http.Request)
+	// SubmitOnboarding Submit the onboarding for review
+	// (POST /api/v1/onboarding/submit)
+	SubmitOnboarding(w http.ResponseWriter, r *http.Request)
 	// GetRiskCatalog Built-in signals and the fields rules can use
 	// (GET /api/v1/risk/catalog)
 	GetRiskCatalog(w http.ResponseWriter, r *http.Request)
@@ -3506,6 +5364,18 @@ func (_ Unimplemented) ListAuditLogs(w http.ResponseWriter, r *http.Request, par
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// FinishGoogle Finish signing in or up with Google
+// (POST /api/v1/auth/google/callback)
+func (_ Unimplemented) FinishGoogle(w http.ResponseWriter, r *http.Request, params FinishGoogleParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartGoogle Start signing in or up with Google
+// (POST /api/v1/auth/google/start)
+func (_ Unimplemented) StartGoogle(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // AcceptInvite Accept an invite
 // (POST /api/v1/auth/invites/accept)
 func (_ Unimplemented) AcceptInvite(w http.ResponseWriter, r *http.Request) {
@@ -3590,6 +5460,36 @@ func (_ Unimplemented) GetSession(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// StartSignup Start creating a workspace with email and password
+// (POST /api/v1/auth/signup)
+func (_ Unimplemented) StartSignup(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CompleteSignup Name the workspace and create it (Google sign-ups)
+// (POST /api/v1/auth/signup/complete)
+func (_ Unimplemented) CompleteSignup(w http.ResponseWriter, r *http.Request, params CompleteSignupParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetSignupOptions Which ways to sign up are available
+// (GET /api/v1/auth/signup/options)
+func (_ Unimplemented) GetSignupOptions(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ResendSignupCode Send a new code
+// (POST /api/v1/auth/signup/resend)
+func (_ Unimplemented) ResendSignupCode(w http.ResponseWriter, r *http.Request, params ResendSignupCodeParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// VerifySignup Verify the emailed code and create the workspace
+// (POST /api/v1/auth/signup/verify)
+func (_ Unimplemented) VerifySignup(w http.ResponseWriter, r *http.Request, params VerifySignupParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // FinishSSO Finish signing in with the tenant's identity provider
 // (POST /api/v1/auth/sso/callback)
 func (_ Unimplemented) FinishSSO(w http.ResponseWriter, r *http.Request, params FinishSSOParams) {
@@ -3632,6 +5532,174 @@ func (_ Unimplemented) AddCaseNote(w http.ResponseWriter, r *http.Request, caseI
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListPackRuleChanges Configuration changes in this environment
+// (GET /api/v1/compliance/changes)
+func (_ Unimplemented) ListPackRuleChanges(w http.ResponseWriter, r *http.Request, params ListPackRuleChangesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApprovePackRuleChange Approve a pending change
+// (POST /api/v1/compliance/changes/{change_id}/approve)
+func (_ Unimplemented) ApprovePackRuleChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectPackRuleChange Reject or withdraw a pending change
+// (POST /api/v1/compliance/changes/{change_id}/reject)
+func (_ Unimplemented) RejectPackRuleChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceClocks The pack's legal deadlines
+// (GET /api/v1/compliance/clocks)
+func (_ Unimplemented) ListComplianceClocks(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceFXRates The institution's exchange rates
+// (GET /api/v1/compliance/fx-rates)
+func (_ Unimplemented) ListComplianceFXRates(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DeleteComplianceFXRate Remove a currency's exchange rate
+// (DELETE /api/v1/compliance/fx-rates/{currency})
+func (_ Unimplemented) DeleteComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutComplianceFXRate Set a currency's exchange rate
+// (PUT /api/v1/compliance/fx-rates/{currency})
+func (_ Unimplemented) PutComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceGaps The pack's open questions
+// (GET /api/v1/compliance/gaps)
+func (_ Unimplemented) ListComplianceGaps(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceGlossary The pack's glossary
+// (GET /api/v1/compliance/glossary)
+func (_ Unimplemented) ListComplianceGlossary(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetCompliancePack The workspace's rule pack
+// (GET /api/v1/compliance/pack)
+func (_ Unimplemented) GetCompliancePack(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetComplianceProfile The workspace's compliance profile
+// (GET /api/v1/compliance/profile)
+func (_ Unimplemented) GetComplianceProfile(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutComplianceProfile Set the workspace's compliance profile
+// (PUT /api/v1/compliance/profile)
+func (_ Unimplemented) PutComplianceProfile(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListRestrictedSignals Compliance-only signals (no tipping off)
+// (GET /api/v1/compliance/restricted-signals)
+func (_ Unimplemented) ListRestrictedSignals(w http.ResponseWriter, r *http.Request, params ListRestrictedSignalsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceRules The pack's rules
+// (GET /api/v1/compliance/rules)
+func (_ Unimplemented) ListComplianceRules(w http.ResponseWriter, r *http.Request, params ListComplianceRulesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetComplianceRule One rule
+// (GET /api/v1/compliance/rules/{rule_id})
+func (_ Unimplemented) GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// BacktestPackRule What a rule would have done over recent events
+// (POST /api/v1/compliance/rules/{rule_id}/backtest)
+func (_ Unimplemented) BacktestPackRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetPackRuleConfig A rule's configuration in this environment
+// (GET /api/v1/compliance/rules/{rule_id}/config)
+func (_ Unimplemented) GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// PutPackRuleConfig Set a rule's mode and settings in this environment
+// (PUT /api/v1/compliance/rules/{rule_id}/config)
+func (_ Unimplemented) PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListPackRuleVersions A rule's configuration versions in this environment
+// (GET /api/v1/compliance/rules/{rule_id}/history)
+func (_ Unimplemented) ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RollbackPackRule Restore an earlier configuration as a new version
+// (POST /api/v1/compliance/rules/{rule_id}/rollback)
+func (_ Unimplemented) RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ConfirmSuspicion Confirm suspicion on a case
+// (POST /api/v1/compliance/suspicion)
+func (_ Unimplemented) ConfirmSuspicion(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceTasks The compliance work queue
+// (GET /api/v1/compliance/tasks)
+func (_ Unimplemented) ListComplianceTasks(w http.ResponseWriter, r *http.Request, params ListComplianceTasksParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetComplianceTask One compliance task
+// (GET /api/v1/compliance/tasks/{task_id})
+func (_ Unimplemented) GetComplianceTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveComplianceReport Approve a report for filing
+// (POST /api/v1/compliance/tasks/{task_id}/approve)
+func (_ Unimplemented) ApproveComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CloseComplianceTask Mark a task done or dismiss it
+// (POST /api/v1/compliance/tasks/{task_id}/close)
+func (_ Unimplemented) CloseComplianceTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExportComplianceReport An approved report, for filing by hand
+// (GET /api/v1/compliance/tasks/{task_id}/export)
+func (_ Unimplemented) ExportComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// FileComplianceReport Record that a report was filed
+// (POST /api/v1/compliance/tasks/{task_id}/file)
+func (_ Unimplemented) FileComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EditComplianceReport Edit a draft report
+// (PATCH /api/v1/compliance/tasks/{task_id}/report)
+func (_ Unimplemented) EditComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListDenyEntries List the deny list
 // (GET /api/v1/deny-list)
 func (_ Unimplemented) ListDenyEntries(w http.ResponseWriter, r *http.Request, params ListDenyEntriesParams) {
@@ -3671,6 +5739,24 @@ func (_ Unimplemented) IngestEvent(w http.ResponseWriter, r *http.Request) {
 // GetEvent Get an event with its payloads and evaluation
 // (GET /api/v1/events/{event_id})
 func (_ Unimplemented) GetEvent(w http.ResponseWriter, r *http.Request, eventId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetOnboarding The workspace's compliance onboarding
+// (GET /api/v1/onboarding)
+func (_ Unimplemented) GetOnboarding(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SaveOnboarding Save onboarding answers (a draft)
+// (PUT /api/v1/onboarding)
+func (_ Unimplemented) SaveOnboarding(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SubmitOnboarding Submit the onboarding for review
+// (POST /api/v1/onboarding/submit)
+func (_ Unimplemented) SubmitOnboarding(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -4214,6 +6300,55 @@ func (siw *ServerInterfaceWrapper) ListAuditLogs(w http.ResponseWriter, r *http.
 	handler.ServeHTTP(w, r)
 }
 
+// FinishGoogle operation middleware
+func (siw *ServerInterfaceWrapper) FinishGoogle(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishGoogleParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("riskos_google"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "riskos_google", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "riskos_google", Err: err})
+				return
+			}
+			params.RiskosGoogle = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishGoogle(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartGoogle operation middleware
+func (siw *ServerInterfaceWrapper) StartGoogle(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartGoogle(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // AcceptInvite operation middleware
 func (siw *ServerInterfaceWrapper) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 
@@ -4422,6 +6557,139 @@ func (siw *ServerInterfaceWrapper) GetSession(w http.ResponseWriter, r *http.Req
 	handler.ServeHTTP(w, r)
 }
 
+// StartSignup operation middleware
+func (siw *ServerInterfaceWrapper) StartSignup(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartSignup(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CompleteSignup operation middleware
+func (siw *ServerInterfaceWrapper) CompleteSignup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params CompleteSignupParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("riskos_signup"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "riskos_signup", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "riskos_signup", Err: err})
+				return
+			}
+			params.RiskosSignup = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CompleteSignup(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetSignupOptions operation middleware
+func (siw *ServerInterfaceWrapper) GetSignupOptions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetSignupOptions(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ResendSignupCode operation middleware
+func (siw *ServerInterfaceWrapper) ResendSignupCode(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ResendSignupCodeParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("riskos_signup"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "riskos_signup", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "riskos_signup", Err: err})
+				return
+			}
+			params.RiskosSignup = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ResendSignupCode(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifySignup operation middleware
+func (siw *ServerInterfaceWrapper) VerifySignup(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params VerifySignupParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("riskos_signup"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "riskos_signup", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "riskos_signup", Err: err})
+				return
+			}
+			params.RiskosSignup = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifySignup(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // FinishSSO operation middleware
 func (siw *ServerInterfaceWrapper) FinishSSO(w http.ResponseWriter, r *http.Request) {
 
@@ -4613,6 +6881,731 @@ func (siw *ServerInterfaceWrapper) AddCaseNote(w http.ResponseWriter, r *http.Re
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.AddCaseNote(w, r, caseId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPackRuleChanges operation middleware
+func (siw *ServerInterfaceWrapper) ListPackRuleChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPackRuleChangesParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPackRuleChanges(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApprovePackRuleChange operation middleware
+func (siw *ServerInterfaceWrapper) ApprovePackRuleChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "change_id" -------------
+	var changeId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "change_id", chi.URLParam(r, "change_id"), &changeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "change_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApprovePackRuleChange(w, r, changeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectPackRuleChange operation middleware
+func (siw *ServerInterfaceWrapper) RejectPackRuleChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "change_id" -------------
+	var changeId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "change_id", chi.URLParam(r, "change_id"), &changeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "change_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectPackRuleChange(w, r, changeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceClocks operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceClocks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceClocks(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceFXRates operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceFXRates(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceFXRates(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DeleteComplianceFXRate operation middleware
+func (siw *ServerInterfaceWrapper) DeleteComplianceFXRate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "currency" -------------
+	var currency string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "currency", chi.URLParam(r, "currency"), &currency, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "currency", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DeleteComplianceFXRate(w, r, currency)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutComplianceFXRate operation middleware
+func (siw *ServerInterfaceWrapper) PutComplianceFXRate(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "currency" -------------
+	var currency string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "currency", chi.URLParam(r, "currency"), &currency, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "currency", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutComplianceFXRate(w, r, currency)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceGaps operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceGaps(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceGaps(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceGlossary operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceGlossary(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceGlossary(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetCompliancePack operation middleware
+func (siw *ServerInterfaceWrapper) GetCompliancePack(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetCompliancePack(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetComplianceProfile operation middleware
+func (siw *ServerInterfaceWrapper) GetComplianceProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComplianceProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutComplianceProfile operation middleware
+func (siw *ServerInterfaceWrapper) PutComplianceProfile(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutComplianceProfile(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListRestrictedSignals operation middleware
+func (siw *ServerInterfaceWrapper) ListRestrictedSignals(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListRestrictedSignalsParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListRestrictedSignals(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceRules operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListComplianceRulesParams
+
+	// ------------- Optional query parameter "group" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "group", r.URL.Query(), &params.Group, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "group"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "group", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "kind" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "kind", r.URL.Query(), &params.Kind, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "kind"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "kind", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "regulator" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "regulator", r.URL.Query(), &params.Regulator, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "regulator"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "regulator", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "verification" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "verification", r.URL.Query(), &params.Verification, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "verification"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "verification", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "q" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "q", r.URL.Query(), &params.Q, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "q"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "q", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "applicable" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "applicable", r.URL.Query(), &params.Applicable, runtime.BindQueryParameterOptions{Type: "boolean", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "applicable"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "applicable", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceRules(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetComplianceRule operation middleware
+func (siw *ServerInterfaceWrapper) GetComplianceRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComplianceRule(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// BacktestPackRule operation middleware
+func (siw *ServerInterfaceWrapper) BacktestPackRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.BacktestPackRule(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetPackRuleConfig operation middleware
+func (siw *ServerInterfaceWrapper) GetPackRuleConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetPackRuleConfig(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// PutPackRuleConfig operation middleware
+func (siw *ServerInterfaceWrapper) PutPackRuleConfig(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.PutPackRuleConfig(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListPackRuleVersions operation middleware
+func (siw *ServerInterfaceWrapper) ListPackRuleVersions(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListPackRuleVersions(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RollbackPackRule operation middleware
+func (siw *ServerInterfaceWrapper) RollbackPackRule(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "rule_id" -------------
+	var ruleId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "rule_id", chi.URLParam(r, "rule_id"), &ruleId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "rule_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RollbackPackRule(w, r, ruleId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ConfirmSuspicion operation middleware
+func (siw *ServerInterfaceWrapper) ConfirmSuspicion(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ConfirmSuspicion(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceTasks operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceTasks(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListComplianceTasksParams
+
+	// ------------- Optional query parameter "status" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "status", r.URL.Query(), &params.Status, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "status"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "status", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceTasks(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetComplianceTask operation middleware
+func (siw *ServerInterfaceWrapper) GetComplianceTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "task_id" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task_id", chi.URLParam(r, "task_id"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComplianceTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveComplianceReport operation middleware
+func (siw *ServerInterfaceWrapper) ApproveComplianceReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "task_id" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task_id", chi.URLParam(r, "task_id"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveComplianceReport(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CloseComplianceTask operation middleware
+func (siw *ServerInterfaceWrapper) CloseComplianceTask(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "task_id" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task_id", chi.URLParam(r, "task_id"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CloseComplianceTask(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportComplianceReport operation middleware
+func (siw *ServerInterfaceWrapper) ExportComplianceReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "task_id" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task_id", chi.URLParam(r, "task_id"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportComplianceReport(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FileComplianceReport operation middleware
+func (siw *ServerInterfaceWrapper) FileComplianceReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "task_id" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task_id", chi.URLParam(r, "task_id"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FileComplianceReport(w, r, taskId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EditComplianceReport operation middleware
+func (siw *ServerInterfaceWrapper) EditComplianceReport(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "task_id" -------------
+	var taskId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "task_id", chi.URLParam(r, "task_id"), &taskId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "task_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EditComplianceReport(w, r, taskId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -4898,6 +7891,48 @@ func (siw *ServerInterfaceWrapper) GetEvent(w http.ResponseWriter, r *http.Reque
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetEvent(w, r, eventId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetOnboarding operation middleware
+func (siw *ServerInterfaceWrapper) GetOnboarding(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetOnboarding(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SaveOnboarding operation middleware
+func (siw *ServerInterfaceWrapper) SaveOnboarding(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SaveOnboarding(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SubmitOnboarding operation middleware
+func (siw *ServerInterfaceWrapper) SubmitOnboarding(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SubmitOnboarding(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -6018,6 +9053,120 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/auth/sso/callback", wrapper.FinishSSO)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/auth/signup/options", wrapper.GetSignupOptions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/signup", wrapper.StartSignup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/signup/resend", wrapper.ResendSignupCode)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/signup/verify", wrapper.VerifySignup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/signup/complete", wrapper.CompleteSignup)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/google/start", wrapper.StartGoogle)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/auth/google/callback", wrapper.FinishGoogle)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/onboarding", wrapper.GetOnboarding)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/onboarding", wrapper.SaveOnboarding)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/onboarding/submit", wrapper.SubmitOnboarding)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/pack", wrapper.GetCompliancePack)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/rules", wrapper.ListComplianceRules)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/rules/{rule_id}", wrapper.GetComplianceRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/rules/{rule_id}/config", wrapper.GetPackRuleConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/compliance/rules/{rule_id}/config", wrapper.PutPackRuleConfig)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/rules/{rule_id}/history", wrapper.ListPackRuleVersions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/rules/{rule_id}/rollback", wrapper.RollbackPackRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/rules/{rule_id}/backtest", wrapper.BacktestPackRule)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/fx-rates", wrapper.ListComplianceFXRates)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/v1/compliance/fx-rates/{currency}", wrapper.DeleteComplianceFXRate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/compliance/fx-rates/{currency}", wrapper.PutComplianceFXRate)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/restricted-signals", wrapper.ListRestrictedSignals)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/tasks", wrapper.ListComplianceTasks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/tasks/{task_id}", wrapper.GetComplianceTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/compliance/tasks/{task_id}/report", wrapper.EditComplianceReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/tasks/{task_id}/approve", wrapper.ApproveComplianceReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/tasks/{task_id}/file", wrapper.FileComplianceReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/tasks/{task_id}/close", wrapper.CloseComplianceTask)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/tasks/{task_id}/export", wrapper.ExportComplianceReport)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/suspicion", wrapper.ConfirmSuspicion)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/changes", wrapper.ListPackRuleChanges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/changes/{change_id}/approve", wrapper.ApprovePackRuleChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/changes/{change_id}/reject", wrapper.RejectPackRuleChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/clocks", wrapper.ListComplianceClocks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/gaps", wrapper.ListComplianceGaps)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/glossary", wrapper.ListComplianceGlossary)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/profile", wrapper.GetComplianceProfile)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/v1/compliance/profile", wrapper.PutComplianceProfile)
+	})
+	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/v1/sso", wrapper.DeleteSSO)
 	})
 	r.Group(func(r chi.Router) {
@@ -6957,6 +10106,205 @@ type ListAuditLogsdefaultJSONResponse struct {
 }
 
 func (response ListAuditLogsdefaultJSONResponse) VisitListAuditLogsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogleRequestObject struct {
+	Params FinishGoogleParams
+	Body   *FinishGoogleJSONRequestBody
+}
+
+type FinishGoogleResponseObject interface {
+	VisitFinishGoogleResponse(w http.ResponseWriter) error
+}
+
+type FinishGoogle200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type FinishGoogle200JSONResponse struct {
+	Body    GoogleResult
+	Headers FinishGoogle200ResponseHeaders
+}
+
+func (response FinishGoogle200JSONResponse) VisitFinishGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogle400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response FinishGoogle400JSONResponse) VisitFinishGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogle401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response FinishGoogle401JSONResponse) VisitFinishGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogle403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FinishGoogle403JSONResponse) VisitFinishGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogle429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response FinishGoogle429JSONResponse) VisitFinishGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishGoogledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response FinishGoogledefaultJSONResponse) VisitFinishGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGoogleRequestObject struct {
+}
+
+type StartGoogleResponseObject interface {
+	VisitStartGoogleResponse(w http.ResponseWriter) error
+}
+
+type StartGoogle200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StartGoogle200JSONResponse struct {
+	Body    SSOStart
+	Headers StartGoogle200ResponseHeaders
+}
+
+func (response StartGoogle200JSONResponse) VisitStartGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGoogle404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StartGoogle404JSONResponse) VisitStartGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGoogle429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response StartGoogle429JSONResponse) VisitStartGoogleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartGoogledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response StartGoogledefaultJSONResponse) VisitStartGoogleResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -8253,6 +11601,455 @@ func (response GetSessiondefaultJSONResponse) VisitGetSessionResponse(w http.Res
 	return err
 }
 
+type StartSignupRequestObject struct {
+	Body *StartSignupJSONRequestBody
+}
+
+type StartSignupResponseObject interface {
+	VisitStartSignupResponse(w http.ResponseWriter) error
+}
+
+type StartSignup202ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StartSignup202JSONResponse struct {
+	Body    SignupPending
+	Headers StartSignup202ResponseHeaders
+}
+
+func (response StartSignup202JSONResponse) VisitStartSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartSignup400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response StartSignup400JSONResponse) VisitStartSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartSignup404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StartSignup404JSONResponse) VisitStartSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartSignup429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response StartSignup429JSONResponse) VisitStartSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartSignupdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response StartSignupdefaultJSONResponse) VisitStartSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSignupRequestObject struct {
+	Params CompleteSignupParams
+	Body   *CompleteSignupJSONRequestBody
+}
+
+type CompleteSignupResponseObject interface {
+	VisitCompleteSignupResponse(w http.ResponseWriter) error
+}
+
+type CompleteSignup200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type CompleteSignup200JSONResponse struct {
+	Body    AuthState
+	Headers CompleteSignup200ResponseHeaders
+}
+
+func (response CompleteSignup200JSONResponse) VisitCompleteSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSignup400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response CompleteSignup400JSONResponse) VisitCompleteSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSignup401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response CompleteSignup401JSONResponse) VisitCompleteSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSignup409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CompleteSignup409JSONResponse) VisitCompleteSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSignup429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response CompleteSignup429JSONResponse) VisitCompleteSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CompleteSignupdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response CompleteSignupdefaultJSONResponse) VisitCompleteSignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSignupOptionsRequestObject struct {
+}
+
+type GetSignupOptionsResponseObject interface {
+	VisitGetSignupOptionsResponse(w http.ResponseWriter) error
+}
+
+type GetSignupOptions200JSONResponse SignupOptions
+
+func (response GetSignupOptions200JSONResponse) VisitGetSignupOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetSignupOptionsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetSignupOptionsdefaultJSONResponse) VisitGetSignupOptionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResendSignupCodeRequestObject struct {
+	Params ResendSignupCodeParams
+}
+
+type ResendSignupCodeResponseObject interface {
+	VisitResendSignupCodeResponse(w http.ResponseWriter) error
+}
+
+type ResendSignupCode200JSONResponse SignupPending
+
+func (response ResendSignupCode200JSONResponse) VisitResendSignupCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResendSignupCode401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ResendSignupCode401JSONResponse) VisitResendSignupCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResendSignupCode429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response ResendSignupCode429JSONResponse) VisitResendSignupCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ResendSignupCodedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ResendSignupCodedefaultJSONResponse) VisitResendSignupCodeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifySignupRequestObject struct {
+	Params VerifySignupParams
+	Body   *VerifySignupJSONRequestBody
+}
+
+type VerifySignupResponseObject interface {
+	VisitVerifySignupResponse(w http.ResponseWriter) error
+}
+
+type VerifySignup200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type VerifySignup200JSONResponse struct {
+	Body    AuthState
+	Headers VerifySignup200ResponseHeaders
+}
+
+func (response VerifySignup200JSONResponse) VisitVerifySignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifySignup400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response VerifySignup400JSONResponse) VisitVerifySignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifySignup401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response VerifySignup401JSONResponse) VisitVerifySignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifySignup409JSONResponse struct{ ConflictJSONResponse }
+
+func (response VerifySignup409JSONResponse) VisitVerifySignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifySignup429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response VerifySignup429JSONResponse) VisitVerifySignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.RetryAfter != nil {
+		w.Header().Set("Retry-After", fmt.Sprint(*response.Headers.RetryAfter))
+	}
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifySignupdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response VerifySignupdefaultJSONResponse) VisitVerifySignupResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type FinishSSORequestObject struct {
 	Params FinishSSOParams
 	Body   *FinishSSOJSONRequestBody
@@ -9064,6 +12861,2733 @@ func (response AddCaseNotedefaultJSONResponse) VisitAddCaseNoteResponse(w http.R
 	return err
 }
 
+type ListPackRuleChangesRequestObject struct {
+	Params ListPackRuleChangesParams
+}
+
+type ListPackRuleChangesResponseObject interface {
+	VisitListPackRuleChangesResponse(w http.ResponseWriter) error
+}
+
+type ListPackRuleChanges200JSONResponse PackRuleChangeList
+
+func (response ListPackRuleChanges200JSONResponse) VisitListPackRuleChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleChanges401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListPackRuleChanges401JSONResponse) VisitListPackRuleChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleChanges403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListPackRuleChanges403JSONResponse) VisitListPackRuleChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleChanges404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListPackRuleChanges404JSONResponse) VisitListPackRuleChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleChangesdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListPackRuleChangesdefaultJSONResponse) VisitListPackRuleChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApprovePackRuleChangeRequestObject struct {
+	ChangeId string `json:"change_id"`
+	Body     *ApprovePackRuleChangeJSONRequestBody
+}
+
+type ApprovePackRuleChangeResponseObject interface {
+	VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error
+}
+
+type ApprovePackRuleChange200JSONResponse PackRuleChange
+
+func (response ApprovePackRuleChange200JSONResponse) VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApprovePackRuleChange401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApprovePackRuleChange401JSONResponse) VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApprovePackRuleChange403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApprovePackRuleChange403JSONResponse) VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApprovePackRuleChange404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApprovePackRuleChange404JSONResponse) VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApprovePackRuleChange409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApprovePackRuleChange409JSONResponse) VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApprovePackRuleChangedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ApprovePackRuleChangedefaultJSONResponse) VisitApprovePackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectPackRuleChangeRequestObject struct {
+	ChangeId string `json:"change_id"`
+	Body     *RejectPackRuleChangeJSONRequestBody
+}
+
+type RejectPackRuleChangeResponseObject interface {
+	VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error
+}
+
+type RejectPackRuleChange200JSONResponse PackRuleChange
+
+func (response RejectPackRuleChange200JSONResponse) VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectPackRuleChange401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RejectPackRuleChange401JSONResponse) VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectPackRuleChange403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectPackRuleChange403JSONResponse) VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectPackRuleChange404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectPackRuleChange404JSONResponse) VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectPackRuleChange409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectPackRuleChange409JSONResponse) VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectPackRuleChangedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response RejectPackRuleChangedefaultJSONResponse) VisitRejectPackRuleChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceClocksRequestObject struct {
+}
+
+type ListComplianceClocksResponseObject interface {
+	VisitListComplianceClocksResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceClocks200JSONResponse ComplianceClockList
+
+func (response ListComplianceClocks200JSONResponse) VisitListComplianceClocksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceClocks401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceClocks401JSONResponse) VisitListComplianceClocksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceClocks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceClocks403JSONResponse) VisitListComplianceClocksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceClocks404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListComplianceClocks404JSONResponse) VisitListComplianceClocksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceClocksdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceClocksdefaultJSONResponse) VisitListComplianceClocksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceFXRatesRequestObject struct {
+}
+
+type ListComplianceFXRatesResponseObject interface {
+	VisitListComplianceFXRatesResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceFXRates200JSONResponse FXRateList
+
+func (response ListComplianceFXRates200JSONResponse) VisitListComplianceFXRatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceFXRates401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceFXRates401JSONResponse) VisitListComplianceFXRatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceFXRates403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceFXRates403JSONResponse) VisitListComplianceFXRatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceFXRatesdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceFXRatesdefaultJSONResponse) VisitListComplianceFXRatesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteComplianceFXRateRequestObject struct {
+	Currency string `json:"currency"`
+}
+
+type DeleteComplianceFXRateResponseObject interface {
+	VisitDeleteComplianceFXRateResponse(w http.ResponseWriter) error
+}
+
+type DeleteComplianceFXRate204Response struct {
+}
+
+func (response DeleteComplianceFXRate204Response) VisitDeleteComplianceFXRateResponse(w http.ResponseWriter) error {
+	w.WriteHeader(204)
+	return nil
+}
+
+type DeleteComplianceFXRate401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response DeleteComplianceFXRate401JSONResponse) VisitDeleteComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteComplianceFXRate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DeleteComplianceFXRate403JSONResponse) VisitDeleteComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteComplianceFXRate404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DeleteComplianceFXRate404JSONResponse) VisitDeleteComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DeleteComplianceFXRatedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response DeleteComplianceFXRatedefaultJSONResponse) VisitDeleteComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceFXRateRequestObject struct {
+	Currency string `json:"currency"`
+	Body     *PutComplianceFXRateJSONRequestBody
+}
+
+type PutComplianceFXRateResponseObject interface {
+	VisitPutComplianceFXRateResponse(w http.ResponseWriter) error
+}
+
+type PutComplianceFXRate200JSONResponse FXRate
+
+func (response PutComplianceFXRate200JSONResponse) VisitPutComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceFXRate400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response PutComplianceFXRate400JSONResponse) VisitPutComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceFXRate401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response PutComplianceFXRate401JSONResponse) VisitPutComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceFXRate403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutComplianceFXRate403JSONResponse) VisitPutComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceFXRatedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response PutComplianceFXRatedefaultJSONResponse) VisitPutComplianceFXRateResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGapsRequestObject struct {
+}
+
+type ListComplianceGapsResponseObject interface {
+	VisitListComplianceGapsResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceGaps200JSONResponse ComplianceGapList
+
+func (response ListComplianceGaps200JSONResponse) VisitListComplianceGapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGaps401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceGaps401JSONResponse) VisitListComplianceGapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGaps403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceGaps403JSONResponse) VisitListComplianceGapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGaps404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListComplianceGaps404JSONResponse) VisitListComplianceGapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGapsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceGapsdefaultJSONResponse) VisitListComplianceGapsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGlossaryRequestObject struct {
+}
+
+type ListComplianceGlossaryResponseObject interface {
+	VisitListComplianceGlossaryResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceGlossary200JSONResponse ComplianceTermList
+
+func (response ListComplianceGlossary200JSONResponse) VisitListComplianceGlossaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGlossary401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceGlossary401JSONResponse) VisitListComplianceGlossaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGlossary403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceGlossary403JSONResponse) VisitListComplianceGlossaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGlossary404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListComplianceGlossary404JSONResponse) VisitListComplianceGlossaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceGlossarydefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceGlossarydefaultJSONResponse) VisitListComplianceGlossaryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCompliancePackRequestObject struct {
+}
+
+type GetCompliancePackResponseObject interface {
+	VisitGetCompliancePackResponse(w http.ResponseWriter) error
+}
+
+type GetCompliancePack200JSONResponse CompliancePack
+
+func (response GetCompliancePack200JSONResponse) VisitGetCompliancePackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCompliancePack401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetCompliancePack401JSONResponse) VisitGetCompliancePackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCompliancePack403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetCompliancePack403JSONResponse) VisitGetCompliancePackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCompliancePack404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetCompliancePack404JSONResponse) VisitGetCompliancePackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetCompliancePackdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetCompliancePackdefaultJSONResponse) VisitGetCompliancePackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceProfileRequestObject struct {
+}
+
+type GetComplianceProfileResponseObject interface {
+	VisitGetComplianceProfileResponse(w http.ResponseWriter) error
+}
+
+type GetComplianceProfile200JSONResponse ComplianceProfile
+
+func (response GetComplianceProfile200JSONResponse) VisitGetComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceProfile401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetComplianceProfile401JSONResponse) VisitGetComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceProfile403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetComplianceProfile403JSONResponse) VisitGetComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceProfile404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetComplianceProfile404JSONResponse) VisitGetComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceProfiledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetComplianceProfiledefaultJSONResponse) VisitGetComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceProfileRequestObject struct {
+	Body *PutComplianceProfileJSONRequestBody
+}
+
+type PutComplianceProfileResponseObject interface {
+	VisitPutComplianceProfileResponse(w http.ResponseWriter) error
+}
+
+type PutComplianceProfile200JSONResponse ComplianceProfile
+
+func (response PutComplianceProfile200JSONResponse) VisitPutComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceProfile400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response PutComplianceProfile400JSONResponse) VisitPutComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceProfile401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response PutComplianceProfile401JSONResponse) VisitPutComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceProfile403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutComplianceProfile403JSONResponse) VisitPutComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutComplianceProfiledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response PutComplianceProfiledefaultJSONResponse) VisitPutComplianceProfileResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRestrictedSignalsRequestObject struct {
+	Params ListRestrictedSignalsParams
+}
+
+type ListRestrictedSignalsResponseObject interface {
+	VisitListRestrictedSignalsResponse(w http.ResponseWriter) error
+}
+
+type ListRestrictedSignals200JSONResponse RestrictedEvaluationList
+
+func (response ListRestrictedSignals200JSONResponse) VisitListRestrictedSignalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRestrictedSignals400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ListRestrictedSignals400JSONResponse) VisitListRestrictedSignalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRestrictedSignals401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListRestrictedSignals401JSONResponse) VisitListRestrictedSignalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRestrictedSignals403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListRestrictedSignals403JSONResponse) VisitListRestrictedSignalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListRestrictedSignalsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListRestrictedSignalsdefaultJSONResponse) VisitListRestrictedSignalsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceRulesRequestObject struct {
+	Params ListComplianceRulesParams
+}
+
+type ListComplianceRulesResponseObject interface {
+	VisitListComplianceRulesResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceRules200JSONResponse ComplianceRuleList
+
+func (response ListComplianceRules200JSONResponse) VisitListComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceRules400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ListComplianceRules400JSONResponse) VisitListComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceRules401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceRules401JSONResponse) VisitListComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceRules403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceRules403JSONResponse) VisitListComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceRules404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListComplianceRules404JSONResponse) VisitListComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceRulesdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceRulesdefaultJSONResponse) VisitListComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceRuleRequestObject struct {
+	RuleId string `json:"rule_id"`
+}
+
+type GetComplianceRuleResponseObject interface {
+	VisitGetComplianceRuleResponse(w http.ResponseWriter) error
+}
+
+type GetComplianceRule200JSONResponse ComplianceRule
+
+func (response GetComplianceRule200JSONResponse) VisitGetComplianceRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceRule401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetComplianceRule401JSONResponse) VisitGetComplianceRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceRule403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetComplianceRule403JSONResponse) VisitGetComplianceRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceRule404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetComplianceRule404JSONResponse) VisitGetComplianceRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceRuledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetComplianceRuledefaultJSONResponse) VisitGetComplianceRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BacktestPackRuleRequestObject struct {
+	RuleId string `json:"rule_id"`
+	Body   *BacktestPackRuleJSONRequestBody
+}
+
+type BacktestPackRuleResponseObject interface {
+	VisitBacktestPackRuleResponse(w http.ResponseWriter) error
+}
+
+type BacktestPackRule200JSONResponse Backtest
+
+func (response BacktestPackRule200JSONResponse) VisitBacktestPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BacktestPackRule400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response BacktestPackRule400JSONResponse) VisitBacktestPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BacktestPackRule401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response BacktestPackRule401JSONResponse) VisitBacktestPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BacktestPackRule403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response BacktestPackRule403JSONResponse) VisitBacktestPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BacktestPackRule404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response BacktestPackRule404JSONResponse) VisitBacktestPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type BacktestPackRuledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response BacktestPackRuledefaultJSONResponse) VisitBacktestPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPackRuleConfigRequestObject struct {
+	RuleId string `json:"rule_id"`
+}
+
+type GetPackRuleConfigResponseObject interface {
+	VisitGetPackRuleConfigResponse(w http.ResponseWriter) error
+}
+
+type GetPackRuleConfig200JSONResponse PackRuleConfig
+
+func (response GetPackRuleConfig200JSONResponse) VisitGetPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPackRuleConfig401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetPackRuleConfig401JSONResponse) VisitGetPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPackRuleConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetPackRuleConfig403JSONResponse) VisitGetPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPackRuleConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetPackRuleConfig404JSONResponse) VisitGetPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetPackRuleConfigdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetPackRuleConfigdefaultJSONResponse) VisitGetPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfigRequestObject struct {
+	RuleId string `json:"rule_id"`
+	Body   *PutPackRuleConfigJSONRequestBody
+}
+
+type PutPackRuleConfigResponseObject interface {
+	VisitPutPackRuleConfigResponse(w http.ResponseWriter) error
+}
+
+type PutPackRuleConfig200JSONResponse PackRuleConfig
+
+func (response PutPackRuleConfig200JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfig202JSONResponse PackRuleChange
+
+func (response PutPackRuleConfig202JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfig400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response PutPackRuleConfig400JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfig401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response PutPackRuleConfig401JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfig403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response PutPackRuleConfig403JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfig404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response PutPackRuleConfig404JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfig409JSONResponse struct{ ConflictJSONResponse }
+
+func (response PutPackRuleConfig409JSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type PutPackRuleConfigdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response PutPackRuleConfigdefaultJSONResponse) VisitPutPackRuleConfigResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleVersionsRequestObject struct {
+	RuleId string `json:"rule_id"`
+}
+
+type ListPackRuleVersionsResponseObject interface {
+	VisitListPackRuleVersionsResponse(w http.ResponseWriter) error
+}
+
+type ListPackRuleVersions200JSONResponse PackRuleVersionList
+
+func (response ListPackRuleVersions200JSONResponse) VisitListPackRuleVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleVersions401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListPackRuleVersions401JSONResponse) VisitListPackRuleVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleVersions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListPackRuleVersions403JSONResponse) VisitListPackRuleVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleVersions404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListPackRuleVersions404JSONResponse) VisitListPackRuleVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListPackRuleVersionsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListPackRuleVersionsdefaultJSONResponse) VisitListPackRuleVersionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRuleRequestObject struct {
+	RuleId string `json:"rule_id"`
+	Body   *RollbackPackRuleJSONRequestBody
+}
+
+type RollbackPackRuleResponseObject interface {
+	VisitRollbackPackRuleResponse(w http.ResponseWriter) error
+}
+
+type RollbackPackRule200JSONResponse PackRuleConfig
+
+func (response RollbackPackRule200JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRule202JSONResponse PackRuleChange
+
+func (response RollbackPackRule202JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRule400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RollbackPackRule400JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRule401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RollbackPackRule401JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRule403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RollbackPackRule403JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRule404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RollbackPackRule404JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRule409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RollbackPackRule409JSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RollbackPackRuledefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response RollbackPackRuledefaultJSONResponse) VisitRollbackPackRuleResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmSuspicionRequestObject struct {
+	Body *ConfirmSuspicionJSONRequestBody
+}
+
+type ConfirmSuspicionResponseObject interface {
+	VisitConfirmSuspicionResponse(w http.ResponseWriter) error
+}
+
+type ConfirmSuspicion201JSONResponse ComplianceTask
+
+func (response ConfirmSuspicion201JSONResponse) VisitConfirmSuspicionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmSuspicion400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ConfirmSuspicion400JSONResponse) VisitConfirmSuspicionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmSuspicion401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ConfirmSuspicion401JSONResponse) VisitConfirmSuspicionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmSuspicion403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ConfirmSuspicion403JSONResponse) VisitConfirmSuspicionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmSuspicion404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ConfirmSuspicion404JSONResponse) VisitConfirmSuspicionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ConfirmSuspiciondefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ConfirmSuspiciondefaultJSONResponse) VisitConfirmSuspicionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceTasksRequestObject struct {
+	Params ListComplianceTasksParams
+}
+
+type ListComplianceTasksResponseObject interface {
+	VisitListComplianceTasksResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceTasks200JSONResponse ComplianceQueue
+
+func (response ListComplianceTasks200JSONResponse) VisitListComplianceTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceTasks401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceTasks401JSONResponse) VisitListComplianceTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceTasks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceTasks403JSONResponse) VisitListComplianceTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceTasks404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListComplianceTasks404JSONResponse) VisitListComplianceTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceTasksdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceTasksdefaultJSONResponse) VisitListComplianceTasksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceTaskRequestObject struct {
+	TaskId string `json:"task_id"`
+}
+
+type GetComplianceTaskResponseObject interface {
+	VisitGetComplianceTaskResponse(w http.ResponseWriter) error
+}
+
+type GetComplianceTask200JSONResponse ComplianceTask
+
+func (response GetComplianceTask200JSONResponse) VisitGetComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceTask401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetComplianceTask401JSONResponse) VisitGetComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceTask403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetComplianceTask403JSONResponse) VisitGetComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceTask404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetComplianceTask404JSONResponse) VisitGetComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceTaskdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetComplianceTaskdefaultJSONResponse) VisitGetComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReportRequestObject struct {
+	TaskId string `json:"task_id"`
+}
+
+type ApproveComplianceReportResponseObject interface {
+	VisitApproveComplianceReportResponse(w http.ResponseWriter) error
+}
+
+type ApproveComplianceReport200JSONResponse ComplianceTask
+
+func (response ApproveComplianceReport200JSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReport400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ApproveComplianceReport400JSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReport401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApproveComplianceReport401JSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReport403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveComplianceReport403JSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReport404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveComplianceReport404JSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReport409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveComplianceReport409JSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceReportdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ApproveComplianceReportdefaultJSONResponse) VisitApproveComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTaskRequestObject struct {
+	TaskId string `json:"task_id"`
+	Body   *CloseComplianceTaskJSONRequestBody
+}
+
+type CloseComplianceTaskResponseObject interface {
+	VisitCloseComplianceTaskResponse(w http.ResponseWriter) error
+}
+
+type CloseComplianceTask200JSONResponse ComplianceTask
+
+func (response CloseComplianceTask200JSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTask400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response CloseComplianceTask400JSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTask401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response CloseComplianceTask401JSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTask403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CloseComplianceTask403JSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTask404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CloseComplianceTask404JSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTask409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CloseComplianceTask409JSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CloseComplianceTaskdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response CloseComplianceTaskdefaultJSONResponse) VisitCloseComplianceTaskResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceReportRequestObject struct {
+	TaskId string `json:"task_id"`
+}
+
+type ExportComplianceReportResponseObject interface {
+	VisitExportComplianceReportResponse(w http.ResponseWriter) error
+}
+
+type ExportComplianceReport200JSONResponse ComplianceTask
+
+func (response ExportComplianceReport200JSONResponse) VisitExportComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceReport401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ExportComplianceReport401JSONResponse) VisitExportComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceReport403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ExportComplianceReport403JSONResponse) VisitExportComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceReport404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ExportComplianceReport404JSONResponse) VisitExportComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceReport409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ExportComplianceReport409JSONResponse) VisitExportComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceReportdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ExportComplianceReportdefaultJSONResponse) VisitExportComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReportRequestObject struct {
+	TaskId string `json:"task_id"`
+	Body   *FileComplianceReportJSONRequestBody
+}
+
+type FileComplianceReportResponseObject interface {
+	VisitFileComplianceReportResponse(w http.ResponseWriter) error
+}
+
+type FileComplianceReport200JSONResponse ComplianceTask
+
+func (response FileComplianceReport200JSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReport400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response FileComplianceReport400JSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReport401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response FileComplianceReport401JSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReport403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response FileComplianceReport403JSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReport404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response FileComplianceReport404JSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReport409JSONResponse struct{ ConflictJSONResponse }
+
+func (response FileComplianceReport409JSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FileComplianceReportdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response FileComplianceReportdefaultJSONResponse) VisitFileComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReportRequestObject struct {
+	TaskId string `json:"task_id"`
+	Body   *EditComplianceReportJSONRequestBody
+}
+
+type EditComplianceReportResponseObject interface {
+	VisitEditComplianceReportResponse(w http.ResponseWriter) error
+}
+
+type EditComplianceReport200JSONResponse ComplianceTask
+
+func (response EditComplianceReport200JSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReport400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response EditComplianceReport400JSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReport401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response EditComplianceReport401JSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReport403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EditComplianceReport403JSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReport404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EditComplianceReport404JSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReport409JSONResponse struct{ ConflictJSONResponse }
+
+func (response EditComplianceReport409JSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EditComplianceReportdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response EditComplianceReportdefaultJSONResponse) VisitEditComplianceReportResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListDenyEntriesRequestObject struct {
 	Params ListDenyEntriesParams
 }
@@ -9818,6 +16342,324 @@ type GetEventdefaultJSONResponse struct {
 }
 
 func (response GetEventdefaultJSONResponse) VisitGetEventResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingRequestObject struct {
+}
+
+type GetOnboardingResponseObject interface {
+	VisitGetOnboardingResponse(w http.ResponseWriter) error
+}
+
+type GetOnboarding200JSONResponse Onboarding
+
+func (response GetOnboarding200JSONResponse) VisitGetOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboarding401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetOnboarding401JSONResponse) VisitGetOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboarding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetOnboarding403JSONResponse) VisitGetOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboarding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetOnboarding404JSONResponse) VisitGetOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetOnboardingdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetOnboardingdefaultJSONResponse) VisitGetOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboardingRequestObject struct {
+	Body *SaveOnboardingJSONRequestBody
+}
+
+type SaveOnboardingResponseObject interface {
+	VisitSaveOnboardingResponse(w http.ResponseWriter) error
+}
+
+type SaveOnboarding200JSONResponse Onboarding
+
+func (response SaveOnboarding200JSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboarding400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SaveOnboarding400JSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboarding401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SaveOnboarding401JSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboarding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SaveOnboarding403JSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboarding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SaveOnboarding404JSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboarding409JSONResponse struct{ ConflictJSONResponse }
+
+func (response SaveOnboarding409JSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SaveOnboardingdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response SaveOnboardingdefaultJSONResponse) VisitSaveOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboardingRequestObject struct {
+}
+
+type SubmitOnboardingResponseObject interface {
+	VisitSubmitOnboardingResponse(w http.ResponseWriter) error
+}
+
+type SubmitOnboarding200JSONResponse Onboarding
+
+func (response SubmitOnboarding200JSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboarding400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SubmitOnboarding400JSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboarding401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SubmitOnboarding401JSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboarding403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SubmitOnboarding403JSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboarding404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SubmitOnboarding404JSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboarding409JSONResponse struct{ ConflictJSONResponse }
+
+func (response SubmitOnboarding409JSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SubmitOnboardingdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response SubmitOnboardingdefaultJSONResponse) VisitSubmitOnboardingResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -13684,6 +20526,12 @@ type StrictServerInterface interface {
 	// ListAuditLogs List audit entries
 	// (GET /api/v1/audit-logs)
 	ListAuditLogs(ctx context.Context, request ListAuditLogsRequestObject) (ListAuditLogsResponseObject, error)
+	// FinishGoogle Finish signing in or up with Google
+	// (POST /api/v1/auth/google/callback)
+	FinishGoogle(ctx context.Context, request FinishGoogleRequestObject) (FinishGoogleResponseObject, error)
+	// StartGoogle Start signing in or up with Google
+	// (POST /api/v1/auth/google/start)
+	StartGoogle(ctx context.Context, request StartGoogleRequestObject) (StartGoogleResponseObject, error)
 	// AcceptInvite Accept an invite
 	// (POST /api/v1/auth/invites/accept)
 	AcceptInvite(ctx context.Context, request AcceptInviteRequestObject) (AcceptInviteResponseObject, error)
@@ -13726,6 +20574,21 @@ type StrictServerInterface interface {
 	// GetSession The current console session
 	// (GET /api/v1/auth/session)
 	GetSession(ctx context.Context, request GetSessionRequestObject) (GetSessionResponseObject, error)
+	// StartSignup Start creating a workspace with email and password
+	// (POST /api/v1/auth/signup)
+	StartSignup(ctx context.Context, request StartSignupRequestObject) (StartSignupResponseObject, error)
+	// CompleteSignup Name the workspace and create it (Google sign-ups)
+	// (POST /api/v1/auth/signup/complete)
+	CompleteSignup(ctx context.Context, request CompleteSignupRequestObject) (CompleteSignupResponseObject, error)
+	// GetSignupOptions Which ways to sign up are available
+	// (GET /api/v1/auth/signup/options)
+	GetSignupOptions(ctx context.Context, request GetSignupOptionsRequestObject) (GetSignupOptionsResponseObject, error)
+	// ResendSignupCode Send a new code
+	// (POST /api/v1/auth/signup/resend)
+	ResendSignupCode(ctx context.Context, request ResendSignupCodeRequestObject) (ResendSignupCodeResponseObject, error)
+	// VerifySignup Verify the emailed code and create the workspace
+	// (POST /api/v1/auth/signup/verify)
+	VerifySignup(ctx context.Context, request VerifySignupRequestObject) (VerifySignupResponseObject, error)
 	// FinishSSO Finish signing in with the tenant's identity provider
 	// (POST /api/v1/auth/sso/callback)
 	FinishSSO(ctx context.Context, request FinishSSORequestObject) (FinishSSOResponseObject, error)
@@ -13747,6 +20610,90 @@ type StrictServerInterface interface {
 	// AddCaseNote Add a note to a case
 	// (POST /api/v1/cases/{case_id}/notes)
 	AddCaseNote(ctx context.Context, request AddCaseNoteRequestObject) (AddCaseNoteResponseObject, error)
+	// ListPackRuleChanges Configuration changes in this environment
+	// (GET /api/v1/compliance/changes)
+	ListPackRuleChanges(ctx context.Context, request ListPackRuleChangesRequestObject) (ListPackRuleChangesResponseObject, error)
+	// ApprovePackRuleChange Approve a pending change
+	// (POST /api/v1/compliance/changes/{change_id}/approve)
+	ApprovePackRuleChange(ctx context.Context, request ApprovePackRuleChangeRequestObject) (ApprovePackRuleChangeResponseObject, error)
+	// RejectPackRuleChange Reject or withdraw a pending change
+	// (POST /api/v1/compliance/changes/{change_id}/reject)
+	RejectPackRuleChange(ctx context.Context, request RejectPackRuleChangeRequestObject) (RejectPackRuleChangeResponseObject, error)
+	// ListComplianceClocks The pack's legal deadlines
+	// (GET /api/v1/compliance/clocks)
+	ListComplianceClocks(ctx context.Context, request ListComplianceClocksRequestObject) (ListComplianceClocksResponseObject, error)
+	// ListComplianceFXRates The institution's exchange rates
+	// (GET /api/v1/compliance/fx-rates)
+	ListComplianceFXRates(ctx context.Context, request ListComplianceFXRatesRequestObject) (ListComplianceFXRatesResponseObject, error)
+	// DeleteComplianceFXRate Remove a currency's exchange rate
+	// (DELETE /api/v1/compliance/fx-rates/{currency})
+	DeleteComplianceFXRate(ctx context.Context, request DeleteComplianceFXRateRequestObject) (DeleteComplianceFXRateResponseObject, error)
+	// PutComplianceFXRate Set a currency's exchange rate
+	// (PUT /api/v1/compliance/fx-rates/{currency})
+	PutComplianceFXRate(ctx context.Context, request PutComplianceFXRateRequestObject) (PutComplianceFXRateResponseObject, error)
+	// ListComplianceGaps The pack's open questions
+	// (GET /api/v1/compliance/gaps)
+	ListComplianceGaps(ctx context.Context, request ListComplianceGapsRequestObject) (ListComplianceGapsResponseObject, error)
+	// ListComplianceGlossary The pack's glossary
+	// (GET /api/v1/compliance/glossary)
+	ListComplianceGlossary(ctx context.Context, request ListComplianceGlossaryRequestObject) (ListComplianceGlossaryResponseObject, error)
+	// GetCompliancePack The workspace's rule pack
+	// (GET /api/v1/compliance/pack)
+	GetCompliancePack(ctx context.Context, request GetCompliancePackRequestObject) (GetCompliancePackResponseObject, error)
+	// GetComplianceProfile The workspace's compliance profile
+	// (GET /api/v1/compliance/profile)
+	GetComplianceProfile(ctx context.Context, request GetComplianceProfileRequestObject) (GetComplianceProfileResponseObject, error)
+	// PutComplianceProfile Set the workspace's compliance profile
+	// (PUT /api/v1/compliance/profile)
+	PutComplianceProfile(ctx context.Context, request PutComplianceProfileRequestObject) (PutComplianceProfileResponseObject, error)
+	// ListRestrictedSignals Compliance-only signals (no tipping off)
+	// (GET /api/v1/compliance/restricted-signals)
+	ListRestrictedSignals(ctx context.Context, request ListRestrictedSignalsRequestObject) (ListRestrictedSignalsResponseObject, error)
+	// ListComplianceRules The pack's rules
+	// (GET /api/v1/compliance/rules)
+	ListComplianceRules(ctx context.Context, request ListComplianceRulesRequestObject) (ListComplianceRulesResponseObject, error)
+	// GetComplianceRule One rule
+	// (GET /api/v1/compliance/rules/{rule_id})
+	GetComplianceRule(ctx context.Context, request GetComplianceRuleRequestObject) (GetComplianceRuleResponseObject, error)
+	// BacktestPackRule What a rule would have done over recent events
+	// (POST /api/v1/compliance/rules/{rule_id}/backtest)
+	BacktestPackRule(ctx context.Context, request BacktestPackRuleRequestObject) (BacktestPackRuleResponseObject, error)
+	// GetPackRuleConfig A rule's configuration in this environment
+	// (GET /api/v1/compliance/rules/{rule_id}/config)
+	GetPackRuleConfig(ctx context.Context, request GetPackRuleConfigRequestObject) (GetPackRuleConfigResponseObject, error)
+	// PutPackRuleConfig Set a rule's mode and settings in this environment
+	// (PUT /api/v1/compliance/rules/{rule_id}/config)
+	PutPackRuleConfig(ctx context.Context, request PutPackRuleConfigRequestObject) (PutPackRuleConfigResponseObject, error)
+	// ListPackRuleVersions A rule's configuration versions in this environment
+	// (GET /api/v1/compliance/rules/{rule_id}/history)
+	ListPackRuleVersions(ctx context.Context, request ListPackRuleVersionsRequestObject) (ListPackRuleVersionsResponseObject, error)
+	// RollbackPackRule Restore an earlier configuration as a new version
+	// (POST /api/v1/compliance/rules/{rule_id}/rollback)
+	RollbackPackRule(ctx context.Context, request RollbackPackRuleRequestObject) (RollbackPackRuleResponseObject, error)
+	// ConfirmSuspicion Confirm suspicion on a case
+	// (POST /api/v1/compliance/suspicion)
+	ConfirmSuspicion(ctx context.Context, request ConfirmSuspicionRequestObject) (ConfirmSuspicionResponseObject, error)
+	// ListComplianceTasks The compliance work queue
+	// (GET /api/v1/compliance/tasks)
+	ListComplianceTasks(ctx context.Context, request ListComplianceTasksRequestObject) (ListComplianceTasksResponseObject, error)
+	// GetComplianceTask One compliance task
+	// (GET /api/v1/compliance/tasks/{task_id})
+	GetComplianceTask(ctx context.Context, request GetComplianceTaskRequestObject) (GetComplianceTaskResponseObject, error)
+	// ApproveComplianceReport Approve a report for filing
+	// (POST /api/v1/compliance/tasks/{task_id}/approve)
+	ApproveComplianceReport(ctx context.Context, request ApproveComplianceReportRequestObject) (ApproveComplianceReportResponseObject, error)
+	// CloseComplianceTask Mark a task done or dismiss it
+	// (POST /api/v1/compliance/tasks/{task_id}/close)
+	CloseComplianceTask(ctx context.Context, request CloseComplianceTaskRequestObject) (CloseComplianceTaskResponseObject, error)
+	// ExportComplianceReport An approved report, for filing by hand
+	// (GET /api/v1/compliance/tasks/{task_id}/export)
+	ExportComplianceReport(ctx context.Context, request ExportComplianceReportRequestObject) (ExportComplianceReportResponseObject, error)
+	// FileComplianceReport Record that a report was filed
+	// (POST /api/v1/compliance/tasks/{task_id}/file)
+	FileComplianceReport(ctx context.Context, request FileComplianceReportRequestObject) (FileComplianceReportResponseObject, error)
+	// EditComplianceReport Edit a draft report
+	// (PATCH /api/v1/compliance/tasks/{task_id}/report)
+	EditComplianceReport(ctx context.Context, request EditComplianceReportRequestObject) (EditComplianceReportResponseObject, error)
 	// ListDenyEntries List the deny list
 	// (GET /api/v1/deny-list)
 	ListDenyEntries(ctx context.Context, request ListDenyEntriesRequestObject) (ListDenyEntriesResponseObject, error)
@@ -13768,6 +20715,15 @@ type StrictServerInterface interface {
 	// GetEvent Get an event with its payloads and evaluation
 	// (GET /api/v1/events/{event_id})
 	GetEvent(ctx context.Context, request GetEventRequestObject) (GetEventResponseObject, error)
+	// GetOnboarding The workspace's compliance onboarding
+	// (GET /api/v1/onboarding)
+	GetOnboarding(ctx context.Context, request GetOnboardingRequestObject) (GetOnboardingResponseObject, error)
+	// SaveOnboarding Save onboarding answers (a draft)
+	// (PUT /api/v1/onboarding)
+	SaveOnboarding(ctx context.Context, request SaveOnboardingRequestObject) (SaveOnboardingResponseObject, error)
+	// SubmitOnboarding Submit the onboarding for review
+	// (POST /api/v1/onboarding/submit)
+	SubmitOnboarding(ctx context.Context, request SubmitOnboardingRequestObject) (SubmitOnboardingResponseObject, error)
 	// GetRiskCatalog Built-in signals and the fields rules can use
 	// (GET /api/v1/risk/catalog)
 	GetRiskCatalog(ctx context.Context, request GetRiskCatalogRequestObject) (GetRiskCatalogResponseObject, error)
@@ -14173,6 +21129,63 @@ func (sh *strictHandler) ListAuditLogs(w http.ResponseWriter, r *http.Request, p
 	}
 }
 
+// FinishGoogle operation middleware
+func (sh *strictHandler) FinishGoogle(w http.ResponseWriter, r *http.Request, params FinishGoogleParams) {
+	var request FinishGoogleRequestObject
+
+	request.Params = params
+
+	var body FinishGoogleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishGoogle(ctx, request.(FinishGoogleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishGoogle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishGoogleResponseObject); ok {
+		if err := validResponse.VisitFinishGoogleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartGoogle operation middleware
+func (sh *strictHandler) StartGoogle(w http.ResponseWriter, r *http.Request) {
+	var request StartGoogleRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartGoogle(ctx, request.(StartGoogleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartGoogle")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartGoogleResponseObject); ok {
+		if err := validResponse.VisitStartGoogleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // AcceptInvite operation middleware
 func (sh *strictHandler) AcceptInvite(w http.ResponseWriter, r *http.Request) {
 	var request AcceptInviteRequestObject
@@ -14560,6 +21573,153 @@ func (sh *strictHandler) GetSession(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// StartSignup operation middleware
+func (sh *strictHandler) StartSignup(w http.ResponseWriter, r *http.Request) {
+	var request StartSignupRequestObject
+
+	var body StartSignupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartSignup(ctx, request.(StartSignupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartSignup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartSignupResponseObject); ok {
+		if err := validResponse.VisitStartSignupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CompleteSignup operation middleware
+func (sh *strictHandler) CompleteSignup(w http.ResponseWriter, r *http.Request, params CompleteSignupParams) {
+	var request CompleteSignupRequestObject
+
+	request.Params = params
+
+	var body CompleteSignupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CompleteSignup(ctx, request.(CompleteSignupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CompleteSignup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CompleteSignupResponseObject); ok {
+		if err := validResponse.VisitCompleteSignupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetSignupOptions operation middleware
+func (sh *strictHandler) GetSignupOptions(w http.ResponseWriter, r *http.Request) {
+	var request GetSignupOptionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetSignupOptions(ctx, request.(GetSignupOptionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetSignupOptions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetSignupOptionsResponseObject); ok {
+		if err := validResponse.VisitGetSignupOptionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ResendSignupCode operation middleware
+func (sh *strictHandler) ResendSignupCode(w http.ResponseWriter, r *http.Request, params ResendSignupCodeParams) {
+	var request ResendSignupCodeRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ResendSignupCode(ctx, request.(ResendSignupCodeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ResendSignupCode")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ResendSignupCodeResponseObject); ok {
+		if err := validResponse.VisitResendSignupCodeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// VerifySignup operation middleware
+func (sh *strictHandler) VerifySignup(w http.ResponseWriter, r *http.Request, params VerifySignupParams) {
+	var request VerifySignupRequestObject
+
+	request.Params = params
+
+	var body VerifySignupJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifySignup(ctx, request.(VerifySignupRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifySignup")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifySignupResponseObject); ok {
+		if err := validResponse.VisitVerifySignupResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // FinishSSO operation middleware
 func (sh *strictHandler) FinishSSO(w http.ResponseWriter, r *http.Request, params FinishSSOParams) {
 	var request FinishSSORequestObject
@@ -14773,6 +21933,804 @@ func (sh *strictHandler) AddCaseNote(w http.ResponseWriter, r *http.Request, cas
 	}
 }
 
+// ListPackRuleChanges operation middleware
+func (sh *strictHandler) ListPackRuleChanges(w http.ResponseWriter, r *http.Request, params ListPackRuleChangesParams) {
+	var request ListPackRuleChangesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPackRuleChanges(ctx, request.(ListPackRuleChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPackRuleChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPackRuleChangesResponseObject); ok {
+		if err := validResponse.VisitListPackRuleChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApprovePackRuleChange operation middleware
+func (sh *strictHandler) ApprovePackRuleChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	var request ApprovePackRuleChangeRequestObject
+
+	request.ChangeId = changeId
+
+	var body ApprovePackRuleChangeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApprovePackRuleChange(ctx, request.(ApprovePackRuleChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApprovePackRuleChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApprovePackRuleChangeResponseObject); ok {
+		if err := validResponse.VisitApprovePackRuleChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectPackRuleChange operation middleware
+func (sh *strictHandler) RejectPackRuleChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	var request RejectPackRuleChangeRequestObject
+
+	request.ChangeId = changeId
+
+	var body RejectPackRuleChangeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectPackRuleChange(ctx, request.(RejectPackRuleChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectPackRuleChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectPackRuleChangeResponseObject); ok {
+		if err := validResponse.VisitRejectPackRuleChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceClocks operation middleware
+func (sh *strictHandler) ListComplianceClocks(w http.ResponseWriter, r *http.Request) {
+	var request ListComplianceClocksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceClocks(ctx, request.(ListComplianceClocksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceClocks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceClocksResponseObject); ok {
+		if err := validResponse.VisitListComplianceClocksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceFXRates operation middleware
+func (sh *strictHandler) ListComplianceFXRates(w http.ResponseWriter, r *http.Request) {
+	var request ListComplianceFXRatesRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceFXRates(ctx, request.(ListComplianceFXRatesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceFXRates")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceFXRatesResponseObject); ok {
+		if err := validResponse.VisitListComplianceFXRatesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DeleteComplianceFXRate operation middleware
+func (sh *strictHandler) DeleteComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string) {
+	var request DeleteComplianceFXRateRequestObject
+
+	request.Currency = currency
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DeleteComplianceFXRate(ctx, request.(DeleteComplianceFXRateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DeleteComplianceFXRate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DeleteComplianceFXRateResponseObject); ok {
+		if err := validResponse.VisitDeleteComplianceFXRateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutComplianceFXRate operation middleware
+func (sh *strictHandler) PutComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string) {
+	var request PutComplianceFXRateRequestObject
+
+	request.Currency = currency
+
+	var body PutComplianceFXRateJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutComplianceFXRate(ctx, request.(PutComplianceFXRateRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutComplianceFXRate")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutComplianceFXRateResponseObject); ok {
+		if err := validResponse.VisitPutComplianceFXRateResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceGaps operation middleware
+func (sh *strictHandler) ListComplianceGaps(w http.ResponseWriter, r *http.Request) {
+	var request ListComplianceGapsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceGaps(ctx, request.(ListComplianceGapsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceGaps")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceGapsResponseObject); ok {
+		if err := validResponse.VisitListComplianceGapsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceGlossary operation middleware
+func (sh *strictHandler) ListComplianceGlossary(w http.ResponseWriter, r *http.Request) {
+	var request ListComplianceGlossaryRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceGlossary(ctx, request.(ListComplianceGlossaryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceGlossary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceGlossaryResponseObject); ok {
+		if err := validResponse.VisitListComplianceGlossaryResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetCompliancePack operation middleware
+func (sh *strictHandler) GetCompliancePack(w http.ResponseWriter, r *http.Request) {
+	var request GetCompliancePackRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetCompliancePack(ctx, request.(GetCompliancePackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetCompliancePack")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetCompliancePackResponseObject); ok {
+		if err := validResponse.VisitGetCompliancePackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetComplianceProfile operation middleware
+func (sh *strictHandler) GetComplianceProfile(w http.ResponseWriter, r *http.Request) {
+	var request GetComplianceProfileRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComplianceProfile(ctx, request.(GetComplianceProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComplianceProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComplianceProfileResponseObject); ok {
+		if err := validResponse.VisitGetComplianceProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutComplianceProfile operation middleware
+func (sh *strictHandler) PutComplianceProfile(w http.ResponseWriter, r *http.Request) {
+	var request PutComplianceProfileRequestObject
+
+	var body PutComplianceProfileJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutComplianceProfile(ctx, request.(PutComplianceProfileRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutComplianceProfile")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutComplianceProfileResponseObject); ok {
+		if err := validResponse.VisitPutComplianceProfileResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListRestrictedSignals operation middleware
+func (sh *strictHandler) ListRestrictedSignals(w http.ResponseWriter, r *http.Request, params ListRestrictedSignalsParams) {
+	var request ListRestrictedSignalsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListRestrictedSignals(ctx, request.(ListRestrictedSignalsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListRestrictedSignals")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListRestrictedSignalsResponseObject); ok {
+		if err := validResponse.VisitListRestrictedSignalsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceRules operation middleware
+func (sh *strictHandler) ListComplianceRules(w http.ResponseWriter, r *http.Request, params ListComplianceRulesParams) {
+	var request ListComplianceRulesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceRules(ctx, request.(ListComplianceRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceRulesResponseObject); ok {
+		if err := validResponse.VisitListComplianceRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetComplianceRule operation middleware
+func (sh *strictHandler) GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	var request GetComplianceRuleRequestObject
+
+	request.RuleId = ruleId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComplianceRule(ctx, request.(GetComplianceRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComplianceRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComplianceRuleResponseObject); ok {
+		if err := validResponse.VisitGetComplianceRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// BacktestPackRule operation middleware
+func (sh *strictHandler) BacktestPackRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	var request BacktestPackRuleRequestObject
+
+	request.RuleId = ruleId
+
+	var body BacktestPackRuleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.BacktestPackRule(ctx, request.(BacktestPackRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "BacktestPackRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(BacktestPackRuleResponseObject); ok {
+		if err := validResponse.VisitBacktestPackRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetPackRuleConfig operation middleware
+func (sh *strictHandler) GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+	var request GetPackRuleConfigRequestObject
+
+	request.RuleId = ruleId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetPackRuleConfig(ctx, request.(GetPackRuleConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetPackRuleConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetPackRuleConfigResponseObject); ok {
+		if err := validResponse.VisitGetPackRuleConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// PutPackRuleConfig operation middleware
+func (sh *strictHandler) PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+	var request PutPackRuleConfigRequestObject
+
+	request.RuleId = ruleId
+
+	var body PutPackRuleConfigJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.PutPackRuleConfig(ctx, request.(PutPackRuleConfigRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "PutPackRuleConfig")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(PutPackRuleConfigResponseObject); ok {
+		if err := validResponse.VisitPutPackRuleConfigResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListPackRuleVersions operation middleware
+func (sh *strictHandler) ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string) {
+	var request ListPackRuleVersionsRequestObject
+
+	request.RuleId = ruleId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListPackRuleVersions(ctx, request.(ListPackRuleVersionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListPackRuleVersions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListPackRuleVersionsResponseObject); ok {
+		if err := validResponse.VisitListPackRuleVersionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RollbackPackRule operation middleware
+func (sh *strictHandler) RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+	var request RollbackPackRuleRequestObject
+
+	request.RuleId = ruleId
+
+	var body RollbackPackRuleJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RollbackPackRule(ctx, request.(RollbackPackRuleRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RollbackPackRule")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RollbackPackRuleResponseObject); ok {
+		if err := validResponse.VisitRollbackPackRuleResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ConfirmSuspicion operation middleware
+func (sh *strictHandler) ConfirmSuspicion(w http.ResponseWriter, r *http.Request) {
+	var request ConfirmSuspicionRequestObject
+
+	var body ConfirmSuspicionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ConfirmSuspicion(ctx, request.(ConfirmSuspicionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ConfirmSuspicion")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ConfirmSuspicionResponseObject); ok {
+		if err := validResponse.VisitConfirmSuspicionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceTasks operation middleware
+func (sh *strictHandler) ListComplianceTasks(w http.ResponseWriter, r *http.Request, params ListComplianceTasksParams) {
+	var request ListComplianceTasksRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceTasks(ctx, request.(ListComplianceTasksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceTasks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceTasksResponseObject); ok {
+		if err := validResponse.VisitListComplianceTasksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetComplianceTask operation middleware
+func (sh *strictHandler) GetComplianceTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request GetComplianceTaskRequestObject
+
+	request.TaskId = taskId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComplianceTask(ctx, request.(GetComplianceTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComplianceTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComplianceTaskResponseObject); ok {
+		if err := validResponse.VisitGetComplianceTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveComplianceReport operation middleware
+func (sh *strictHandler) ApproveComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request ApproveComplianceReportRequestObject
+
+	request.TaskId = taskId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveComplianceReport(ctx, request.(ApproveComplianceReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveComplianceReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveComplianceReportResponseObject); ok {
+		if err := validResponse.VisitApproveComplianceReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CloseComplianceTask operation middleware
+func (sh *strictHandler) CloseComplianceTask(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request CloseComplianceTaskRequestObject
+
+	request.TaskId = taskId
+
+	var body CloseComplianceTaskJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CloseComplianceTask(ctx, request.(CloseComplianceTaskRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CloseComplianceTask")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CloseComplianceTaskResponseObject); ok {
+		if err := validResponse.VisitCloseComplianceTaskResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExportComplianceReport operation middleware
+func (sh *strictHandler) ExportComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request ExportComplianceReportRequestObject
+
+	request.TaskId = taskId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportComplianceReport(ctx, request.(ExportComplianceReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportComplianceReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportComplianceReportResponseObject); ok {
+		if err := validResponse.VisitExportComplianceReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FileComplianceReport operation middleware
+func (sh *strictHandler) FileComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request FileComplianceReportRequestObject
+
+	request.TaskId = taskId
+
+	var body FileComplianceReportJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FileComplianceReport(ctx, request.(FileComplianceReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FileComplianceReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FileComplianceReportResponseObject); ok {
+		if err := validResponse.VisitFileComplianceReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EditComplianceReport operation middleware
+func (sh *strictHandler) EditComplianceReport(w http.ResponseWriter, r *http.Request, taskId string) {
+	var request EditComplianceReportRequestObject
+
+	request.TaskId = taskId
+
+	var body EditComplianceReportJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EditComplianceReport(ctx, request.(EditComplianceReportRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EditComplianceReport")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EditComplianceReportResponseObject); ok {
+		if err := validResponse.VisitEditComplianceReportResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListDenyEntries operation middleware
 func (sh *strictHandler) ListDenyEntries(w http.ResponseWriter, r *http.Request, params ListDenyEntriesParams) {
 	var request ListDenyEntriesRequestObject
@@ -14959,6 +22917,85 @@ func (sh *strictHandler) GetEvent(w http.ResponseWriter, r *http.Request, eventI
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetEventResponseObject); ok {
 		if err := validResponse.VisitGetEventResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetOnboarding operation middleware
+func (sh *strictHandler) GetOnboarding(w http.ResponseWriter, r *http.Request) {
+	var request GetOnboardingRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetOnboarding(ctx, request.(GetOnboardingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetOnboarding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetOnboardingResponseObject); ok {
+		if err := validResponse.VisitGetOnboardingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SaveOnboarding operation middleware
+func (sh *strictHandler) SaveOnboarding(w http.ResponseWriter, r *http.Request) {
+	var request SaveOnboardingRequestObject
+
+	var body SaveOnboardingJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SaveOnboarding(ctx, request.(SaveOnboardingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SaveOnboarding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SaveOnboardingResponseObject); ok {
+		if err := validResponse.VisitSaveOnboardingResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SubmitOnboarding operation middleware
+func (sh *strictHandler) SubmitOnboarding(w http.ResponseWriter, r *http.Request) {
+	var request SubmitOnboardingRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SubmitOnboarding(ctx, request.(SubmitOnboardingRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SubmitOnboarding")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SubmitOnboardingResponseObject); ok {
+		if err := validResponse.VisitSubmitOnboardingResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -15968,339 +24005,530 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"7L3rchu39i/4KijOqYqUalGyYuci13zQlpS9NXFs/yU52f/ZzJBQ9yKJrSbAAGjJ3C5Vnac58x7zKOdJ",
-	"ptYC0Dd2k01a8iV2vsRid+O6sLCuv/WuF6vZXEmQ1vSO3vWmwBPQ9M9/XsCfGRh7fop/JWBiLeZWKNk7",
-	"6p0orSHl+Bc7P2VjpZmdCsO0+6TPzuKpAsM4i3magt4z2XyeCkjY6J97vt2989MRu5uCZMIyYdiTve+f",
-	"DmQ85ZrHFrRhasxG/zre+7/53n8O9n7qD/f+GD1nyk5B3wkDjDMD+hb03gQkaG6xcQ1/Dv/3//xfI3Z+",
-	"2h/IXtQz8RRmHCdgF3PoHfWM1UJOevf391FvzjWfgfXzPcm0UXp5rldTYCMJb+0wpjdGODA7BTbXcCtU",
-	"ZticT6Dfi3oCX/8zA73oRT3JZ9if+6Yykhl/+wLkxE57R98/jZYGFvV+gcV5gm9Sg3Nup0V7N7AYiqQX",
-	"9XCphYakd2R1BuX24S2fzdPw8sGTf//09vDmh9l3fz7Vz8z39ofbH+9+enuw+E+vqe8XYibs8iK85hNg",
-	"RvyndZ4pfVceRgJjnqW2d/TsIMI5i1k26x09OcC/hPR/5UMQ0sIEtNsYDWaupAG3L0qOUxHToGIlLUj6",
-	"J0eCiokE9/9tcJDvSp3/Dw3j3lHv/9gvyHvfPTX7Z1orfeG7cB1WJzs6efXy5xfnJ1ejI9poDUZlOgak",
-	"UqksExKJz3ILzE65ZTxN1Z2hV9UcSVEo2Wej89OzX1+/ujp7efLfw1qLcAvSDkXC7rhhPNXAkwXLDCTs",
-	"Ttgp4ywR4zFokJbN+SJVPOn37qPeqVtSmsCHWw56ASeNIzeWy4TrhF0Ic/PqkgE9xIHgsWU7Zg4x+//+",
-	"3x92kVDK3KR07NtG5F/fL3EeGs7PSl+LJAH5AUng51cXfzs/PT176XfsBhYs5fEN8rRw9JiJ1Rz6bHR1",
-	"9vL45dXw8s3l67OXp2en/hsLkksbqIbHVtwC7eO5vOWpSPw0P+Cszl/+dvzi/HR4cfZfb84uC/qmceBA",
-	"ZzwdKz2DhCnNxlykhtFQHU3j2F8q+7PKZPIBR/3y1dXw51dvXp7Wz2OiwK0tvBXGBhJ1V843hoG8FVrJ",
-	"GUjbZxf+I7pX6Bbx+2NwqqVXDeMamJCJMFbISSbMlF+nwMZazZhUkvrCk6kkGFqSC26B+CZ8yFW5OL46",
-	"G744//X8yhGcUmzG5SLspilu5ePX50S/Kky5djYvwOrF3vHYgq4OcJk330e9N5JndgrS4sQ+6IzfvDx+",
-	"c/WPs5dX5yfHV/kpC7ND6hXGCDmJCjKOWCZvpLqTEdNwq24cYcPbOZ7fPrty1ERdMgm3oJnhC8PupiKe",
-	"1lbp999/3zsuzbxxqQrxglZqrlUMxiD9fMB1urw6fnE2PPvt7CWecBXHmdaQDDmdcJVZIxKgpeNxDHNL",
-	"t45M1F2f5QwifJxfVvjpHaTpnmcP15llBmacFiNNF0w4ntZno8uzl5fnV+e/nQ1Pj6+OfSP+GqObggtp",
-	"WMItd9fnLDPWL/41MIOd7UB/0ifpUSdMZrNr0Lt9kk/8KuAiHdPoz+WtsFBipTxJBK4ET19rvI6tANM7",
-	"GvPUQNSbl35652WXikQW5JP87yUhCeVGY+6UTuqfHv5Y/fSw4VurbkA2fbgsihUS3r/8Z17aKo3gj/xD",
-	"df1viC12cYwXjbCLM2n1YsMV4bEjorIUmc0TOugNs+GxbROZS0zHLIyFGfu3uvbyUmwh6Te1F2vAroac",
-	"dhJJDf/Vw/73rJhB0zcJWC7S9nk68XhplUTSdGyrq06Ctl+SMNm8w8poW/ZB6fZxtax/rDISDdexgQsg",
-	"ATEGtwa3IoZNvzJgjFBy088yA3qzb2rLGhpoXLQU9KbHmBsjJhLoKMssTR27rex7icS4CQu1/t0tyBFu",
-	"eZoRXx/SVi6fjrP8DcMmWmVzSJiQVrnLmuMCsB3DZ8BMRusSMeDxlFQDVD0km6pM17XQ3dKByi/sqDcW",
-	"2tihAZAbzUIkVR7AU72RJhn1boRcSyK02b/gi/dRL+XbDHTG3w5NrHTg401a5kHTwhi8cIRdrCVjYW5e",
-	"wC2k9JHlNjOdpnXpXsWP3C6uJeoqlfyOnJIuaSIIpIxrlVl3m8aZsWpGQi4eJqbDWYtIyJtCWaAlQdBA",
-	"nOF0XXOm36sfIprPu4YLi3541wOZzcLh7UW9Uvulc+w/i3pv9/D9vVuu8cYy+KFbFbcWb1wj5Z/Oyg0u",
-	"XX/YfERjbGIaVlgnYC2N3t9dG5BU0xVAtFxsZOiwREQ5aUQFNyp4TZlMGzhE/ZTWzkKFD1Wm1MpAT9fc",
-	"ia13/60/EcLCbD2dVwSNnFZ6XGtOf/PAzNeelirnNN2HgB8XDHV5ELXtdCOq9hUVM29d0FIXmy1qArEw",
-	"/rNVEzkN79FtPtE8gWSIhMTT6mq0HNBi0f3Utr+2GiWjqBdsViseBl6xUn3BN6/wRdwaYW6GKXHXTdgw",
-	"fZZz/Qbe3rBuqxq/pPfXEk91jUorUpl/ZXiVKUYFNRRjbNju2h62EuUv/oqtqX/Y4+gI5YRiwEyjCAFJ",
-	"6UaxUw1mqlJU2cLtMDoqfWOY5tIZJL1izfwI+70ovw+wN5yOb2H5MgijfSE21s9QR9yMFTQdiJLtvoPU",
-	"V9tzGkK1jdb9uMylg7A4ak5am5C3YKyYcOtuRzAxT71ORRMfzpURVty6S86o9BaS5pWUPF1YEZsNV/I6",
-	"i2/AloeGMiQSH2/eMgPaf9pt8cO4XishG3fBCBlDd35k1Xy43TE+oTu1YQTYZGZAd2/wSs1JUmlozFlM",
-	"ygt6+HTai3o/4J5+d9C0ezXK8i1EYW/CEuVrXx5xdUEaKbC6Axte/RvcFNdcJmtX7m9cJrQRpndfsD3T",
-	"9RYsPiXGaprZ/Ay4bL8G6je/7eWtVT4tDy/MrnGB5+IX2NSespUGWZKE112mpVfxS7JrmlW9rdV5RfJ+",
-	"PsQot6otPZhrGIu3zeYiqeSegViDRReTtkG9vYFFRAqMhlhNpPgPXkMiWAiFZKmamPBybvlXd9JbnZxe",
-	"XExHm5uhBWOH/Mn1Yfxd8hSejb9vmoWGecpjSIbXi+YRo3GLzFnhTae/K4m2Va2yyZRpZb3jpMPCe/v0",
-	"e20eOaQ2YJj4eiOzXrrJnPeqF2gs6eUDXs/pSEIKlktHA1UqzwdeUqPWGdfoND66TEG9fDShgnr/Xdjp",
-	"JZ2MTZn6XAxvYNF9jibvZZnax1maBptun11O8YQpSXb/EPrh3ShcJt6ar8FqAbfkPeMTLmSHozg8eHL4",
-	"3dNn3//w40/8Ok5gPJn++2Ym539qY2/v3rZELVQYvZ92Pp/Gpc0SYV+oyUPZyH2nfU+1K23lG3TVom0F",
-	"Pasm+BvLx+MRmoq8c55+QNE/Qa5J2+R90iTVY1CO0pbcQMY4Zlb4rb8xA5mqCeOpUcxMMcLhGrAd72CE",
-	"hLaaz+da3aJHaMHsnSpFLrjeZ4DeG+PCcXJuUuwRceleFOxK9NF6luI1rRYjcu0G5Wn6atw7+tcGd+kf",
-	"dXPcS6T/ce5B3SONjjlSMMv8/T7qTbmZLm/SP+Atu/zH8d7hs+/drSUMAyRCFk+5kHiLKLLpDvH7fifb",
-	"bJZseEPPwPLABzdympR8id3lGZXZWM0qRkSTEcmR+iPSzEthUrRoPfl6NJ4GT49tpokQLfCwR+99yNPg",
-	"gL02VAuzIjVQyRDKEE4iw8k7CmE7T/auuUHX9oTP98Ya0I+rlUHXQVoJZCDRJ98jIe33Txt8BE2XdT7C",
-	"6pYXPrDcKZavbrHPlR0pEZs/EuXtXMWaH/1ur1wBH+uKz+wUzQabUudszIczsFOVmGUquoRYyYSNabNc",
-	"XBp5CWIuGS5EChbIlLMnnH0H6SRfs3BGrbJz72p2rFpDrG5BL4axSqDxnNZXsPJFw0Bfwh1KEMZkkLDw",
-	"MqOXI2baZYzKeDccxVDDjAuJ7zbbDsNurBScnefU7Vx9610LLbut/paq+GbT3VbJ2iHlbf+KL+NEpjxR",
-	"d8Pc7lJ3L4Fk7hUGtyLB0+40L0jYzg3MLQbBpMCusU1SulC32e2zS7B010/BB+A+Z2IilSYvJuPs9Zur",
-	"Ct/ZQIGpLeRMJWvW8VeVNMxtpMbj0RE70YKCUxjp+YZNwLKLs9/Oz35HiydN3QWnLJixIk1LL0Qk2rjg",
-	"l9yEKsxAzrjGGKLRncrSZEhrM8JpC2vYXKUiXqC4ZZQ0EV7kE06BZmGB+2ykZOgTe/vbi1cnvwzkzlwZ",
-	"I1BMJnLnYwuaPXnKEoxFEmGfcO3vhI2nJMwpRtNEf1+YDLP8BgyD8Rhiy7gdSCVjOPLx1aRN4zQNNVIV",
-	"yNR43Ask04t6SjZbH8O6F5bODagYUjHBSXrhobpnP2N0HUWD5wSH7Ooa/HAhYUqyHSQg95oPxPUkrDQR",
-	"55Z0F73XCcNdGhZ0W5/ZaWUTGfbErmGsNKyaarM3v36mt5tsiXiH5Gl88pQmsTpUwYsk+EFOm6Qy5LOg",
-	"dtmU3/qZQdI0i6ZDXptZy9JGFRJaMY8mnlGySG5qwnNspPm6gBRuQxjk8tOpmEybn6TqrvkBRS0091Zf",
-	"Of+ma6w0FN9vVAy9cUFAwljEguvFcZJAcrpSIWj2KhRNbBpERJ5vp3rPubWgkdz+H0z3+OPd4f3/WKvl",
-	"17ruMkHyPG4YhXHMJNxh8CLAcshErtGvcZIr7WYsLby1nfyjJ/5dtJ37bVlpbW/ayprLdm2f3gi0lYpX",
-	"DxIp7w7HEa3X6EvOVK89NWsetB5N233CDTxq4NgWpvzwjbMhLz2u0Nq79Zp+zM2Gmv5cC7VxlBN5ILMw",
-	"qm7WE1z9i+I7NKAsWUSKdodS2W6rHryh72UWzxtx+7D2/W5hXjjlIsrrsWOQQshRmWZK5vJ8oysBSKWd",
-	"XF7+6uJWV6kWc1Si47UBSLgsn1L8kXn/CILYs5Z11IDv4tJ27xK/eombsS72hIaQzyh0syZ0CVt/bDNK",
-	"mPfHsJ7kq7choWV26ka17NxWSTOr3ob7L7FvaTdNx1xiAzTAKExhrZusxpZLV3Ss5FjoGSTDseZZYyRK",
-	"ChNhxYwTrxAyVjJOM4PPmpTDEjtcHwGzMsjlRCVbJnTEXo0rJVd8d1hJyvh+3SrHbUaHEyWNSsGbfjYd",
-	"mNHjYZ77scrl36CFnUyVMkCe5Tm51Vy6HvlwUCUbOXfPXsmDMWIuc4nt+DRcNrJg7Gi3YjrbILSgfrw7",
-	"hBosK9njTRUMb3zszk9fuw/e3wxI1s/iybVSKXDZkJdTNpKa3opummhqDppC65R8AKe9BuQKQ0rDGmbS",
-	"inSZlN7gz86AgjrinpjNMW3X+7Eo85GymX0mssosuwUtxgvU73Mf7pbBCZtbVqOe84A8jO+mJTClNVqh",
-	"acfITbnZaJAC0hXyffcAGq3StQt4ge80zsmNI4/EoMaWp9hozM7ds347qpRb419RmdtVOEUjjTq+0Mhx",
-	"6W5z8Qnb3QdVLlU9Cq/mrhGXDbp47vIQryEYusaZzTRsT+5bJhduG8Iz42/P3QeHrhP/15Mao4h6mRR/",
-	"ZuAfk2pW23NPIH4k7TsTxK/t9iaIWtX1WbtCdTsQtrJ6iNsNjyTtoUiqW7Eau6O8C88OOix8VDFBlBo/",
-	"fPY0WmsvKL3/jBbuYdT/XJMtj2fTfXGNtG/MKUintz3Ewd7ugHbJUMNhhgQ159hpWpilptFsDuvSg9ct",
-	"oc86cm21r+T7JEDnV9Na0tv66gm3Tst1E2ZxkaXvKfOXzch87z9//MvhBg3/eHcYff9dk0mZbLKun7VT",
-	"y1I4yV9eeRSfNB9FkEiMSQUZp0KYuYjZzRuFIwqOqG2vmo4pkJfhPfQdgZhM7WbJlk0aVi6GlFLofNtR",
-	"8AkVu9NON7/D9VSpm+1IZyU/jVZlOXW/oP0AK2lPxS3xZOVdjfKmTqtGhKm1c3O0v4+Nmr7/vR+r2T5m",
-	"4ijTi8rzODx4uhZbALuozq19uRPHbbZhM8M/M8iaHKRXOgOnkpB/UcgbynbFsEMXcEifu8g4fEPQEIDt",
-	"+CjHKTfuFUY2jUmmISlnQ5cOlshHv2rL/Bzz94d+E2pRNkJOUtjLjBvz2oCVNVqH67PSZVRduKZdOS2l",
-	"F9aCIEJwgmFzrZIsJrdyuqAgxnpohEsrL+cMk2c390fzzKoZtyIeyNzbi+54A8BqQQG7tUjP1DknNdwK",
-	"uCOLNcyH2bwX9ailRgNQLQ1kU8Gt1bd6HWJvlh/58TU+C0PukGTiZ1tMMp93fbblPZRbYXU8gkPqMRJI",
-	"Erl4BOiAZsGsXRDrnuXtPslbrSmwbW6RlRv72Db4vKMms1DajOiHQf0zZSxFHwswdQaAISkYytEciGKV",
-	"5Q088cy35VXoUnsRE2g99oHoygAF8KSC4sinoKFDqIj3Cri+w8TaFj4kx9ZwCzzASi9gpvSiniBmVHis",
-	"e0V0QjNzwu9OplxOYIuYCQl3w+3gWgLSx1af11X8yiia17CY5naRE7ji3xjmusHgZTlxEUGfaBTF0sZ+",
-	"zAgKvzlu1T5A9MSZtMIuXgh5Y7aDLOouEWMnkLgOG72tdPgEPFyLbjEfrj0xf7i2NstIXt1aA86SKXie",
-	"6RUrUV5lN592onit1ViksCXwxbY5v+3oSfh1uGHmbmxsh1t3m9lwrWmI8Rp7Fh0cHKzFRup+Tm86XitN",
-	"N0eO6tK9u5T2e72vrji8dUykTdOmoxYkoGbjFL5b3bDKspbnXAXBaU3A9jNuJsdKWlfYAgvGulslyeKa",
-	"uaBYSYJN3CouJW4MMr+0KAUj1CQGZMOeBp7gLzkibgJs583r12cXw8uXx7+cDU+OL89qycg1ONbmVC1j",
-	"+KSh/39kMy7zXiNm+Bj2rNpLhJmnfMFKb/fZS8rHzLEXcbN1DuSRD+eqigUbEB2bs6PLOVdFEwjA/R4h",
-	"Dt40FCZd6aeRIipYmJttKwQU5bVgm55q6oN1DTQOK8hLNZFIOizNiCUCf58JSbDl1ws2wjZGfXaGQG/4",
-	"b7JqCOtS2Ud4bY8wgnwOzwOiKRsLSBPy2Q6kBuwbEuxAL+5IoGbnCUgrxgI0vVVHDsM21Jz/mUGBH2aO",
-	"WKJINDcgk4Ek9K7ImVcIKNch585BG/Kd4cAYjrToyun/pRm6VZ7x+dx725ejQzvGtbp1jWrCUQdxLnyY",
-	"qomQrXcrPgxv+otlTR/+aqx2EmAVV3/qHd3VT63m0oT84hZMkuIV99V9TtiLlw6L3Xozo5LQIXKzNO37",
-	"aA0eynLfmwUmd/tqeefWfdGwmOs+adi6+z/C2SV14wLG5r3gO9eaSiqK3Nq3S7ibawy6K/A1K4rRpvdg",
-	"HrJf5Wvnl6/Yd0++/37vCePpfMr3DknL6xTWT+r3couvb58itzl/ffs940miweQgHyATUi37VUv302dt",
-	"S8YnnhuX7fsN4Lz3bcu1ldTwHiguFay5dW7bMnCck8M85kPnaBMURFPxH0iGHqR5XVr4siEp5lJJMiij",
-	"WEvbhN4IBnIiZJ5EV8kHes+kcs3vth9uEHIweABvLw0xiNuW4YWHW6nzHZHwGsN18s3MdfoqZkpVwy8P",
-	"s7o8jVtcIbNWRuEBjxo2vARASlENRRkYDxj+nP4pEpjNlQUZLwg5pCJv2rdyeHhw+P3w4ABRP5Z5Rqj8",
-	"crT3x7sn0ZPDH5s5CA31sW2s1MllNpvxj5ctXhnDxsH1HaTd6t1XTdPqcJttDnW5FcfajmFsc4wfCZ+y",
-	"IuZ1FrmWiO+h2ctKhrIe07KVYq9qtk0nhVeXIWrQCuqC/pJovSSmNyn+W3msH8O31hoGSk+GBveD25ZU",
-	"/VBuJ7jCvaf8OePXhoqRaEa50WKM6d6oPEpltw9e3Ca8u+W0do8casIdm4NMXMpAKFZRQh4r0Mi6YZBV",
-	"YpGascZquU6ldWgib0dbj331FPEIK829rbb9itF4s3Gugl/cwpzZybRYsimaigWxeW63IMGYLY1AywSn",
-	"btYTk/+qcTzI27ZwCzowlwrlhxofZQwWl25gjEKGKdQMrBZxI9vrhLq0dqahlSgMsHXO2/kIAwoNtxZm",
-	"c/sJeweLjf2YbkF3dT6+O5Bm+9gxpS11dA6frU3SCox8ZR2ckAv0+Dd/y81HnCsz75m8vGnWSu06qwxi",
-	"xTIdG4OLoLbc9VgDmYB5urk6PnqdXaci/gUWJ3krI1dvbST5LWYNKt0vejD9CdhRxP6vy1cv90DGKmlU",
-	"3eu+hWKEK5bhAibCWM0/l5Vwe71+MdqDhNd4ZNasWtmKusW153wYFUkosLr8jE+VhF7U82bAlUWwGhMx",
-	"3jMbxg9x7ey3ugCdvTh3Y7u+PoNYmeV9/5i34lot8KGvxwuCVN1e7IynEK8KtKmIo0ij/JYLd038sS4v",
-	"qOficClVOAHUn9D6FqH5zfkaix8ZnqRGZtEoF68bSLOUHIXZNi+ky5Y9CQCBGyziMrpgV0zAJYWj0lDz",
-	"OEMkXZNX13tRg1F0jwosFi7R/taWzQty61LyCZH2djdSY+LSs2bevzxzYW5OuOWpmmzsAUHj//AWtGkD",
-	"uGlg/1uUb1xqVlEVZqU3rJxTZyuu8GQvCp9EeSrBWtr3V1TgLvl4mmhruVLGctmLLcJVGrgEpR0NixSe",
-	"Jp3+GpqNVAWIblieqTBWUbjsLaQqdjk8Euyd0s1h/cZqIj6XCtVo6HJ1eafgK80wm2lMS2cv1N0elmZw",
-	"CQuuXN7l1dnr4ZvXzZkexSRr4WMEjihugbk3VhYN7nXNZXLLtrTEpZSmHCW3tgjrCaLWY+1UlQsJrZBU",
-	"Kp7CzWSUq+DMyxHeS0W+WWEXDhiTJpsFV60P7/Z76dbCRCzm8zkkBFD55OCgz+oFkOg7w0K9ZkpFiQlb",
-	"EANTrkv+xKLGMV3p/YG843om5KTWlCdVFn6dQpqwax7fBJBTmHKMrdY8zd/VcJ0JCrAZW9AD6S2wqTKW",
-	"ClAYAJao2Oyfnl8eX16dXQwvzk5e/XZ28d/9WbL73KNuwmxuFy5q5k4YcMExH71E2BJnLkVwCXOz517Y",
-	"O+wf9A86VQsrvofbdMN0j7LYWCU9v+Tnp4GgcGdckBM6GGXAZE9wuzJZC2eD2zVwOx1ww8pRbu1+ZKLQ",
-	"PMuK6DFsKtsZU/ESjMkzEU1CaTEReCD857v9R3M9bVQQ84GKpkW92hl8L8msBCReKbdWrcTWqeLaCs7Z",
-	"UIKtPok2rvoibFEL16RbS40Zd1fXEfOwnRFL1V3EAmhnRHgsEQuQnQVwT16nzQzk4cH+s4P9Hw72fzqI",
-	"GE/+nRmKQiVZv3RxPWcGgI3+fnbF9vlc7N8+oeTQfYdQPKql6G2FI1qSUYW5eU0Nb4WwMBNyWOaAYVRL",
-	"KXRNfWNe4jDP6usE3lsg9uWFrLaRsvDjjQ5mEA224fbrArpF9zJYNO7yJ9Ww7KVRdhFYnd4zjHkqrnUe",
-	"uLQqybdEq9+YEoX76iHO4oUv+vGYZiGvg4ZRtN1lt66Kt9fKXaWWG5cgaiLwQHUV0m1jLZdgrZAT8yDn",
-	"KgcdKFJSlzlWCtxYRin5UFxhdL1pLozLEqT2++w4vUMI6LkGckALmQuI5jnt9ECqmbAkpeF2EjJ8xEau",
-	"e0pMdtd5lRs91rkndRP97MQEBXSzvjj0ujhVpgWrrqFoM88F2jJ6/JinqXEyp1WR49h4oVG09xEbuT5G",
-	"lMnitsFB0e8OJEK840jwYUq3xjjlkwlmuTOMrTDlXMoxJcJTY35hg0D0Lg9/9tOqRhv7STbZAPAaQMym",
-	"DIbXiyFZyuQqdv9uuepILns8aZI9SmN8c3nq4GwODtYMJafopdQIRDajdwrWgvQ5E7iUmRTWkNjoJyLA",
-	"5GBndgpCU2Q8FeXps99JP+ByMZBejXFqCRMm3+bI7aRhnOIw+LW6BRT/J2BZbTdrW0KARyiabbhe23O1",
-	"oJKuJP9cbHy2VmqsYWrdgtYiAQrWRfXJonO3qv+xnYO9Zwe7JYOkf4669Ho3Thh+Iym0kmr97Lex3KvK",
-	"wm6gJb9Qd4CskzRhNXYV+0n2c+TghSyPMiZkrIEbYMZqEdt00YGdsiZuWr4jKcfDs9TeKhT7nPx+Ooja",
-	"VITmY1oCu88bebZhIwETP2/ghw0b8PAO+feHG31fI6etoPMvfEhTjqXqDb9Dnswosi1BqQ+XP6gjMy75",
-	"hP7kWKfV2GZRWqUp3hDbgyGVRKENFiF81TxX+54gfGhbT/l8aKgskakIIz9+//TgoH6W/qHuWKoIKAAY",
-	"8m4stXkDMDcMbYsERUklUkJ9zUJZOnzKsLCxiZinCPYDVarY9dkCbkW+P3j6YwfQopa18Ig+ribj+y0J",
-	"jbWyIIdPV65GwABgvlaqWxVkoLgqCaTiFrQAU5nuk+9/3GKu2cYpvy2JkgV3pynoLAUGM7yEia0Jy2bc",
-	"xlOomW9KnBzRCqoADQ+I5LVNwMc64P4S2Ney1rKUM5ltajHbFh9sqSEfXekdp412rmM0bM2VgcS7pRm/",
-	"48LSIaTSj2irKHJvdyMMQeVy0bHmrbuvhninNZAO2KAzCsM8l2LhI9RFgOtUgGZKwooOy1auLTDPqgD+",
-	"DcG5LrFSU9XLMMo7bpgnrdYw3GW4miVNtjT0B4BeI2NZFX+tVk+gHY0t0HT5rBUjrkUdrakRUHg0N65p",
-	"O08FJGWVf1mLDVuQ02dpH9ZTyDU3sLp95GDfFPRIFJofkp3cKs2pdgy+vNut5xWeu1gk7xlGFtroWAJj",
-	"iUnF0y1RnHIhiTYhpw0Xhk3iTkvNT7egHfm5LaXCKrMhO88/agndLxzo9cO/wOvrjlLIXAJ25MhhIm6h",
-	"Y9nvLIV2BwPelT4aKELdskpXxHjOT72u6e/TUJC30auwMsDef4g742fTMa4+zCHnLR4donKUKsVK/N5W",
-	"l766exWSrZyBEjZXnR+sZjaPHahf9LR9sH5VPtkogvCY5ZyZWQ3g4QQkSl7CMHjLUdWkOgJqfDSQo3eD",
-	"Hk/TQe+I/Qtfili/3//jfhQxeiIXLU+ksvgEH+BPRJK4GlwLo6Rrl3zR+NagN8gODr6L3Q/4Txj0Ijbo",
-	"qXn5cQiRKL9Bwh+9RK+4P+n5/ajPfvbwBzIJVhvfhBlI1IS9Pex60eAIiV1Ay6jPjj1uzLMDmo+J2PeM",
-	"fEeGJQDziD05OKCmBpJIoM+OS3NFEETuovaKzEeWKG+So1J4rhZ6EHHrJjmeppShT230jso2uT6feUQV",
-	"Ne8d9SY2B6cLdqP7qPhwDJzwypdlZfoa/iy+pijHP+7bic+C3Dw5/IGQdDeTpR9MEl6SRB9HlGyPvWkO",
-	"IHpP6aw6qzZ28yHY4vsxxOY6r9wF8uDtYxAlwPMBH9jj0WLJIvc8VN/072pfaVVDrLQPmM4RS2Nf/sZ9",
-	"0myoyVL4rRARP8g5+Qj15/5SR6+jbtXRVPZQ+tMmeKIlqtviyHoFdbhyHTY+1+EUNNWjKSTbNQl/hfhY",
-	"G+OKEOzLy1cn3JtLH6pWVCNadqlwzWZJSl4Wbi8HjlNQUkJst+AjqSiiplaDzS+ZK1yDzmqR948SIpX9",
-	"vs4sk4qgMRADFm2LzNeJZ8K24Gobk7m6OMtA5eR0LAOVNzGqzWskFt80Mre6muIGGJXWrXwiS91X2l27",
-	"a+dyntn32bo1JJUP2Nl7G0Lk/CRdyRqhjWW4Xs/R63gLjHyaiszE5QA611oNQefJweFSll7Uu9PCwiuZ",
-	"LvKSJauNmzklrEfb6bxBLduwZXxEXD1zncqbVo9qS3XTRGiI7TDTogU0xfMr3BFNeWag0UHsgVIoPxsN",
-	"SbcicUkDa9hmucOoPK229bJcb547kHfSEuW2NPJvDHPlCcV/nHfmzcWLjWaTrpzA42alNiaaNg4HVdZG",
-	"c3leGavPjl+fo/PKODRtdGVxuWDwNkZGOyJh9MibXUZoORLx1Ammc1DzFNwnO3wgne/M4+4FE09A9qdF",
-	"LpmKljD45wKBPsyRBkL+yf+ms40/ZImww1RN8ldcQEP+gv/TP0QV+ijEYHvzT/GQ/ggfVqYYPs3LNOQF",
-	"TfORub/C1zE3RcPuj/Dozjnh8qf53+EFC3wWHtK/3YMmab6CHrdFEmOcW7Krtk4PkKrBTMENQ3vIx/V2",
-	"taVUthLlLYPdbZx275ooOykilg8VLTogk086AXF5zz5mAmINl+bxExArZRJLA5mN+TDvKOqBRBv7DDsr",
-	"/eo13OajUChWBeYAhkjMIBHZrGNMsI8N304gL0TIAqW+1win7HOVig9ewh1r/+DhaheFfB/fYuMO0RKc",
-	"BBDrh0jgmop2KJbmtK3Vo6f2msZ+BXz2K1Dy2+ODJ2xcHpMQDUireC+HGB6VlaLsA5ThbHK45PalRJi6",
-	"eNsFvKhcvrPkUylPpwkCIl+w1Rv+2LbAoqftLYJXYOz71Ivb1gIHt13APOmlRoa/ZjImSzedS6L52DZT",
-	"75jHq4I8m/xHv6F7IMdZ9VgE3krg2igBRUf13LumNHLn9Wg5X+32oYqxrt2/b8FYSHwemPN9MlqR0oBR",
-	"wnHvdfHBtxqm3EIXEwrr27ijav5miyrBK5C2fLh3azEECtCfKMsuKGQe5TeKeW8ue7AFbteaBJSNkYmr",
-	"SSc51FeY5zrQrytl52e5aLPhQis7pxrEXk1fmmubpeVv3MB3hyHwDol/xmXGUx8pvlbB9e1GlQE0zq5w",
-	"AW6hjHin4bJiSr/Xw+D9WQ9x0mwH+pM+i3E/dvu9prj0kuRU+W9doHgZ3nHDwkcoVUtIy5dozLULMJA3",
-	"Q3KZjkH3op6QxnJpEeXWg+TeYV63W/Up6EZhtZzPsAxs/fTwyQ95aPoSpnVLXVFnyqhltCVwLbyVPxHN",
-	"AcAl7+97lXeqtRP1cldyKSK+GOQaKtxOx5wpCQs2U7cQcuk/UVWyft4+piJZ2rgPoEU2gMtutss/owhQ",
-	"NGKisuSAqWIu2J2ZmEvKuWm6hLvxr18LrtXImLpwnLU6QYnTrH+3xDZWM4DVu7j50XxDDorjFLobQ2dC",
-	"ln99srTqpTLktS3WAHt4nArZL7jWw+5SirtXwnHXXTFWpZmxfDxm56e7zz0OglUsk66vmvOhGSFQKgtN",
-	"Pg/ntQ/YHWQ1xDxSMYNUSKg33VyQuQHiyKXFCXkLxooJt84DQks4nCsjvOKmwaj0tk1xa9muTSrRb7Jb",
-	"n0jReFqTrIta5RYif7vy7TBs+PpRFtu3rrMi43vryvYte7qJErpuTz9OKfIvofZ4y+YVloiH2sIPYhdq",
-	"mc2GddDXTeUzqIy+3QrmFdU7FElfWurf4fo4s1P5ihZmQ+tK+JipuZeV5tyYoqz5tVZ3rmJqCd+TPIgU",
-	"Xm4zLVuQPf1CfnyI+3XxZGFfhkVA/Vox66Eoq04+mA/s8F0aUf2W8np0JlFbHjv8fY9XbVDE0WhcYseU",
-	"kfgdZRuGOkVzJSShQIWJbw/IX8/HuJvebJiPkZcPdoaIIRX3G2bSisZCzknVNmCLZEufvFhO9NpuTluf",
-	"4G2ChXTaEUQ50+lSWF+ZCEs29zo916lq9aKvqjuwJn/KE/ixo8JNLUTFVw0BgJmDLxnOWmyRednEJZ/y",
-	"VGnL3Eowk8VT5Fsj3A+V2RGqA6OptXPmVo89OzgY9VnAT8VSTMJH5rqA+SKRvQsd6U3pwY1iGHxtGxqG",
-	"wxJW+q4uXrWLaEW1SL+Zpy55d7HdbpqGLfFPcohDf5B9lvCCxYu4XDr3JzrZiFeQWUbxKpluqZyLPDcF",
-	"+54paVt5C1vB4q5C/sU3BnOidkYOPW7PL+/eeTLadfYJw2dABlwqllkwakwlcT9p8CbdEsOF261w7XIL",
-	"T96Sw88pQkQ68Ppkw67JfO4p4722iBrKj3y31zc8Wr7s1UOMtptOWDtvhXroY4g6eTJE0qt8UIOny3e+",
-	"dFvkJ3V5xss71rCWld2oXx7lA9mByWxV0rDMajaRw8I11ViZvWB6G+yZqx6xZfU/yoMjvHxXAJDwVnYI",
-	"hMZmGgwjNGgqvnu9sHgpGXpndz04TT6dYnilfe+wL4/tfm9Yx49RyK75CDZmpVLRGki8z1W0yYRLIn+p",
-	"sTrDdX97EctHFpYe058rbHx5Zx9os7YPlPAN/C7s9DL3am4w2jZX6JUHaEYQCB9Kzi6nVE8ag1eFB2wI",
-	"AEbPnTBHiLjoo3efGOZBcWr37NRAPPzuz8O9H+7Ojjv81xzplWvEnRZ4CWPK/Z47gxsXd6r4TGyMX0Ch",
-	"t0uoufjbhtLF9vVliz+XxgFyUynHxGoT1dyFTTewHQuSNwzIgnyfgvJFq0vzrpdTLW1NPqs/mhi+gTjT",
-	"wi4ucUr5tjaWSvXx30dspM3N0IKxw//9P/+XU4bwF2R/9Euf+sT2eke9a+AadDE3VJt699i1kGPVCpM8",
-	"p9ox7B9XV6+p1L/mse2zKzyJVFwk4HMLOUkhwNihkq8zOz1if1fMgHaqV3adJ1YPJLLTS+qOueQM0tIm",
-	"IEHzHI8MEbFHM35TPEBpG9s4OSejiUFzQfERwQElWowt5kQP5LffonEMpBUxqVD9b79lZySLj3zm9sgn",
-	"eLswJNpi8jH6NXbXODcDOTouZx8csb/RcrLqDuzgP8s4pLvLm1LBtcGVBOxoIBNwkdzgFtTRGM21gsEr",
-	"VQ4Q7TLEMQnAY+jYKcwwlRwHHnPPN3lsBxLzrITMS/+XWqQe6EV8JyS3zsHg4hNmnV/JM62VNt9+yzID",
-	"lO0fqOGI0vdJgBz0jt4NKCB00IsGvRkYwyfu3wXo8qB3fz/yjZ4XlXxxb0avX10WSfUugocwPfOKv5Yp",
-	"WSTFf2PYKEjII+YnSeR1A4sa7D67AKsXeLkUE0WVzYtU3hhq6mDa3pIQvhnIKfAENBvlQ7d7FwTEfYQ0",
-	"D6PnRdO1sTHukWhxGqFbUaB80EsDOXp68BM7Pz379fWrq7OXJ/89PHn18ucX5ydXYdEuuAWWihk6rb/9",
-	"lnnrvDNz0M9AOR05DXOX4+FJqs/O3sZgTCAjwyZgsdfDn9jF8dXZ8MX5r+dXZ6d+zCNatj0yRI4Qn57g",
-	"1nb9UF5zXKdwtFB0Kc5TsC+zEYoSIxrGqCTDjfoMy2NVf3NYpnTgwi9W4QhpVfFNNucTeF77ShgXr+eJ",
-	"A1Uaeq/PXARksAHduXOjjXXJLN53F5jd8evzEvrQUe+g/2P/wNf+kHwueke97/oHfV9UekpcOlCryzLB",
-	"XyYrUuqMO11sVEpRIT6dL9t50jvq4UoeuwaxK81nYEGb1oyy4pX9F0gBvfto7YsntHb0psAR/pk5HcP5",
-	"3goN012ya2NqcLRB621r0yO4bNDiL/jFPabGhaNIS3x4cODdmzmqxHyeei6//2/vBtigH1xwdxsuZV7x",
-	"CV1obsP6SA1PDw7aGs1HifVV0SzrT6f77Mn6z95IXlxZDjn36cF367/7WelrkSRA7tanhz+t/wLZyAvH",
-	"LkpQ4uu/O3Uv0n3gRJcQ5UNk6xcqqpy2XtSzfGJyvcn0/sAvq2dn/x39fyiS++2OEbso8XDfPSKtFIDJ",
-	"pgjtYBOtsrlZPnt/B3f0lk8ekTQe/IKiw4h7ZQnR6bQF9ZWtdHq14FlyIH7fkEf46OfAm3AaTsJVWLj+",
-	"B6blg6frv3ip7M8qk8nHJP6/g82BzENiu6nQHgm/Ppyo6UTQrRJPO1M9JR8i3FCWCOcuRCBvSII3xCdu",
-	"HgWgb7qBK4FIo4G0itJH1di/FdVfidioGqw0Irx1Z8kY9ZeeYjcDWbxBV+8YxSkcIA6cfgET85R7MCWy",
-	"kxD6I4t5SdyaDeROVSjEx2a0+xyXumjCLbowHqMcm3T9Y5u4DWR+YcfShYwN5ChEO43y2DGHwhQkaY6M",
-	"zIImzKUpNYMlo6TaU3MnO1S5Ril87pNlHHQT/U0liwfjGQ1Bg/f39/Up3T821+rCrz71K3tjNnfQgc2d",
-	"KDlORWw/Jl+80gJFqJw17jjuFLFwBCM8YrC7TkbAuFAr4u4idim/fNRnPqsFFaHrLL4By3bQF5kuyGl3",
-	"+HRK7PGHJGIJF/7X7w6S3WggUWbABFUwdo/K72QGGYO3ZeT1v4hpjAk3A12fkfN84ht3Qibqrolt/B3s",
-	"cT6xZr5Rk6FdWxUpOt+l3uHTaSlF3/31Q9KLet8dNEZ+Pao8kc+r7XSGF/pfhnQciu+YyOGHOQoK1OOI",
-	"xTuo/TlwFFw7B3OxhzgL3UXkMlDDqM8uvaG8iIoox4E16KGvz3+BRQN1PrQi+qjESLbU9VpewNb4PC6N",
-	"B9PZwrTz8KyGwpVl/pzZqZNXldmEAoPAeuX0s6qhUkMM4jY3PxbDyM2Q+JnPlBNF9CL79lslY/j222il",
-	"j2g2g0RwC+miiQ+fkKPOkXrvcWQl30Wl5kEnYenJA5+Ckueu4SyceFhrhglPXASLKO5QrOaLQCEB7OlL",
-	"OSZuWcquASE3OCoNDHz/nXMM3e9ruFU35Fze9jzxGzAMqAptMIN7Sy2aRF34kUtjjMkmeqtcwQs5kDzF",
-	"e2HB3CBcWYxgCxeWZTLUjW84NdRQcWo2ux9+gcV58iG4fpv8UZrxp27TeAgKdptVouBNqVQFXJitqLQU",
-	"COde8IzENet2gblThoo2FTeNKcvTua8KtwoKwsyXbZ57Kaqg2LyKiSJav2qt9jJW2on2PvTYS+kUzScZ",
-	"vJ3jZNAmEOhEaeYPy15p0HiB+QrC/tfGk0KPHuCkPPy91FSL595fTB/xHnInNCcCTx+td1Kx8V/1/dg+",
-	"GM8g2ujMM9AOuYeIb92VkypIXNmGT97KPYJNJzQE4Y96+HdNVB3IireXQOrxVTygmj5AEnFWSiXD7e16",
-	"+cawKTdTtP4J2XR8SQ/Cob7AyX3empCfRgePF74ZlvsLU4gqc68QPaEsVKneTveFvBUWzD6PY5jb9ksy",
-	"XHBIe+6bhKxJIUAgv9vm3Jg7pRP6g/IBDAW5maJ4KhX9c2BsrEBzHFOCPrnK++zcDcsV8aMQnb3MuA7c",
-	"Bedrnv1w6CqcNdH+MU3JtfRIqlG5i49lR87s1AHftdxFqK/65f+GMrQspYS7cBAaziXYvROlbgS0BDf6",
-	"zYvpHbbzD2vniIEbsUs+g0th4f+8pMqNEdpoMk1Au0YkwFKFxbt9/b9ZiBouJlY3692/z1n9tM3KPkyu",
-	"d/SvP8qH1lEQXlQiEGo4sn7ZGw6tr1zbdlYvw6mLlTQqzTfQCZVhkMxgbp5DWa0eQWGYpCBjOozoySoD",
-	"KY4oNowOMjIDYgLlE60ksJ1RA9YiOr/wC09GwjCDATwg7BT5CMf6slrJiUNMiNgd/VHhJyHFjPE4Vpl0",
-	"MUCFgP304AnWMPGJPlwDyslaWZv6yCJqOY8rOn/Ndp4e/rTbZy+VwzDKrWhNVykt+uPwEWr7U2UgBfOg",
-	"MCZjYf7XZCB/UTt+C+e59FD2PuE68Aq6z0vnxB+/rnxJZSuEiDPpIfQCQWAPcQpcmxJnaDl82PLSMXja",
-	"XGETld7MfuJUuh25PRIhuNVdv8WzMd9HmiATy5p76DfQYiy80MiNAW3pFjrx6VmuVCvWxFaaadgrz7WR",
-	"BVODi9eu+0dixb714zDcT58re5HuY3C+z1Lk+llIYVBn8XSMCJpi7Ldpy0OwrwoQjDYrozMP5MAXo9eU",
-	"ofALLE5yhAu/KR5RY0QyyUjyWwxpUrpfgsLoT8COImTeIdlxxWFqOkuezkny8P31HpGe62AhDVSdr0zI",
-	"E/Br2v+gNPoI/BXF8Qcjt1AqoyvbLRZEobMnl/6deq60f8+3X5ixNFDi54JyU9Dz7zPaYiCoi1z0n/KE",
-	"SSWh2c3ixvpBOLbrzPX+lWk/qMX3ox+hwLKTxMVaznOC2vL0PBC/JquYULILw3YptRjHgqpqDnBGCdVe",
-	"XUYk39EKZl0m8U+MZ8d+JR6IaX+GNOrZ/HuT6Dv/r5BOkEAKzbiP3iNRvewJ5jtPKHMZRU8O2EzIzJJb",
-	"0LIU8EcloWb3ISuOhlmLL+GUBlLw8vWxwsVMOkYLz28Ww+Pjs5Pju/+qVeM6/LFLEODTpmWaufrPX71k",
-	"awjYrdQWpBtEhT0SFTo42jej2GDEptadRyCXRZxFEf3kSgLeqmoe/OQtAonPub3wYz6hIT8iE612tMJG",
-	"T9PrfzZup1YiIs83W6hM12TIjelpnyTlRTtBvRA3wEbuLbo7nfXKlfQupXeT76g6mHbzQnnDHiuiTiXw",
-	"mYioebC4O30pjO1XU0Pn0/DGAIUElSiv8ymwys73qTicnq3wy7oXDCscLsEl6+pfYp9baXUDSWodOybu",
-	"lDkwTj9kdg2xmiE3JojCxsBUNzA8ll9PEduhPamuvivSQqU+k92vqmDHI+XpqmrY2OPzeekEbHbG3Hft",
-	"Rwxh/Xl+CNp8mxGF2Ul/IvKDUrPEJRWwhyVRp5wH7KMBkf9yyUa+TsrR/v6Ivbk4J02Ts/+6cAe84QCe",
-	"5SrlY4o3teIzLcfBA1iVtuiL1Q8fjGzXCUfLXpYmP37d7dJAwkhpmEW2J2ZzAmXx5S18rBrSH8ncJo9c",
-	"Lbvc8cy0C1tfr4evzpuNTpEjG6LSpZPUWbwKT9qDPUtsmNzJeHyQkiMfeBkxrVKISuWNTVS1pvjqL7Wd",
-	"HsggT59cXvzMrLoBWXG/kw3GgKRyHqN/7uFre1f42qjIiMik4WMIfpKW9ExfFPUxmf+JG3ToaTWxf/aq",
-	"7VUJNbgWWdWN6ozaD0XPV7BtDAsmIIASWSAMvv/SRbnmiQWlMuMjpH8PlkDENgoBX86dhqQ1kFMshH8N",
-	"IANYe5585iH3cwkFZBBMolwLLHV3furJl0jW3UY+181pHpeXr/Krh6dGUVCZqTTj/JdOoMPffVgXJiVh",
-	"BAqGntE/hrfOp0UxZMKyayFrLeEBywiVLq/H49pyY0+5BR1GY/xSzDUY3Mw8fsy30GdtEXQOLTVdsJQs",
-	"D+T6HR1RA5WwuoFcH1fXZz9zkRLE6gQsxq6x0eXlq+HPx+cvzk4b3QDODXJ5+arF+uoiVwr7K+Z8KzM0",
-	"Rq0MR3mk/IzLy1cnnmi/hrZ9DW378BEeAZRVyIJf5nkTghxzdpFzkM48nPjmOnVxDtqgXXuqTOgUBQiT",
-	"A04iK1KS7byagzw/xQQhCbHdreqABXcbSF7GcWRvLl4goyNJoVQvhVnlGJ4BF3c/VdruIYZjEkgUeSeu",
-	"ii1dDVYNZPkO6LM38kYS4iKyXxM1RN5iL25ihpZXZY7l8zT1DO3pQBJHe/nqirAAz//+5gI5W01DaAvK",
-	"DfcHQfbDW2Ec0E7oH7OoIidPeRQ8YwVmFJgbKq6Xg0ZWmTDlDdxxnTSagInxOwb7SCyRevhI/DB03+jJ",
-	"nYKGJpLakCH6ZfumkCcCwTXxxhf8bVSWNB6TB37acFwrrQYPy8kIiqpzphu9vQrv8YSa+0zgHssl8B41",
-	"XQ07Wp+qRov7FZtxbVobrVMrNCM93QDXw5G0S+9212UVmc5Z5kcB6sw4KLiJuAVZAq0jQOaBTIUpkNxI",
-	"F7qGAFyndB2UjhzWC+8/YaMcCW7UZ7/7S5QP5ChUnRxFPlfUALMEllDCdGKhbGDII3aTQDsfJCKbjfJ7",
-	"2T3YbQcQQWp9VPiQcsHPDwweQnNrUQAIXu9r3vVHxVlDCdjjJ0Y+fIyn6SKgJJLQ5whbSKuYaDr59dtt",
-	"/x3+byNE1pX33N/B+iOyPurJ99wx5Cnm5pNFVsUprwZWLZ2fr7iqTbiqJVjQgkM74MBWXNXSddYNVrV8",
-	"n5UuqIscSXRn5MSkI5ajm+6WygYE1FOqOjzyWVnK5GBWBr4JQz9ahk29C8UhizaYQCD0JfRVZaeg74SB",
-	"Cg7rcT4ot1hUoUHy9LlfpZhLr9pdA8ZXElBJQERljYCorTinn/IhfiyU042v3oOvV+8XcvU6AnF+YDqC",
-	"nmFtdMPu0zHtjq9U5VYvVcB54PM5yGQP7TpHTkouEIqAWBoO1IVDJ312qgb0dJ6heqATJjMsX22iPGfV",
-	"4PvEc/IiS0I6ptKIF5EkSK84oC+HRRTSOc77I0rotOxt4bHK/mVZxUc6+cdJQqjglmx+XU59AnKxl/oi",
-	"b6sl6pHO0iBLu0JCwtwckaNvkmk69SVFPmKh5uqT6ODgIEc8drZz8roPpDf7RugwETFEaCfmSaLBmIhd",
-	"g4SxiAXXC+yO3kTgQMO8cr6DIg0yCwcek+w6cIjrVMU3kETsbsoteNBjoR3KbRuc0inIxVmOr9MB+Hij",
-	"4iHY+geoHRIm0Yose0U1u8sISl+EnQnFWCR0IpzSeSCC7mJhWib1XBxfAXbZL5FzyHGgis8DKSReg0oK",
-	"9BZiIVgnnhOJCzAsm89B7+F5fe7vOmcPHgvQztHNZqhF5K5rpHUMzx/IEGbi0Jr7DOs35cJ80QqeowC2",
-	"6c8TAcBApRzXlBv25AAP8EAGwmk1N+Xk96g2p7yXj3StFbNcccAWf9HI3496scky+Vq19lg3XXP772h7",
-	"OqfhbXnyW9LsyidkvSgaRtpRFk3kZvU1/1qZdh+JMEN6XYU2qVrkBtSJH1qB2hdKFff77zSM77csLPG3",
-	"TKS2GIFzIn5jnCimIQZp2TNk6P6COHKBwcKi290VAkBxLK8NEGLEqMhElDvqg8hmotKthe9WrjwDIH0d",
-	"QWHxKnpaXEX1a0YqPyLv5m8JgDyjCb3WaizSbhqdl9RWHCFfoAKn2It6foq9qOem2FSpImpykpcoYKEy",
-	"53LnlE2jdB8bH4okX8Gh8IovdjEUVO2gYfBIl6vGvnk27cOJm9WtaEsScI+/8o+Wi83nYEWlKMmcLL4x",
-	"YfnWVOHwv23HMcpam/d/YjFd62TE4LrpsxF3VTc9uPVAEuKxP7PowyX8QHe4yavqnrEd/AGDldhMSWGV",
-	"ZnOVpiaYz3fbVDKnMH6QEITqcr1qm5cwfkrnp/lxramFtEa9lhPaZAFqCYCg17qql0VF+Nb2AkffQGX1",
-	"H7Q2iZLRkACROzeKIV0v6Iv71ctOib7C+NysCgfdbVt6z76788ZOI/DHMgyi4N6t4yjujwcair/MhfFs",
-	"IYwlvztah+Le6H0yFwbOZ334jNdcv8bPrLNrlEl1bemP/N7oGk/jPshN+r/hGnPKG5BKz3gq/hNqRhWA",
-	"U/RNFMpMEsq5C+Ys17MOvCignlOUfph1n51XqmuXqlbvGADGr9Ut4J1xJWZgLJ/NTR6fEyyOz0LgYehh",
-	"nNlMu6z3w6cOWzo8mnPKtTmp+BpOfvvNROz1+UtTgcv0PbkyVdfADNVA97WzDZUg5wJD+gYSfRd7rr09",
-	"SivAFfFGoFBhu+niO5cT8FffI1lRXNsf2GWIjL90ozSXV8BadoE2+syVMTeEl79oL3BeC2Rdeq06xiDq",
-	"46dNcv39X9Rqc9hlaHOtYjAUEf4xWZs7AqhSO2ELT+AELEVaVGikk1C8/y4wkC016kYl1J/PDjYc33lH",
-	"Gw7c2ve14Tzwdb06Uoim91W3W1mC2VFxHiyUXxeuAlGox7yGmJHw92Nueaomnem45LDD4gtxmiVgGGB+",
-	"t6vz+A2KlDR+NxqyZaKmdgdiMnXo6W2iRePBQD5/4kf5yNdJ6KY1EIUefyFuLrL6YUpmqN8ZzHZjAWli",
-	"GFECxVxlFY8wklUDoQX5rXv4B352FD7DujmZNIVwd+tkxwAOXlA92scE8Xv84zqzA+mlyWAOfO7lyvwL",
-	"4fBudALOusYSvWA6cy37CqJcGAixbQwLa93B9VSpG+OKAohcSDjyuddI4Ezk9dGbZbMz/xCp74sWzthO",
-	"uNZwzWSWpp8L0s1nJQgFeqteIiqz4chQNXm24w/A7vpzPVepiBcr7g+e4KQ91pSvw1+WhqI8pyL8WQqw",
-	"jio3TjSQNa7QFDTiD6CSgJEhzIBjKTpEiAKwqbpzgWOoO11zmTSfTn/7vHZTfOTj4ntps3nT0y/k6rmq",
-	"+nK+8UI6bhShZWgwVDHXlXpx7RQOpvU0a8AipXe3bi95bEPu7VyrJIttGIRhmbQiZaEDoi/Db5sqT3vi",
-	"ugxjeWTyyvtpzXB3z78QEvu7LwfUQGam2JEaHUW9ebYNteT+/ZpM5WViw2YcM72YzSQieoC9A5DswJm5",
-	"nh08Z65CrcHI13RRDwxogoHOlmnrEepqLpHVhxUw1pI0RUbVKfur9bcl6sDhsW58KMrMNUthz9Pqdhpl",
-	"c7jn4cFBc0bxRZbCie9vyXTS4P0I5ygg2XjMxXCFePS5Vt9HQwpxvvQ9/3Evyi2CxS98jinX4Ew2zlKL",
-	"v6Zp748Pa38pFmxVPKdfpi8pnnOu1VwZSEitDQuwOsSmTO3779w/NrIJlim/UTzIN6tbmkEYQUfDoI6n",
-	"n45hsDTXlUT51TC4KoewiYq3I+J9z7I6mGvsNKdl/9GoBHcX+cqRFNkxBzVPUf1KE7bjDCuhkuKuiwvj",
-	"A+kjymqQWBX0O4dX5nvz9Qh8AhC+VWDq5CviCqF7GmLHSKd+6O43xt1fOI+A8nQLGmfwPPc0YtyzGOfv",
-	"YYzZQLrvE2aE9Nen65OnbMf9CxifcCF3QzS077EULY26C+qguaTYlHXkZvuVKZSZQrhY/ZpGBeqJ3zy0",
-	"ZriCKn+9yg4fLcDMLXoLv2E73J8uYXe3ZD5OSOrAe2p8J3L2IPrNI3QEf4PnCUojt3FVafPRF4dyIAmA",
-	"O9H8zpnCXM3XKf4RhEclcw6w8sBe0CQ+yfP6CLpgbbKlTIr7j8ohgrz9ucgPnwsTcBuO5ykcmK3lD/Mw",
-	"EnNQCB/XlJalK1UnGmGEqKwEt/4FaVA08/z+FTqHwPU3sdkmS66y70u4FQ7zTMKd7xyRkM2UJ+puxGYq",
-	"gaPCyJ974TDG2IUOW83HYxEzF0vm3H8ROgxZokia9PdZblgOxt07YeMpXhuKjRwEOoKwXpSExDwjAYkA",
-	"BT3Lb0A2ZcMFCRDTFQ4PDvxEdgKK4kC6Hyj887l/ivMJL0TeP+mz3TGK7VwyHgzTKAGVu6uKn/lxFdJY",
-	"4AnbOTw43HVyuL/DSWzH6aAx0qUN+pvU37mmJa/CZdbhcXnU1D3s4CNl7dHc2pRVJ3I6PrgTZNEnu312",
-	"BcaWtyQYdXMTr3Xo+Hg2Dw8OP9BN+bqRXMxRmWDueIliiEbuuHDj1+qWp8j0qjQykDv2Tu25P2gtSuIU",
-	"UnzQnRZgn/t2ACV2l98zev3q8op11VTxDH7NkHxItu5OGOO0cx2u8f13+L8HN4F1kpt9z12l5iz9tLTc",
-	"VeLEV5PXKpNXC212hsRqES3IXVCkHfmYp2A/chlN7i/P6wkdC0WR3GoEXKcCdPjB3ds3MHeBcTGXaK7S",
-	"4LxUiG7l2yPdlKdI7Uw6ZjmQoROpQnufzE3vsIE+qZP6WAhZG0sbH45LFNGgO3NljLhOFygZ79bF8K+C",
-	"xV9YsPirGhtOvI3ey9M5x2Ulhru7kYSyr5WrOLFBPGrzTXGcJLWRFEZof8BCOhXdJQOZ3xBTgcx/4ep9",
-	"UJQpYPMWPh3mfuGX6S/O3svT/KQZvJ0WMkNOXtwQ40cS/Mrtv3L7z9+0TPRNMcpVGZrtKAl7xsKcBf69",
-	"Idu3YOymLN/HJp3lGaglR3GpzlciLPm7qaxLovnYDuQo/30UOS+wxw5zwdeZCQVWqiFXZJ8cA7dU9SmE",
-	"aBOxkjZgpzArjgAFMjklIhgh76ZAB0h4UC9/1Mgx6rJG/ZXkFRuqMpqPlQrQNN0GaLz6i98EYYof6RYo",
-	"ujdZ6ntfvg8sEPIOvvKXhbv8nNIqyKjrpdNwykOGxWb8KXeWvHf4ZLuD7LfCIfOXN6z5ua5y2YUl/2pn",
-	"a8MT8ndduIS92rKasI1R3dDwLPBZCNbgMokKoDEf7BXVag9TKn+ufr12IWUYUB+qHtH9KHSOseCOZNN9",
-	"5iD0Qhmvr7h1D4FbV61bVyIS3GiyzK7BBCaC8AxtFLtyd1RuwCcGOu8qFn0TZCBlBizL5i4mME6FDx7U",
-	"YHPFGoMKUTBqTfNqJIGHrae2JllBQyI0xJZqtlvFNEyEsaDRIViu8FfA5xVL8wWlheXFzKpkVlqMJoqb",
-	"Z+spbkMWVKrPz+rl+QfSsye2E2T3olD/bj+UIUQad8qEMCajZPhqkUf08seKfA2JirMZSDuQrmauC1oY",
-	"U6VILn0DFOzooPA12YGeHhzs4iGiQzF0/Y9curO7y70OgC1aMYPnA5kCd8ozjVqxG4C5G72zOSgJfXbi",
-	"NZHS4DHQbgK2VrbXF8o17Bq500BalcM9tuQtPWpNxZOcSs4l0sSHL6tYjKA1dKB+rL8mLDVyg0vi+gTj",
-	"7gxL6y6eknCCv+wLeStsl+Cz8o3UAix47tt6ROJxXbQJsn4A1cp3X1L4mch3YJn7r4khfjT2X9hjuKfO",
-	"vcwAS4W8iRyABYUn/3Do8cOQqZsplqKlECD2Owo6/rJAO6evdZ6nliau6B+257IJjHLvuOC0UthzKI/+",
-	"ZwYZ1nRqj9hyhPSoMVuui49VQoSGkPhptvBgR0y0H8IaWuCv6OsPjMjlVtgTaGduvf/O/cOnCdyqmy4p",
-	"SuUjviZmH1vMz8B680g+mo4GEiFvO1f36Qim2aip4jS+aqqtmiouDxGfqzgtwoavIcIZEJrjg4gMV8Bn",
-	"v/r2HtWgHLpZZQMjKPYvrX5Lrkv6a96tQmcq2H/n4YMp3HFduNljShn/rbKg93lZeIHyBKTj56WJMp7e",
-	"IfolanSkNLrYdcaTmZDCWM0RAZgdy0VIamQgvYLqEMWZrxK+om5iQW6d2KdfwY7MMzP6AZjnYwWHFVP/",
-	"aL6jfO1XHPOvpRQ/kVgmf6Y0ch6lWQ4u0c59AuRcZ+dQ+GD1TfR7aPYRadP3sbqKWNkFDjKZKyHtF6zS",
-	"+t0rlqJEHDkpdE+iyolhKYTN2Z/dsALktPFhCa5rMrhOJMpKzoqIlV28pkqB0sJ4nfXNxQuPaY2q7tTa",
-	"udNr8xx9ag/V01TFPJ0qQ0mEcy1uuYVoIFOl5hjYEZHatUdv+cKjoDHVu6gFs0MabzwFLM7HqE4CO315",
-	"Wa4vrKRDgxvIBDCqQi92++w4x5Up1hYVkUqM3Q4mcl3DQslkhbrs6fpR9WXfx0dSmH3vvws7vaStbz+/",
-	"bilztdlRylfF+YF1l+AXWuIPzeyh4f7Yf+f/tVGuTu0yYS99yGqBwu83vNnFVpyU9WJhMbyOkuHd9OaT",
-	"LY4fJr7m2HxV1lel+XSj9c5ZP+13offTsrwQvs/wReUMJAYake4UxjGQIRPX3z9jLlIhJ5Evjg9cu+Bc",
-	"/D2jcp3cQrv+9OmfksdSn7a55T7WIf1aXPpBdSGlmTta+/4wPdjltu+lPgGPpDSdFu1/kkc2epTiZh3B",
-	"ETscOL9+i0v39Qe5iUOf68tGFdTz9eA/vH5buka/MaW1rmr8733w99/5fy/eR9xdKdQGivpkeUDDMEqL",
-	"0nkcyacuZIeNWF1iJkz9q8i9SuQOq7RUZ8YX3MBH3FqYzR/6jO5r8H92T9VZIdFbrm1I0cwnFS/iFCj8",
-	"grPRmGImRvlTF6iWe0hy6Y/lBYq8FwVX5fy02ZPsG/ukJfpPlzUcPhZrWMcUotwr7MLGv/o9HspwZZFh",
-	"MHfW8uXeknVoZbmFPWdxeggucVGyYyGjcC1HrNHKPZBvCAoMX1a3oFM+J19pVJJifJVBQvp3eXzk8L1W",
-	"dpp3EkK55xpuhcrMQObdKqqsjm35siWEOpbnAiZazedIpL6yaWPqti3Uam+6/ZLMCg3z/7jGhS1M6AUl",
-	"flVAHpYbEXE02BmWPF1bMqjNEo2X+NJ/ZUC1XfNHfWxw5IUPB2orCi8pMai2jN3PzPL+wW9+FxT7+WgF",
-	"n8uNfwkyYdwlKzu6dVJ1d5PeVPGZWKGxF1e2C3GKqtiaMnHnKySlgAFpIQmY885PfIuPFQoA/khK5b5q",
-	"BKT73Q3pMS8L10MLrVYIjsUaEvyLp+9FtA+x2ac0VA/Aj7UPCTI7H19pr7F7v89T4Kmd7uO5W7vLiI56",
-	"NxVpjrEfgzGUy5RJYte43WQ8topRqAD7x9XVa8wQ1WOlZ7SxCaBwDzJeuLAB07jJL8QtSDCPGhAT+rjw",
-	"HbTAqYRJclyjWmHqf+75O37v/LStO//6/j/9q+enoaOttxziTAu76B3964+qSc9NCLfmuhxL6za5uuME",
-	"ettxy8GHcBRJa6Vd3HmtjJ1ouPyvFxG7gEQYBD4yd4Dv+ehJFKRotwfSihmozDrv3LOD7xjhzNwJAxET",
-	"VM0WKakgM6IjjRuQaFeHnSUZ3lzMTDObqDtMK34Neq80JGcIJ8qEudIWklxqF9KCljxlgMvJErJSmbbS",
-	"g8AT8dhkmHeyig7xpQWzuUoSoJMfkB6fHXz3Yef00idJLp4zblkK3FimJJRpSxiWSX7LRUpsRekWkvik",
-	"j2W+GCvOZfVzXHrxC1BLKJ65CTfV1HpBsVkJ3EKq5jOHdZHptHfUm1o7P9rfz0O8jn48+PGgd/9H3vtS",
-	"U4F7uMTWypgNybtKx1PwUcruNbJFXvOUy5ii13Mh1s/sPqr3ctV4N1FjQSaYccknEKpR+wZ51tpcHkRu",
-	"+WwOeg8w8RWFDzQs4EERaaWhRNiGlqhIb6lssauWysxCxlOtpMpqdeqLLHAnWMHbeao06H6tTLxp6AsT",
-	"ysrVj2sVYLFxonNXotAXvXb7Uq4EV+oKf2/o6CQzVs1AB1B8jx9BaWtgrHP00nbTk+sU+lXckabRH7sK",
-	"zFSPOXEmlcrKhKKgE80TKNeFNvmaCc2sFnxS7s6VoG3o71ze4qpM3FpRaVo20Soj44v7yledkYowCUnm",
-	"LSIQS33Qxw1dXIqJhAS/F2PP8Qxy2zisXykWlnrKjdipmoQTY52Xsq7INfV34tMdKFNWyKhaask1GCL9",
-	"2U6s1I2AvWtuIHmOg6TTmJdtKnXpv1nRIyVYUPs+nav0NYU73/9x//8PAA==",
+	"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",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

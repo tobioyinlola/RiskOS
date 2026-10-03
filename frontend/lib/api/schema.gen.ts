@@ -1293,6 +1293,774 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/auth/signup/options": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Which ways to sign up are available
+         * @description `email` is false when sign-up is switched off or RiskOS cannot send email; `google` is true
+         *     when Google sign-in is configured. The console shows only what is available.
+         */
+        get: operations["getSignupOptions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start creating a workspace with email and password
+         * @description Records the sign-up and emails a 6-digit code to prove the address; nothing is created until
+         *     the code is verified. The response is the same whether or not the email already has an
+         *     account (that person gets an email saying so instead of a code). Passwords follow the console
+         *     rules (12 to 128 characters, not the email, not in known breaches). Sets a cookie, valid for an
+         *     hour, that ties the sign-up to this browser. Throttled per email and per IP (429).
+         */
+        post: operations["startSignup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup/resend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Send a new code
+         * @description Sends a new code (the previous one stops working), at most once a minute and five times per
+         *     sign-up (429 with Retry-After).
+         */
+        post: operations["resendSignupCode"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify the emailed code and create the workspace
+         * @description With the right code, creates the workspace (a tenant with test and production environments,
+         *     production locked until onboarding is approved) and its first administrator, and starts a
+         *     session that must enroll a second factor next. A wrong code gets 400 `CODE_INVALID`; five
+         *     wrong codes end the sign-up (start again).
+         */
+        post: operations["verifySignup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/signup/complete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Name the workspace and create it (Google sign-ups)
+         * @description For a sign-up whose email Google verified: creates the workspace with this business name and
+         *     its first administrator, and starts a session that must enroll a second factor next.
+         */
+        post: operations["completeSignup"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in or up with Google
+         * @description Returns Google's authorization URL and sets a short-lived cookie binding the request to this
+         *     browser. 404 `GOOGLE_NOT_CONFIGURED` when Google sign-in is not set up.
+         */
+        post: operations["startGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/auth/google/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish signing in or up with Google
+         * @description Called by the console's Google callback page with Google's `code` and `state`. Google must
+         *     confirm the email (`email_verified`). If the email has an account, its first Google sign-in
+         *     binds Google's subject (later ones must match) and a session starts that still needs RiskOS's
+         *     second factor (`outcome: signed_in`). Otherwise a sign-up starts with the verified email
+         *     (`outcome: needs_business`): name the workspace with `completeSignup`. Failures get 401
+         *     `GOOGLE_FAILED`.
+         */
+        post: operations["finishGoogle"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's compliance onboarding
+         * @description Requires `team:read`. 404 for workspaces created by RiskOS operators (they have no onboarding).
+         *     `missing` lists the answers still needed before submitting.
+         */
+        get: operations["getOnboarding"];
+        /**
+         * Save onboarding answers (a draft)
+         * @description Requires `team:write`. Replaces the answers; allowed while the onboarding is a draft or was
+         *     rejected (saving a rejected one makes it a draft again). 409 once submitted or approved.
+         */
+        put: operations["saveOnboarding"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/onboarding/submit": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Submit the onboarding for review
+         * @description Requires `team:write`. Every required answer must be present (400 lists what is missing).
+         *     RiskOS staff then review it; approval opens the production environment.
+         */
+        post: operations["submitOnboarding"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/pack": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's rule pack
+         * @description Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
+         *     recently loaded pack when no profile is set.
+         */
+        get: operations["getCompliancePack"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's rules
+         * @description Requires `compliance:read`. Every rule of the pack, ordered by ID, with its wording, source,
+         *     effective date, verification status, defaults and bounded parameters. The engineering logic
+         *     is only on a single rule, for callers with `compliance:engineering`.
+         */
+        get: operations["listComplianceRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * One rule
+         * @description Requires `compliance:read`. `engineering_logic` (the library's section 7B) and `definition` (the
+         *     machine definition) are included only for callers with `compliance:engineering`.
+         */
+        get: operations["getComplianceRule"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A rule's configuration in this environment
+         * @description Requires `compliance:read`. Version 0 means the library's defaults.
+         */
+        get: operations["getPackRuleConfig"];
+        /**
+         * Set a rule's mode and settings in this environment
+         * @description Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+         *     `settings` lists values that differ from the library's defaults; each must be within the
+         *     setting's bounds (for regulatory limits, the legal maximum). Omitted settings use the
+         *     default. Applied at once (200), except in production for a regulatory control when any
+         *     setting changes or the mode moves away from live: that is proposed (202) and applies when
+         *     another person with `rules:approve` approves it. Audited.
+         */
+        put: operations["putPackRuleConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A rule's configuration versions in this environment
+         * @description Requires `compliance:read`. Newest first; versions never change.
+         */
+        get: operations["listPackRuleVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an earlier configuration as a new version
+         * @description Requires `compliance:configure` and, in the console, a recent second factor. The same
+         *     approval rule as a configuration change applies.
+         */
+        post: operations["rollbackPackRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}/backtest": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * What a rule would have done over recent events
+         * @description Requires `compliance:read` and `events:read`. Replays this environment's ingested events of
+         *     the last `days` (default 7, at most 30; at most 20,000 events) through the rule with
+         *     `settings` (values that differ from the defaults; omitted: the current configuration) and
+         *     with its current configuration, whatever its mode, with time windows rebuilt in memory.
+         *     Nothing is stored and live state is untouched. Events evaluated before the rule pack ran
+         *     are not replayed.
+         */
+        post: operations["backtestPackRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/fx-rates": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The institution's exchange rates
+         * @description Requires `compliance:read`. US dollars per one unit of each currency, used to compute
+         *     `txn.amount_usd` for rules on US dollar amounts (REG-10) when the event does not send it.
+         */
+        get: operations["listComplianceFXRates"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/fx-rates/{currency}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        /**
+         * Set a currency's exchange rate
+         * @description Requires `compliance:write` (people only) and, in the console, a recent second factor.
+         *     Audited. Applies to every environment within 5 seconds.
+         */
+        put: operations["putComplianceFXRate"];
+        post?: never;
+        /**
+         * Remove a currency's exchange rate
+         * @description Requires `compliance:write` (people only). Audited.
+         */
+        delete: operations["deleteComplianceFXRate"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/restricted-signals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Compliance-only signals (no tipping off)
+         * @description Requires `compliance:sensitive`, held only by compliance officers (GOV-09). Rules marked
+         *     compliance-only (such as INS-01, staff-linked accounts) add their points to the score
+         *     under the code `compliance_review` everywhere else: in decisions, events, alerts, webhooks
+         *     and analytics. This lists the evaluations where one fired, with the rule itself, newest
+         *     first, at most 200.
+         */
+        get: operations["listRestrictedSignals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The compliance work queue
+         * @description Requires `compliance:read`. What fired regulatory controls require (reports to the NFIU,
+         *     enhanced due diligence, freezing or closing an account), open ones first by deadline, at
+         *     most 500. Suspicious transaction reports are listed only for `compliance:sensitive`
+         *     (GOV-09). For callers who read alerts, `escalations` lists alerts still open past REG-14's
+         *     screening deadline (72 hours by default).
+         */
+        get: operations["listComplianceTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One compliance task
+         * @description Requires `compliance:read`, and `compliance:sensitive` for a suspicious transaction report.
+         */
+        get: operations["getComplianceTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a draft report
+         * @description Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+         *     Only a draft (open) report changes. Omitted fields are unchanged.
+         */
+        patch: operations["editComplianceReport"];
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a report for filing
+         * @description Requires `compliance:sensitive`: only compliance officers approve reports (GOV-06), and in
+         *     the console a recent second factor. A suspicious transaction report is approved only when
+         *     goAML would accept it: a predicate offence, at least one indicator and an accepted
+         *     category (REG-19); otherwise 400 says what is missing. Audited.
+         */
+        post: operations["approveComplianceReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a report was filed
+         * @description Requires `compliance:sensitive`. Records that a person filed the approved report with the
+         *     regulator, with the reference its portal gave. RiskOS never submits reports. Audited.
+         */
+        post: operations["fileComplianceReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a task done or dismiss it
+         * @description Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+         *     Reports are closed by filing them; dismissing any task needs a note. Audited.
+         */
+        post: operations["closeComplianceTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * An approved report, for filing by hand
+         * @description Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+         *     Returns the approved report for a person to enter in the regulator's portal. Audited.
+         */
+        get: operations["exportComplianceReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/suspicion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm suspicion on a case
+         * @description Requires `compliance:sensitive` (compliance officers) and, in the console, a recent second
+         *     factor. Opens a suspicious transaction report for the case, due within REG-14's `str_due`
+         *     (24 hours by default) from now. Nothing about it is visible outside compliance roles
+         *     (GOV-09). Audited.
+         */
+        post: operations["confirmSuspicion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Configuration changes in this environment
+         * @description Requires `compliance:read`. Newest first, at most 200.
+         */
+        get: operations["listPackRuleChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/changes/{change_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending change
+         * @description Requires `rules:approve` (people only) and, in the console, a recent second factor. Nobody
+         *     can approve their own change. Applies the change as the rule's next version, credited to
+         *     its proposer, only if the rule has not changed since (409 otherwise). Audited.
+         */
+        post: operations["approvePackRuleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/changes/{change_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject or withdraw a pending change
+         * @description Requires `rules:approve`, or being the change's proposer (withdrawing it). Audited.
+         */
+        post: operations["rejectPackRuleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/clocks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's legal deadlines
+         * @description Requires `compliance:read`. The reporting and response deadlines the pack's workflows time.
+         */
+        get: operations["listComplianceClocks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/gaps": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's open questions
+         * @description Requires `compliance:read`. Open legal questions a person must settle (conflicting or unconfirmed sources).
+         */
+        get: operations["listComplianceGaps"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/glossary": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The pack's glossary
+         * @description Requires `compliance:read`. Plain-English meanings of the terms the rules use.
+         */
+        get: operations["listComplianceGlossary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/profile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's compliance profile
+         * @description Requires `compliance:read`. 404 until a profile is set.
+         */
+        get: operations["getComplianceProfile"];
+        /**
+         * Set the workspace's compliance profile
+         * @description Requires `compliance:write` (people only). Sets the jurisdiction, licence type and capabilities
+         *     that decide which rules apply. Saving adopts the jurisdiction's latest pack version
+         *     (`latest_version` on the pack); rule configuration carries over. Audited.
+         */
+        put: operations["putComplianceProfile"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/sso": {
         parameters: {
             query?: never;
@@ -1331,6 +2099,469 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        SignupOptions: {
+            /** @description Sign-up with email, business name and password is available. */
+            email: boolean;
+            /** @description Signing in and up with Google is available. */
+            google: boolean;
+        };
+        SignupRequest: {
+            name: string;
+            email: string;
+            business_name: string;
+            password: string;
+        };
+        SignupPending: {
+            /** @description Where the code was sent. */
+            email: string;
+            /** @description How long until another code can be requested. */
+            resend_after_seconds: number;
+            /**
+             * Format: date-time
+             * @description When the sign-up lapses (start again after).
+             */
+            expires_at: string;
+        };
+        SignupVerifyRequest: {
+            code: string;
+        };
+        SignupCompleteRequest: {
+            business_name: string;
+        };
+        GoogleResult: {
+            /** @enum {string} */
+            outcome: "signed_in" | "needs_business";
+            auth?: components["schemas"]["AuthState"];
+            /** @description The Google account's email (needs_business). */
+            email?: string;
+            /** @description The Google account's name (needs_business). */
+            name?: string;
+        };
+        /** @enum {string} */
+        OnboardingStatus: "draft" | "submitted" | "approved" | "rejected";
+        /**
+         * @description Know-your-business answers. Every field is optional while drafting; `submitOnboarding`
+         *     requires the ones listed in `Onboarding.missing`.
+         */
+        OnboardingAnswers: {
+            legal_name?: string;
+            trading_name?: string;
+            /** @description Country of incorporation, ISO 3166-1 alpha-2. */
+            country?: string;
+            registration_number?: string;
+            website?: string;
+            /** @enum {string} */
+            industry?: "payments" | "lending" | "banking" | "crypto" | "marketplace" | "insurance" | "gaming" | "other";
+            /** @description Licensed or registered with a financial regulator. */
+            regulated?: boolean;
+            regulator?: string;
+            licence_number?: string;
+            /** @description Has a documented AML/CFT programme. */
+            aml_program?: boolean;
+            compliance_officer_name?: string;
+            compliance_officer_email?: string;
+            /** @description Sanctions and PEP screening provider, if any. */
+            screening_provider?: string;
+            monitored_events?: ("payments" | "payouts" | "transfers" | "logins" | "signups" | "card_transactions")[];
+            /** @enum {string} */
+            monthly_volume?: "under_10k" | "10k_100k" | "100k_1m" | "1m_10m" | "over_10m";
+            regions_served?: string[];
+            /** @enum {string} */
+            go_live?: "now" | "within_3_months" | "within_6_months" | "later";
+            data_protection?: ("gdpr" | "uk_gdpr" | "ndpr" | "popia" | "ccpa" | "lgpd" | "other")[];
+            /** @enum {string} */
+            data_residency?: "eu" | "uk" | "us" | "africa" | "no_preference";
+            dpo_email?: string;
+            accept_terms?: boolean;
+            accept_dpa?: boolean;
+        };
+        Backtest: {
+            rule: string;
+            /** Format: date-time */
+            from: string;
+            /** Format: date-time */
+            to: string;
+            /** @description Events replayed. */
+            replayed: number;
+            /** @description The event limit cut the period short; the replay covers its oldest events. */
+            truncated: boolean;
+            candidate: components["schemas"]["BacktestTally"];
+            current: components["schemas"]["BacktestTally"];
+        };
+        BacktestTally: {
+            triggered: number;
+            fired: number;
+            clear: number;
+            not_evaluated: number;
+            /** @description What made the rule not evaluated, most frequent first. */
+            missing: components["schemas"]["BacktestMissing"][];
+            /** @description Events the rule fired on (at most 20, oldest first). */
+            fired_samples: string[];
+        };
+        BacktestMissing: {
+            item: string;
+            events: number;
+        };
+        FXRate: {
+            currency: string;
+            /** Format: double */
+            usd_per_unit: number;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by: string;
+        };
+        FXRateList: {
+            data: components["schemas"]["FXRate"][];
+        };
+        RestrictedSignal: {
+            rule: string;
+            name: string;
+            weight: number;
+            mode: components["schemas"]["PackRuleMode"];
+        };
+        RestrictedEvaluation: {
+            evaluation_id: string;
+            event_id: string | null;
+            /** Format: date-time */
+            created_at: string;
+            signals: components["schemas"]["RestrictedSignal"][];
+        };
+        RestrictedEvaluationList: {
+            data: components["schemas"]["RestrictedEvaluation"][];
+        };
+        /**
+         * @description Reports go open (a draft), approved, filed; other tasks open, done. Any may be dismissed.
+         * @enum {string}
+         */
+        ComplianceTaskStatus: "open" | "approved" | "filed" | "done" | "dismissed";
+        ComplianceReportFields: {
+            /** @enum {string} */
+            category?: "terrorism_financing" | "kidnapping_ransom" | "corruption" | "fraud" | "drug_trafficking" | "general" | "other";
+            predicate_offence?: string;
+            indicators?: string[];
+            narrative?: string;
+        };
+        ComplianceTask: {
+            /** @example ctk_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            /** @description report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account. */
+            kind: string;
+            rule: string;
+            status: components["schemas"]["ComplianceTaskStatus"];
+            /** @description A suspicious transaction report, seen only by compliance officers. */
+            sensitive: boolean;
+            /** Format: date-time */
+            due_at: string | null;
+            overdue: boolean;
+            subject_ref: string | null;
+            evaluation_id: string | null;
+            event_id: string | null;
+            case_id: string | null;
+            /** @description The report's fields (category, predicate offence, indicators, narrative, amount...). */
+            report: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            updated_at: string;
+            approved_by: string | null;
+            /** Format: date-time */
+            approved_at: string | null;
+            closed_by: string | null;
+            /** Format: date-time */
+            closed_at: string | null;
+            close_note: string | null;
+            filing_ref: string | null;
+        };
+        ScreeningEscalation: {
+            alert_id: string;
+            title: string;
+            subject_ref: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When screening was due (REG-14).
+             */
+            due_at: string;
+        };
+        ComplianceQueue: {
+            data: components["schemas"]["ComplianceTask"][];
+            escalations: components["schemas"]["ScreeningEscalation"][];
+        };
+        /**
+         * @description live (it acts), shadow (it is evaluated and recorded only) or off.
+         * @enum {string}
+         */
+        PackRuleMode: "live" | "shadow" | "off";
+        /** @description Settings that differ from the library's defaults, by name, in the setting's unit. */
+        PackRuleSettings: {
+            [key: string]: number;
+        };
+        PackRuleConfigRequest: {
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            /** @description Why, for the audit log and the approver. */
+            reason: string;
+        };
+        PackRuleConfig: {
+            rule: string;
+            /** @description 0 while the rule runs with the library's defaults. */
+            version: number;
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            reason: string;
+            /** Format: date-time */
+            updated_at: string | null;
+            updated_by: string | null;
+            /** @description The change awaiting a second person, if any. */
+            pending: components["schemas"]["PackRuleChange"] | null;
+        };
+        PackRuleChange: {
+            /** @example pch_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            rule: string;
+            base_version: number;
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            reason: string;
+            restored_from: number | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            proposed_by: string;
+            /** Format: date-time */
+            proposed_at: string;
+            decided_by: string | null;
+            /** Format: date-time */
+            decided_at: string | null;
+            decision_note: string | null;
+            applied_version: number | null;
+        };
+        PackRuleChangeList: {
+            data: components["schemas"]["PackRuleChange"][];
+        };
+        PackRuleVersion: {
+            version: number;
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            change_id: string | null;
+            restored_from: number | null;
+        };
+        PackRuleVersionList: {
+            data: components["schemas"]["PackRuleVersion"][];
+        };
+        DecisionNote: {
+            note?: string;
+        };
+        /**
+         * @description control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+         * @enum {string}
+         */
+        ComplianceRuleKind: "control" | "signal" | "governance";
+        /**
+         * @description How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
+         * @enum {string}
+         */
+        ComplianceVerification: "confirmed" | "secondary_source_only" | "conflicting" | "awaiting_regulator";
+        ComplianceOption: {
+            id: string;
+            label: string;
+        };
+        ComplianceGroup: {
+            id: string;
+            label: string;
+            /** @description How many rules the group has. */
+            rules: number;
+        };
+        ComplianceLink: {
+            title: string;
+            url: string;
+        };
+        ComplianceSource: {
+            id: string;
+            title: string;
+            links: components["schemas"]["ComplianceLink"][];
+        };
+        ComplianceCounts: {
+            controls: number;
+            signals: number;
+            governance: number;
+        };
+        CompliancePack: {
+            id: string;
+            /** @description ISO 3166-1 alpha-2 country code. */
+            jurisdiction: string;
+            name: string;
+            version: string;
+            /** @description The newest loaded version for the jurisdiction. When it differs from `version`, saving the compliance profile adopts it. */
+            latest_version: string;
+            /** @description SHA-256 of the pack's files. A loaded version never changes. */
+            checksum: string;
+            /** Format: date-time */
+            loaded_at: string;
+            groups: components["schemas"]["ComplianceGroup"][];
+            licence_types: components["schemas"]["ComplianceOption"][];
+            capabilities: components["schemas"]["ComplianceOption"][];
+            sources: components["schemas"]["ComplianceSource"][];
+            counts: components["schemas"]["ComplianceCounts"];
+        };
+        ComplianceParameter: {
+            name: string;
+            label: string;
+            /**
+             * @description The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
+             *     the day in Africa/Lagos time; flag is 0 or 1.
+             * @enum {string}
+             */
+            type: "money" | "duration" | "count" | "ratio" | "points" | "percent" | "speed" | "hour" | "score" | "flag";
+            currency?: string;
+            /**
+             * Format: double
+             * @description Null when the institution must set the value.
+             */
+            default: number | null;
+            /**
+             * Format: double
+             * @description The value in this environment (configured, else the default); null when unset.
+             */
+            value: number | null;
+            /** Format: double */
+            min: number;
+            /**
+             * Format: double
+             * @description For regulatory limits, the legal maximum.
+             */
+            max: number;
+        };
+        ComplianceEffective: {
+            /** @description YYYY-MM-DD, set only when the source states a full date. */
+            date?: string;
+            text: string;
+        };
+        ComplianceDefaults: {
+            enabled: boolean;
+            /** @enum {string} */
+            mode: "live" | "shadow";
+        };
+        ComplianceOutcome: {
+            decision?: string;
+            severity?: string;
+            tasks: string[];
+        };
+        ComplianceRule: {
+            id: string;
+            /** @description The library's plain-English name, verbatim. */
+            name: string;
+            /** @description The library's plain-English description, verbatim. */
+            description: string;
+            /** @description What the system does (controls only), verbatim. */
+            action?: string;
+            /** @description The library's points column (signals only), verbatim. */
+            points?: string;
+            group: string;
+            kind: components["schemas"]["ComplianceRuleKind"];
+            /** @enum {string} */
+            status: "regulatory" | "recommended" | "governance";
+            regulators: string[];
+            /** @description Licence types the rule applies to. Empty means every institution. */
+            applies_to: string[];
+            /** @description Capabilities the workspace must have for the rule to apply. */
+            requires: string[];
+            /** @description Source IDs (see the pack's sources). */
+            sources: string[];
+            effective: components["schemas"]["ComplianceEffective"];
+            verification: components["schemas"]["ComplianceVerification"];
+            caveat?: string;
+            defaults: components["schemas"]["ComplianceDefaults"];
+            /** @description The data the rule needs. When one is unavailable the rule is reported as not evaluated. */
+            inputs: string[];
+            /** @description The event types the rule is evaluated on. */
+            events: string[];
+            outcome: components["schemas"]["ComplianceOutcome"];
+            parameters: components["schemas"]["ComplianceParameter"][];
+            /** @description Whether the rule applies to the workspace's profile; null without a profile. */
+            applicable: boolean | null;
+            mode: components["schemas"]["PackRuleMode"];
+            /** @description The rule's configuration version in this environment; 0 means the library's defaults. */
+            config_version: number;
+            /** @description The library's section 7B logic. Only for `compliance:engineering`. */
+            engineering_logic?: string;
+            /** @description The machine definition the engine interprets. Only for `compliance:engineering`. */
+            definition?: {
+                [key: string]: unknown;
+            };
+        };
+        ComplianceRuleList: {
+            data: components["schemas"]["ComplianceRule"][];
+        };
+        ComplianceClock: {
+            id: string;
+            duration: string;
+            duty: string;
+            applies_to: string;
+            requirement: string;
+            /** @description The deadline in hours. */
+            hours: number;
+            sources: string[];
+            rules: string[];
+        };
+        ComplianceClockList: {
+            data: components["schemas"]["ComplianceClock"][];
+        };
+        ComplianceGap: {
+            id: string;
+            title: string;
+            detail: string;
+            rules: string[];
+            sources: string[];
+        };
+        ComplianceGapList: {
+            data: components["schemas"]["ComplianceGap"][];
+        };
+        ComplianceTerm: {
+            term: string;
+            expansion: string;
+            definition: string;
+        };
+        ComplianceTermList: {
+            data: components["schemas"]["ComplianceTerm"][];
+        };
+        ComplianceProfile: {
+            jurisdiction: string;
+            licence_type: string;
+            capabilities: string[];
+            pack_id: string;
+            pack_version: string;
+            /** Format: date-time */
+            updated_at: string;
+            updated_by: string;
+        };
+        ComplianceProfileRequest: {
+            jurisdiction: string;
+            licence_type: string;
+            capabilities: string[];
+        };
+        Onboarding: {
+            status: components["schemas"]["OnboardingStatus"];
+            answers: components["schemas"]["OnboardingAnswers"];
+            /** @description Answers still needed before submitting, by field name. */
+            missing: string[];
+            production_enabled: boolean;
+            /** Format: date-time */
+            submitted_at: string | null;
+            /** Format: date-time */
+            reviewed_at: string | null;
+            /** @description The reviewer's note (always given when rejected). */
+            review_note: string | null;
+            /** Format: date-time */
+            updated_at: string;
+        };
         SSOStartRequest: {
             email: string;
         };
@@ -1412,7 +2643,7 @@ export interface components {
             password: string;
         };
         /** @enum {string} */
-        Role: "customer_admin" | "developer" | "risk_manager" | "analyst";
+        Role: "customer_admin" | "developer" | "risk_manager" | "analyst" | "compliance_officer" | "auditor";
         Passkey: {
             id: string;
             name: string;
@@ -1432,6 +2663,8 @@ export interface components {
             tenant: {
                 id: string;
                 name: string;
+                /** @description False for a self-serve workspace until RiskOS approves its onboarding; production requests get 403 `PRODUCTION_LOCKED` meanwhile. */
+                production_enabled: boolean;
             };
             permissions: components["schemas"]["Scope"][];
             /** @description Choose one per request with the `RiskOS-Environment` header (default `test`). */
@@ -1775,11 +3008,14 @@ export interface components {
         /** @enum {string} */
         Environment: "test" | "production";
         /**
-         * @description A permission. API keys can hold any except `rules:approve`, which only people hold (a
-         *     second person approves production rule changes).
+         * @description A permission. API keys can hold any except `rules:approve`, `compliance:write`,
+         *     `compliance:configure` and `compliance:sensitive`, which only people hold (a second person
+         *     approves production rule changes; a person sets the compliance profile and configures pack
+         *     rules; only compliance officers see suspicious transaction reports and compliance-only
+         *     signals).
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write" | "compliance:read" | "compliance:engineering" | "compliance:write" | "compliance:configure" | "compliance:sensitive";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -1886,7 +3122,69 @@ export interface components {
          *     rejected everywhere. Identifiers are the customer's own opaque references: do not send
          *     names, emails or other personal data as identifiers.
          */
-        Event: components["schemas"]["LoginEvent"] | components["schemas"]["TransactionEvent"] | components["schemas"]["BeneficiaryAddedEvent"] | components["schemas"]["DeviceChangeEvent"] | components["schemas"]["SessionChangeEvent"] | components["schemas"]["ProfileChangeEvent"];
+        Event: components["schemas"]["LoginEvent"] | components["schemas"]["TransactionEvent"] | components["schemas"]["BeneficiaryAddedEvent"] | components["schemas"]["DeviceChangeEvent"] | components["schemas"]["SessionChangeEvent"] | components["schemas"]["ProfileChangeEvent"] | components["schemas"]["ActivityEvent"];
+        /**
+         * @description Account or platform activity that is neither a money movement nor a sign-in (an account
+         *     opened, an API request, a data export, a staff action...). `compliance.kind` says which.
+         */
+        ActivityEvent: {
+            event_id: components["schemas"]["EventKey"];
+            /** Format: date-time */
+            occurred_at: string;
+            actor: components["schemas"]["Actor"];
+            context?: components["schemas"]["EventContext"];
+            compliance: components["schemas"]["ComplianceContext"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "activity";
+        };
+        /**
+         * @description What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+         *     Everything is optional: a rule whose data is missing is reported as not evaluated, never
+         *     treated as no risk.
+         */
+        ComplianceContext: {
+            kind?: components["schemas"]["ComplianceEventKind"];
+            /**
+             * @description Facts from your systems and providers, by the names in the pack's catalog
+             *     (`device.rooted`, `telco.sim_swap`, `customer.type`...): true or false, a number (a
+             *     duration in seconds, a count, a ratio, a score), one of the fact's listed values, or
+             *     for amounts `{"amount": <minor units>, "currency": "NGN"}`. Facts RiskOS computes
+             *     itself (behaviour history, workflows, the amount and identifiers of the event) are
+             *     refused.
+             */
+            facts?: {
+                [key: string]: unknown;
+            };
+            refs?: components["schemas"]["ComplianceRefs"];
+        };
+        /**
+         * @description Opaque references for the entities rules keep time windows for. Never the BVN, phone
+         *     number, card number or address itself: send your own reference for it.
+         */
+        ComplianceRefs: {
+            card?: components["schemas"]["Reference"];
+            bvn?: components["schemas"]["Reference"];
+            phone?: components["schemas"]["Reference"];
+            address?: components["schemas"]["Reference"];
+            loan?: components["schemas"]["Reference"];
+            inflow?: components["schemas"]["Reference"];
+            merchant?: components["schemas"]["Reference"];
+            api_key?: components["schemas"]["Reference"];
+            sender?: components["schemas"]["Reference"];
+            reporter?: components["schemas"]["Reference"];
+            funding_source?: components["schemas"]["Reference"];
+        };
+        /**
+         * @description What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
+         *     sign-in kinds with `login`, `device_bound` and `device_reregistered` with `device_change`,
+         *     and the others with `activity`. Without it, RiskOS derives the kind from the event (a debit
+         *     is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
+         * @enum {string}
+         */
+        ComplianceEventKind: "transfer_outbound" | "transfer_inbound" | "transfer_international" | "cash_payment" | "cash_withdrawal" | "cash_deposit" | "atm_withdrawal" | "pos_purchase" | "card_authorization" | "crypto_purchase" | "crypto_withdrawal" | "crypto_transfer" | "fiat_inflow" | "funding" | "loan_disbursement" | "loan_repayment" | "login" | "auth_failure" | "auth_success" | "device_bound" | "device_reregistered" | "beneficiary_added" | "session_activity" | "profile_change" | "loan_application" | "mfa_prompt" | "sim_reregistered" | "account_opened" | "account_reactivated" | "customer_onboarded" | "customer_review" | "credit_requested" | "list_updated" | "telco_lookup" | "data_export" | "api_request" | "api_lookup" | "config_change" | "role_change" | "staff_action" | "fraud_report" | "merchant_daily" | "terminal_activity";
         /** @description A sign-in attempt. */
         LoginEvent: {
             event_id: components["schemas"]["EventKey"];
@@ -1894,6 +3192,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1908,6 +3207,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1922,6 +3222,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1936,6 +3237,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1950,6 +3252,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1964,6 +3267,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -1972,7 +3276,7 @@ export interface components {
             data: components["schemas"]["ProfileChangeData"];
         };
         /** @enum {string} */
-        EventType: "login" | "transaction" | "beneficiary_added" | "device_change" | "session_change" | "profile_change";
+        EventType: "login" | "transaction" | "beneficiary_added" | "device_change" | "session_change" | "profile_change" | "activity";
         /**
          * @description The customer's unique ID for the event; the idempotency key.
          * @example txn_2026_000123
@@ -1992,6 +3296,17 @@ export interface components {
             user_agent?: string;
             /** @description ISO 3166-1 alpha-2. */
             country?: string;
+            geo?: components["schemas"]["GeoPoint"];
+        };
+        /**
+         * @description Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
+         *     decimals (about 1 km) before storing it.
+         */
+        GeoPoint: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
         };
         LoginData: {
             /** @enum {string} */
@@ -2062,11 +3377,22 @@ export interface components {
             }[];
         };
         /**
-         * @description `block` is produced only for Critical scores in an environment that switched automatic
-         *     blocking on (see AutoBlockStatus).
+         * @description The recommended action, from least to most severe. The score policy produces `allow`,
+         *     `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+         *     where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+         *     the action the law requires (see `controls` on the decision):
+         *     - `fee`: allow, and charge the regulatory fee given in the control;
+         *     - `flag`: allow, and do the follow-up the control names;
+         *     - `restrict`: limit the account until the requirement is met;
+         *     - `hold`: hold the funds for review, for at most the control's hold period;
+         *     - `block_session`: end the session and require fresh authentication;
+         *     - `decline`: decline this transaction (a legal limit);
+         *     - `block`: stop the event.
+         *     The most severe applicable action is returned. Clients that switch on the decision must
+         *     handle every value.
          * @enum {string}
          */
-        Decision: "allow" | "review" | "step_up" | "block";
+        Decision: "allow" | "fee" | "flag" | "step_up" | "review" | "restrict" | "hold" | "block_session" | "decline" | "block";
         /**
          * @description `off`: Critical scores get REVIEW. `shadow`: they still get REVIEW, and the evaluation is
          *     marked `would_block` in its policy reasons, to gather evidence. `on`: they get BLOCK
@@ -2128,6 +3454,49 @@ export interface components {
             signals: components["schemas"]["Signal"][];
             degraded_signals: string[];
             warming_signals: string[];
+            /**
+             * @description The regulatory controls of the workspace's rule pack that applied to the event (see the
+             *     console's Rules library). A live control's decision is reflected in `decision`; a shadow
+             *     control is reported only. Empty without a compliance profile.
+             */
+            controls: components["schemas"]["ControlResult"][];
+            /**
+             * @description Rules of the pack the event triggered that could not be evaluated because data or a
+             *     setting they need was unavailable. Missing data is never treated as no risk: send the
+             *     listed facts in the event's `compliance` block, or set the listed settings.
+             */
+            not_evaluated: components["schemas"]["NotEvaluatedRule"][];
+        };
+        ControlResult: {
+            /** @example REG-01 */
+            rule: string;
+            name: string;
+            /** @enum {string} */
+            mode: "live" | "shadow";
+            decision?: components["schemas"]["Decision"];
+            reason: string;
+            /** @description What the institution must do (report.CTR, case.open, edd...). */
+            tasks: string[];
+            /** Format: double */
+            fee_percent?: number;
+            /**
+             * Format: int64
+             * @description The longest the funds may be held.
+             */
+            hold_seconds?: number;
+            branch?: string;
+            /** @description The control applied because its exemption could not be checked. */
+            exemption_unknown: boolean;
+        };
+        NotEvaluatedRule: {
+            /** @example ATO-04 */
+            rule: string;
+            /**
+             * @description What was unavailable: `fact:<name>` (send it in `compliance.facts`), `setting:<name>`
+             *     (set it for the rule), `history:<window>` (behaviour history, or a reference the window
+             *     is kept for) or `currency:<fact>` (an amount in another currency than the rule's).
+             */
+            missing: string[];
         };
         EventSummary: {
             id: string;
@@ -2169,8 +3538,14 @@ export interface components {
         };
         DecisionCounts: {
             allow: number;
+            fee: number;
+            flag: number;
             step_up: number;
             review: number;
+            restrict: number;
+            hold: number;
+            block_session: number;
+            decline: number;
             block: number;
         };
         EntityProfile: {
@@ -4630,6 +6005,1108 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getSignupOptions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The available ways to sign up. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupOptions"];
+                };
+            };
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startSignup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupRequest"];
+            };
+        };
+        responses: {
+            /** @description A code is on its way. */
+            202: {
+                headers: {
+                    /** @description The sign-up's browser binding (HttpOnly, SameSite=Lax, one hour). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupPending"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    resendSignupCode: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_signup?: string;
+            };
+        };
+        requestBody?: never;
+        responses: {
+            /** @description A new code is on its way. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SignupPending"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifySignup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_signup?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupVerifyRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session's state. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    completeSignup: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_signup?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SignupCompleteRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session's state. */
+            200: {
+                headers: {
+                    /** @description The session cookie (HttpOnly, SameSite=Strict, Secure outside local development). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AuthState"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Where to send the browser. */
+            200: {
+                headers: {
+                    /** @description The request's browser binding (HttpOnly, SameSite=Lax, ten minutes). */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSOStart"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    finishGoogle: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_google?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSOCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description Signed in, or a sign-up waiting for its business name. */
+            200: {
+                headers: {
+                    /** @description The session cookie, or the sign-up's browser binding. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GoogleResult"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    saveOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["OnboardingAnswers"];
+            };
+        };
+        responses: {
+            /** @description The onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    submitOnboarding: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The submitted onboarding. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Onboarding"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getCompliancePack: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace's rule pack. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CompliancePack"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceRules: {
+        parameters: {
+            query?: {
+                /** @description Only rules in this group. */
+                group?: string;
+                /** @description Only rules of this kind. */
+                kind?: components["schemas"]["ComplianceRuleKind"];
+                /** @description Only rules involving this regulator (CBN, NFIU and so on). */
+                regulator?: string;
+                /** @description Only rules with this verification status. */
+                verification?: components["schemas"]["ComplianceVerification"];
+                /** @description Words to find in a rule's ID, name or description. */
+                q?: string;
+                /** @description Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile. */
+                applicable?: boolean;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's rules. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceRuleList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description One rule. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceRule"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getPackRuleConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configuration. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleConfig"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putPackRuleConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackRuleConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleConfig"];
+                };
+            };
+            /** @description Proposed; applies when another person approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listPackRuleVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleVersionList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rollbackPackRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleConfig"];
+                };
+            };
+            /** @description Proposed; applies when another person approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    backtestPackRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": {
+                    days?: number;
+                    settings?: components["schemas"]["PackRuleSettings"];
+                };
+            };
+        };
+        responses: {
+            /** @description The two configurations' results over the same events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Backtest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceFXRates: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rates. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRateList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putComplianceFXRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /**
+                     * Format: double
+                     * @description US dollars per one unit of the currency (for NGN, about 0.00065).
+                     */
+                    usd_per_unit: number;
+                };
+            };
+        };
+        responses: {
+            /** @description The rate. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FXRate"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deleteComplianceFXRate: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                currency: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listRestrictedSignals: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The evaluations. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RestrictedEvaluationList"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceTasks: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ComplianceTaskStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The queue. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceQueue"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    editComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComplianceReportFields"];
+            };
+        };
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    fileComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    filing_ref: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    closeComplianceTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "done" | "dismissed";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    exportComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    confirmSuspicion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    case_id: string;
+                    /** @description The first lines of the report's narrative. */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The report, a draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listPackRuleChanges: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChangeList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approvePackRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionNote"];
+            };
+        };
+        responses: {
+            /** @description The approved change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectPackRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionNote"];
+            };
+        };
+        responses: {
+            /** @description The rejected change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceClocks: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's legal deadlines. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceClockList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceGaps: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's open questions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceGapList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceGlossary: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The pack's glossary. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTermList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The workspace's compliance profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceProfile"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putComplianceProfile: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComplianceProfileRequest"];
+            };
+        };
+        responses: {
+            /** @description The profile. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceProfile"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["DefaultError"];
         };
     };

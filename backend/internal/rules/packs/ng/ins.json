@@ -1,0 +1,180 @@
+{
+  "rules": [
+    {
+      "id": "INS-01",
+      "group": "insider",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S15"
+      ],
+      "effective": {
+        "text": "CBN anti-fraud measures, 2026 (staff profiling and lifestyle monitoring)"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "staff_directory",
+        "peer_groups"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.linked_to_employee"
+          },
+          "op": "eq",
+          "right": {
+            "literal": true
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "account.volume_above_peer_p95"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "counterparty.serviced_by_linked_employee"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "staff_linked_account",
+        "min_decision": "review",
+        "visibility": "compliance_only"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "INS-02",
+      "group": "insider",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S15"
+      ],
+      "effective": {
+        "text": "CBN anti-fraud measures, 2026 (staff profiling and lifestyle monitoring)"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "staff_directory"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "exists",
+            "event": "staff_action",
+            "window": "window",
+            "by": "customer",
+            "where": {
+              "left": {
+                "fact": "staff.action"
+              },
+              "op": "in",
+              "right": {
+                "literal": [
+                  "view_contact",
+                  "change_contact",
+                  "change_limits"
+                ]
+              }
+            }
+          }
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "staff_access_then_takeover",
+        "min_decision": "review",
+        "evidence": [
+          "staff.id",
+          "staff.action"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time after the staff action",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    }
+  ]
+}

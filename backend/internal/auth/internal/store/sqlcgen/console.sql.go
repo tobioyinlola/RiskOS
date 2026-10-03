@@ -32,6 +32,32 @@ func (q *Queries) AcceptInvite(ctx context.Context, arg AcceptInviteParams) (int
 	return result.RowsAffected(), nil
 }
 
+const bindGoogleSubject = `-- name: BindGoogleSubject :execrows
+UPDATE users SET google_subject = $1, updated_at = $2
+WHERE tenant_id = $3 AND id = $4 AND (google_subject IS NULL OR google_subject = $1)
+`
+
+type BindGoogleSubjectParams struct {
+	Subject  *string
+	Now      time.Time
+	TenantID uuid.UUID
+	ID       uuid.UUID
+}
+
+// Binds Google's subject on the first Google sign-in; afterwards it must match.
+func (q *Queries) BindGoogleSubject(ctx context.Context, arg BindGoogleSubjectParams) (int64, error) {
+	result, err := q.db.Exec(ctx, bindGoogleSubject,
+		arg.Subject,
+		arg.Now,
+		arg.TenantID,
+		arg.ID,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const countActiveAdmins = `-- name: CountActiveAdmins :one
 SELECT count(*) FROM users WHERE tenant_id = $1 AND role = 'customer_admin' AND status = 'active'
 `
@@ -78,7 +104,7 @@ func (q *Queries) GetSessionCeremony(ctx context.Context, arg GetSessionCeremony
 }
 
 const getUser = `-- name: GetUser :one
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 AND id = $2
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject, google_subject FROM users WHERE tenant_id = $1 AND id = $2
 `
 
 type GetUserParams struct {
@@ -105,12 +131,13 @@ func (q *Queries) GetUser(ctx context.Context, arg GetUserParams) (User, error) 
 		&i.UpdatedAt,
 		&i.LastLoginAt,
 		&i.SsoSubject,
+		&i.GoogleSubject,
 	)
 	return i, err
 }
 
 const getUserForUpdate = `-- name: GetUserForUpdate :one
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject, google_subject FROM users WHERE tenant_id = $1 AND id = $2 FOR UPDATE
 `
 
 type GetUserForUpdateParams struct {
@@ -137,6 +164,7 @@ func (q *Queries) GetUserForUpdate(ctx context.Context, arg GetUserForUpdatePara
 		&i.UpdatedAt,
 		&i.LastLoginAt,
 		&i.SsoSubject,
+		&i.GoogleSubject,
 	)
 	return i, err
 }
@@ -251,7 +279,7 @@ type InsertUserParams struct {
 	Email        string
 	Name         string
 	Role         string
-	PasswordHash string
+	PasswordHash *string
 	Now          time.Time
 	CreatedBy    string
 }
@@ -361,7 +389,7 @@ func (q *Queries) ListInvites(ctx context.Context, tenantID uuid.UUID) ([]ListIn
 }
 
 const listUsers = `-- name: ListUsers :many
-SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject FROM users WHERE tenant_id = $1 ORDER BY created_at, id
+SELECT id, tenant_id, email, name, role, status, password_hash, totp_secret_enc, totp_last_step, recovery_hashes, created_at, created_by, updated_at, last_login_at, sso_subject, google_subject FROM users WHERE tenant_id = $1 ORDER BY created_at, id
 `
 
 func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, error) {
@@ -389,6 +417,7 @@ func (q *Queries) ListUsers(ctx context.Context, tenantID uuid.UUID) ([]User, er
 			&i.UpdatedAt,
 			&i.LastLoginAt,
 			&i.SsoSubject,
+			&i.GoogleSubject,
 		); err != nil {
 			return nil, err
 		}

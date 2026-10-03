@@ -80,12 +80,20 @@ func (h *Handlers) GetEntityProfile(ctx context.Context, req apigen.GetEntityPro
 	return apigen.GetEntityProfile200JSONResponse{
 		Kind: apigen.EntityProfileKind(p.Kind), Ref: p.Ref, EventCount: p.Events,
 		FirstSeen: p.FirstSeen, LastSeen: p.LastSeen, MaxScore: p.MaxScore, MeanScore: p.MeanScore,
-		Decisions: apigen.DecisionCounts{Allow: p.Allowed, StepUp: p.SteppedUp, Review: p.Reviewed, Block: p.Blocked},
+		Decisions: decisionCounts(p.Decisions),
 		Linked: apigen.EntityLinks{
 			Users: linkedToAPI(p.Users), Accounts: linkedToAPI(p.Accounts), Devices: linkedToAPI(p.Devices),
 			Countries: linkedToAPI(p.Countries), Ips: linkedToAPI(p.IPs),
 		},
 	}, nil
+}
+
+// decisionCounts maps counts by decision to the API object, which lists every decision.
+func decisionCounts(m map[string]int) apigen.DecisionCounts {
+	return apigen.DecisionCounts{
+		Allow: m["allow"], Fee: m["fee"], Flag: m["flag"], StepUp: m["step_up"], Review: m["review"],
+		Restrict: m["restrict"], Hold: m["hold"], BlockSession: m["block_session"], Decline: m["decline"], Block: m["block"],
+	}
 }
 
 // GetAnalytics implements GET /api/v1/analytics.
@@ -110,7 +118,7 @@ func (h *Handlers) GetAnalytics(ctx context.Context, req apigen.GetAnalyticsRequ
 	for i, p := range a.Series {
 		out.Series[i] = apigen.AnalyticsPoint{
 			At: p.At, Events: p.Events, MeanScore: p.MeanScore,
-			Decisions: apigen.DecisionCounts{Allow: p.Allowed, StepUp: p.SteppedUp, Review: p.Reviewed, Block: p.Blocked},
+			Decisions: decisionCounts(p.Decisions),
 			Bands:     apigen.BandCounts{Minimal: p.Minimal, Low: p.Low, Elevated: p.Elevated, High: p.High, Critical: p.Critical},
 		}
 	}

@@ -40,6 +40,8 @@ export async function fetchSession(): Promise<ConsoleSession | null> {
   try {
     const s = unwrap(await api().GET("/api/v1/auth/session"));
     setCsrfToken(s.csrf_token);
+    // Production stays locked until RiskOS approves the workspace's onboarding: never ask for it.
+    if (!s.tenant.production_enabled) setClientEnvironment("test");
     return s;
   } catch (e) {
     if (e instanceof ApiError && (e.status === 401 || e.status === 403))
@@ -124,7 +126,7 @@ export function SessionProvider({
     const perms = new Set(q.data.permissions);
     return {
       session: q.data,
-      environment,
+      environment: q.data.tenant.production_enabled ? environment : "test",
       setEnvironment,
       can: (p) => perms.has(p),
       refresh: async () => {

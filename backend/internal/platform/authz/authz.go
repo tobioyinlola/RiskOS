@@ -39,6 +39,10 @@ const (
 	WebhooksWrite Permission = "webhooks:write"
 	TeamRead      Permission = "team:read"
 	TeamWrite     Permission = "team:write"
+	// ComplianceRead reads the workspace's rule pack: rules, sources, clocks and gaps.
+	ComplianceRead Permission = "compliance:read"
+	// ComplianceEngineering also shows each rule's engineering logic and machine definition.
+	ComplianceEngineering Permission = "compliance:engineering"
 )
 
 // RulesApprove approves rule changes proposed for a production environment (two-person rule).
@@ -48,11 +52,33 @@ const (
 //nolint:gosec // G101 false positive: a permission name
 const RulesApprove Permission = "rules:approve"
 
+// ComplianceWrite sets the workspace's compliance profile (jurisdiction, licence type and
+// capabilities), which decides the regulatory controls that apply. Only people hold it.
+//
+//nolint:gosec // G101 false positive: a permission name
+const ComplianceWrite Permission = "compliance:write"
+
+// ComplianceConfigure sets a rule pack rule's mode and settings in an environment. Only people
+// hold it; in production, a change that could loosen a regulatory control also needs a second
+// person with RulesApprove.
+//
+//nolint:gosec // G101 false positive: a permission name
+const ComplianceConfigure Permission = "compliance:configure"
+
+// ComplianceSensitive sees what must never tip off a customer (GOV-09): suspicious transaction
+// reports, confirmed suspicion and compliance-only signals. Only compliance officers hold it,
+// not even administrators, and never an API key.
+//
+//nolint:gosec // G101 false positive: a permission name
+const ComplianceSensitive Permission = "compliance:sensitive"
+
 // System permissions are held only by RiskOS's own background jobs, never by a customer
 // credential or role.
 const (
 	// AlertsRaise creates and groups alerts from evaluations.
 	AlertsRaise Permission = "system:alerts_raise"
+	// ComplianceTasksCreate records the compliance work fired controls require.
+	ComplianceTasksCreate Permission = "system:compliance_tasks"
 	// WebhooksDeliver attempts webhook deliveries.
 	WebhooksDeliver Permission = "system:webhooks_deliver"
 )
@@ -62,14 +88,14 @@ func CustomerPermissions() []Permission {
 	return []Permission{
 		APIKeysRead, APIKeysWrite, AuditLogsRead, EventsWrite, EventsRead, RiskEvaluate,
 		RulesRead, RulesWrite, RiskConfigure, AlertsRead, AlertsWrite, CasesRead, CasesWrite,
-		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite,
+		WebhooksRead, WebhooksWrite, TeamRead, TeamWrite, ComplianceRead, ComplianceEngineering,
 	}
 }
 
 // PersonPermissions returns every permission a customer role can hold: the customer
 // permissions plus those reserved for people.
 func PersonPermissions() []Permission {
-	return append(CustomerPermissions(), RulesApprove)
+	return append(CustomerPermissions(), RulesApprove, ComplianceWrite, ComplianceConfigure, ComplianceSensitive)
 }
 
 // IsCustomerPermission reports whether p exists and may be granted to a customer credential.
@@ -84,7 +110,17 @@ const (
 	RoleDeveloper     Role = "developer"
 	RoleRiskManager   Role = "risk_manager"
 	RoleAnalyst       Role = "analyst"
+	// RoleComplianceOfficer runs the compliance programme: the rule pack, approvals, alerts and
+	// cases.
+	RoleComplianceOfficer Role = "compliance_officer"
+	// RoleAuditor reads, and changes nothing.
+	RoleAuditor Role = "auditor"
 )
+
+// CustomerRoles returns every customer role.
+func CustomerRoles() []Role {
+	return []Role{RoleCustomerAdmin, RoleDeveloper, RoleRiskManager, RoleAnalyst, RoleComplianceOfficer, RoleAuditor}
+}
 
 // Internal RiskOS roles. They grant no access to tenant data: support access to a tenant is a
 // separate, time-boxed, approved grant (ARCHITECTURE.md §8).
@@ -98,18 +134,27 @@ const (
 func RolePermissions(r Role) []Permission {
 	switch r {
 	case RoleCustomerAdmin:
-		return PersonPermissions()
+		// Everything but compliance-sensitive data, which only compliance roles see (GOV-09).
+		return slices.DeleteFunc(PersonPermissions(), func(p Permission) bool { return p == ComplianceSensitive })
 	case RoleDeveloper:
 		return []Permission{
 			APIKeysRead, APIKeysWrite, EventsWrite, EventsRead, RiskEvaluate, RulesRead, WebhooksRead, WebhooksWrite,
+			ComplianceRead, ComplianceEngineering,
 		}
 	case RoleRiskManager:
 		return []Permission{
 			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RulesApprove, RiskConfigure,
-			AlertsRead, AlertsWrite, CasesRead, CasesWrite,
+			AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead, ComplianceConfigure,
 		}
 	case RoleAnalyst:
-		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite}
+		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead}
+	case RoleComplianceOfficer:
+		return []Permission{
+			EventsRead, RulesRead, RulesApprove, AlertsRead, AlertsWrite, CasesRead, CasesWrite, AuditLogsRead,
+			TeamRead, ComplianceRead, ComplianceWrite, ComplianceConfigure, ComplianceSensitive,
+		}
+	case RoleAuditor:
+		return []Permission{EventsRead, RulesRead, AlertsRead, CasesRead, AuditLogsRead, TeamRead, ComplianceRead}
 	case RoleOperationsAdmin, RoleSecurityAdmin:
 		return nil
 	default:

@@ -17,7 +17,7 @@ type profileRow struct {
 	EventCount                               int64
 	FirstSeen, LastSeen                      time.Time
 	MaxScore, MeanScore                      int32
-	Allowed, SteppedUp, Reviewed, Blocked    int64
+	Decisions                                []byte
 	Users, Accounts, Devices, Countries, Ips []byte
 }
 
@@ -50,7 +50,9 @@ func (Store) Profile(ctx context.Context, kind domain.EntityKind, ref string) (d
 	p := domain.Profile{
 		Kind: kind, Ref: ref, Events: int(r.EventCount), FirstSeen: r.FirstSeen, LastSeen: r.LastSeen,
 		MaxScore: int(r.MaxScore), MeanScore: int(r.MeanScore),
-		Allowed: int(r.Allowed), SteppedUp: int(r.SteppedUp), Reviewed: int(r.Reviewed), Blocked: int(r.Blocked),
+	}
+	if err := json.Unmarshal(r.Decisions, &p.Decisions); err != nil {
+		return domain.Profile{}, fmt.Errorf("decode decision counts: %w", err)
 	}
 	for dst, raw := range map[*[]domain.Linked][]byte{
 		&p.Users: r.Users, &p.Accounts: r.Accounts, &p.Devices: r.Devices, &p.Countries: r.Countries, &p.IPs: r.Ips,
@@ -78,8 +80,10 @@ func (Store) Timeline(ctx context.Context, since time.Time, bucket time.Duration
 	for i, r := range rows {
 		out[i] = domain.Point{
 			At: r.Bucket, Events: int(r.Events), MeanScore: int(r.MeanScore),
-			Allowed: int(r.Allowed), SteppedUp: int(r.SteppedUp), Reviewed: int(r.Reviewed), Blocked: int(r.Blocked),
 			Minimal: int(r.Minimal), Low: int(r.Low), Elevated: int(r.Elevated), High: int(r.High), Critical: int(r.Critical),
+		}
+		if err := json.Unmarshal(r.Decisions, &out[i].Decisions); err != nil {
+			return nil, fmt.Errorf("decode decision counts: %w", err)
 		}
 	}
 	return out, nil

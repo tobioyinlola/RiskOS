@@ -1,0 +1,393 @@
+{
+  "rules": [
+    {
+      "id": "CRY-01",
+      "group": "crypto",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "SEC",
+        "NFIU"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "S12"
+      ],
+      "effective": {
+        "text": "Investments and Securities Act 2025 (virtual assets treated as securities); SEC and NFIU expectations for virtual-asset providers"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "crypto_withdrawal"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "fiat_inflow",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "crypto_purchase",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "crypto_withdrawal",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "crypto.external"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": true
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "crypto_purchase",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "fiat_crypto_external",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "share",
+          "label": "Share of the crypto bought that leaves",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "CRY-02",
+      "group": "crypto",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "SEC",
+        "NFIU"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "S12"
+      ],
+      "effective": {
+        "text": "Investments and Securities Act 2025 (virtual assets treated as securities); SEC and NFIU expectations for virtual-asset providers"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "funding",
+                "window": "funding_window",
+                "by": "account",
+                "field": "funding_source.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "sources"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "exit_window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "exit_window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "many_funders_quick_exit",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "sources",
+          "label": "Different cards or accounts funding the account",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "funding_window",
+          "label": "Period the funding sources are counted over",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "share",
+          "label": "Share of money received that leaves",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "exit_window",
+          "label": "Time window for the exit",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "CRY-03",
+      "group": "crypto",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "SEC",
+        "NFIU"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "S12"
+      ],
+      "effective": {
+        "text": "Investments and Securities Act 2025 (virtual assets treated as securities); SEC and NFIU expectations for virtual-asset providers"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "blockchain_analytics"
+      ],
+      "trigger": {
+        "events": [
+          "crypto_withdrawal"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "analytics.wallet_tag"
+        },
+        "op": "in",
+        "right": {
+          "literal": [
+            "sanctioned",
+            "mixer",
+            "darknet",
+            "unlicensed_provider"
+          ]
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "risky_wallet",
+        "min_decision": "review",
+        "hints": [
+          "hold_and_review"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 35,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "CRY-04",
+      "group": "crypto",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "SEC"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "S12"
+      ],
+      "effective": {
+        "text": "Investments and Securities Act 2025 (virtual assets treated as securities); SEC and NFIU expectations for virtual-asset providers"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "The official SEC threshold for virtual-asset transfers is still awaited. Your institution sets its own limit; the rule stays off until it does.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events"
+      ],
+      "trigger": {
+        "events": [
+          "crypto_transfer"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "txn.amount"
+        },
+        "op": "gt",
+        "right": {
+          "param": "va_threshold"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "high_value_virtual_asset"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "va_threshold",
+          "label": "Your institution's limit for virtual-asset transfers",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000000,
+          "currency": "NGN"
+        }
+      ]
+    }
+  ]
+}

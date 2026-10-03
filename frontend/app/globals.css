@@ -1,81 +1,105 @@
 /*
  * RiskOS design tokens (docs/design-system.md). Components use these through the Tailwind theme
- * below; never hard-code colors, spacing, radii or fonts.
+ * below; never hard-code colors, spacing, radii or fonts. The product is light only.
  */
 @import "tailwindcss";
 
-/* Theming comes from CSS variables, so components never need `dark:` variants. */
-@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *));
-
-:root,
-[data-theme="dark"] {
-  --bg-canvas: #0b0f14;
-  --bg-surface: #121821;
-  --bg-raised: #1a222d;
-  --bg-sunken: #070a0e;
-  --border-subtle: #232d3a;
-  --border-control: #5f6f83;
-  --text-primary: #e7ecf2;
-  --text-secondary: #a9b4c2;
-  --text-muted: #8593a5;
-  --accent: #2dd4bf;
-  --accent-hover: #5eead4;
-  --on-accent: #04201d;
-  --accent-subtle: #123a37;
-  --focus-ring: #5eead4;
-  --risk-minimal: #94a3b8;
-  --risk-minimal-bg: #272e39;
-  --risk-low: #6aa8ff;
-  --risk-low-bg: #202f45;
-  --risk-elevated: #f5b942;
-  --risk-elevated-bg: #363226;
-  --risk-high: #ff8a4c;
-  --risk-high-bg: #382a28;
-  --risk-critical: #ff5c7a;
-  --risk-critical-bg: #38232f;
-  --status-success: #3ecf8e;
-  --status-warning: var(--risk-elevated);
-  --status-danger: var(--risk-critical);
-  --status-info: #6aa8ff;
-  --shadow-overlay: 0 8px 24px rgba(0, 0, 0, 0.5);
-  color-scheme: dark;
-}
-
-[data-theme="light"] {
-  --bg-canvas: #f5f7f9;
-  --bg-surface: #ffffff;
-  --bg-raised: #ffffff;
-  --bg-sunken: #eceff3;
-  --border-subtle: #e1e5ea;
-  --border-control: #76859a;
-  --text-primary: #0e1620;
-  --text-secondary: #445266;
-  --text-muted: #5b6879;
-  --accent: #0d7066;
-  --accent-hover: #0a5a52;
-  --on-accent: #ffffff;
-  --accent-subtle: #e3f3f1;
-  --focus-ring: #0d7066;
-  --risk-minimal: #5b6879;
-  --risk-minimal-bg: #eff0f2;
-  --risk-low: #1f5fd1;
-  --risk-low-bg: #e9effa;
-  --risk-elevated: #9a5500;
-  --risk-elevated-bg: #f5eee6;
-  --risk-high: #b93d0a;
-  --risk-high-bg: #f8ece6;
-  --risk-critical: #c0123c;
-  --risk-critical-bg: #f9e7ec;
-  --status-success: #137a4b;
-  --status-warning: var(--risk-elevated);
-  --status-danger: var(--risk-critical);
-  --status-info: #1f5fd1;
-  --shadow-overlay:
-    0 8px 24px rgba(14, 22, 32, 0.12), 0 0 0 1px rgba(14, 22, 32, 0.06);
-  color-scheme: light;
-}
-
 :root {
+  color-scheme: light;
+
+  /* Brand palette. */
+  --brand-blue: #335bff;
+  --brand-red: #fb3748;
+  --brand-orange: #fa7319;
+  --brand-white: #ffffff;
+  --ink: #0e121b;
+  --ink-hover: #232937;
+
+  /* Blue tints: active navigation, selection, soft chart fills. */
+  --blue-50: #eef2ff;
+  --blue-100: #dfe6ff;
+  --blue-200: #c2cfff;
+  --blue-300: #96acff;
+  --blue-600: #2547d0;
+
+  /* Surfaces and text. */
+  --bg-canvas: #f6f7f9;
+  --bg-surface: #ffffff;
+  --bg-raised: #f6f7f9;
+  --bg-sunken: #f1f2f5;
+  --border-subtle: #e6e8ec;
+  --border-strong: #e1e4ea;
+  /* Form-control edge: 3:1 against white (WCAG 1.4.11). */
+  --border-control: #868c98;
+  --text-primary: #0e121b;
+  --text-secondary: #525866;
+  --text-muted: #5c6370;
+  /* The lighter part of a large figure (its decimals). Large text only: 3.4:1 on white. */
+  --text-faint: #868c98;
+
+  --accent: var(--brand-blue);
+  --accent-hover: var(--blue-600);
+  --on-accent: #ffffff;
+  --accent-subtle: var(--blue-50);
+  --focus-ring: var(--brand-blue);
+
+  /* Risk scale. Each band has an AA text color on its tinted ground and a vivid fill. */
+  --risk-minimal: #525866;
+  --risk-minimal-bg: #f1f2f4;
+  --risk-minimal-fill: #b4b9c3;
+  --risk-low: var(--blue-600);
+  --risk-low-bg: var(--blue-50);
+  --risk-low-fill: var(--brand-blue);
+  --risk-elevated: #8a5a00;
+  --risk-elevated-bg: #fff6e0;
+  --risk-elevated-fill: #f6b51e;
+  --risk-high: #a44a05;
+  --risk-high-bg: #fff1e6;
+  --risk-high-fill: var(--brand-orange);
+  --risk-critical: #c2111f;
+  --risk-critical-bg: #ffebed;
+  --risk-critical-fill: var(--brand-red);
+
+  --status-success: #16753f;
+  --status-success-bg: #e7f7ee;
+  --status-success-fill: #1fc16b;
+  --status-warning: var(--risk-high);
+  --status-warning-bg: var(--risk-high-bg);
+  --status-danger: var(--risk-critical);
+  --status-danger-bg: var(--risk-critical-bg);
+  --status-info: var(--blue-600);
+  --status-info-bg: var(--blue-50);
+
+  /* Charts: blue and teal series on a dotted grid. */
+  --chart-1: var(--brand-blue);
+  --chart-2: #22b8b2;
+  --chart-grid: #e1e4ea;
+  --chart-axis: var(--text-muted);
+
+  /* Depth. */
+  --shadow-card:
+    0 1px 2px rgba(14, 18, 27, 0.03), 0 4px 16px rgba(14, 18, 27, 0.04);
+  --shadow-overlay:
+    0 12px 32px rgba(14, 18, 27, 0.12), 0 0 0 1px rgba(14, 18, 27, 0.05);
+  --shadow-primary:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18), 0 1px 2px rgba(14, 18, 27, 0.3),
+    0 0 0 1px var(--ink);
+  --shadow-glow:
+    0 0 0 6px rgba(51, 91, 255, 0.08), 0 8px 32px rgba(51, 91, 255, 0.28);
+
+  /* Landing washes: soft lavender into light cyan, with a faint 1px grid. */
+  --wash-lavender: #ece9ff;
+  --wash-cyan: #e3f6fb;
+  --gradient-hero: linear-gradient(
+    180deg,
+    var(--wash-lavender) 0%,
+    var(--wash-cyan) 60%,
+    #ffffff 100%
+  );
+  --gradient-feature: linear-gradient(150deg, #f1efff 0%, #ecf8fc 100%);
+  --grid-line: rgba(51, 91, 255, 0.07);
+
+  /* Spacing: an 8px rhythm with a 4px half step. */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -83,38 +107,55 @@
   --space-5: 24px;
   --space-6: 32px;
   --space-7: 48px;
-  --radius-sm: 4px;
-  --radius-md: 6px;
-  --radius-lg: 10px;
+
+  /* Shape: cards 20px, inner elements 12px, pills and buttons fully round. */
+  --radius-sm: 6px;
+  --radius-md: 12px;
+  --radius-lg: 20px;
+  --radius-xl: 28px;
   --radius-full: 999px;
-  --row-compact: 32px;
-  --row-default: 40px;
-  --control-sm: 28px;
-  --control-md: 36px;
+
+  --row-compact: 40px;
+  --row-default: 52px;
+  --control-sm: 32px;
+  --control-md: 40px;
   --icon-sm: 16px;
   --icon-md: 20px;
-  --nav-width: 240px;
-  --nav-rail: 64px;
+  --nav-width: 248px;
+  --nav-rail: 72px;
   --drawer-width: 480px;
-  /* next/font sets --font-plex-sans and --font-plex-mono on <html>. */
-  --font-sans:
-    var(--font-plex-sans), "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+
+  /* next/font sets --font-brand and --font-code on <html> (app/fonts.ts). */
+  --font-sans: var(--font-brand), "Inter", ui-sans-serif, system-ui, sans-serif;
   --font-mono:
-    var(--font-plex-mono), "IBM Plex Mono", ui-monospace, "SFMono-Regular",
-    Menlo, monospace;
+    var(--font-code), "IBM Plex Mono", ui-monospace, "SFMono-Regular", Menlo,
+    monospace;
 }
 
 @theme inline {
   --color-*: initial;
+  --color-ink: var(--ink);
+  --color-ink-hover: var(--ink-hover);
+  --color-white: var(--brand-white);
+  --color-brand-blue: var(--brand-blue);
+  --color-brand-red: var(--brand-red);
+  --color-brand-orange: var(--brand-orange);
+  --color-blue-50: var(--blue-50);
+  --color-blue-100: var(--blue-100);
+  --color-blue-200: var(--blue-200);
+  --color-blue-300: var(--blue-300);
+  --color-blue-600: var(--blue-600);
   --color-bg-canvas: var(--bg-canvas);
   --color-bg-surface: var(--bg-surface);
   --color-bg-raised: var(--bg-raised);
   --color-bg-sunken: var(--bg-sunken);
   --color-border-subtle: var(--border-subtle);
+  --color-border-strong: var(--border-strong);
   --color-border-control: var(--border-control);
   --color-text-primary: var(--text-primary);
   --color-text-secondary: var(--text-secondary);
   --color-text-muted: var(--text-muted);
+  --color-text-faint: var(--text-faint);
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-on-accent: var(--on-accent);
@@ -122,22 +163,37 @@
   --color-focus-ring: var(--focus-ring);
   --color-risk-minimal: var(--risk-minimal);
   --color-risk-minimal-bg: var(--risk-minimal-bg);
+  --color-risk-minimal-fill: var(--risk-minimal-fill);
   --color-risk-low: var(--risk-low);
   --color-risk-low-bg: var(--risk-low-bg);
+  --color-risk-low-fill: var(--risk-low-fill);
   --color-risk-elevated: var(--risk-elevated);
   --color-risk-elevated-bg: var(--risk-elevated-bg);
+  --color-risk-elevated-fill: var(--risk-elevated-fill);
   --color-risk-high: var(--risk-high);
   --color-risk-high-bg: var(--risk-high-bg);
+  --color-risk-high-fill: var(--risk-high-fill);
   --color-risk-critical: var(--risk-critical);
   --color-risk-critical-bg: var(--risk-critical-bg);
+  --color-risk-critical-fill: var(--risk-critical-fill);
   --color-status-success: var(--status-success);
+  --color-status-success-bg: var(--status-success-bg);
+  --color-status-success-fill: var(--status-success-fill);
   --color-status-warning: var(--status-warning);
+  --color-status-warning-bg: var(--status-warning-bg);
   --color-status-danger: var(--status-danger);
+  --color-status-danger-bg: var(--status-danger-bg);
   --color-status-info: var(--status-info);
+  --color-status-info-bg: var(--status-info-bg);
+  --color-chart-1: var(--chart-1);
+  --color-chart-2: var(--chart-2);
+  --color-chart-grid: var(--chart-grid);
+  --color-wash-lavender: var(--wash-lavender);
+  --color-wash-cyan: var(--wash-cyan);
   --color-transparent: transparent;
   --color-current: currentColor;
 
-  /* The 4px grid: spacing utilities 1-7 are the space tokens. */
+  /* Spacing utilities 1-7 are the space tokens (4, 8, 12, 16, 24, 32, 48); 8 and up are 4px steps. */
   --spacing: 4px;
   --spacing-1: var(--space-1);
   --spacing-2: var(--space-2);
@@ -160,27 +216,39 @@
   --radius-sm: var(--radius-sm);
   --radius-md: var(--radius-md);
   --radius-lg: var(--radius-lg);
+  --radius-xl: var(--radius-xl);
   --radius-full: var(--radius-full);
 
   --font-sans: var(--font-sans);
   --font-mono: var(--font-mono);
 
+  --shadow-card: var(--shadow-card);
   --shadow-overlay: var(--shadow-overlay);
+  --shadow-primary: var(--shadow-primary);
+  --shadow-glow: var(--shadow-glow);
 
-  /* Type styles (docs/design-system.md, Typography). Mono styles also take `.mono`. */
-  --text-display: 32px;
-  --text-display--line-height: 40px;
-  --text-display--letter-spacing: -0.01em;
-  --text-display--font-weight: 600;
-  --text-heading-1: 24px;
-  --text-heading-1--line-height: 32px;
-  --text-heading-1--font-weight: 600;
-  --text-heading-2: 18px;
-  --text-heading-2--line-height: 26px;
+  /* Type styles (docs/design-system.md, Typography). Headlines are bold and tight. */
+  --text-hero: 64px;
+  --text-hero--line-height: 68px;
+  --text-hero--letter-spacing: -0.035em;
+  --text-hero--font-weight: 700;
+  --text-display: 40px;
+  --text-display--line-height: 46px;
+  --text-display--letter-spacing: -0.03em;
+  --text-display--font-weight: 700;
+  --text-heading-1: 28px;
+  --text-heading-1--line-height: 34px;
+  --text-heading-1--letter-spacing: -0.02em;
+  --text-heading-1--font-weight: 700;
+  --text-heading-2: 20px;
+  --text-heading-2--line-height: 28px;
+  --text-heading-2--letter-spacing: -0.01em;
   --text-heading-2--font-weight: 600;
-  --text-heading-3: 15px;
+  --text-heading-3: 16px;
   --text-heading-3--line-height: 22px;
   --text-heading-3--font-weight: 600;
+  --text-body-lg: 17px;
+  --text-body-lg--line-height: 26px;
   --text-body: 14px;
   --text-body--line-height: 20px;
   --text-body-sm: 13px;
@@ -192,12 +260,18 @@
   --text-overline--line-height: 16px;
   --text-overline--letter-spacing: 0.06em;
   --text-overline--font-weight: 600;
+  --text-figure-xl: 40px;
+  --text-figure-xl--line-height: 44px;
+  --text-figure-xl--letter-spacing: -0.03em;
+  --text-figure-xl--font-weight: 700;
   --text-score-xl: 40px;
   --text-score-xl--line-height: 44px;
-  --text-score-xl--font-weight: 500;
-  --text-metric: 24px;
-  --text-metric--line-height: 28px;
-  --text-metric--font-weight: 500;
+  --text-score-xl--letter-spacing: -0.03em;
+  --text-score-xl--font-weight: 700;
+  --text-metric: 28px;
+  --text-metric--line-height: 32px;
+  --text-metric--letter-spacing: -0.02em;
+  --text-metric--font-weight: 700;
   --text-data: 13px;
   --text-data--line-height: 18px;
 }
@@ -228,19 +302,45 @@
     font-variant-numeric: tabular-nums;
   }
   ::selection {
-    background: var(--accent-subtle);
+    background: var(--blue-100);
     color: var(--text-primary);
   }
 }
 
 @layer utilities {
-  /* IBM Plex Mono with tabular figures: IDs, amounts, timestamps, scores. */
+  /* Mono with tabular figures: IDs, keys, hashes and payloads. */
   .mono {
     font-family: var(--font-mono);
     font-variant-numeric: tabular-nums;
   }
   .tabular {
     font-variant-numeric: tabular-nums;
+  }
+  /* The signature heading accent: a lighter italic phrase after the bold one. */
+  .accent-italic {
+    font-style: italic;
+    font-weight: 400;
+  }
+  /* A faint 1px grid over the landing washes. */
+  .bg-grid {
+    background-image:
+      linear-gradient(var(--grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--grid-line) 1px, transparent 1px);
+    background-size: 56px 56px;
+  }
+  .bg-hero {
+    background: var(--gradient-hero);
+  }
+  .bg-feature {
+    background: var(--gradient-feature);
+  }
+  /* Fades a layer out from its centre (the grid behind a card). */
+  .fade-radial {
+    mask-image: radial-gradient(ellipse at center, #000 30%, transparent 75%);
+  }
+  /* Fades the bottom of a screenshot into the page. */
+  .fade-bottom {
+    mask-image: linear-gradient(180deg, #000 55%, transparent 100%);
   }
 }
 
@@ -256,6 +356,17 @@
 @keyframes slide-in-right {
   from {
     transform: translateX(16px);
+    opacity: 0;
+  }
+  to {
+    transform: translateX(0);
+    opacity: 1;
+  }
+}
+
+@keyframes slide-in-left {
+  from {
+    transform: translateX(-16px);
     opacity: 0;
   }
   to {

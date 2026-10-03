@@ -34,6 +34,10 @@ type (
 	Level = domain.Level
 	// Decision is the recommended action.
 	Decision = domain.Decision
+	// Control is a rule pack control that applied to an event.
+	Control = domain.Control
+	// NotEvaluated is a rule pack rule an event triggered that could not be evaluated.
+	NotEvaluated = domain.NotEvaluated
 	// TestResult is the outcome of testing a rule against an event.
 	TestResult = service.TestResult
 )
@@ -75,6 +79,8 @@ type RuleHandlers interface {
 	ListDenyEntries(ctx context.Context, req apigen.ListDenyEntriesRequestObject) (apigen.ListDenyEntriesResponseObject, error)
 	CreateDenyEntry(ctx context.Context, req apigen.CreateDenyEntryRequestObject) (apigen.CreateDenyEntryResponseObject, error)
 	DeleteDenyEntry(ctx context.Context, req apigen.DeleteDenyEntryRequestObject) (apigen.DeleteDenyEntryResponseObject, error)
+	BacktestPackRule(ctx context.Context, req apigen.BacktestPackRuleRequestObject) (apigen.BacktestPackRuleResponseObject, error)
+	ListRestrictedSignals(ctx context.Context, req apigen.ListRestrictedSignalsRequestObject) (apigen.ListRestrictedSignalsResponseObject, error)
 }
 
 // Config configures the risk module.
@@ -89,7 +95,12 @@ type Config struct {
 	StateDB StateDB
 	// HistoryWarmup is how long history signals are held back after a reset.
 	HistoryWarmup time.Duration
+	// Packs gives each tenant's rule pack (the rules module); nil evaluates none.
+	Packs PackSource
 }
+
+// PackSource gives the caller's tenant's rule pack compiled for evaluation.
+type PackSource = service.PackSource
 
 // StateDB runs the reset detector's statements; *pgxpool.Pool satisfies it.
 type StateDB = store.StateDB
@@ -112,7 +123,7 @@ func New(rdb Redis, runner txn.Runner, rec audit.Recorder, clk clock.Clock, logg
 		m.state = store.NewStateWatcher(rdb, cfg.StateDB, cfg.FeatureHashKey, cfg.HistoryWarmup, clk, logger)
 		fs.WithState(m.state)
 	}
-	m.svc = service.New(fs, runner, rec, clk, logger)
+	m.svc = service.New(fs, runner, rec, clk, logger, cfg.Packs)
 	return m
 }
 

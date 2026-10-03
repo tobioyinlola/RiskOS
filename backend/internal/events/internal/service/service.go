@@ -8,6 +8,7 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"slices"
 	"time"
 
 	"github.com/google/uuid"
@@ -24,6 +25,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Service ingests and serves events.
@@ -128,6 +130,9 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 		if err := s.raiseAlerts(ctx, eventID, p.normalized, res); err != nil {
 			return err
 		}
+		if err := s.recordComplianceWork(ctx, eventID, p.normalized, res); err != nil {
+			return err
+		}
 		if err := s.store.Insert(ctx, store.InsertParams{
 			ID: eventID, ReceivedAt: ids.Time(eventID), Event: withNormalized(e, p.normalized), Normalized: p.encoded,
 			PayloadHash: p.hash, RawPayload: raw, IP: p.ip, EvaluationID: res.ID,
@@ -146,6 +151,37 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 		return domain.Outcome{}, false, err
 	}
 	return outcome, replay, nil
+}
+
+// recordComplianceWork enqueues the job that records what the decision's live regulatory
+// controls require (reports, enhanced due diligence...), in the decision transaction like alerts.
+func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n domain.Normalized, res risk.Result) error {
+	var controls []rules.TaskControl
+	for _, c := range res.Controls {
+		if c.Mode != "live" || !slices.ContainsFunc(c.Tasks, rules.TrackedTask) {
+			continue
+		}
+		controls = append(controls, rules.TaskControl{Rule: c.Rule, Tasks: c.Tasks})
+	}
+	if len(controls) == 0 {
+		return nil
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return err
+	}
+	args := rules.TasksArgs{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, EvaluationID: res.ID, EventID: eventID,
+		OccurredAt: n.OccurredAt, SubjectRef: n.Actor.UserID, Controls: controls,
+	}
+	var data struct {
+		Amount   int64  `json:"amount"`
+		Currency string `json:"currency"`
+	}
+	if n.Type == "transaction" && json.Unmarshal(n.Data, &data) == nil {
+		args.Amount, args.Currency = data.Amount, data.Currency
+	}
+	return s.jobs.Enqueue(ctx, args)
 }
 
 // raiseAlerts enqueues the alert job for a decision that reached the alert threshold or ran with
@@ -244,12 +280,22 @@ func toOutcome(r risk.Result) domain.Outcome {
 	if degraded == nil {
 		degraded = []string{}
 	}
-	return domain.Outcome{
+	out := domain.Outcome{
 		RequestID: r.RequestID, EventID: r.EventID, EvaluationID: r.ID,
 		Score: r.Score, Level: string(r.Level), Decision: string(r.Decision),
 		EngineVersion: r.EngineVersion, Signals: signals, DegradedSignals: degraded,
 		WarmingSignals: r.WarmingSignals,
 	}
+	for _, c := range r.Controls {
+		out.Controls = append(out.Controls, domain.Control{
+			Rule: c.Rule, Name: c.Name, Mode: c.Mode, Decision: string(c.Decision), Reason: c.Reason, Tasks: c.Tasks,
+			FeePercent: c.FeePercent, HoldSeconds: c.HoldSeconds, Branch: c.Branch, ExemptionUnknown: c.ExemptionUnknown,
+		})
+	}
+	for _, n := range r.NotEvaluated {
+		out.NotEvaluated = append(out.NotEvaluated, domain.NotEvaluated{Rule: n.Rule, Missing: n.Missing})
+	}
+	return out
 }
 
 // Profile returns an entity's profile. Requires events:read.

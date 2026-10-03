@@ -1,0 +1,389 @@
+{
+  "rules": [
+    {
+      "id": "LEN-01",
+      "group": "lending",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfb",
+        "finance_company",
+        "fintech"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "loan_application"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "loan_application",
+                "window": "window",
+                "by": "bvn"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "applications"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "loan_application",
+                "window": "window",
+                "by": "device"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "applications"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "loan_stacking"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "applications",
+          "label": "Applications that count as stacking",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 7776000
+        }
+      ]
+    },
+    {
+      "id": "LEN-02",
+      "group": "lending",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfb",
+        "finance_company",
+        "fintech"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "loan_disbursement",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "loan_disbursement",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "disburse_and_cash_out"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "share",
+          "label": "Share of the loan moved out",
+          "type": "ratio",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "window",
+          "label": "Time after payout",
+          "type": "duration",
+          "default": 1800,
+          "min": 300,
+          "max": 21600
+        }
+      ]
+    },
+    {
+      "id": "LEN-03",
+      "group": "lending",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfb",
+        "finance_company",
+        "fintech"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "lending_identity"
+      ],
+      "trigger": {
+        "events": [
+          "loan_application"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "application.photo_reused"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "application.document_reused"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "application.phone_reused"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "identity_reuse",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "LEN-04",
+      "group": "lending",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "FCCPC"
+      ],
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfb",
+        "finance_company",
+        "fintech"
+      ],
+      "sources": [
+        "S13"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Only summaries of the FCCPC Digital Lending Regulations 2025 were available; the full text was not reviewed.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "loan_repayment",
+            "window": "window",
+            "by": "loan",
+            "where": {
+              "left": {
+                "fact": "payer.bvn_matches_borrower"
+              },
+              "op": "eq",
+              "right": {
+                "literal": false
+              }
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "repayments"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "third_party_repayment"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "repayments",
+          "label": "Repayments from other people that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 15552000
+        }
+      ]
+    }
+  ]
+}

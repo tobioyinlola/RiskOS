@@ -1,8 +1,8 @@
-import { cn } from "cn";
+import { cn } from "@/lib/cn";
 import { useId, type ComponentProps, type ReactNode } from "react";
 
 const control =
-  "w-full rounded-md border border-border-control bg-bg-surface px-3 text-body text-text-primary transition-colors duration-150 placeholder:text-text-muted hover:border-text-secondary disabled:opacity-40 aria-invalid:border-status-danger";
+  "w-full rounded-md border border-border-control bg-bg-surface px-3.5 text-body text-text-primary transition-[border-color,box-shadow] duration-150 placeholder:text-text-muted hover:border-text-secondary focus-visible:border-accent focus-visible:shadow-[0_0_0_4px_var(--blue-100)] focus-visible:outline-none disabled:opacity-40 aria-invalid:border-status-danger";
 
 export function Input({ className, ...props }: ComponentProps<"input">) {
   return (
@@ -49,7 +49,7 @@ export function Field({
   const describedBy = [hintId, errorId].filter(Boolean).join(" ") || undefined;
   return (
     <div className={cn("flex flex-col gap-1", className)}>
-      <label htmlFor={id} className="text-label text-text-secondary">
+      <label htmlFor={id} className="text-label text-text-primary">
         {label}
       </label>
       {children({

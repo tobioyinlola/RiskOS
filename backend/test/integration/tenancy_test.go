@@ -37,6 +37,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -52,6 +53,7 @@ type stack struct {
 	webhooks *webhooks.Module
 	risk     *risk.Module
 	admin    *admin.Module
+	rules    *rules.Module
 }
 
 // stackConfig holds the optional settings of a test stack.
@@ -66,6 +68,23 @@ type stackConfig struct {
 	inviteEmails jobs.Enqueuer
 	// admin enables the internal admin realm.
 	admin bool
+	// signup enables self-serve sign-up; google, when set, Google sign-in.
+	signup bool
+	google *auth.GoogleConfig
+}
+
+// withSignup enables self-serve sign-up (and Google sign-in with google, if not nil).
+func withSignup(google *auth.GoogleConfig) stackOption {
+	return func(c *stackConfig) { c.signup, c.google = true, google }
+}
+
+// selfServe adapts the tenants module to auth.TenantCreator, like cmd/api.
+type selfServe struct{ tenants *tenants.Module }
+
+func (s selfServe) CreateSelfServe(ctx context.Context, name, actor string, now time.Time, then func(ctx context.Context, tenantID uuid.UUID) error) (uuid.UUID, error) {
+	t, err := s.tenants.Create(ctx, tenants.CreateParams{Name: name, Region: "eu-west-1", Actor: actor, SelfServe: true, Now: now},
+		func(ctx context.Context, t tenants.Tenant) error { return then(ctx, t.ID) })
+	return t.ID, err
 }
 
 // withAdmin enables the internal admin realm and support access.
@@ -139,11 +158,16 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	clk := clock.System{}
 	runner := db.NewTxRunner(shared.pool, db.WithBeginTimeout(time.Second))
 	auditModule := audit.New(runner, clk)
-	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, auth.Config{
+	tenantsModule := tenants.New(runner, auditModule.Recorder())
+	authCfg := auth.Config{
 		Pepper: []byte(testPepper), CacheTTL: cacheTTL, Console: sc.console, Limiter: limiter, Logger: shared.logger,
 		InviteEmails: sc.inviteEmails,
 		Cookie:       auth.CookieConfig{ConsoleURL: "http://console.test", Origins: []string{"http://console.test"}},
-	})
+	}
+	if sc.signup {
+		authCfg.Signup.Tenants, authCfg.Signup.Google = selfServe{tenantsModule}, sc.google
+	}
+	authModule := auth.New(shared.pool, runner, auditModule.Recorder(), clk, authCfg)
 	riskModule := newRisk(featureRedis, runner, auditModule, clk, func(c *risk.Config) {
 		if sc.historyWarmup > 0 {
 			c.StateDB, c.HistoryWarmup = shared.pool, sc.historyWarmup
@@ -163,14 +187,19 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		require.NoError(t, err)
 		authModule.SetSupport(adminModule)
 	}
+	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
+	rulesModule := rules.New(runner, auditModule.Recorder())
+	rulesModule.ConnectWorkflow(alertsModule, casesModule)
 	h, err := httpapi.New(httpapi.Deps{
-		Logger: shared.logger, Clock: clk, Telemetry: tel,
+		Tenants: tenants.New(runner, auditModule.Recorder()),
+		Rules:   rulesModule,
+		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
 		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
 		Risk:     riskModule,
 		Alerts:   alertsModule,
-		Cases:    cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher()),
+		Cases:    casesModule,
 		Webhooks: webhooksModule,
 		Admin:    adminModule,
 		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
@@ -184,6 +213,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		webhooks: webhooksModule,
 		risk:     riskModule,
 		admin:    adminModule,
+		rules:    rulesModule,
 	}
 }
 
@@ -192,7 +222,10 @@ const testFeatureKey = "integration-feature-key-0123456789abcdef"
 
 // newRisk returns the risk module wired like cmd/api.
 func newRisk(rdb risk.Redis, runner *db.TxRunner, auditModule *audit.Module, clk clock.Clock, opts ...func(*risk.Config)) *risk.Module {
-	cfg := risk.Config{FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond}
+	cfg := risk.Config{
+		FeatureHashKey: []byte(testFeatureKey), FeatureTimeout: 250 * time.Millisecond,
+		Packs: rules.New(runner, auditModule.Recorder()),
+	}
 	for _, o := range opts {
 		o(&cfg)
 	}
@@ -324,7 +357,7 @@ func TestTenantBootstrapAndWhoami(t *testing.T) {
 	assert.ElementsMatch(t, []apigen.Scope{
 		"api_keys:read", "api_keys:write", "audit_logs:read", "events:write", "events:read", "risk:evaluate",
 		"rules:read", "rules:write", "risk:configure", "alerts:read", "alerts:write", "cases:read", "cases:write",
-		"webhooks:read", "webhooks:write", "team:read", "team:write",
+		"webhooks:read", "webhooks:write", "team:read", "team:write", "compliance:read", "compliance:engineering",
 	}, who.Scopes)
 
 	// The bootstrap is audited: tenant, both environments and the first key.

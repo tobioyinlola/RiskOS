@@ -2,7 +2,7 @@
 //
 // Usage: migrate [up|down|status]
 //
-//	up      apply all pending migrations (default)
+//	up      apply all pending migrations (default), then load new rule pack versions
 //	down    roll back the most recent application migration
 //	status  print applied/pending application migrations
 package main
@@ -20,6 +20,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 const usage = "usage: migrate [up|down|status]"
@@ -76,6 +77,7 @@ func run(args []string) error {
 			return err
 		}
 		logger.InfoContext(ctx, "migrations complete", slog.Int64("version", version))
-		return nil
+		// Rule packs are reference data that ships with the code: load any new version.
+		return rules.LoadPacks(ctx, pool, rules.BuiltInPacks(), logger)
 	}
 }

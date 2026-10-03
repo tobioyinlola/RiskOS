@@ -12,6 +12,7 @@ import (
 	"net/mail"
 	"net/netip"
 	"net/url"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -66,7 +67,19 @@ type Console struct {
 	// SSOAllowPrivate lets single sign-on identity providers be http and on private addresses:
 	// local development and tests only (refused in production).
 	SSOAllowPrivate bool
+	// SignupEnabled lets anyone create a workspace from the console (docs/CONSOLE_AUTH.md#sign-up).
+	// New workspaces are pinned to SignupRegion; their production environment stays locked until
+	// staff approve their onboarding. Sign-up with email also needs SMTP.
+	SignupEnabled bool
+	SignupRegion  string
+	// GoogleClientID and GoogleClientSecret enable signing in and up with Google (an OAuth client
+	// with the redirect URI <console URL>/signup/google). Both or neither; needs SignupEnabled.
+	GoogleClientID     string
+	GoogleClientSecret string
 }
+
+// signupRegionPattern is a tenant region (the tenants table's check).
+var signupRegionPattern = regexp.MustCompile(`^[a-z0-9-]{2,32}$`) //nolint:gochecknoglobals // compiled once, never mutated
 
 // Validate checks the console settings; call it in binaries that serve the console API or
 // create invites.
@@ -77,6 +90,15 @@ func (c Console) Validate(env Environment) error {
 	}
 	if c.SSOAllowPrivate && env == EnvProduction {
 		errs = append(errs, errors.New("RISKOS_SSO_ALLOW_PRIVATE: not allowed in production"))
+	}
+	if c.SignupEnabled && !signupRegionPattern.MatchString(c.SignupRegion) {
+		errs = append(errs, errors.New("RISKOS_SIGNUP_REGION: required with sign-up, e.g. eu-west-1"))
+	}
+	if (c.GoogleClientID == "") != (c.GoogleClientSecret == "") {
+		errs = append(errs, errors.New("RISKOS_GOOGLE_CLIENT_ID and RISKOS_GOOGLE_CLIENT_SECRET: set both or neither"))
+	}
+	if c.GoogleClientID != "" && !c.SignupEnabled {
+		errs = append(errs, errors.New("RISKOS_GOOGLE_CLIENT_ID: Google sign-in needs RISKOS_SIGNUP_ENABLED=true"))
 	}
 	if c.BreachedPasswordCheck != "" && c.BreachedPasswordCheck != "pwned" && c.BreachedPasswordCheck != "off" {
 		errs = append(errs, errors.New("RISKOS_BREACHED_PASSWORD_CHECK: must be pwned or off"))
@@ -698,6 +720,10 @@ func consoleConfig(r *reader) Console {
 		BreachedPasswordCheck: r.str("RISKOS_BREACHED_PASSWORD_CHECK", "pwned"),
 		BreachedPasswordURL:   r.str("RISKOS_BREACHED_PASSWORD_URL", ""),
 		SSOAllowPrivate:       r.boolean("RISKOS_SSO_ALLOW_PRIVATE", false),
+		SignupEnabled:         r.boolean("RISKOS_SIGNUP_ENABLED", false),
+		SignupRegion:          r.str("RISKOS_SIGNUP_REGION", ""),
+		GoogleClientID:        r.str("RISKOS_GOOGLE_CLIENT_ID", ""),
+		GoogleClientSecret:    r.str("RISKOS_GOOGLE_CLIENT_SECRET", ""),
 	}
 	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
 		for _, o := range strings.Split(raw, ",") {

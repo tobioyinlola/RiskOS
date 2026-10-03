@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Alert struct {
@@ -136,6 +137,39 @@ type CaseNote struct {
 	CreatedAt     time.Time
 }
 
+type ComplianceFxRate struct {
+	TenantID   uuid.UUID
+	Currency   string
+	UsdPerUnit pgtype.Numeric
+	UpdatedAt  time.Time
+	UpdatedBy  string
+}
+
+type ComplianceTask struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	RuleID        string
+	EvaluationID  *uuid.UUID
+	EventID       *uuid.UUID
+	CaseID        *uuid.UUID
+	SubjectRef    *string
+	Sensitive     bool
+	Status        string
+	DueAt         *time.Time
+	Report        []byte
+	CreatedAt     time.Time
+	CreatedBy     string
+	UpdatedAt     time.Time
+	ApprovedBy    *string
+	ApprovedAt    *time.Time
+	ClosedBy      *string
+	ClosedAt      *time.Time
+	CloseNote     *string
+	FilingRef     *string
+}
+
 type ConsoleSession struct {
 	ID               uuid.UUID
 	TenantID         uuid.UUID
@@ -172,26 +206,29 @@ type Environment struct {
 }
 
 type Evaluation struct {
-	TenantID        uuid.UUID
-	EnvironmentID   uuid.UUID
-	ID              uuid.UUID
-	CreatedAt       time.Time
-	EventID         *uuid.UUID
-	EventKey        string
-	DryRun          bool
-	EngineVersion   string
-	RuleVersions    []string
-	Features        []byte
-	RiskScore       int16
-	RiskLevel       string
-	Decision        string
-	Signals         []byte
-	DegradedSignals []string
-	RequestID       string
-	DurationUs      int32
-	PolicyReasons   []string
-	ShadowSignals   []byte
-	WarmingSignals  []string
+	TenantID          uuid.UUID
+	EnvironmentID     uuid.UUID
+	ID                uuid.UUID
+	CreatedAt         time.Time
+	EventID           *uuid.UUID
+	EventKey          string
+	DryRun            bool
+	EngineVersion     string
+	RuleVersions      []string
+	Features          []byte
+	RiskScore         int16
+	RiskLevel         string
+	Decision          string
+	Signals           []byte
+	DegradedSignals   []string
+	RequestID         string
+	DurationUs        int32
+	PolicyReasons     []string
+	ShadowSignals     []byte
+	WarmingSignals    []string
+	Controls          []byte
+	NotEvaluated      []byte
+	RestrictedSignals []byte
 }
 
 type Event struct {
@@ -234,6 +271,57 @@ type FeatureStoreState struct {
 	KeyFingerprint string
 	StartedAt      time.Time
 	ResetAt        *time.Time
+}
+
+type GoogleLogin struct {
+	StateHash   []byte
+	BrowserHash []byte
+	CreatedAt   time.Time
+	ExpiresAt   time.Time
+}
+
+type PackRule struct {
+	PackID      string
+	PackVersion string
+	RuleID      string
+	Kind        string
+	Definition  []byte
+	Wording     []byte
+}
+
+type PackRuleChange struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	PackID         string
+	RuleID         string
+	BaseVersion    int32
+	Mode           string
+	Settings       []byte
+	Reason         string
+	RestoredFrom   *int32
+	Status         string
+	ProposedBy     string
+	ProposedAt     time.Time
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	DecisionNote   *string
+	AppliedVersion *int32
+}
+
+type PackRuleVersion struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	PackID        string
+	RuleID        string
+	Version       int32
+	Mode          string
+	Settings      []byte
+	Reason        string
+	CreatedAt     time.Time
+	CreatedBy     string
+	ChangeID      *uuid.UUID
+	RestoredFrom  *int32
 }
 
 type RiskSetting struct {
@@ -286,6 +374,16 @@ type RuleChange struct {
 	AppliedVersion *int32
 }
 
+type RulePack struct {
+	ID           string
+	Version      string
+	Jurisdiction string
+	Name         string
+	Checksum     string
+	Meta         []byte
+	LoadedAt     time.Time
+}
+
 type RuleVersion struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID
@@ -301,6 +399,24 @@ type RuleVersion struct {
 	CreatedAt     time.Time
 	CreatedBy     string
 	RestoredFrom  *int32
+}
+
+type Signup struct {
+	ID              uuid.UUID
+	TokenHash       []byte
+	Email           string
+	Name            string
+	BusinessName    *string
+	PasswordHash    *string
+	GoogleSubject   *string
+	ExistingAccount bool
+	EmailVerifiedAt *time.Time
+	CodeSentCount   int32
+	CodeSentAt      *time.Time
+	FailedAttempts  int32
+	CreatedAt       time.Time
+	ExpiresAt       time.Time
+	CompletedAt     *time.Time
 }
 
 type SsoConnection struct {
@@ -395,11 +511,36 @@ type SupportAccess struct {
 }
 
 type Tenant struct {
-	ID        uuid.UUID
-	Name      string
-	Region    string
-	Status    string
-	CreatedAt time.Time
+	ID                uuid.UUID
+	Name              string
+	Region            string
+	Status            string
+	CreatedAt         time.Time
+	ProductionEnabled bool
+	Origin            string
+}
+
+type TenantCompliance struct {
+	TenantID     uuid.UUID
+	PackID       string
+	PackVersion  string
+	LicenceType  string
+	Capabilities []string
+	UpdatedAt    time.Time
+	UpdatedBy    string
+}
+
+type TenantOnboarding struct {
+	TenantID    uuid.UUID
+	Answers     []byte
+	Status      string
+	UpdatedAt   time.Time
+	UpdatedBy   string
+	SubmittedAt *time.Time
+	SubmittedBy *string
+	ReviewedAt  *time.Time
+	ReviewedBy  *string
+	ReviewNote  *string
 }
 
 type User struct {
@@ -409,7 +550,7 @@ type User struct {
 	Name           string
 	Role           string
 	Status         string
-	PasswordHash   string
+	PasswordHash   *string
 	TotpSecretEnc  []byte
 	TotpLastStep   *int64
 	RecoveryHashes [][]byte
@@ -418,6 +559,7 @@ type User struct {
 	UpdatedAt      time.Time
 	LastLoginAt    *time.Time
 	SsoSubject     *string
+	GoogleSubject  *string
 }
 
 type UserInvite struct {

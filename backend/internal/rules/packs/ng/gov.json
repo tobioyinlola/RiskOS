@@ -1,0 +1,432 @@
+{
+  "rules": [
+    {
+      "id": "GOV-01",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "monitoring_without_cdd_linkage"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-02",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "network_and_peer_analysis"
+      },
+      "governance": {
+        "type": "job",
+        "schedule": "daily"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-03",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "controlled_alert_closure"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-04",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "model_validation"
+      },
+      "governance": {
+        "type": "job",
+        "schedule": "annual",
+        "uses": [
+          "validate_every"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "validate_every",
+          "label": "Longest time between independent model validations",
+          "type": "duration",
+          "default": 31536000,
+          "min": 2592000,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "GOV-05",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "sanctions_list",
+        "pep_list",
+        "adverse_media"
+      ],
+      "outcome": {
+        "reason": "continuous_screening"
+      },
+      "governance": {
+        "type": "control"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-06",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN",
+        "NFIU"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "approved_reporting"
+      },
+      "governance": {
+        "type": "workflow"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-07",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S1"
+      ],
+      "effective": {
+        "text": "CBN baseline standards issued 10 March 2026; banks must comply by September 2027, other institutions by March 2028",
+        "date": "2026-03-10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The CBN baseline standards of 10 March 2026 were read from summaries, not the circular itself; confirm against the original.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "audit_and_access_control"
+      },
+      "governance": {
+        "type": "control"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-08",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "law",
+        "CBN"
+      ],
+      "sources": [
+        "S4",
+        "S1"
+      ],
+      "effective": {
+        "text": "Money Laundering (Prevention and Prohibition) Act 2022; the library does not state the commencement date"
+      },
+      "verification": "conflicting",
+      "caveat": "The Act says five years; some summaries say seven for certain records. Five is the minimum and can be raised.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "retention"
+      },
+      "governance": {
+        "type": "control",
+        "uses": [
+          "retain_for"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "retain_for",
+          "label": "Shortest time records are kept after the transaction or relationship ends",
+          "type": "duration",
+          "default": 157680000,
+          "min": 157680000,
+          "max": 630720000
+        }
+      ]
+    },
+    {
+      "id": "GOV-09",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "NFIU",
+        "law"
+      ],
+      "sources": [
+        "S9"
+      ],
+      "effective": {
+        "text": "NFIU suspicious transaction report guidelines of 18 December 2024, citing section 19(2)",
+        "date": "2024-12-18"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "no_tipping_off"
+      },
+      "governance": {
+        "type": "control"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-10",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "FCCPC"
+      ],
+      "applies_to": [
+        "digital_lender"
+      ],
+      "sources": [
+        "S13"
+      ],
+      "effective": {
+        "text": "FCCPC Digital Lending Regulations 2025; existing lenders had 90 days from 21 July 2025 to register",
+        "date": "2025-07-21"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Only summaries of the FCCPC Digital Lending Regulations 2025 were available; the full text was not reviewed.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "missing_fccpc_registration"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GOV-11",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S15"
+      ],
+      "effective": {
+        "text": "CBN anti-fraud measures, 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "fraud_response_target"
+      },
+      "governance": {
+        "type": "sla",
+        "uses": [
+          "respond_within"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "respond_within",
+          "label": "Time to act on a confirmed-fraud alert",
+          "type": "duration",
+          "default": 1800,
+          "min": 300,
+          "max": 14400
+        }
+      ]
+    },
+    {
+      "id": "GOV-12",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "regulators": [
+        "NIBSS",
+        "CBN"
+      ],
+      "sources": [
+        "S7",
+        "S15"
+      ],
+      "effective": {
+        "text": "NIBSS and CBN fraud reporting; the reporting deadline was not found"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The deadline for reporting confirmed fraud to the industry channel was not found.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "fraud_reporting"
+      },
+      "governance": {
+        "type": "workflow"
+      },
+      "parameters": []
+    }
+  ]
+}

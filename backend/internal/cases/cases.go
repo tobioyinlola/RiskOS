@@ -5,9 +5,12 @@ package cases
 import (
 	"context"
 
+	"github.com/google/uuid"
+
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
@@ -37,3 +40,12 @@ func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.
 
 // HTTPHandlers returns the module's API handlers.
 func (m *Module) HTTPHandlers() CaseHandlers { return handler.New(m.svc) }
+
+// Detail is a case with its alerts, notes and activity.
+type Detail = service.Detail
+
+// ErrNotFound is returned when a case does not exist in the caller's environment.
+var ErrNotFound = domain.ErrNotFound
+
+// Get returns a case with its alerts. Requires cases:read.
+func (m *Module) Get(ctx context.Context, id uuid.UUID) (Detail, error) { return m.svc.Get(ctx, id) }

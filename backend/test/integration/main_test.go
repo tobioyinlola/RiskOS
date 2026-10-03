@@ -25,6 +25,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/redisx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Images match docker-compose.yml so tests run against what developers and CI deploy.
@@ -95,6 +96,10 @@ func setup(m *testing.M) (int, error) {
 		return 0, err
 	}
 	if _, err := dbmigrate.Up(ctx, owner, logger); err != nil {
+		owner.Close()
+		return 0, err
+	}
+	if err := rules.LoadPacks(ctx, owner, rules.BuiltInPacks(), logger); err != nil {
 		owner.Close()
 		return 0, err
 	}
