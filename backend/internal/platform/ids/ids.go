@@ -62,6 +62,7 @@ const (
 	PrefixDenyEntry       = "dny"
 	PrefixStaff           = "stf"
 	PrefixSupportAccess   = "sac"
+	PrefixPackChange      = "pch"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

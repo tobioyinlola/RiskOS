@@ -1560,6 +1560,138 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/rules/{rule_id}/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A rule's configuration in this environment
+         * @description Requires `compliance:read`. Version 0 means the library's defaults.
+         */
+        get: operations["getPackRuleConfig"];
+        /**
+         * Set a rule's mode and settings in this environment
+         * @description Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+         *     `settings` lists values that differ from the library's defaults; each must be within the
+         *     setting's bounds (for regulatory limits, the legal maximum). Omitted settings use the
+         *     default. Applied at once (200), except in production for a regulatory control when any
+         *     setting changes or the mode moves away from live: that is proposed (202) and applies when
+         *     another person with `rules:approve` approves it. Audited.
+         */
+        put: operations["putPackRuleConfig"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A rule's configuration versions in this environment
+         * @description Requires `compliance:read`. Newest first; versions never change.
+         */
+        get: operations["listPackRuleVersions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/rules/{rule_id}/rollback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Restore an earlier configuration as a new version
+         * @description Requires `compliance:configure` and, in the console, a recent second factor. The same
+         *     approval rule as a configuration change applies.
+         */
+        post: operations["rollbackPackRule"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Configuration changes in this environment
+         * @description Requires `compliance:read`. Newest first, at most 200.
+         */
+        get: operations["listPackRuleChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/changes/{change_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending change
+         * @description Requires `rules:approve` (people only) and, in the console, a recent second factor. Nobody
+         *     can approve their own change. Applies the change as the rule's next version, credited to
+         *     its proposer, only if the rule has not changed since (409 otherwise). Audited.
+         */
+        post: operations["approvePackRuleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/changes/{change_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject or withdraw a pending change
+         * @description Requires `rules:approve`, or being the change's proposer (withdrawing it). Audited.
+         */
+        post: operations["rejectPackRuleChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/clocks": {
         parameters: {
             query?: never;
@@ -1761,6 +1893,74 @@ export interface components {
             accept_dpa?: boolean;
         };
         /**
+         * @description live (it acts), shadow (it is evaluated and recorded only) or off.
+         * @enum {string}
+         */
+        PackRuleMode: "live" | "shadow" | "off";
+        /** @description Settings that differ from the library's defaults, by name, in the setting's unit. */
+        PackRuleSettings: {
+            [key: string]: number;
+        };
+        PackRuleConfigRequest: {
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            /** @description Why, for the audit log and the approver. */
+            reason: string;
+        };
+        PackRuleConfig: {
+            rule: string;
+            /** @description 0 while the rule runs with the library's defaults. */
+            version: number;
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            reason: string;
+            /** Format: date-time */
+            updated_at: string | null;
+            updated_by: string | null;
+            /** @description The change awaiting a second person, if any. */
+            pending: components["schemas"]["PackRuleChange"] | null;
+        };
+        PackRuleChange: {
+            /** @example pch_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            rule: string;
+            base_version: number;
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            reason: string;
+            restored_from: number | null;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected";
+            proposed_by: string;
+            /** Format: date-time */
+            proposed_at: string;
+            decided_by: string | null;
+            /** Format: date-time */
+            decided_at: string | null;
+            decision_note: string | null;
+            applied_version: number | null;
+        };
+        PackRuleChangeList: {
+            data: components["schemas"]["PackRuleChange"][];
+        };
+        PackRuleVersion: {
+            version: number;
+            mode: components["schemas"]["PackRuleMode"];
+            settings: components["schemas"]["PackRuleSettings"];
+            reason: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            change_id: string | null;
+            restored_from: number | null;
+        };
+        PackRuleVersionList: {
+            data: components["schemas"]["PackRuleVersion"][];
+        };
+        DecisionNote: {
+            note?: string;
+        };
+        /**
          * @description control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
          * @enum {string}
          */
@@ -1825,6 +2025,11 @@ export interface components {
              * @description Null when the institution must set the value.
              */
             default: number | null;
+            /**
+             * Format: double
+             * @description The value in this environment (configured, else the default); null when unset.
+             */
+            value: number | null;
             /** Format: double */
             min: number;
             /**
@@ -1881,6 +2086,9 @@ export interface components {
             parameters: components["schemas"]["ComplianceParameter"][];
             /** @description Whether the rule applies to the workspace's profile; null without a profile. */
             applicable: boolean | null;
+            mode: components["schemas"]["PackRuleMode"];
+            /** @description The rule's configuration version in this environment; 0 means the library's defaults. */
+            config_version: number;
             /** @description The library's section 7B logic. Only for `compliance:engineering`. */
             engineering_logic?: string;
             /** @description The machine definition the engine interprets. Only for `compliance:engineering`. */
@@ -2399,12 +2607,12 @@ export interface components {
         /** @enum {string} */
         Environment: "test" | "production";
         /**
-         * @description A permission. API keys can hold any except `rules:approve` and `compliance:write`, which
-         *     only people hold (a second person approves production rule changes; a person sets the
-         *     workspace's compliance profile).
+         * @description A permission. API keys can hold any except `rules:approve`, `compliance:write` and
+         *     `compliance:configure`, which only people hold (a second person approves production rule
+         *     changes; a person sets the compliance profile and configures pack rules).
          * @enum {string}
          */
-        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write" | "compliance:read" | "compliance:engineering" | "compliance:write";
+        Scope: "api_keys:read" | "api_keys:write" | "audit_logs:read" | "events:write" | "events:read" | "risk:evaluate" | "rules:read" | "rules:write" | "rules:approve" | "risk:configure" | "alerts:read" | "alerts:write" | "cases:read" | "cases:write" | "webhooks:read" | "webhooks:write" | "team:read" | "team:write" | "compliance:read" | "compliance:engineering" | "compliance:write" | "compliance:configure";
         Whoami: {
             /** @example ten_01j9x2k7m3q4r5s6t7v8w9x0yz */
             tenant_id: string;
@@ -5751,6 +5959,231 @@ export interface operations {
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getPackRuleConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The configuration. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleConfig"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    putPackRuleConfig: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PackRuleConfigRequest"];
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleConfig"];
+                };
+            };
+            /** @description Proposed; applies when another person approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listPackRuleVersions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The versions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleVersionList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rollbackPackRule: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                rule_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    version: number;
+                    reason: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleConfig"];
+                };
+            };
+            /** @description Proposed; applies when another person approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listPackRuleChanges: {
+        parameters: {
+            query?: {
+                status?: "pending" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChangeList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approvePackRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionNote"];
+            };
+        };
+        responses: {
+            /** @description The approved change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectPackRuleChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionNote"];
+            };
+        };
+        responses: {
+            /** @description The rejected change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PackRuleChange"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             default: components["responses"]["DefaultError"];
         };
     };

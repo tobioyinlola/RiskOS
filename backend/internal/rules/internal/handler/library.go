@@ -107,7 +107,7 @@ func ruleToAPI(v *service.RuleView) (apigen.ComplianceRule, error) {
 	for i, p := range v.Parameters {
 		params[i] = apigen.ComplianceParameter{
 			Name: p.Name, Label: p.Label, Type: apigen.ComplianceParameterType(p.Type), Currency: optional(p.Currency),
-			Default: p.Default, Min: p.Min, Max: p.Max,
+			Default: p.Default, Value: v.Value(p), Min: p.Min, Max: p.Max,
 		}
 	}
 	out := apigen.ComplianceRule{
@@ -125,6 +125,7 @@ func ruleToAPI(v *service.RuleView) (apigen.ComplianceRule, error) {
 			Decision: optional(v.Outcome.Decision), Severity: optional(v.Outcome.Severity), Tasks: tasks,
 		},
 		Parameters: params, Applicable: v.Applicable,
+		Mode: apigen.PackRuleMode(v.Config.Mode), ConfigVersion: v.Config.Version,
 	}
 	if v.Engineering {
 		raw, err := json.Marshal(v.Rule)

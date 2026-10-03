@@ -2838,6 +2838,271 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/config:
+    get:
+      operationId: getPackRuleConfig
+      tags: [compliance]
+      summary: A rule's configuration in this environment
+      description: Requires `compliance:read`. Version 0 means the library's defaults.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      responses:
+        "200":
+          description: The configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleConfig"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: putPackRuleConfig
+      tags: [compliance]
+      summary: Set a rule's mode and settings in this environment
+      description: |
+        Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+        `settings` lists values that differ from the library's defaults; each must be within the
+        setting's bounds (for regulatory limits, the legal maximum). Omitted settings use the
+        default. Applied at once (200), except in production for a regulatory control when any
+        setting changes or the mode moves away from live: that is proposed (202) and applies when
+        another person with `rules:approve` approves it. Audited.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackRuleConfigRequest"
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleConfig"
+        "202":
+          description: Proposed; applies when another person approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/history:
+    get:
+      operationId: listPackRuleVersions
+      tags: [compliance]
+      summary: A rule's configuration versions in this environment
+      description: Requires `compliance:read`. Newest first; versions never change.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      responses:
+        "200":
+          description: The versions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleVersionList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/rollback:
+    post:
+      operationId: rollbackPackRule
+      tags: [compliance]
+      summary: Restore an earlier configuration as a new version
+      description: |
+        Requires `compliance:configure` and, in the console, a recent second factor. The same
+        approval rule as a configuration change applies.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version, reason]
+              properties:
+                version:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleConfig"
+        "202":
+          description: Proposed; applies when another person approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/changes:
+    get:
+      operationId: listPackRuleChanges
+      tags: [compliance]
+      summary: Configuration changes in this environment
+      description: Requires `compliance:read`. Newest first, at most 200.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChangeList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/changes/{change_id}/approve:
+    post:
+      operationId: approvePackRuleChange
+      tags: [compliance]
+      summary: Approve a pending change
+      description: |
+        Requires `rules:approve` (people only) and, in the console, a recent second factor. Nobody
+        can approve their own change. Applies the change as the rule's next version, credited to
+        its proposer, only if the rule has not changed since (409 otherwise). Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionNote"
+      responses:
+        "200":
+          description: The approved change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/changes/{change_id}/reject:
+    post:
+      operationId: rejectPackRuleChange
+      tags: [compliance]
+      summary: Reject or withdraw a pending change
+      description: |
+        Requires `rules:approve`, or being the change's proposer (withdrawing it). Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionNote"
+      responses:
+        "200":
+          description: The rejected change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/clocks:
     get:
       operationId: listComplianceClocks
@@ -3294,6 +3559,150 @@ components:
           type: boolean
         accept_dpa:
           type: boolean
+    PackRuleMode:
+      type: string
+      description: live (it acts), shadow (it is evaluated and recorded only) or off.
+      enum: [live, shadow, "off"]
+    PackRuleSettings:
+      type: object
+      description: Settings that differ from the library's defaults, by name, in the setting's unit.
+      maxProperties: 32
+      additionalProperties:
+        type: number
+        format: double
+    PackRuleConfigRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, settings, reason]
+      properties:
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Why, for the audit log and the approver.
+    PackRuleConfig:
+      type: object
+      additionalProperties: false
+      required: [rule, version, mode, settings, reason, updated_at, updated_by, pending]
+      properties:
+        rule:
+          type: string
+        version:
+          type: integer
+          description: 0 while the rule runs with the library's defaults.
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+        pending:
+          allOf:
+            - $ref: "#/components/schemas/PackRuleChange"
+          nullable: true
+          description: The change awaiting a second person, if any.
+    PackRuleChange:
+      type: object
+      additionalProperties: false
+      required: [id, rule, base_version, mode, settings, reason, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, decision_note, applied_version]
+      properties:
+        id:
+          type: string
+          example: pch_01j9x2k7m3q4r5s6t7v8w9x0yz
+        rule:
+          type: string
+        base_version:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+        restored_from:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        decided_by:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        decision_note:
+          type: string
+          nullable: true
+        applied_version:
+          type: integer
+          nullable: true
+    PackRuleChangeList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackRuleChange"
+    PackRuleVersion:
+      type: object
+      additionalProperties: false
+      required: [version, mode, settings, reason, created_at, created_by, change_id, restored_from]
+      properties:
+        version:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        change_id:
+          type: string
+          nullable: true
+        restored_from:
+          type: integer
+          nullable: true
+    PackRuleVersionList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackRuleVersion"
+    DecisionNote:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          maxLength: 500
     ComplianceRuleKind:
       type: string
       description: control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
@@ -3397,7 +3806,7 @@ components:
     ComplianceParameter:
       type: object
       additionalProperties: false
-      required: [name, label, type, default, min, max]
+      required: [name, label, type, default, value, min, max]
       properties:
         name:
           type: string
@@ -3416,6 +3825,11 @@ components:
           format: double
           nullable: true
           description: Null when the institution must set the value.
+        value:
+          type: number
+          format: double
+          nullable: true
+          description: The value in this environment (configured, else the default); null when unset.
         min:
           type: number
           format: double
@@ -3459,7 +3873,7 @@ components:
     ComplianceRule:
       type: object
       additionalProperties: false
-      required: [id, name, description, group, kind, status, regulators, applies_to, requires, sources, effective, verification, defaults, inputs, events, outcome, parameters, applicable]
+      required: [id, name, description, group, kind, status, regulators, applies_to, requires, sources, effective, verification, defaults, inputs, events, outcome, parameters, applicable, mode, config_version]
       properties:
         id:
           type: string
@@ -3529,6 +3943,11 @@ components:
           type: boolean
           nullable: true
           description: Whether the rule applies to the workspace's profile; null without a profile.
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        config_version:
+          type: integer
+          description: The rule's configuration version in this environment; 0 means the library's defaults.
         engineering_logic:
           type: string
           description: The library's section 7B logic. Only for `compliance:engineering`.
@@ -4617,10 +5036,10 @@ components:
     Scope:
       type: string
       description: |
-        A permission. API keys can hold any except `rules:approve` and `compliance:write`, which
-        only people hold (a second person approves production rule changes; a person sets the
-        workspace's compliance profile).
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write, compliance:read, compliance:engineering, compliance:write]
+        A permission. API keys can hold any except `rules:approve`, `compliance:write` and
+        `compliance:configure`, which only people hold (a second person approves production rule
+        changes; a person sets the compliance profile and configures pack rules).
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write, compliance:read, compliance:engineering, compliance:write, compliance:configure]
     Whoami:
       type: object
       additionalProperties: false

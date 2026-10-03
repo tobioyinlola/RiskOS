@@ -18,6 +18,7 @@ const param = (p: Partial<Parameter>): Parameter => ({
   label: "P",
   type: "count",
   default: 1,
+  value: null,
   min: 0,
   max: 10,
   ...p,

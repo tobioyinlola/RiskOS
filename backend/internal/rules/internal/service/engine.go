@@ -49,16 +49,26 @@ func (s *Service) TenantPack(ctx context.Context) (*TenantPack, error) {
 		if err != nil {
 			return err
 		}
+		configured, err := s.store.CurrentVersions(ctx, p.ID)
+		if err != nil {
+			return err
+		}
 		out = &TenantPack{Ref: p.ID + "@" + p.Version}
 		for i := range p.Rules {
 			def := &p.Rules[i]
 			applies := applies(def, &c)
-			// Settings overrides and per-tenant modes arrive with rule configuration (phase 4);
-			// until then every rule runs with the library's defaults.
-			if def.Kind == pack.KindGovernance || def.Trigger == nil || !def.Defaults.Enabled || applies == nil || !*applies {
+			if def.Kind == pack.KindGovernance || def.Trigger == nil || applies == nil || !*applies {
 				continue
 			}
-			out.rules = append(out.rules, tenantRule{r: interp.Compile(def, nil), mode: def.Defaults.Mode})
+			// The environment's configuration, or the library's defaults.
+			mode, settings := defaultMode(def), map[string]float64(nil)
+			if v, ok := configured[def.ID]; ok {
+				mode, settings = v.Mode, v.Settings
+			}
+			if mode == ModeOff {
+				continue
+			}
+			out.rules = append(out.rules, tenantRule{r: interp.Compile(def, settings), mode: pack.Mode(mode)})
 		}
 		return nil
 	})

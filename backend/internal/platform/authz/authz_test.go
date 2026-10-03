@@ -17,6 +17,10 @@ func TestRolePermissions(t *testing.T) {
 	assert.False(t, authz.IsCustomerPermission(authz.RulesApprove), "API keys can never approve rule changes")
 	assert.NotContains(t, authz.RolePermissions(authz.RoleDeveloper), authz.AuditLogsRead)
 	assert.False(t, authz.IsCustomerPermission(authz.ComplianceWrite), "API keys can never set the compliance profile")
+	assert.False(t, authz.IsCustomerPermission(authz.ComplianceConfigure), "API keys can never configure pack rules")
+	for _, r := range []authz.Role{authz.RoleCustomerAdmin, authz.RoleRiskManager, authz.RoleComplianceOfficer} {
+		assert.Contains(t, authz.RolePermissions(r), authz.ComplianceConfigure, "role %s", r)
+	}
 
 	// Auditors only read; only engineers and admins see the engineering logic.
 	for _, p := range authz.RolePermissions(authz.RoleAuditor) {

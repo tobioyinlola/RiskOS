@@ -117,6 +117,17 @@ type RuleView struct {
 	// Engineering is true when the caller may see the engineering logic and machine definition;
 	// when false, Text.EngineeringLogic is empty.
 	Engineering bool
+	// Config is the rule's configuration in the caller's environment.
+	Config RuleConfig
+}
+
+// Value returns a setting's value in the caller's environment: configured, else the default;
+// nil when the institution has not set one.
+func (v *RuleView) Value(p pack.Parameter) *float64 {
+	if x, ok := v.Config.Settings[p.Name]; ok {
+		return &x
+	}
+	return p.Default
 }
 
 // Filter narrows a rule list. Empty fields match everything.
@@ -129,6 +140,8 @@ type Filter struct {
 type library struct {
 	pack    PackView
 	profile *store.Compliance
+	// configured are the rules configured in the caller's environment, by ID.
+	configured map[string]store.RuleVersion
 }
 
 // load returns the pack on the tenant's profile, or the most recently loaded pack without one.
@@ -155,6 +168,9 @@ func (s *Service) load(ctx context.Context, tenant tenancy.Scope) (library, erro
 		return library{}, err
 	}
 	lib.pack = PackView{Pack: p, LoadedAt: rec.LoadedAt}
+	if lib.configured, err = s.store.CurrentVersions(ctx, p.ID); err != nil {
+		return library{}, err
+	}
 	return lib, nil
 }
 
@@ -225,8 +241,12 @@ func applies(r *pack.Rule, c *store.Compliance) *bool {
 	return &ok
 }
 
-func view(r *pack.Rule, c *store.Compliance, engineering bool) RuleView {
-	v := RuleView{Rule: *r, Applicable: applies(r, c), Engineering: engineering}
+func (lib *library) view(r *pack.Rule, engineering bool) RuleView {
+	var cfg *store.RuleVersion
+	if c, ok := lib.configured[r.ID]; ok {
+		cfg = &c
+	}
+	v := RuleView{Rule: *r, Applicable: applies(r, lib.profile), Engineering: engineering, Config: configOf(r, cfg)}
 	if !engineering {
 		v.Text.EngineeringLogic = ""
 	}
@@ -261,7 +281,7 @@ func (s *Service) Rules(ctx context.Context, f Filter) ([]RuleView, error) {
 	}
 	out := []RuleView{}
 	for i := range lib.pack.Rules {
-		v := view(&lib.pack.Rules[i], lib.profile, false)
+		v := lib.view(&lib.pack.Rules[i], false)
 		if f.match(&v) {
 			out = append(out, v)
 		}
@@ -281,7 +301,7 @@ func (s *Service) Rule(ctx context.Context, id string) (RuleView, error) {
 		return RuleView{}, fmt.Errorf("%w: rule %s", ErrNotFound, id)
 	}
 	engineering := authz.Require(ctx, authz.ComplianceEngineering) == nil
-	return view(&lib.pack.Rules[i], lib.profile, engineering), nil
+	return lib.view(&lib.pack.Rules[i], engineering), nil
 }
 
 func profileView(c store.Compliance, jurisdiction string) Profile {

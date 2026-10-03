@@ -12,6 +12,96 @@ import (
 	"github.com/google/uuid"
 )
 
+const currentRuleVersions = `-- name: CurrentRuleVersions :many
+
+SELECT DISTINCT ON (rule_id) rule_id, version, mode, settings, reason, created_at, created_by, change_id, restored_from
+FROM pack_rule_versions
+WHERE tenant_id = $1 AND environment_id = $2 AND pack_id = $3
+ORDER BY rule_id, version DESC
+`
+
+type CurrentRuleVersionsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	PackID        string
+}
+
+type CurrentRuleVersionsRow struct {
+	RuleID       string
+	Version      int32
+	Mode         string
+	Settings     []byte
+	Reason       string
+	CreatedAt    time.Time
+	CreatedBy    string
+	ChangeID     *uuid.UUID
+	RestoredFrom *int32
+}
+
+// Rule configuration (per environment). Every query names the tenant and environment; row-level
+// security limits them to the scope's.
+func (q *Queries) CurrentRuleVersions(ctx context.Context, arg CurrentRuleVersionsParams) ([]CurrentRuleVersionsRow, error) {
+	rows, err := q.db.Query(ctx, currentRuleVersions, arg.TenantID, arg.EnvironmentID, arg.PackID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CurrentRuleVersionsRow
+	for rows.Next() {
+		var i CurrentRuleVersionsRow
+		if err := rows.Scan(
+			&i.RuleID,
+			&i.Version,
+			&i.Mode,
+			&i.Settings,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.ChangeID,
+			&i.RestoredFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const decideRuleChange = `-- name: DecideRuleChange :exec
+UPDATE pack_rule_changes
+SET status = $1, decided_by = $2, decided_at = $3, decision_note = $4,
+    applied_version = $5
+WHERE tenant_id = $6 AND environment_id = $7 AND id = $8
+`
+
+type DecideRuleChangeParams struct {
+	Status         string
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	DecisionNote   *string
+	AppliedVersion *int32
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+}
+
+func (q *Queries) DecideRuleChange(ctx context.Context, arg DecideRuleChangeParams) error {
+	_, err := q.db.Exec(ctx, decideRuleChange,
+		arg.Status,
+		arg.DecidedBy,
+		arg.DecidedAt,
+		arg.DecisionNote,
+		arg.AppliedVersion,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+	)
+	return err
+}
+
 const getCompliance = `-- name: GetCompliance :one
 
 SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by
@@ -56,6 +146,61 @@ func (q *Queries) GetPack(ctx context.Context, arg GetPackParams) (RulePack, err
 		&i.Checksum,
 		&i.Meta,
 		&i.LoadedAt,
+	)
+	return i, err
+}
+
+const getRuleChange = `-- name: GetRuleChange :one
+SELECT id, pack_id, rule_id, base_version, mode, settings, reason, restored_from, status, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note, applied_version
+FROM pack_rule_changes
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+FOR UPDATE
+`
+
+type GetRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+type GetRuleChangeRow struct {
+	ID             uuid.UUID
+	PackID         string
+	RuleID         string
+	BaseVersion    int32
+	Mode           string
+	Settings       []byte
+	Reason         string
+	RestoredFrom   *int32
+	Status         string
+	ProposedBy     string
+	ProposedAt     time.Time
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	DecisionNote   *string
+	AppliedVersion *int32
+}
+
+func (q *Queries) GetRuleChange(ctx context.Context, arg GetRuleChangeParams) (GetRuleChangeRow, error) {
+	row := q.db.QueryRow(ctx, getRuleChange, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i GetRuleChangeRow
+	err := row.Scan(
+		&i.ID,
+		&i.PackID,
+		&i.RuleID,
+		&i.BaseVersion,
+		&i.Mode,
+		&i.Settings,
+		&i.Reason,
+		&i.RestoredFrom,
+		&i.Status,
+		&i.ProposedBy,
+		&i.ProposedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.AppliedVersion,
 	)
 	return i, err
 }
@@ -108,6 +253,82 @@ func (q *Queries) InsertPackRule(ctx context.Context, arg InsertPackRuleParams) 
 		arg.Kind,
 		arg.Definition,
 		arg.Wording,
+	)
+	return err
+}
+
+const insertRuleChange = `-- name: InsertRuleChange :exec
+INSERT INTO pack_rule_changes (tenant_id, environment_id, id, pack_id, rule_id, base_version, mode, settings, reason, restored_from, status, proposed_by, proposed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, 'pending', $11, $12)
+`
+
+type InsertRuleChangeParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	PackID        string
+	RuleID        string
+	BaseVersion   int32
+	Mode          string
+	Settings      []byte
+	Reason        string
+	RestoredFrom  *int32
+	ProposedBy    string
+	ProposedAt    time.Time
+}
+
+func (q *Queries) InsertRuleChange(ctx context.Context, arg InsertRuleChangeParams) error {
+	_, err := q.db.Exec(ctx, insertRuleChange,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+		arg.PackID,
+		arg.RuleID,
+		arg.BaseVersion,
+		arg.Mode,
+		arg.Settings,
+		arg.Reason,
+		arg.RestoredFrom,
+		arg.ProposedBy,
+		arg.ProposedAt,
+	)
+	return err
+}
+
+const insertRuleVersion = `-- name: InsertRuleVersion :exec
+INSERT INTO pack_rule_versions (tenant_id, environment_id, pack_id, rule_id, version, mode, settings, reason, created_at, created_by, change_id, restored_from)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+`
+
+type InsertRuleVersionParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	PackID        string
+	RuleID        string
+	Version       int32
+	Mode          string
+	Settings      []byte
+	Reason        string
+	CreatedAt     time.Time
+	CreatedBy     string
+	ChangeID      *uuid.UUID
+	RestoredFrom  *int32
+}
+
+func (q *Queries) InsertRuleVersion(ctx context.Context, arg InsertRuleVersionParams) error {
+	_, err := q.db.Exec(ctx, insertRuleVersion,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.PackID,
+		arg.RuleID,
+		arg.Version,
+		arg.Mode,
+		arg.Settings,
+		arg.Reason,
+		arg.CreatedAt,
+		arg.CreatedBy,
+		arg.ChangeID,
+		arg.RestoredFrom,
 	)
 	return err
 }
@@ -172,6 +393,83 @@ func (q *Queries) ListPackRules(ctx context.Context, arg ListPackRulesParams) ([
 	return items, nil
 }
 
+const listRuleChanges = `-- name: ListRuleChanges :many
+SELECT id, pack_id, rule_id, base_version, mode, settings, reason, restored_from, status, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note, applied_version
+FROM pack_rule_changes
+WHERE tenant_id = $1 AND environment_id = $2
+  AND ($3::text IS NULL OR status = $3::text)
+  AND ($4::text IS NULL OR rule_id = $4::text)
+ORDER BY proposed_at DESC
+LIMIT 200
+`
+
+type ListRuleChangesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Status        *string
+	RuleID        *string
+}
+
+type ListRuleChangesRow struct {
+	ID             uuid.UUID
+	PackID         string
+	RuleID         string
+	BaseVersion    int32
+	Mode           string
+	Settings       []byte
+	Reason         string
+	RestoredFrom   *int32
+	Status         string
+	ProposedBy     string
+	ProposedAt     time.Time
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	DecisionNote   *string
+	AppliedVersion *int32
+}
+
+func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams) ([]ListRuleChangesRow, error) {
+	rows, err := q.db.Query(ctx, listRuleChanges,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Status,
+		arg.RuleID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRuleChangesRow
+	for rows.Next() {
+		var i ListRuleChangesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.PackID,
+			&i.RuleID,
+			&i.BaseVersion,
+			&i.Mode,
+			&i.Settings,
+			&i.Reason,
+			&i.RestoredFrom,
+			&i.Status,
+			&i.ProposedBy,
+			&i.ProposedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.DecisionNote,
+			&i.AppliedVersion,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const packChecksum = `-- name: PackChecksum :one
 
 SELECT checksum FROM rule_packs WHERE id = $1 AND version = $2
@@ -189,6 +487,65 @@ func (q *Queries) PackChecksum(ctx context.Context, arg PackChecksumParams) (str
 	var checksum string
 	err := row.Scan(&checksum)
 	return checksum, err
+}
+
+const ruleVersions = `-- name: RuleVersions :many
+SELECT version, mode, settings, reason, created_at, created_by, change_id, restored_from
+FROM pack_rule_versions
+WHERE tenant_id = $1 AND environment_id = $2 AND pack_id = $3 AND rule_id = $4
+ORDER BY version DESC
+`
+
+type RuleVersionsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	PackID        string
+	RuleID        string
+}
+
+type RuleVersionsRow struct {
+	Version      int32
+	Mode         string
+	Settings     []byte
+	Reason       string
+	CreatedAt    time.Time
+	CreatedBy    string
+	ChangeID     *uuid.UUID
+	RestoredFrom *int32
+}
+
+func (q *Queries) RuleVersions(ctx context.Context, arg RuleVersionsParams) ([]RuleVersionsRow, error) {
+	rows, err := q.db.Query(ctx, ruleVersions,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.PackID,
+		arg.RuleID,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RuleVersionsRow
+	for rows.Next() {
+		var i RuleVersionsRow
+		if err := rows.Scan(
+			&i.Version,
+			&i.Mode,
+			&i.Settings,
+			&i.Reason,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.ChangeID,
+			&i.RestoredFrom,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const upsertCompliance = `-- name: UpsertCompliance :one

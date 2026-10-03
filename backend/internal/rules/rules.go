@@ -33,6 +33,13 @@ type LibraryHandlers interface {
 	ListComplianceGlossary(ctx context.Context, req apigen.ListComplianceGlossaryRequestObject) (apigen.ListComplianceGlossaryResponseObject, error)
 	GetComplianceProfile(ctx context.Context, req apigen.GetComplianceProfileRequestObject) (apigen.GetComplianceProfileResponseObject, error)
 	PutComplianceProfile(ctx context.Context, req apigen.PutComplianceProfileRequestObject) (apigen.PutComplianceProfileResponseObject, error)
+	GetPackRuleConfig(ctx context.Context, req apigen.GetPackRuleConfigRequestObject) (apigen.GetPackRuleConfigResponseObject, error)
+	PutPackRuleConfig(ctx context.Context, req apigen.PutPackRuleConfigRequestObject) (apigen.PutPackRuleConfigResponseObject, error)
+	ListPackRuleVersions(ctx context.Context, req apigen.ListPackRuleVersionsRequestObject) (apigen.ListPackRuleVersionsResponseObject, error)
+	RollbackPackRule(ctx context.Context, req apigen.RollbackPackRuleRequestObject) (apigen.RollbackPackRuleResponseObject, error)
+	ListPackRuleChanges(ctx context.Context, req apigen.ListPackRuleChangesRequestObject) (apigen.ListPackRuleChangesResponseObject, error)
+	ApprovePackRuleChange(ctx context.Context, req apigen.ApprovePackRuleChangeRequestObject) (apigen.ApprovePackRuleChangeResponseObject, error)
+	RejectPackRuleChange(ctx context.Context, req apigen.RejectPackRuleChangeRequestObject) (apigen.RejectPackRuleChangeResponseObject, error)
 }
 
 // Module is the rules module.

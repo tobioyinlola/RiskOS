@@ -58,6 +58,13 @@ const RulesApprove Permission = "rules:approve"
 //nolint:gosec // G101 false positive: a permission name
 const ComplianceWrite Permission = "compliance:write"
 
+// ComplianceConfigure sets a rule pack rule's mode and settings in an environment. Only people
+// hold it; in production, a change that could loosen a regulatory control also needs a second
+// person with RulesApprove.
+//
+//nolint:gosec // G101 false positive: a permission name
+const ComplianceConfigure Permission = "compliance:configure"
+
 // System permissions are held only by RiskOS's own background jobs, never by a customer
 // credential or role.
 const (
@@ -79,7 +86,7 @@ func CustomerPermissions() []Permission {
 // PersonPermissions returns every permission a customer role can hold: the customer
 // permissions plus those reserved for people.
 func PersonPermissions() []Permission {
-	return append(CustomerPermissions(), RulesApprove, ComplianceWrite)
+	return append(CustomerPermissions(), RulesApprove, ComplianceWrite, ComplianceConfigure)
 }
 
 // IsCustomerPermission reports whether p exists and may be granted to a customer credential.
@@ -127,14 +134,14 @@ func RolePermissions(r Role) []Permission {
 	case RoleRiskManager:
 		return []Permission{
 			EventsRead, RiskEvaluate, RulesRead, RulesWrite, RulesApprove, RiskConfigure,
-			AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead,
+			AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead, ComplianceConfigure,
 		}
 	case RoleAnalyst:
 		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead}
 	case RoleComplianceOfficer:
 		return []Permission{
 			EventsRead, RulesRead, RulesApprove, AlertsRead, AlertsWrite, CasesRead, CasesWrite, AuditLogsRead,
-			TeamRead, ComplianceRead, ComplianceWrite,
+			TeamRead, ComplianceRead, ComplianceWrite, ComplianceConfigure,
 		}
 	case RoleAuditor:
 		return []Permission{EventsRead, RulesRead, AlertsRead, CasesRead, AuditLogsRead, TeamRead, ComplianceRead}

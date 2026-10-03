@@ -254,6 +254,41 @@ type PackRule struct {
 	Wording     []byte
 }
 
+type PackRuleChange struct {
+	TenantID       uuid.UUID
+	EnvironmentID  uuid.UUID
+	ID             uuid.UUID
+	PackID         string
+	RuleID         string
+	BaseVersion    int32
+	Mode           string
+	Settings       []byte
+	Reason         string
+	RestoredFrom   *int32
+	Status         string
+	ProposedBy     string
+	ProposedAt     time.Time
+	DecidedBy      *string
+	DecidedAt      *time.Time
+	DecisionNote   *string
+	AppliedVersion *int32
+}
+
+type PackRuleVersion struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	PackID        string
+	RuleID        string
+	Version       int32
+	Mode          string
+	Settings      []byte
+	Reason        string
+	CreatedAt     time.Time
+	CreatedBy     string
+	ChangeID      *uuid.UUID
+	RestoredFrom  *int32
+}
+
 type RiskSetting struct {
 	TenantID             uuid.UUID
 	EnvironmentID        uuid.UUID

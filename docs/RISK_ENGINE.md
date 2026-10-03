@@ -255,6 +255,29 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
 - **Amounts** are compared in one currency only: there is no conversion on the hot path. Rules
   on US dollar amounts read `txn.amount_usd`, sent by the customer from its own rates.
 
+### Configuration
+
+Each environment can set a rule's mode (`live`, `shadow`, `off`) and its settings
+(`PUT /api/v1/compliance/rules/{rule_id}/config`, people with `compliance:configure`, a recent
+second factor in the console):
+
+- **Bounds.** Every setting stays within the pack's minimum and maximum; for regulatory limits
+  the maximum is the legal one. Money, counts, durations, hours and points are whole numbers. A
+  value equal to the default is not stored, so "back to the default" is one state.
+- **Versions.** Every change is a new immutable version with its reason and author; version 0 is
+  the library's defaults. A rollback restores an earlier version as the next one.
+- **Two people in production.** For a regulatory control, any settings change and any move away
+  from `live` is proposed (`202`, `pch_…`) and applies only when another person with
+  `rules:approve` approves it, credited to the proposer, and only if the rule has not changed
+  since (`409` otherwise). Whether a setting loosens depends on how the rule uses it, so every
+  settings change is checked. Switching a control back to `live`, and any change in the test
+  environment or to a risk-scoring rule, applies at once. A rule has at most one pending change;
+  the proposer can withdraw it.
+- **Audit.** `pack_rule.configured`, `pack_rule.change_proposed`, `pack_rule.change_approved`
+  and `pack_rule.change_rejected`, with the settings and mode before and after.
+- **Effect.** The engine runs each rule with its environment's configuration; other API
+  instances pick a change up within 5 seconds (the risk configuration cache).
+
 ### Pack windows
 
 Windowed aggregates (counts, sums, daily averages, distinct counts) are kept in Redis, never
