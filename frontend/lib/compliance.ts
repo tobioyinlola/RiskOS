@@ -214,6 +214,7 @@ export const TASK_LABEL: Record<string, string> = {
   "report.FTR": "Foreign transaction report",
   "report.PEP_monthly": "Monthly PEP transaction report",
   "report.sanctions": "Sanctions match report",
+  "report.industry_fraud": "Industry fraud report",
   "case.open": "Open a case",
   edd: "Enhanced due diligence",
   source_of_funds: "Source of funds",

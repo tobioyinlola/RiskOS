@@ -1740,7 +1740,10 @@ export interface paths {
          *     enhanced due diligence, freezing or closing an account), open ones first by deadline, at
          *     most 500. Suspicious transaction reports are listed only for `compliance:sensitive`
          *     (GOV-09). For callers who read alerts, `escalations` lists alerts still open past REG-14's
-         *     screening deadline (72 hours by default).
+         *     screening deadline (72 hours by default) and high or critical alerts nobody acted on
+         *     within GOV-11's response target (30 minutes by default). For callers who read cases,
+         *     `unreported_fraud` lists cases resolved as confirmed fraud without an industry fraud
+         *     report (GOV-12), at most 200.
          */
         get: operations["listComplianceTasks"];
         put?: never;
@@ -1884,6 +1887,30 @@ export interface paths {
         get: operations["exportComplianceReport"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/fraud-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Prepare an industry fraud report for a confirmed-fraud case
+         * @description Requires `compliance:write`. Opens a draft industry fraud report (GOV-12) for a case
+         *     resolved as confirmed fraud, prefilled from the case. A compliance officer approves it and
+         *     a person files it with the industry channel (NIBSS) and records the reference: RiskOS
+         *     never submits it. One report per case unless it was dismissed (409). No deadline is
+         *     set: the source does not state one. Audited.
+         */
+        post: operations["prepareFraudReport"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2244,7 +2271,7 @@ export interface components {
         ComplianceTask: {
             /** @example ctk_01j9x2k7m3q4r5s6t7v8w9x0yz */
             id: string;
-            /** @description report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account. */
+            /** @description report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, report.industry_fraud, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account. */
             kind: string;
             rule: string;
             status: components["schemas"]["ComplianceTaskStatus"];
@@ -2254,6 +2281,8 @@ export interface components {
             due_at: string | null;
             overdue: boolean;
             subject_ref: string | null;
+            /** @description The account it concerns (REG-16 closes accounts without a BVN). */
+            account_ref: string | null;
             evaluation_id: string | null;
             event_id: string | null;
             case_id: string | null;
@@ -2275,21 +2304,37 @@ export interface components {
             close_note: string | null;
             filing_ref: string | null;
         };
+        /** @description An alert still open past a deadline of the pack. */
         ScreeningEscalation: {
             alert_id: string;
+            /**
+             * @description REG-14 (screening deadline) or GOV-11 (fraud response target).
+             * @enum {string}
+             */
+            rule: "REG-14" | "GOV-11";
             title: string;
             subject_ref: string;
+            /** @enum {string} */
+            severity: "low" | "medium" | "high" | "critical";
             /** Format: date-time */
             created_at: string;
             /**
              * Format: date-time
-             * @description When screening was due (REG-14).
+             * @description When the alert was due.
              */
             due_at: string;
+        };
+        /** @description A case resolved as confirmed fraud without an industry fraud report (GOV-12). */
+        UnreportedFraudCase: {
+            case_id: string;
+            title: string;
+            /** Format: date-time */
+            resolved_at: string;
         };
         ComplianceQueue: {
             data: components["schemas"]["ComplianceTask"][];
             escalations: components["schemas"]["ScreeningEscalation"][];
+            unreported_fraud: components["schemas"]["UnreportedFraudCase"][];
         };
         /**
          * @description live (it acts), shadow (it is evaluated and recorded only) or off.
@@ -6858,6 +6903,38 @@ export interface operations {
                     "application/json": components["schemas"]["ComplianceTask"];
                 };
             };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    prepareFraudReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    case_id: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The report, a draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];

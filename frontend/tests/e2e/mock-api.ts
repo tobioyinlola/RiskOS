@@ -125,6 +125,9 @@ export interface MockApi {
   ruleChanges: MockRuleChange[];
   /** Compliance tasks (ReturnType<typeof task>). */
   tasks: ReturnType<typeof task>[];
+  /** Alerts past a deadline of the pack, and confirmed fraud not yet reported. */
+  escalations: Record<string, unknown>[];
+  unreportedFraud: { case_id: string; title: string; resolved_at: string }[];
   /** Exchange rates by currency. */
   fxRates: Record<string, number>;
   /** The workspace's compliance profile (null until set). */
@@ -327,6 +330,8 @@ export async function mockApi(page: Page): Promise<MockApi> {
     ruleChanges: [],
     fxRates: {},
     tasks: [],
+    escalations: [],
+    unreportedFraud: [],
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -622,6 +627,28 @@ export async function mockApi(page: Page): Promise<MockApi> {
       }
       return json(route, t);
     }
+    if (path === "/compliance/fraud-reports") {
+      const c = state.unreportedFraud.find((x) => x.case_id === body?.case_id);
+      if (!c)
+        return error(route, 400, "INVALID_REQUEST", "Not confirmed fraud.");
+      state.unreportedFraud = state.unreportedFraud.filter((x) => x !== c);
+      const t = task(
+        `ctk_${state.tasks.length + 1}`,
+        "report.industry_fraud",
+        "GOV-12",
+        {
+          case_id: c.case_id,
+          due_at: null,
+          report: {
+            category: "fraud",
+            case_title: c.title,
+            narrative: "Credentials phished.",
+          },
+        },
+      );
+      state.tasks.push(t);
+      return json(route, t, 201);
+    }
     if (path === "/compliance/suspicion") {
       const t = task(`ctk_${state.tasks.length + 1}`, "report.STR", "REG-14", {
         case_id: body?.case_id,
@@ -665,7 +692,8 @@ export async function mockApi(page: Page): Promise<MockApi> {
             (t) =>
               (sensitive || !t.sensitive) && (!status || t.status === status),
           ),
-          escalations: [],
+          escalations: state.escalations,
+          unreported_fraud: state.unreportedFraud,
         });
       }
       case "/compliance/restricted-signals":
