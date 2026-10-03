@@ -100,6 +100,9 @@ func record(p *pack.Pack) (store.PackRecord, error) {
 type PackView struct {
 	*pack.Pack
 	LoadedAt time.Time
+	// Latest is the newest loaded version of the pack's jurisdiction: saving the compliance
+	// profile adopts it.
+	Latest string
 }
 
 // Profile is a tenant's compliance profile.
@@ -171,7 +174,12 @@ func (s *Service) load(ctx context.Context, tenant tenancy.Scope) (library, erro
 	if err != nil {
 		return library{}, err
 	}
-	lib.pack = PackView{Pack: p, LoadedAt: rec.LoadedAt}
+	lib.pack = PackView{Pack: p, LoadedAt: rec.LoadedAt, Latest: p.Version}
+	if latest, err := s.store.LatestPack(ctx, p.Jurisdiction); err == nil {
+		lib.pack.Latest = latest.Version
+	} else if !errors.Is(err, store.ErrNotFound) {
+		return library{}, err
+	}
 	if lib.configured, err = s.store.CurrentVersions(ctx, p.ID); err != nil {
 		return library{}, err
 	}
@@ -367,17 +375,14 @@ func (s *Service) SaveProfile(ctx context.Context, in ProfileInput, now time.Tim
 		if err != nil && !errors.Is(err, ErrNotFound) {
 			return err
 		}
-		var rec store.PackRecord
-		if lib.profile != nil && lib.pack.Jurisdiction == in.Jurisdiction {
-			rec = store.PackRecord{ID: lib.pack.ID, Version: lib.pack.Version, Checksum: lib.pack.Checksum}
-		} else {
-			rec, err = s.store.LatestPack(ctx, in.Jurisdiction)
-			if errors.Is(err, store.ErrNotFound) {
-				return fmt.Errorf("%w: there is no rule pack for jurisdiction %s", ErrInvalidInput, in.Jurisdiction)
-			}
-			if err != nil {
-				return err
-			}
+		// Saving the profile adopts the jurisdiction's latest pack version; rule configuration
+		// carries over (it is kept per pack, not per version).
+		rec, err := s.store.LatestPack(ctx, in.Jurisdiction)
+		if errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("%w: there is no rule pack for jurisdiction %s", ErrInvalidInput, in.Jurisdiction)
+		}
+		if err != nil {
+			return err
 		}
 		p, err := s.decoded(ctx, rec)
 		if err != nil {

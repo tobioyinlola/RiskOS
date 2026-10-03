@@ -104,8 +104,8 @@ return out
 // profileScript keeps first activity per user (KEYS[1]), last activity per account (KEYS[2]), the
 // largest amount per user and currency, and the hours of the day (ARGV[6], Lagos time) the user
 // was active in as a 24-bit mask, all by event time. Returns the user's first activity, the
-// account's previous activity, the previous largest amount and the previous hour mask ("" when
-// unknown).
+// account's previous activity, the previous largest amount, the previous hour mask and the
+// previous location and its time ("" when unknown).
 const profileScript = `
 local now = tonumber(ARGV[2])
 local first = redis.call('HGET', KEYS[1], 'first')
@@ -115,6 +115,10 @@ local maxf = 'max:' .. ARGV[4]
 local max = ''
 if ARGV[4] ~= '' then max = redis.call('HGET', KEYS[1], maxf) or '' end
 local hours = redis.call('HGET', KEYS[1], 'hours') or ''
+local geo = redis.call('HMGET', KEYS[1], 'lat', 'lon', 'geo_at')
+if ARGV[1] == '1' and ARGV[7] ~= '' and (not geo[3] or tonumber(geo[3]) <= now) then
+  redis.call('HSET', KEYS[1], 'lat', ARGV[7], 'lon', ARGV[8], 'geo_at', now)
+end
 if ARGV[1] == '1' then
   if ARGV[6] ~= '' then
     local mask = tonumber(hours ~= '' and hours or '0')
@@ -126,7 +130,7 @@ if ARGV[1] == '1' then
   redis.call('PEXPIRE', KEYS[1], ARGV[5])
   if KEYS[2] ~= KEYS[1] then redis.call('PEXPIRE', KEYS[2], ARGV[5]) end
 end
-return {first or '', last, max, hours}
+return {first or '', last, max, hours, geo[1] or '', geo[2] or '', geo[3] or ''}
 `
 
 // exportScript keeps a running mean of rows per export for a user (KEYS[1]) and an environment
@@ -199,7 +203,12 @@ func (s *FeatureStore) Windows(ctx context.Context, ops []features.WindowOp, e f
 	if e.Hour >= 0 {
 		hour = strconv.Itoa(e.Hour)
 	}
-	prof := s.profile.EvalSha(ctx, pipe, []string{user, account}, boolArg(write), at, e.Amount, e.Currency, profileTTL.Milliseconds(), hour)
+	lat, lon := "", ""
+	if e.Geo != nil {
+		lat, lon = strconv.FormatFloat(e.Geo.Lat, 'f', 2, 64), strconv.FormatFloat(e.Geo.Lon, 'f', 2, 64)
+	}
+	prof := s.profile.EvalSha(ctx, pipe, []string{user, account}, boolArg(write), at, e.Amount, e.Currency,
+		profileTTL.Milliseconds(), hour, lat, lon)
 	var exp *redis.Cmd
 	if e.ExportRows != nil {
 		exp = s.export.EvalSha(ctx, pipe, []string{k.entity("u", e.UserID) + ":exp", k.entity("n", "*") + ":exp"},
@@ -230,7 +239,7 @@ func (s *FeatureStore) Windows(ctx context.Context, ops []features.WindowOp, e f
 			}
 		}
 	}
-	if p, err := prof.StringSlice(); err == nil && len(p) == 4 {
+	if p, err := prof.StringSlice(); err == nil && len(p) == 7 {
 		profile = parseProfile(p)
 	}
 	if exp != nil {
@@ -257,6 +266,11 @@ func parseProfile(p []string) features.Activity {
 	}
 	if h, err := strconv.ParseInt(p[3], 10, 64); err == nil {
 		out.Hours = &h
+	}
+	lat, errLat := strconv.ParseFloat(p[4], 64)
+	lon, errLon := strconv.ParseFloat(p[5], 64)
+	if at := ms(p[6]); errLat == nil && errLon == nil && at != nil {
+		out.LastGeo, out.LastGeoAt = &features.Geo{Lat: lat, Lon: lon}, at
 	}
 	return out
 }

@@ -909,11 +909,51 @@
           },
           {
             "left": {
-              "fact": "flows.prior_sender_outflow_share"
+              "agg": {
+                "fn": "exists",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "txn.to_prior_sender"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": true
+                  }
+                }
+              }
             },
             "op": "gte",
             "right": {
-              "param": "share"
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_outbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
             }
           }
         ]

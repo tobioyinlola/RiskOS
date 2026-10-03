@@ -9,6 +9,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/netip"
 	"strings"
 	"time"
@@ -46,6 +47,13 @@ type Context struct {
 	IP        string `json:"ip,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
 	Country   string `json:"country,omitempty"`
+	Geo       *Geo   `json:"geo,omitempty"`
+}
+
+// Geo is where the end user was, rounded to 2 decimals (about 1 km) when normalized.
+type Geo struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 // Event is a validated-by-contract event, before normalization.
@@ -92,6 +100,10 @@ func Normalize(e Event) (Normalized, *netip.Addr, error) {
 		addr = addr.Unmap()
 		n.Context.IP = addr.String()
 		ip = &addr
+	}
+	if g := e.Context.Geo; g != nil {
+		// Coarse enough not to pinpoint a person, precise enough for travel speeds.
+		n.Context.Geo = &Geo{Lat: math.Round(g.Lat*100) / 100, Lon: math.Round(g.Lon*100) / 100}
 	}
 	var compact bytes.Buffer
 	if err := json.Compact(&compact, e.Data); err != nil {

@@ -42,3 +42,22 @@ func TestExportBaselines(t *testing.T) {
 	assert.InDelta(t, 6.0, f["export.rows_to_user_baseline"], 0)
 	assert.NotContains(t, f, "export.rows_to_tenant_baseline", "four exports are too few for a baseline")
 }
+
+func TestTravelSpeed(t *testing.T) {
+	e := parse(t, `{"type":"login","occurred_at":"2026-09-30T12:00:00Z","actor":{"user_id":"u1"},
+		"context":{"geo":{"lat":51.51,"lon":-0.13}},"data":{"outcome":"success","method":"password"}}`)
+	lagos := features.Geo{Lat: 6.52, Lon: 3.38}
+	hourBefore := e.OccurredAt.Add(-time.Hour)
+	f := features.PackFacts(e, features.Values{}, features.Activity{LastGeo: &lagos, LastGeoAt: &hourBefore})
+	speed, ok := f["geo.speed_from_previous"].(float64)
+	assert.True(t, ok)
+	assert.InDelta(t, 5000, speed, 100, "Lagos to London in an hour")
+
+	london := features.Geo{Lat: 51.51, Lon: -0.13}
+	f = features.PackFacts(e, features.Values{}, features.Activity{LastGeo: &london, LastGeoAt: &hourBefore})
+	assert.InDelta(t, 0, f["geo.speed_from_previous"], 0.1)
+
+	later := e.OccurredAt.Add(time.Hour)
+	f = features.PackFacts(e, features.Values{}, features.Activity{LastGeo: &lagos, LastGeoAt: &later})
+	assert.NotContains(t, f, "geo.speed_from_previous", "an event older than the last location says nothing")
+}

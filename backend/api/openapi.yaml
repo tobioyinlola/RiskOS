@@ -3672,8 +3672,8 @@ paths:
       summary: Set the workspace's compliance profile
       description: |
         Requires `compliance:write` (people only). Sets the jurisdiction, licence type and capabilities
-        that decide which rules apply. The workspace stays on its pack version unless the
-        jurisdiction changes, which moves it to that jurisdiction's latest pack. Audited.
+        that decide which rules apply. Saving adopts the jurisdiction's latest pack version
+        (`latest_version` on the pack); rule configuration carries over. Audited.
       requestBody:
         required: true
         content:
@@ -4483,7 +4483,7 @@ components:
     CompliancePack:
       type: object
       additionalProperties: false
-      required: [id, jurisdiction, name, version, checksum, loaded_at, groups, licence_types, capabilities, sources, counts]
+      required: [id, jurisdiction, name, version, latest_version, checksum, loaded_at, groups, licence_types, capabilities, sources, counts]
       properties:
         id:
           type: string
@@ -4494,6 +4494,9 @@ components:
           type: string
         version:
           type: string
+        latest_version:
+          type: string
+          description: The newest loaded version for the jurisdiction. When it differs from `version`, saving the compliance profile adopts it.
         checksum:
           type: string
           description: SHA-256 of the pack's files. A loaded version never changes.
@@ -6217,6 +6220,26 @@ components:
           type: string
           pattern: "^[A-Z]{2}$"
           description: ISO 3166-1 alpha-2.
+        geo:
+          $ref: "#/components/schemas/GeoPoint"
+    GeoPoint:
+      type: object
+      additionalProperties: false
+      required: [lat, lon]
+      description: |
+        Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
+        decimals (about 1 km) before storing it.
+      properties:
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
     LoginData:
       type: object
       additionalProperties: false

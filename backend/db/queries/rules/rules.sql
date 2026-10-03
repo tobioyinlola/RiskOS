@@ -20,7 +20,8 @@ FROM rule_packs WHERE id = @id AND version = @version;
 SELECT id, version, jurisdiction, name, checksum, meta, loaded_at
 FROM rule_packs
 WHERE (sqlc.narg(jurisdiction)::text IS NULL OR jurisdiction = sqlc.narg(jurisdiction)::text)
-ORDER BY loaded_at DESC, version DESC
+-- Versions compare as numbers ("2026.10.1" after "2026.9.0"), whatever order they were loaded in.
+ORDER BY string_to_array(version, '.')::int[] DESC
 LIMIT 1;
 
 -- name: ListPackRules :many

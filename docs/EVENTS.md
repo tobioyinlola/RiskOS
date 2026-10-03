@@ -30,7 +30,8 @@ normalization, idempotency, persistence and hand-off to risk evaluation. Design:
 ## Envelope
 
 Every event has `event_id`, `type`, `occurred_at`, `actor` (`user_id` required; `account_id`,
-`device_id`, `session_id` optional), optional `context` (`ip`, `user_agent`, `country`) and a
+`device_id`, `session_id` optional), optional `context` (`ip`, `user_agent`, `country`, and `geo`
+with `lat` and `lon`, rounded to 2 decimals, about 1 km, before it is stored) and a
 `data` object whose shape depends on `type`:
 
 | type | data |

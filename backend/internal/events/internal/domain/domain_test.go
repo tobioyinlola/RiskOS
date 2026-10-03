@@ -143,3 +143,11 @@ func TestNormalizeComplianceBlock(t *testing.T) {
 	_, _, err = domain.Normalize(act)
 	assert.ErrorIs(t, err, domain.ErrInvalidEvent, "an activity names its kind")
 }
+
+func TestNormalizeRoundsCoordinates(t *testing.T) {
+	e := event()
+	e.Context.Geo = &domain.Geo{Lat: 6.524379, Lon: 3.379206}
+	n, _, err := domain.Normalize(e)
+	require.NoError(t, err)
+	assert.Equal(t, &domain.Geo{Lat: 6.52, Lon: 3.38}, n.Context.Geo, "about 1 km, never a precise location")
+}

@@ -2,7 +2,7 @@
   "id": "ng",
   "jurisdiction": "NG",
   "name": "Nigeria",
-  "version": "2026.10.0",
+  "version": "2026.10.1",
   "groups": [
     { "id": "mandatory_controls", "label": "Mandatory controls" },
     { "id": "account_takeover", "label": "Account takeover" },

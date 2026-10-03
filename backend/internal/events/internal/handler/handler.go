@@ -259,6 +259,9 @@ func common(key, typ string, occurredAt time.Time, a apigen.Actor, c *apigen.Eve
 	}
 	if c != nil {
 		e.Context = domain.Context{IP: deref(c.Ip), UserAgent: deref(c.UserAgent), Country: deref(c.Country)}
+		if c.Geo != nil {
+			e.Context.Geo = &domain.Geo{Lat: c.Geo.Lat, Lon: c.Geo.Lon}
+		}
 	}
 	return e
 }

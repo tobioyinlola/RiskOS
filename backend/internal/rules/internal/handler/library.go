@@ -85,7 +85,7 @@ func (h *Handlers) GetCompliancePack(ctx context.Context, _ apigen.GetCompliance
 		sources[i] = apigen.ComplianceSource{Id: s.ID, Title: s.Title, Links: links}
 	}
 	return apigen.GetCompliancePack200JSONResponse{
-		Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, Checksum: p.Checksum,
+		Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, LatestVersion: p.Latest, Checksum: p.Checksum,
 		LoadedAt: p.LoadedAt, Groups: groups, LicenceTypes: options(p.LicenceTypes),
 		Capabilities: options(p.Capabilities), Sources: sources,
 		Counts: apigen.ComplianceCounts{

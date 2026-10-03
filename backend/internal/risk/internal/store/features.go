@@ -210,6 +210,20 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 	if e.Context.Country != "" {
 		newCountry = seen(user+":cty", e.Context.Country)
 	}
+	// Money flows between the user and its counterparties (PON-01): the senders of incoming
+	// payments are remembered next to the payees, with the same hash, so a counterparty that both
+	// sent and received is recognized.
+	var senderRelated, toPriorSender *redis.BoolCmd
+	if t := e.Transaction; t != nil && t.Direction == "credit" && e.Compliance != nil && e.Compliance.Refs["sender"] != "" {
+		sender := k.hash("ben", e.Compliance.Refs["sender"])
+		senderRelated = pipe.SIsMember(ctx, user+":ben", sender)
+		if write {
+			seen(user+":snd", sender)
+		}
+	}
+	if e.IsDebit() && e.BeneficiaryID() != "" {
+		toPriorSender = pipe.SIsMember(ctx, user+":snd", k.hash("ben", e.BeneficiaryID()))
+	}
 	var credChange *redis.StringCmd
 	if write && e.CredentialChange() {
 		pipe.Set(ctx, user+":cred", time.Now().Unix(), credentialTTL)
@@ -306,6 +320,20 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 			continue
 		}
 		*c.dst = n == 1
+	}
+	for _, c := range []struct {
+		cmd *redis.BoolCmd
+		dst **bool
+	}{{senderRelated, &v.SenderRelated}, {toPriorSender, &v.ToPriorSender}} {
+		if c.cmd == nil {
+			continue
+		}
+		b, err := c.cmd.Result()
+		if err != nil {
+			degrade(domain.SourceHistory)
+			continue
+		}
+		*c.dst = &b
 	}
 	if credChange != nil {
 		ts, err := credChange.Int64()

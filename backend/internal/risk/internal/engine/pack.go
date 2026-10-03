@@ -139,7 +139,7 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	}
 	we := features.WindowEvent{
 		ID: eventKey, At: e.OccurredAt, UserID: e.Actor.UserID, AccountID: e.Actor.AccountID,
-		Hour: e.OccurredAt.In(features.Lagos).Hour(), ExportRows: e.ExportRows(),
+		Hour: e.OccurredAt.In(features.Lagos).Hour(), ExportRows: e.ExportRows(), Geo: e.Context.Geo,
 	}
 	if t := e.Transaction; t != nil {
 		we.Amount, we.Currency = t.Amount, t.Currency

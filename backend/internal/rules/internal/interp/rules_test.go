@@ -30,6 +30,12 @@ func (a A) Value(ref interp.AggRef) (any, bool) {
 		k += "." + ref.Field
 	}
 	k += ") by " + ref.By
+	if ref.Where != nil {
+		// A filtered window, where the same aggregate is also read unfiltered.
+		if v, ok := a[k+" where"]; ok {
+			return v, true
+		}
+	}
 	if v, ok := a[fmt.Sprintf("%s@%d", k, ref.Window)]; ok {
 		return v, true
 	}
@@ -255,11 +261,24 @@ var cases = map[string][]tc{ //nolint:gochecknoglobals // test table
 		{name: "unavailable", facts: F{"txn.amount": ngn(700)}, want: notEv},
 	},
 	"PON-01": {
-		{name: "twenty unrelated senders paid by earlier money", kinds: []string{"transfer_inbound"}, facts: F{"flows.prior_sender_outflow_share": 0.3},
-			aggs: A{"distinct_count(transfer_inbound.sender.id) by account": 20.0}, want: fired, weight: 25},
-		{name: "nineteen", kinds: []string{"transfer_inbound"}, facts: F{"flows.prior_sender_outflow_share": 0.9},
-			aggs: A{"distinct_count(transfer_inbound.sender.id) by account": 19.0}, want: clr},
-		{name: "flows unknown", kinds: []string{"transfer_inbound"}, aggs: A{"distinct_count(transfer_inbound.sender.id) by account": 20.0}, want: notEv, missing: "fact:flows.prior_sender_outflow_share"},
+		{name: "twenty unrelated senders, 30% of payouts back to them", kinds: []string{"transfer_inbound"}, aggs: A{
+			"distinct_count(transfer_inbound.sender.id) by account": 20.0, "exists(transfer_outbound) by account": true,
+			"sum(transfer_outbound.txn.amount) by account where": ngn(300), "sum(transfer_outbound.txn.amount) by account": ngn(1000),
+		}, want: fired, weight: 25},
+		{name: "just under 30%", kinds: []string{"transfer_inbound"}, aggs: A{
+			"distinct_count(transfer_inbound.sender.id) by account": 20.0, "exists(transfer_outbound) by account": true,
+			"sum(transfer_outbound.txn.amount) by account where": kobo(29_999), "sum(transfer_outbound.txn.amount) by account": ngn(1000),
+		}, want: clr},
+		{name: "nineteen senders", kinds: []string{"transfer_inbound"}, aggs: A{
+			"distinct_count(transfer_inbound.sender.id) by account": 19.0, "exists(transfer_outbound) by account": true,
+			"sum(transfer_outbound.txn.amount) by account where": ngn(1000), "sum(transfer_outbound.txn.amount) by account": ngn(1000),
+		}, want: clr},
+		{name: "nothing paid out: 30% of nothing is no pattern", kinds: []string{"transfer_inbound"}, aggs: A{
+			"distinct_count(transfer_inbound.sender.id) by account": 20.0, "exists(transfer_outbound) by account": false,
+			"sum(transfer_outbound.txn.amount) by account where": ngn(0), "sum(transfer_outbound.txn.amount) by account": ngn(0),
+		}, want: clr},
+		{name: "payouts unknown", kinds: []string{"transfer_inbound"}, aggs: A{"distinct_count(transfer_inbound.sender.id) by account": 20.0},
+			want: notEv, missing: "history:sum transfer_outbound by account"},
 	},
 	"REG-01": {
 		{name: "₦20,000.01 within 24 hours of a new device", facts: F{"txn.amount": kobo(2_000_001), "device.bound_age": 3600.0, "account.age": 400 * day}, want: fired},

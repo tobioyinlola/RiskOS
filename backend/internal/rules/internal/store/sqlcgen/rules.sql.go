@@ -485,10 +485,11 @@ const latestPack = `-- name: LatestPack :one
 SELECT id, version, jurisdiction, name, checksum, meta, loaded_at
 FROM rule_packs
 WHERE ($1::text IS NULL OR jurisdiction = $1::text)
-ORDER BY loaded_at DESC, version DESC
+ORDER BY string_to_array(version, '.')::int[] DESC
 LIMIT 1
 `
 
+// Versions compare as numbers ("2026.10.1" after "2026.9.0"), whatever order they were loaded in.
 func (q *Queries) LatestPack(ctx context.Context, jurisdiction *string) (RulePack, error) {
 	row := q.db.QueryRow(ctx, latestPack, jurisdiction)
 	var i RulePack

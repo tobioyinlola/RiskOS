@@ -320,15 +320,22 @@ queried from Postgres per event:
   active in: `customer.history_age`, `account.inactive_for` (unknown for an account RiskOS has not
   seen before, never "not dormant"), `history.amount_to_max` and `history.hour_usual` (true when
   the user was active in this hour before).
+- Each user's last location and its time (from `context.geo`): `geo.speed_from_previous`, the
+  great-circle distance over the time between the two events (at least a minute), in km/h.
+- Money flows (PON-01), in the first round trip because window filters use them: the senders of
+  incoming payments are kept next to the payees, so `sender.related` says whether the user paid
+  this sender before and `txn.to_prior_sender` whether a payment out goes to someone who paid in.
 - For data exports that send `export.rows`, a running mean of rows per export per user and per
   environment (about the last 500 exports): `export.rows_to_user_baseline` and
   `export.rows_to_tenant_baseline`, once a baseline has at least 5 exports.
 
-### History facts not tracked yet
+### Pack versions
 
-`geo.speed_from_previous`, `flows.prior_sender_outflow_share` and `sender.related` need behaviour
-RiskOS does not record yet. The rules on them (BEH-02's impossible-travel branch, PON-01) are
-reported as not evaluated until it does; [the tracker](compliance/TRACKER.md) names the phase that adds each.
+A pack's content changes only in a new version (`2026.10.1` redefined PON-01 with windows, as
+its engineering logic reads: payouts to earlier senders against all payouts, and only when the
+account pays out). A workspace stays on its version until someone saves its compliance profile,
+which adopts the jurisdiction's latest version (`latest_version` on the pack; versions compare as
+numbers). Rule configuration is kept per pack, so it carries over.
 
 ### Reproducibility
 

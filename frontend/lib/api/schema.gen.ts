@@ -2050,8 +2050,8 @@ export interface paths {
         /**
          * Set the workspace's compliance profile
          * @description Requires `compliance:write` (people only). Sets the jurisdiction, licence type and capabilities
-         *     that decide which rules apply. The workspace stays on its pack version unless the
-         *     jurisdiction changes, which moves it to that jurisdiction's latest pack. Audited.
+         *     that decide which rules apply. Saving adopts the jurisdiction's latest pack version
+         *     (`latest_version` on the pack); rule configuration carries over. Audited.
          */
         put: operations["putComplianceProfile"];
         post?: never;
@@ -2399,6 +2399,8 @@ export interface components {
             jurisdiction: string;
             name: string;
             version: string;
+            /** @description The newest loaded version for the jurisdiction. When it differs from `version`, saving the compliance profile adopts it. */
+            latest_version: string;
             /** @description SHA-256 of the pack's files. A loaded version never changes. */
             checksum: string;
             /** Format: date-time */
@@ -3294,6 +3296,17 @@ export interface components {
             user_agent?: string;
             /** @description ISO 3166-1 alpha-2. */
             country?: string;
+            geo?: components["schemas"]["GeoPoint"];
+        };
+        /**
+         * @description Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
+         *     decimals (about 1 km) before storing it.
+         */
+        GeoPoint: {
+            /** Format: double */
+            lat: number;
+            /** Format: double */
+            lon: number;
         };
         LoginData: {
             /** @enum {string} */

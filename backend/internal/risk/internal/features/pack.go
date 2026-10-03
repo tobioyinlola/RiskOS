@@ -100,6 +100,12 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 			f["txn.first_to_beneficiary"] = v.NewUser || v.NewBeneficiary
 		}
 	}
+	if v.SenderRelated != nil {
+		f["sender.related"] = *v.SenderRelated
+	}
+	if v.ToPriorSender != nil {
+		f["txn.to_prior_sender"] = *v.ToPriorSender
+	}
 	if e.Context.Country != "" && !v.NewUser {
 		f["geo.country_usual"] = !v.NewCountry
 	}
@@ -118,6 +124,11 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 	// A usual hour is one the user was active in before (Lagos time).
 	if p.Hours != nil && *p.Hours != 0 {
 		f["history.hour_usual"] = (*p.Hours>>at.Hour())&1 == 1
+	}
+	if g := e.Context.Geo; g != nil && p.LastGeo != nil && p.LastGeoAt != nil {
+		if v, ok := speedKmh(*p.LastGeo, *p.LastGeoAt, *g, e.OccurredAt); ok {
+			f["geo.speed_from_previous"] = v
+		}
 	}
 	if rows := e.ExportRows(); rows != nil {
 		if r, ok := ratioTo(*rows, p.ExportUser); ok {
@@ -213,9 +224,10 @@ type WindowEvent struct {
 	// UserID and AccountID key the activity profile.
 	UserID, AccountID string
 	// Hour is the hour of the day in Lagos (-1: none recorded); ExportRows the rows of a data
-	// export, when the event says.
+	// export, when the event says; Geo where the end user was.
 	Hour       int
 	ExportRows *float64
+	Geo        *Geo
 }
 
 // Baseline is a running mean and how many observations it has.
@@ -240,6 +252,30 @@ type Activity struct {
 	Hours *int64
 	// ExportUser and ExportTenant are the rows-per-export baselines before this event.
 	ExportUser, ExportTenant Baseline
+	// LastGeo is the user's previous location and LastGeoAt when it was.
+	LastGeo   *Geo
+	LastGeoAt *time.Time
+}
+
+// earthRadiusKm is the mean radius of the Earth.
+const earthRadiusKm = 6371.0
+
+// distanceKm is the great-circle distance between two points (haversine).
+func distanceKm(a, b Geo) float64 {
+	rad := func(d float64) float64 { return d * math.Pi / 180 }
+	dLat, dLon := rad(b.Lat-a.Lat), rad(b.Lon-a.Lon)
+	h := math.Sin(dLat/2)*math.Sin(dLat/2) + math.Cos(rad(a.Lat))*math.Cos(rad(b.Lat))*math.Sin(dLon/2)*math.Sin(dLon/2)
+	return 2 * earthRadiusKm * math.Asin(math.Sqrt(h))
+}
+
+// speedKmh is the speed needed to travel from the previous location to this one in the time
+// between them; the time counts as at least a minute, so rounding cannot make it infinite.
+func speedKmh(prev Geo, prevAt time.Time, cur Geo, at time.Time) (float64, bool) {
+	if at.Before(prevAt) {
+		return 0, false
+	}
+	hours := math.Max(at.Sub(prevAt).Hours(), 1.0/60)
+	return math.Round(distanceKm(prev, cur)/hours*10) / 10, true
 }
 
 // ExportRows returns the rows of a data export the event sends.
