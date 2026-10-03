@@ -2,11 +2,19 @@ package rules
 
 import (
 	"context"
+	"errors"
+	"fmt"
 	"io/fs"
 	"log/slog"
+	"time"
 
+	"github.com/google/uuid"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/handler"
@@ -15,6 +23,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/packs/ng"
+	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 )
 
 // Pool is the database pool (*pgxpool.Pool).
@@ -50,6 +59,14 @@ type LibraryHandlers interface {
 	ListComplianceFXRates(ctx context.Context, req apigen.ListComplianceFXRatesRequestObject) (apigen.ListComplianceFXRatesResponseObject, error)
 	PutComplianceFXRate(ctx context.Context, req apigen.PutComplianceFXRateRequestObject) (apigen.PutComplianceFXRateResponseObject, error)
 	DeleteComplianceFXRate(ctx context.Context, req apigen.DeleteComplianceFXRateRequestObject) (apigen.DeleteComplianceFXRateResponseObject, error)
+	ListComplianceTasks(ctx context.Context, req apigen.ListComplianceTasksRequestObject) (apigen.ListComplianceTasksResponseObject, error)
+	GetComplianceTask(ctx context.Context, req apigen.GetComplianceTaskRequestObject) (apigen.GetComplianceTaskResponseObject, error)
+	EditComplianceReport(ctx context.Context, req apigen.EditComplianceReportRequestObject) (apigen.EditComplianceReportResponseObject, error)
+	ApproveComplianceReport(ctx context.Context, req apigen.ApproveComplianceReportRequestObject) (apigen.ApproveComplianceReportResponseObject, error)
+	FileComplianceReport(ctx context.Context, req apigen.FileComplianceReportRequestObject) (apigen.FileComplianceReportResponseObject, error)
+	CloseComplianceTask(ctx context.Context, req apigen.CloseComplianceTaskRequestObject) (apigen.CloseComplianceTaskResponseObject, error)
+	ExportComplianceReport(ctx context.Context, req apigen.ExportComplianceReportRequestObject) (apigen.ExportComplianceReportResponseObject, error)
+	ConfirmSuspicion(ctx context.Context, req apigen.ConfirmSuspicionRequestObject) (apigen.ConfirmSuspicionResponseObject, error)
 }
 
 // Module is the rules module.
@@ -128,5 +145,89 @@ func Record(w Window, facts Facts) (record, known bool) {
 		return true, false
 	default:
 		return false, true
+	}
+}
+
+// The compliance workflow: tasks fired controls require, suspicious transaction reports, and
+// the alerts and cases it reads.
+
+// TaskControl is a live control that fired, with its tasks.
+type TaskControl = service.TaskControl
+
+// TrackedTask reports whether RiskOS keeps a control's task as compliance work.
+func TrackedTask(kind string) bool { return service.TrackedTask(kind) }
+
+// ConnectWorkflow connects the alerts and cases the compliance workflow reads: alerts past
+// their screening deadline (REG-14) and who a case is about (suspicious transaction reports).
+func (m *Module) ConnectWorkflow(a *alerts.Module, c *cases.Module) {
+	m.svc.UseWorkflow(alertSource{a}, caseSource{c})
+}
+
+type alertSource struct{ m *alerts.Module }
+
+func (s alertSource) OpenAlertsBefore(ctx context.Context, before time.Time, limit int) ([]service.OpenAlert, error) {
+	list, err := s.m.OpenBefore(ctx, before, limit)
+	if err != nil {
+		return nil, err
+	}
+	out := make([]service.OpenAlert, len(list))
+	for i, a := range list {
+		out[i] = service.OpenAlert{ID: a.ID, Title: a.Title, SubjectRef: a.SubjectRef, CreatedAt: a.CreatedAt}
+	}
+	return out, nil
+}
+
+type caseSource struct{ m *cases.Module }
+
+// CaseSubject returns the subject of the case's first alert ("" for a case without alerts).
+func (s caseSource) CaseSubject(ctx context.Context, id uuid.UUID) (string, error) {
+	d, err := s.m.Get(ctx, id)
+	if errors.Is(err, cases.ErrNotFound) {
+		return "", fmt.Errorf("%w: case", ErrNotFound)
+	}
+	if err != nil {
+		return "", err
+	}
+	for _, a := range d.Alerts {
+		return a.SubjectRef, nil
+	}
+	return "", nil
+}
+
+// TasksArgs is the job recording the compliance work of a decision. It carries identifiers and
+// the controls that fired, never payloads.
+type TasksArgs struct {
+	TenantID, EnvironmentID uuid.UUID
+	EvaluationID, EventID   uuid.UUID
+	OccurredAt              time.Time
+	SubjectRef              string
+	Amount                  int64
+	Currency                string
+	Controls                []TaskControl
+}
+
+// Kind implements jobs.Args.
+func (TasksArgs) Kind() string { return "compliance_tasks" }
+
+// tasksActor names the task job in the audit log.
+const tasksActor = "system:compliance"
+
+// TasksJob returns the handler of TasksArgs: it re-establishes the tenant scope with the single
+// system permission the job needs, and drops jobs of tenants no longer active.
+func (m *Module) TasksJob(scopes *tenants.Module, clk clock.Clock, logger *slog.Logger) func(context.Context, TasksArgs) error {
+	return func(ctx context.Context, a TasksArgs) error {
+		ctx, err := scopes.JobScope(ctx, a.TenantID, a.EnvironmentID, tasksActor, []string{authz.ComplianceTasksCreate})
+		if errors.Is(err, tenants.ErrNotFound) || errors.Is(err, tenants.ErrNotActive) {
+			logger.WarnContext(ctx, "compliance task job dropped: tenant not active",
+				slog.String("tenant_id", a.TenantID.String()), slog.String("evaluation_id", a.EvaluationID.String()))
+			return nil
+		}
+		if err != nil {
+			return err
+		}
+		return m.svc.CreateTasks(ctx, service.TasksInput{
+			EvaluationID: a.EvaluationID, EventID: a.EventID, OccurredAt: a.OccurredAt, SubjectRef: a.SubjectRef,
+			Amount: a.Amount, Currency: a.Currency, Controls: a.Controls,
+		}, clk.Now())
 	}
 }

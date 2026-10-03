@@ -24,6 +24,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
 )
@@ -108,6 +109,7 @@ func run() (err error) {
 	}
 	jobs.Register(registry, jobs.NoopHandler(logger))
 	jobs.Register(registry, alertsModule.RaiseJob(tenantsModule))
+	jobs.Register(registry, rules.New(runner, auditModule.Recorder()).TasksJob(tenantsModule, clk, logger))
 	jobs.Register(registry, webhooksModule.DeliverJob(tenantsModule))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, jobs.EnsurePartitionsArgs{}, func(ctx context.Context, _ jobs.EnsurePartitionsArgs) error {
 		created, err := db.EnsureTimePartitions(ctx, pool, db.PartitionMonthsAhead)

@@ -266,7 +266,8 @@ func ReauthOperations() []string {
 		"CreateAPIKey", "RotateAPIKey", "RevokeAPIKey", "CreateWebhook", "UpdateWebhook", "RotateWebhookSecret",
 		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember", "PutSSO", "DeleteSSO",
 		"PutComplianceProfile", "PutPackRuleConfig", "RollbackPackRule", "ApprovePackRuleChange",
-		"PutComplianceFXRate", "DeleteComplianceFXRate",
+		"PutComplianceFXRate", "DeleteComplianceFXRate", "ApproveComplianceReport", "FileComplianceReport",
+		"ConfirmSuspicion",
 	}
 }
 

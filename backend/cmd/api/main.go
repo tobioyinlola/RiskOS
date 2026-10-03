@@ -172,6 +172,7 @@ func run() (err error) {
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
+	rulesModule.ConnectWorkflow(alertsModule, casesModule)
 
 	// The internal admin realm: staff passkeys use the console's relying party and origins.
 	rpid, origins := authModule.PasskeyRP()

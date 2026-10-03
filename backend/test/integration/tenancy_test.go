@@ -53,6 +53,7 @@ type stack struct {
 	webhooks *webhooks.Module
 	risk     *risk.Module
 	admin    *admin.Module
+	rules    *rules.Module
 }
 
 // stackConfig holds the optional settings of a test stack.
@@ -186,16 +187,19 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		require.NoError(t, err)
 		authModule.SetSupport(adminModule)
 	}
+	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
+	rulesModule := rules.New(runner, auditModule.Recorder())
+	rulesModule.ConnectWorkflow(alertsModule, casesModule)
 	h, err := httpapi.New(httpapi.Deps{
 		Tenants: tenants.New(runner, auditModule.Recorder()),
-		Rules:   rules.New(runner, auditModule.Recorder()),
+		Rules:   rulesModule,
 		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
 		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
 		Risk:     riskModule,
 		Alerts:   alertsModule,
-		Cases:    cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher()),
+		Cases:    casesModule,
 		Webhooks: webhooksModule,
 		Admin:    adminModule,
 		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
@@ -209,6 +213,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		webhooks: webhooksModule,
 		risk:     riskModule,
 		admin:    adminModule,
+		rules:    rulesModule,
 	}
 }
 

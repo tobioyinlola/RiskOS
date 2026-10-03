@@ -3167,6 +3167,313 @@ paths:
           $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks:
+    get:
+      operationId: listComplianceTasks
+      tags: [compliance]
+      summary: The compliance work queue
+      description: |
+        Requires `compliance:read`. What fired regulatory controls require (reports to the NFIU,
+        enhanced due diligence, freezing or closing an account), open ones first by deadline, at
+        most 500. Suspicious transaction reports are listed only for `compliance:sensitive`
+        (GOV-09). For callers who read alerts, `escalations` lists alerts still open past REG-14's
+        screening deadline (72 hours by default).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ComplianceTaskStatus"
+      responses:
+        "200":
+          description: The queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceQueue"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    get:
+      operationId: getComplianceTask
+      tags: [compliance]
+      summary: One compliance task
+      description: Requires `compliance:read`, and `compliance:sensitive` for a suspicious transaction report.
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/report:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    patch:
+      operationId: editComplianceReport
+      tags: [compliance]
+      summary: Edit a draft report
+      description: |
+        Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+        Only a draft (open) report changes. Omitted fields are unchanged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceReportFields"
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/approve:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    post:
+      operationId: approveComplianceReport
+      tags: [compliance]
+      summary: Approve a report for filing
+      description: |
+        Requires `compliance:sensitive`: only compliance officers approve reports (GOV-06), and in
+        the console a recent second factor. A suspicious transaction report is approved only when
+        goAML would accept it: a predicate offence, at least one indicator and an accepted
+        category (REG-19); otherwise 400 says what is missing. Audited.
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/file:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    post:
+      operationId: fileComplianceReport
+      tags: [compliance]
+      summary: Record that a report was filed
+      description: |
+        Requires `compliance:sensitive`. Records that a person filed the approved report with the
+        regulator, with the reference its portal gave. RiskOS never submits reports. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [filing_ref]
+              properties:
+                filing_ref:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/close:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    post:
+      operationId: closeComplianceTask
+      tags: [compliance]
+      summary: Mark a task done or dismiss it
+      description: |
+        Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+        Reports are closed by filing them; dismissing any task needs a note. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [done, dismissed]
+                note:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/export:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    get:
+      operationId: exportComplianceReport
+      tags: [compliance]
+      summary: An approved report, for filing by hand
+      description: |
+        Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+        Returns the approved report for a person to enter in the regulator's portal. Audited.
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/suspicion:
+    post:
+      operationId: confirmSuspicion
+      tags: [compliance]
+      summary: Confirm suspicion on a case
+      description: |
+        Requires `compliance:sensitive` (compliance officers) and, in the console, a recent second
+        factor. Opens a suspicious transaction report for the case, due within REG-14's `str_due`
+        (24 hours by default) from now. Nothing about it is visible outside compliance roles
+        (GOV-09). Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [case_id]
+              properties:
+                case_id:
+                  type: string
+                  maxLength: 64
+                note:
+                  type: string
+                  maxLength: 4000
+                  description: The first lines of the report's narrative.
+      responses:
+        "201":
+          description: The report, a draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/changes:
     get:
       operationId: listPackRuleChanges
@@ -3845,6 +4152,128 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/RestrictedEvaluation"
+    ComplianceTaskStatus:
+      type: string
+      description: Reports go open (a draft), approved, filed; other tasks open, done. Any may be dismissed.
+      enum: [open, approved, filed, done, dismissed]
+    ComplianceReportFields:
+      type: object
+      additionalProperties: false
+      properties:
+        category:
+          type: string
+          enum: [terrorism_financing, kidnapping_ransom, corruption, fraud, drug_trafficking, general, other]
+        predicate_offence:
+          type: string
+          maxLength: 4000
+        indicators:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 200
+        narrative:
+          type: string
+          maxLength: 4000
+    ComplianceTask:
+      type: object
+      additionalProperties: false
+      required: [id, kind, rule, status, sensitive, due_at, overdue, subject_ref, evaluation_id, event_id, case_id, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref]
+      properties:
+        id:
+          type: string
+          example: ctk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        kind:
+          type: string
+          description: report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account.
+        rule:
+          type: string
+        status:
+          $ref: "#/components/schemas/ComplianceTaskStatus"
+        sensitive:
+          type: boolean
+          description: A suspicious transaction report, seen only by compliance officers.
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        overdue:
+          type: boolean
+        subject_ref:
+          type: string
+          nullable: true
+        evaluation_id:
+          type: string
+          nullable: true
+        event_id:
+          type: string
+          nullable: true
+        case_id:
+          type: string
+          nullable: true
+        report:
+          type: object
+          additionalProperties: true
+          description: The report's fields (category, predicate offence, indicators, narrative, amount...).
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        approved_by:
+          type: string
+          nullable: true
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        closed_by:
+          type: string
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        close_note:
+          type: string
+          nullable: true
+        filing_ref:
+          type: string
+          nullable: true
+    ScreeningEscalation:
+      type: object
+      additionalProperties: false
+      required: [alert_id, title, subject_ref, created_at, due_at]
+      properties:
+        alert_id:
+          type: string
+        title:
+          type: string
+        subject_ref:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        due_at:
+          type: string
+          format: date-time
+          description: When screening was due (REG-14).
+    ComplianceQueue:
+      type: object
+      additionalProperties: false
+      required: [data, escalations]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceTask"
+        escalations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScreeningEscalation"
     PackRuleMode:
       type: string
       description: live (it acts), shadow (it is evaluated and recorded only) or off.

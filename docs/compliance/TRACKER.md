@@ -7,8 +7,8 @@ each with the phase that closes it. An item leaves this list in the commit that 
 |---|---|---|
 | `sender.related`, `flows.prior_sender_outflow_share` not tracked | PON-01 not evaluated | Phase 5 (money-flow history between accounts) |
 | `geo.speed_from_previous` not tracked | BEH-02's impossible-travel branch not evaluated (the new-country branch works) | Phase 5 (needs event coordinates in the contract) |
-| Workflow rules (REG-14 clocks, REG-19 report checks, governance presets) | Evaluated only for workflow events, which nothing emits yet | Phase 5 |
-| GOV-09: compliance-only signals (INS-01) are labelled in API responses and the console | Visible to every role that sees the evaluation | Phase 5 (role-gated display, no tipping off) |
+| GOV-11 (escalate confirmed fraud not actioned in 30 minutes) and GOV-12 (one-click industry fraud report) | Not enforced | Phase 6 |
+| REG-16's daily check of accounts without a BVN | Runs only on account_opened events | Phase 6 (needs an account register) |
 | End-to-end decision-path p95 with the pack, Redis included | Interpreter cost only is measured | Phase 6 |
 | Live monitor e2e test occasionally fails under parallel load | Passes on rerun | Phase 6 |
 

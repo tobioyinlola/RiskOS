@@ -102,10 +102,8 @@ func taskDue(def *pack.Rule, cfg RuleConfig, kind string, from time.Time) *time.
 	return nil
 }
 
-func (s *Service) recordTask(ctx context.Context, action string, t store.Task, meta map[string]any) error {
-	if meta == nil {
-		meta = map[string]any{}
-	}
+func (s *Service) recordTask(ctx context.Context, action string, t store.Task) error {
+	meta := map[string]any{}
 	// No tipping off (GOV-09): what a suspicious transaction report is about stays out of the
 	// audit log, which other roles read; the log says that compliance work happened.
 	if !t.Sensitive {
@@ -157,7 +155,7 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 					return err
 				}
 				if created {
-					if err := s.recordTask(ctx, "compliance.task_created", t, nil); err != nil {
+					if err := s.recordTask(ctx, "compliance.task_created", t); err != nil {
 						return err
 					}
 				}
@@ -203,7 +201,7 @@ func (s *Service) ConfirmSuspicion(ctx context.Context, caseID uuid.UUID, note s
 			return err
 		}
 		out = t
-		return s.recordTask(ctx, "compliance.task_created", t, nil)
+		return s.recordTask(ctx, "compliance.task_created", t)
 	})
 	return out, err
 }
@@ -298,7 +296,7 @@ func (s *Service) task(ctx context.Context, id uuid.UUID, perm authz.Permission)
 	return t, nil
 }
 
-func (s *Service) updateTask(ctx context.Context, id uuid.UUID, perm authz.Permission, change func(store.Task, tenancy.Scope) (store.Task, string, error), now time.Time) (store.Task, error) {
+func (s *Service) updateTask(ctx context.Context, id uuid.UUID, perm authz.Permission, change func(context.Context, store.Task, tenancy.Scope) (store.Task, string, error), now time.Time) (store.Task, error) {
 	scope, err := person(ctx, authz.ComplianceRead)
 	if err != nil {
 		return store.Task{}, err
@@ -309,7 +307,7 @@ func (s *Service) updateTask(ctx context.Context, id uuid.UUID, perm authz.Permi
 		if err != nil {
 			return err
 		}
-		t, action, err := change(t, scope)
+		t, action, err := change(ctx, t, scope)
 		if err != nil {
 			return err
 		}
@@ -318,7 +316,7 @@ func (s *Service) updateTask(ctx context.Context, id uuid.UUID, perm authz.Permi
 			return err
 		}
 		out = t
-		return s.recordTask(ctx, action, t, nil)
+		return s.recordTask(ctx, action, t)
 	})
 	return out, err
 }
@@ -326,7 +324,7 @@ func (s *Service) updateTask(ctx context.Context, id uuid.UUID, perm authz.Permi
 // EditReport changes a draft report's fields. Requires compliance:write, and
 // compliance:sensitive for a suspicious transaction report.
 func (s *Service) EditReport(ctx context.Context, id uuid.UUID, f ReportFields, now time.Time) (store.Task, error) {
-	return s.updateTask(ctx, id, authz.ComplianceWrite, func(t store.Task, _ tenancy.Scope) (store.Task, string, error) {
+	return s.updateTask(ctx, id, authz.ComplianceWrite, func(_ context.Context, t store.Task, _ tenancy.Scope) (store.Task, string, error) {
 		if !isReport(t.Kind) || t.Status != TaskOpen {
 			return t, "", fmt.Errorf("%w: only a draft report can be edited", ErrConflict)
 		}
@@ -399,7 +397,7 @@ func (s *Service) strProblems(ctx context.Context, scope tenancy.Scope, t store.
 // (REG-19).
 func (s *Service) ApproveReport(ctx context.Context, id uuid.UUID, now time.Time) (store.Task, error) {
 	var problems []string
-	t, err := s.updateTask(ctx, id, authz.ComplianceSensitive, func(t store.Task, scope tenancy.Scope) (store.Task, string, error) {
+	t, err := s.updateTask(ctx, id, authz.ComplianceSensitive, func(ctx context.Context, t store.Task, scope tenancy.Scope) (store.Task, string, error) {
 		if !isReport(t.Kind) || t.Status != TaskOpen {
 			return t, "", fmt.Errorf("%w: only a draft report can be approved", ErrConflict)
 		}
@@ -409,7 +407,7 @@ func (s *Service) ApproveReport(ctx context.Context, id uuid.UUID, now time.Time
 				return t, "", err
 			}
 			if len(problems) > 0 {
-				return t, "", fmt.Errorf("%w: goAML would reject this report: %s", ErrInvalidInput, strings.Join(problems, "; "))
+				return t, "", fmt.Errorf("%w: this report would be rejected by goAML: %s", ErrInvalidInput, strings.Join(problems, "; "))
 			}
 		}
 		t.Status, t.ApprovedBy, t.ApprovedAt = TaskApproved, &scope.Principal.ID, &now
@@ -426,7 +424,7 @@ func (s *Service) FileReport(ctx context.Context, id uuid.UUID, ref string, now 
 	if ref == "" || len([]rune(ref)) > 128 {
 		return store.Task{}, fmt.Errorf("%w: a filing reference of 1 to 128 characters is required", ErrInvalidInput)
 	}
-	return s.updateTask(ctx, id, authz.ComplianceSensitive, func(t store.Task, scope tenancy.Scope) (store.Task, string, error) {
+	return s.updateTask(ctx, id, authz.ComplianceSensitive, func(ctx context.Context, t store.Task, scope tenancy.Scope) (store.Task, string, error) {
 		if t.Status != TaskApproved {
 			return t, "", fmt.Errorf("%w: only an approved report can be filed", ErrConflict)
 		}
@@ -439,7 +437,7 @@ func (s *Service) FileReport(ctx context.Context, id uuid.UUID, ref string, now 
 // note. Requires compliance:write, and compliance:sensitive for a suspicious transaction report.
 func (s *Service) CloseTask(ctx context.Context, id uuid.UUID, status, note string, now time.Time) (store.Task, error) {
 	note = strings.TrimSpace(note)
-	return s.updateTask(ctx, id, authz.ComplianceWrite, func(t store.Task, scope tenancy.Scope) (store.Task, string, error) {
+	return s.updateTask(ctx, id, authz.ComplianceWrite, func(ctx context.Context, t store.Task, scope tenancy.Scope) (store.Task, string, error) {
 		switch {
 		case t.Status != TaskOpen && t.Status != TaskApproved:
 			return t, "", fmt.Errorf("%w: the task is already %s", ErrConflict, t.Status)
@@ -470,6 +468,28 @@ func (s *Service) Task(ctx context.Context, id uuid.UUID) (store.Task, error) {
 		var err error
 		out, err = s.task(ctx, id, authz.ComplianceRead)
 		return err
+	})
+	return out, err
+}
+
+// ExportReport returns an approved (or filed) report for a person to enter in the regulator's
+// portal: RiskOS never submits it. Audited. Requires compliance:write, and compliance:sensitive
+// for a suspicious transaction report.
+func (s *Service) ExportReport(ctx context.Context, id uuid.UUID) (store.Task, error) {
+	if _, err := person(ctx, authz.ComplianceRead); err != nil {
+		return store.Task{}, err
+	}
+	var out store.Task
+	err := s.runner.Run(ctx, func(ctx context.Context) error {
+		t, err := s.task(ctx, id, authz.ComplianceWrite)
+		if err != nil {
+			return err
+		}
+		if !isReport(t.Kind) || (t.Status != TaskApproved && t.Status != TaskFiled) {
+			return fmt.Errorf("%w: only an approved report can be exported", ErrConflict)
+		}
+		out = t
+		return s.recordTask(ctx, "compliance.report_exported", t)
 	})
 	return out, err
 }

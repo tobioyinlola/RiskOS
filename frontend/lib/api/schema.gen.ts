@@ -1727,6 +1727,192 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The compliance work queue
+         * @description Requires `compliance:read`. What fired regulatory controls require (reports to the NFIU,
+         *     enhanced due diligence, freezing or closing an account), open ones first by deadline, at
+         *     most 500. Suspicious transaction reports are listed only for `compliance:sensitive`
+         *     (GOV-09). For callers who read alerts, `escalations` lists alerts still open past REG-14's
+         *     screening deadline (72 hours by default).
+         */
+        get: operations["listComplianceTasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * One compliance task
+         * @description Requires `compliance:read`, and `compliance:sensitive` for a suspicious transaction report.
+         */
+        get: operations["getComplianceTask"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Edit a draft report
+         * @description Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+         *     Only a draft (open) report changes. Omitted fields are unchanged.
+         */
+        patch: operations["editComplianceReport"];
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a report for filing
+         * @description Requires `compliance:sensitive`: only compliance officers approve reports (GOV-06), and in
+         *     the console a recent second factor. A suspicious transaction report is approved only when
+         *     goAML would accept it: a predicate offence, at least one indicator and an accepted
+         *     category (REG-19); otherwise 400 says what is missing. Audited.
+         */
+        post: operations["approveComplianceReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/file": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that a report was filed
+         * @description Requires `compliance:sensitive`. Records that a person filed the approved report with the
+         *     regulator, with the reference its portal gave. RiskOS never submits reports. Audited.
+         */
+        post: operations["fileComplianceReport"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Mark a task done or dismiss it
+         * @description Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+         *     Reports are closed by filing them; dismissing any task needs a note. Audited.
+         */
+        post: operations["closeComplianceTask"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/tasks/{task_id}/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * An approved report, for filing by hand
+         * @description Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+         *     Returns the approved report for a person to enter in the regulator's portal. Audited.
+         */
+        get: operations["exportComplianceReport"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/suspicion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Confirm suspicion on a case
+         * @description Requires `compliance:sensitive` (compliance officers) and, in the console, a recent second
+         *     factor. Opens a suspicious transaction report for the case, due within REG-14's `str_due`
+         *     (24 hours by default) from now. Nothing about it is visible outside compliance roles
+         *     (GOV-09). Audited.
+         */
+        post: operations["confirmSuspicion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/changes": {
         parameters: {
             query?: never;
@@ -2042,6 +2228,68 @@ export interface components {
         };
         RestrictedEvaluationList: {
             data: components["schemas"]["RestrictedEvaluation"][];
+        };
+        /**
+         * @description Reports go open (a draft), approved, filed; other tasks open, done. Any may be dismissed.
+         * @enum {string}
+         */
+        ComplianceTaskStatus: "open" | "approved" | "filed" | "done" | "dismissed";
+        ComplianceReportFields: {
+            /** @enum {string} */
+            category?: "terrorism_financing" | "kidnapping_ransom" | "corruption" | "fraud" | "drug_trafficking" | "general" | "other";
+            predicate_offence?: string;
+            indicators?: string[];
+            narrative?: string;
+        };
+        ComplianceTask: {
+            /** @example ctk_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            /** @description report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account. */
+            kind: string;
+            rule: string;
+            status: components["schemas"]["ComplianceTaskStatus"];
+            /** @description A suspicious transaction report, seen only by compliance officers. */
+            sensitive: boolean;
+            /** Format: date-time */
+            due_at: string | null;
+            overdue: boolean;
+            subject_ref: string | null;
+            evaluation_id: string | null;
+            event_id: string | null;
+            case_id: string | null;
+            /** @description The report's fields (category, predicate offence, indicators, narrative, amount...). */
+            report: {
+                [key: string]: unknown;
+            };
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+            /** Format: date-time */
+            updated_at: string;
+            approved_by: string | null;
+            /** Format: date-time */
+            approved_at: string | null;
+            closed_by: string | null;
+            /** Format: date-time */
+            closed_at: string | null;
+            close_note: string | null;
+            filing_ref: string | null;
+        };
+        ScreeningEscalation: {
+            alert_id: string;
+            title: string;
+            subject_ref: string;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * Format: date-time
+             * @description When screening was due (REG-14).
+             */
+            due_at: string;
+        };
+        ComplianceQueue: {
+            data: components["schemas"]["ComplianceTask"][];
+            escalations: components["schemas"]["ScreeningEscalation"][];
         };
         /**
          * @description live (it acts), shadow (it is evaluated and recorded only) or off.
@@ -6392,6 +6640,248 @@ export interface operations {
             400: components["responses"]["InvalidRequest"];
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceTasks: {
+        parameters: {
+            query?: {
+                status?: components["schemas"]["ComplianceTaskStatus"];
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The queue. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceQueue"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    editComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ComplianceReportFields"];
+            };
+        };
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    fileComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    filing_ref: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    closeComplianceTask: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "done" | "dismissed";
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The task. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    exportComplianceReport: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                task_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The report. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    confirmSuspicion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    case_id: string;
+                    /** @description The first lines of the report's narrative. */
+                    note?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The report, a draft. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ComplianceTask"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

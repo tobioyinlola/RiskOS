@@ -1,12 +1,13 @@
 package ids_test
 
 import (
+	"bytes"
 	"regexp"
 	"strings"
 	"testing"
-
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 
@@ -100,4 +101,14 @@ func BenchmarkNewRequestID(b *testing.B) {
 	for b.Loop() {
 		_ = ids.NewRequestID()
 	}
+}
+
+func TestV7At(t *testing.T) {
+	at := time.Date(2026, 10, 3, 12, 0, 0, 0, time.UTC)
+	bound := ids.V7At(at)
+	assert.Equal(t, at, ids.Time(bound))
+	before, after := ids.V7At(at.Add(-time.Millisecond)), ids.V7At(at.Add(time.Millisecond))
+	assert.Negative(t, bytes.Compare(before[:], bound[:]))
+	assert.Positive(t, bytes.Compare(after[:], bound[:]))
+	assert.Equal(t, uuid.Version(7), bound.Version())
 }

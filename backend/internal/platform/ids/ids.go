@@ -9,6 +9,7 @@ package ids
 import (
 	"crypto/rand"
 	"encoding/base32"
+	"encoding/binary"
 	"errors"
 	"strings"
 	"time"
@@ -73,6 +74,18 @@ var ErrInvalid = errors.New("invalid identifier")
 func NewV7() uuid.UUID {
 	// uuid.NewV7 only fails if the system random source fails, which crypto/rand treats as fatal.
 	return uuid.Must(uuid.NewV7())
+}
+
+// V7At returns the smallest UUIDv7 of the millisecond t: every UUIDv7 created before t sorts
+// below it, so "created before t" is an ID comparison.
+func V7At(t time.Time) uuid.UUID {
+	var id uuid.UUID
+	var ms [8]byte
+	binary.BigEndian.PutUint64(ms[:], uint64(t.UnixMilli())) //nolint:gosec // times after 1970
+	copy(id[:6], ms[2:])
+	id[6] = 0x70 // version 7
+	id[8] = 0x80 // RFC 4122 variant
+	return id
 }
 
 // Time returns the creation time embedded in a UUIDv7 (millisecond precision, UTC). Tables that
