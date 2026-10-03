@@ -97,6 +97,8 @@ func TestComplianceGovernance(t *testing.T) {
 		}
 		assert.True(t, unreported(), "a confirmed-fraud case without a report is tracked")
 
+		r = s.call(t, http.MethodPost, "/api/v1/compliance/fraud-reports", a.testKey, map[string]any{"case_id": caseID})
+		assert.Equal(t, http.StatusForbidden, r.status, "a person prepares it, never an API key: %s", r.String())
 		r = prepare(admin.b)
 		require.Equal(t, http.StatusCreated, r.status, r.String())
 		report := decode[apigen.ComplianceTask](t, r)
