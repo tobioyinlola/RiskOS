@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
 	"net/http"
 	"slices"
 	"strings"
@@ -19,6 +20,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/engine"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/service"
+	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Handlers implements the risk module's operations of apigen.StrictServerInterface.
@@ -368,8 +370,12 @@ func MapError(err error) error {
 		return strings.TrimPrefix(strings.TrimPrefix(err.Error(), sentinel.Error()), ": ")
 	}
 	switch {
-	case errors.Is(err, domain.ErrRuleNotFound):
+	case errors.Is(err, domain.ErrRuleNotFound), errors.Is(err, rulepack.ErrNotFound):
 		return httpx.NotFound(err)
+	case errors.Is(err, domain.ErrBacktestInvalid):
+		return httpx.InvalidRequest(capitalizeSentence(detail(domain.ErrBacktestInvalid)), err)
+	case errors.Is(err, rulepack.ErrInvalidInput):
+		return httpx.InvalidRequest(capitalizeSentence(detail(rulepack.ErrInvalidInput)), err)
 	case errors.Is(err, domain.ErrRuleInvalid):
 		return httpx.InvalidRequest(capitalizeSentence(detail(domain.ErrRuleInvalid)), err)
 	case errors.Is(err, domain.ErrSettingsInvalid):
@@ -402,4 +408,67 @@ func capitalizeSentence(s string) string {
 		return "The request is invalid."
 	}
 	return strings.ToUpper(s[:1]) + s[1:] + "."
+}
+
+func tallyToAPI(t service.BacktestTally) apigen.BacktestTally {
+	samples := make([]string, len(t.Samples))
+	for i, id := range t.Samples {
+		samples[i] = ids.Format(ids.PrefixEvent, id)
+	}
+	missing := make([]apigen.BacktestMissing, 0, len(t.Missing))
+	for _, item := range slices.Sorted(maps.Keys(t.Missing)) {
+		missing = append(missing, apigen.BacktestMissing{Item: item, Events: t.Missing[item]})
+	}
+	slices.SortStableFunc(missing, func(a, b apigen.BacktestMissing) int { return b.Events - a.Events })
+	return apigen.BacktestTally{
+		Triggered: t.Triggered, Fired: t.Fired, Clear: t.Clear, NotEvaluated: t.NotEvaluated, Missing: missing,
+		FiredSamples: samples,
+	}
+}
+
+// BacktestPackRule implements POST /api/v1/compliance/rules/{rule_id}/backtest.
+func (h *Handlers) BacktestPackRule(ctx context.Context, req apigen.BacktestPackRuleRequestObject) (apigen.BacktestPackRuleResponseObject, error) {
+	in := service.BacktestInput{RuleID: req.RuleId, Days: 7}
+	if b := req.Body; b != nil {
+		if b.Days != nil {
+			in.Days = *b.Days
+		}
+		if b.Settings != nil {
+			in.Settings = *b.Settings
+		}
+	}
+	res, err := h.svc.Backtest(ctx, in)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	return apigen.BacktestPackRule200JSONResponse{
+		Rule: res.RuleID, From: res.From, To: res.To, Replayed: res.Replayed, Truncated: res.Truncated,
+		Candidate: tallyToAPI(res.Candidate), Current: tallyToAPI(res.Current),
+	}, nil
+}
+
+// ListRestrictedSignals implements GET /api/v1/compliance/restricted-signals.
+func (h *Handlers) ListRestrictedSignals(ctx context.Context, req apigen.ListRestrictedSignalsRequestObject) (apigen.ListRestrictedSignalsResponseObject, error) {
+	days := 7
+	if req.Params.Days != nil {
+		days = *req.Params.Days
+	}
+	rows, err := h.svc.RestrictedSignals(ctx, days)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	data := make([]apigen.RestrictedEvaluation, len(rows))
+	for i, r := range rows {
+		signals := make([]apigen.RestrictedSignal, len(r.Signals))
+		for j, s := range r.Signals {
+			signals[j] = apigen.RestrictedSignal{Rule: s.Code, Name: s.Label, Weight: s.Weight, Mode: apigen.PackRuleMode(s.Mode)}
+		}
+		data[i] = apigen.RestrictedEvaluation{
+			EvaluationId: ids.Format(ids.PrefixEvaluation, r.ID), CreatedAt: r.CreatedAt, Signals: signals,
+		}
+		if r.EventID != nil {
+			data[i].EventId = new(ids.Format(ids.PrefixEvent, *r.EventID))
+		}
+	}
+	return apigen.ListRestrictedSignals200JSONResponse{Data: data}, nil
 }

@@ -59,6 +59,21 @@ The staff console's Security page lists, per tenant, counts only, never tenant d
 
 The counts come from one `SECURITY DEFINER` function that returns aggregates only.
 
+## Onboarding reviews
+
+Self-serve workspaces ([ADR-0005](adr/ADR-0005-self-serve-signup.md)) answer a compliance
+onboarding (business, regulation, use case, data and privacy) before their production
+environment opens. Operations admins (`operations_admin`) review it in the staff console's
+Onboarding reviews page:
+
+- The queue (`admin_onboarding_queue()`, a `SECURITY DEFINER` function) shows identity, status and
+  dates only, submitted first.
+- Opening one reads its answers through a staff tenant scope; the read is recorded in the staff
+  audit log and the tenant's (`onboarding.viewed`, `onboarding.viewed_by_staff`).
+- **Approve** opens production (`tenants.production_enabled = true`); **Request changes** needs a
+  note of 10 to 1000 characters, which the customer sees, and production stays locked. Both are
+  recorded in both audit logs in one transaction.
+
 ## Not built yet
 
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and

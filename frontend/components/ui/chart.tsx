@@ -1,4 +1,4 @@
-import { cn } from "cn";
+import { cn } from "@/lib/cn";
 
 /**
  * A small time series (docs/design-system.md, Data visualization): the primary series in accent,

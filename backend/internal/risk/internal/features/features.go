@@ -11,6 +11,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/rules"
+	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Event is the risk module's view of a normalized event (EVENTS.md). It is parsed from the
@@ -26,13 +27,22 @@ type Event struct {
 	Context struct {
 		Country string `json:"country"`
 		IP      string `json:"ip"`
+		Geo     *Geo   `json:"geo"`
 	} `json:"context"`
 	Data json.RawMessage `json:"data"`
+	// Compliance is the event's compliance block (EVENTS.md#compliance), or nil.
+	Compliance *rulepack.EventContext `json:"compliance"`
 
 	Transaction *Transaction `json:"-"`
 	Login       *Login       `json:"-"`
 	Beneficiary *Beneficiary `json:"-"`
 	Profile     *Profile     `json:"-"`
+}
+
+// Geo is where the end user was (rounded to about 1 km).
+type Geo struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 // Transaction data.
@@ -125,12 +135,17 @@ type Values struct {
 	NewBeneficiary         bool
 	NewCountry             bool
 	RecentCredentialChange bool
-	AccountTxn1m           int64
-	AccountTxn1h           int64
-	AccountTxn24h          int64
-	FailedLogins15m        int64
-	DeviceUsers            int64
-	BeneficiarySenders24h  int64
+	// SenderRelated (an incoming payment) says whether the user paid this sender before;
+	// ToPriorSender (a payment out) whether this payee paid the user before. Nil when the event
+	// has no sender or payee.
+	SenderRelated         *bool
+	ToPriorSender         *bool
+	AccountTxn1m          int64
+	AccountTxn1h          int64
+	AccountTxn24h         int64
+	FailedLogins15m       int64
+	DeviceUsers           int64
+	BeneficiarySenders24h int64
 	// Amount history for the transaction's currency, before this event.
 	AmountCount int64
 	AmountMean  float64

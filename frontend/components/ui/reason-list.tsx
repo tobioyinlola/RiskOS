@@ -60,11 +60,11 @@ export function ReasonList({
                   </small>
                 </span>
                 <span
-                  className="h-1.5 overflow-hidden rounded-full bg-bg-sunken"
+                  className="h-1.5 overflow-hidden rounded-full bg-blue-50"
                   aria-hidden="true"
                 >
                   <i
-                    className="block h-full bg-text-secondary"
+                    className="block h-full rounded-full bg-brand-blue"
                     style={{ width: `${width}%` }}
                   />
                 </span>

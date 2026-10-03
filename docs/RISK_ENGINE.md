@@ -221,6 +221,134 @@ In a production environment, creating, changing or rolling back a rule does not 
 
 Rules only add weight; hard blocks come from [deny lists](#deny-lists).
 
+## Rule packs
+
+A workspace with a compliance profile (Compliance → Rules library) is evaluated against its
+jurisdiction's rule pack ([ADR-0006](adr/ADR-0006-jurisdiction-rule-packs.md)), after the
+built-in signals and tenant rules, in the same evaluation:
+
+```
+event ─▶ pack event kinds (named in compliance.kind, or derived)
+      ─▶ facts: the event, the customer's compliance.facts, behaviour history
+      ─▶ pack windows + activity history (Redis: a second pipelined round trip)
+      ─▶ every rule the kinds trigger: fired, clear, not evaluated or not applicable
+      ─▶ live signals add weight; live controls and signal floors raise the decision
+```
+
+- **Which rules.** Only rules that apply to the profile (licence type and capabilities) and are
+  on by default. Regulatory controls run live; risk-scoring rules start in shadow (recorded in
+  `shadow_signals`, never scored). Governance presets are workflows, not event rules.
+- **Decisions.** A live control sets the action the law requires (`decline`, `hold`,
+  `block_session`, `restrict`, `flag`, `fee`, `review`, `block`); a live signal can require at
+  least `review` or `step_up`. The most severe of these and the score's decision is returned
+  (severity: allow, fee, flag, step_up, review, restrict, hold, block_session, decline, block),
+  and each one that reached it is recorded in `policy_reasons` (`control:REG-01`,
+  `min_decision:ATO-01`). Every control that applied, live or shadow, is in `controls`, with its
+  tasks, fee or hold.
+- **Missing data is reported, never read as no risk.** Evaluation is three-valued: a missing
+  fact, an unset setting (amounts the institution must choose, such as ATO-01's floor), an
+  unavailable window or an amount in another currency than the rule's makes a comparison
+  unknown; a rule that cannot be decided is listed in `not_evaluated` with what it lacked. One
+  known finding is enough to fire a rule ("any of"), and one known failure to clear it ("all of").
+- **No tipping off (GOV-09).** A compliance-only signal (INS-01, staff-linked accounts) keeps its
+  points but is listed as `compliance_review` ("Compliance review") in the decision, the stored
+  evaluation, alerts, webhooks and analytics. The rule that fired is stored apart and read only
+  by compliance officers (`compliance:sensitive`, which administrators and API keys never hold)
+  through `GET /api/v1/compliance/restricted-signals`. Tenant rules cannot use the code.
+- **Exemptions.** A control whose exemption cannot be checked (REG-04's raised limit) applies,
+  and says so (`exemption_unknown`): an unknown exemption never lifts a legal limit.
+- **Amounts** are compared in one currency only. Rules on US dollar amounts (REG-10) read
+  `txn.amount_usd`: the amount the event sends, else the event's amount converted with the
+  institution's rates (`PUT /api/v1/compliance/fx-rates/{currency}`, US dollars per one unit,
+  `compliance:write`, audited), rounded to the cent with the currency's own minor units. Without
+  either, the rule is not evaluated.
+
+### Configuration
+
+Each environment can set a rule's mode (`live`, `shadow`, `off`) and its settings
+(`PUT /api/v1/compliance/rules/{rule_id}/config`, people with `compliance:configure`, a recent
+second factor in the console):
+
+- **Bounds.** Every setting stays within the pack's minimum and maximum; for regulatory limits
+  the maximum is the legal one. Money, counts, durations, hours and points are whole numbers. A
+  value equal to the default is not stored, so "back to the default" is one state.
+- **Versions.** Every change is a new immutable version with its reason and author; version 0 is
+  the library's defaults. A rollback restores an earlier version as the next one.
+- **Two people in production.** For a regulatory control, any settings change and any move away
+  from `live` is proposed (`202`, `pch_…`) and applies only when another person with
+  `rules:approve` approves it, credited to the proposer, and only if the rule has not changed
+  since (`409` otherwise). Whether a setting loosens depends on how the rule uses it, so every
+  settings change is checked. Switching a control back to `live`, and any change in the test
+  environment or to a risk-scoring rule, applies at once. A rule has at most one pending change;
+  the proposer can withdraw it.
+- **Audit.** `pack_rule.configured`, `pack_rule.change_proposed`, `pack_rule.change_approved`
+  and `pack_rule.change_rejected`, with the settings and mode before and after.
+- **Effect.** The engine runs each rule with its environment's configuration; other API
+  instances pick a change up within 5 seconds (the risk configuration cache).
+
+### Backtests
+
+`POST /api/v1/compliance/rules/{rule_id}/backtest` (`compliance:read` and `events:read`) answers
+"what would this rule have done?": it replays the environment's ingested events of the last 1 to
+30 days (at most 20,000, oldest first) through the rule with candidate settings and with its
+current configuration, side by side, whatever its mode. Time windows are rebuilt in memory with
+the same rules as the Redis windows, from a replay record each evaluation keeps (event time,
+amount, and the entities and identifiers windows use, hashed). Nothing is stored and live
+windows are untouched; it is one batch read, never a query per event. Events evaluated before an
+evaluation kept a replay record are not replayed, and the response says how many were.
+
+### Pack windows
+
+Windowed aggregates (counts, sums, daily averages, distinct counts) are kept in Redis, never
+queried from Postgres per event:
+
+- One sorted set per window definition and entity (`rk:<tenant>:<env>:{w:<entity kind>:<hmac>}:<key>`),
+  scored by the event's `occurred_at`, trimmed to the longest window the rule's setting allows
+  and to 20,000 entries. Identifiers and event IDs are HMAC'd like every feature-store key.
+- A window's key covers the events it holds, the entity, the identifier it counts and its filter
+  with the filter's settings: aggregates that differ only by function or length share a window,
+  and changing a filter's setting starts a fresh one.
+- An event is recorded in every window of the pack over one of its kinds whose filter it passes.
+  An event whose filter cannot be checked (a fact it needs is missing) is recorded as unknown, and
+  a window holding one reads as unavailable for as long as it holds it, rather than undercounting.
+- Sums count only amounts in the event's currency. Dry runs and rule tests count the event
+  without storing it; idempotent replays are not evaluated again.
+- While behavioural history warms up after a reset, windows and history facts are unavailable,
+  so the rules on them are not evaluated.
+- The same round trip keeps each user's first activity, each account's last activity (400 days),
+  each user's largest amount per currency and the hours of the day (Lagos time) each user was
+  active in: `customer.history_age`, `account.inactive_for` (unknown for an account RiskOS has not
+  seen before, never "not dormant"), `history.amount_to_max` and `history.hour_usual` (true when
+  the user was active in this hour before).
+- Each user's last location and its time (from `context.geo`): `geo.speed_from_previous`, the
+  great-circle distance over the time between the two events (at least a minute), in km/h.
+- Money flows (PON-01), in the first round trip because window filters use them: the senders of
+  incoming payments are kept next to the payees, so `sender.related` says whether the user paid
+  this sender before and `txn.to_prior_sender` whether a payment out goes to someone who paid in.
+- For data exports that send `export.rows`, a running mean of rows per export per user and per
+  environment (about the last 500 exports): `export.rows_to_user_baseline` and
+  `export.rows_to_tenant_baseline`, once a baseline has at least 5 exports.
+
+### Pack versions
+
+A pack's content changes only in a new version (`2026.10.1` redefined PON-01 with windows, as
+its engineering logic reads: payouts to earlier senders against all payouts, and only when the
+account pays out). A workspace stays on its version until someone saves its compliance profile,
+which adopts the jurisdiction's latest version (`latest_version` on the pack; versions compare as
+numbers). Rule configuration is kept per pack, so it carries over.
+
+### Reproducibility
+
+The evaluation records the pack version (`pack:ng@2026.10.0` in `rule_versions`), the event's
+kinds, the facts the pack saw, and the values each fired rule compared, next to `controls` and
+`not_evaluated`.
+
+### Cost
+
+`BenchmarkOutboundTransfer` (the 34 rules an outbound transfer triggers in the Nigeria pack, with
+windows already read): about 66 µs mean and 125 µs p95 per event on a laptop. The decision path's
+end-to-end p95 with the pack is measured in the hardening phase.
+
 ## Feature store
 
 Redis, one pipelined round trip per evaluation (plus one write for the amount baseline after a

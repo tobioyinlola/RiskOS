@@ -41,6 +41,9 @@ func writeAuthError(w http.ResponseWriter, r *http.Request, logger *slog.Logger,
 		w.Header().Set("WWW-Authenticate", `Bearer realm="riskos"`)
 		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusUnauthorized, httpx.CodeUnauthenticated,
 			"A valid API key is required.", err))
+	case errors.Is(err, domain.ErrProductionLocked):
+		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusForbidden, CodeProductionLocked,
+			"Production opens once RiskOS approves your onboarding. Use the test environment until then.", err))
 	case errors.Is(err, domain.ErrTenantSuspended):
 		logger.WarnContext(r.Context(), "authentication rejected", slog.String("reason", "tenant_not_active"))
 		httpx.WriteError(w, r, logger, httpx.NewError(http.StatusForbidden, httpx.CodeTenantSuspended,

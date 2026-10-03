@@ -13,6 +13,25 @@ const eslintConfig = defineConfig([
       "no-restricted-imports": [
         "error",
         {
+          paths: [
+            {
+              name: "cn",
+              message:
+                "Import cn from @/lib/cn, which knows the design tokens.",
+            },
+            {
+              name: "lucide-react",
+              message: "Import icons from @/components/ui/icons.",
+            },
+            {
+              name: "@phosphor-icons/react",
+              message: "Import icons from @/components/ui/icons.",
+            },
+            {
+              name: "@phosphor-icons/react/ssr",
+              message: "Import icons from @/components/ui/icons.",
+            },
+          ],
           patterns: [
             {
               group: [
@@ -35,7 +54,7 @@ const eslintConfig = defineConfig([
     },
   },
   {
-    files: ["lib/api/**"],
+    files: ["lib/api/**", "lib/cn.ts"],
     rules: { "no-restricted-imports": "off" },
   },
   globalIgnores([

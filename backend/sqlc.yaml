@@ -43,6 +43,14 @@ sql:
 
   - engine: postgresql
     schema: db/migrations
+    queries: db/queries/rules
+    gen:
+      go:
+        <<: *go
+        out: internal/rules/internal/store/sqlcgen
+
+  - engine: postgresql
+    schema: db/migrations
     queries: db/queries/auth
     gen:
       go:

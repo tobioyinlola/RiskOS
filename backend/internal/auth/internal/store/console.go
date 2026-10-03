@@ -22,7 +22,8 @@ type UserLogin struct {
 	TenantID     uuid.UUID
 	Status       string
 	TenantStatus string
-	PasswordHash string
+	// PasswordHash is nil for people who only sign in with Google.
+	PasswordHash *string
 }
 
 // UserByEmail finds a user through the auth_user_by_email function (pre-authentication).
@@ -57,6 +58,8 @@ type SessionLookup struct {
 	TenantName      string
 	TestEnvID       uuid.UUID
 	ProductionEnvID uuid.UUID
+	// ProductionEnabled is false while a self-serve tenant's onboarding is not approved.
+	ProductionEnabled bool
 }
 
 // SessionByToken finds a session by its token hash (pre-authentication).
@@ -65,10 +68,10 @@ func (s Store) SessionByToken(ctx context.Context, tokenHash []byte) (*SessionLo
 	err := preAuth(ctx, "look up session", func(ctx context.Context) error {
 		return s.pool.QueryRow(ctx,
 			`SELECT id, tenant_id, user_id, state, created_at, last_seen_at, expires_at, reauth_at, revoked_at,
-			        user_status, user_role, tenant_status, tenant_name, test_env_id, production_env_id
+			        user_status, user_role, tenant_status, tenant_name, test_env_id, production_env_id, production_enabled
 			 FROM auth_session_by_token($1)`, tokenHash,
 		).Scan(&r.ID, &r.TenantID, &r.UserID, &r.State, &r.CreatedAt, &r.LastSeenAt, &r.ExpiresAt, &r.ReauthAt,
-			&r.RevokedAt, &r.UserStatus, &r.UserRole, &r.TenantStatus, &r.TenantName, &r.TestEnvID, &r.ProductionEnvID)
+			&r.RevokedAt, &r.UserStatus, &r.UserRole, &r.TenantStatus, &r.TenantName, &r.TestEnvID, &r.ProductionEnvID, &r.ProductionEnabled)
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil //nolint:nilnil // unknown session is a normal outcome

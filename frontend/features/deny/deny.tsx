@@ -1,6 +1,5 @@
 "use client";
 
-import { Ban } from "lucide-react";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -22,6 +21,7 @@ import { useDenyList, useUserName } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
 import { EntityLink } from "../entities/link";
+import { Ban } from "@/components/ui/icons";
 
 type Kind = Schemas["DenyKind"];
 type Entry = Schemas["DenyEntry"];

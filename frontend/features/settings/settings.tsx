@@ -30,6 +30,7 @@ const EVENT_TYPES = [
   "device_change",
   "session_change",
   "profile_change",
+  "activity",
 ];
 
 export function RiskSettings() {

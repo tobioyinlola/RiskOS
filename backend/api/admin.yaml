@@ -312,6 +312,118 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/onboarding:
+    get:
+      operationId: listOnboardingReviews
+      tags: [staff]
+      summary: Self-serve workspaces' compliance onboarding, submitted first
+      description: Identity, status and dates only. Requires the operations_admin role.
+      responses:
+        "200":
+          description: The queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingQueue"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/onboarding/{tenant_id}:
+    get:
+      operationId: getOnboardingReview
+      tags: [staff]
+      summary: One workspace's onboarding answers
+      description: |
+        Requires the operations_admin role. Reading the answers is recorded in the staff audit log
+        and the tenant's.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingReview"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/onboarding/{tenant_id}/approve:
+    post:
+      operationId: approveOnboarding
+      tags: [staff]
+      summary: Approve a submitted onboarding
+      description: |
+        Requires the operations_admin role. Opens the workspace's production environment. Recorded in
+        the staff audit log and the tenant's.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingDecision"
+      responses:
+        "200":
+          description: The approved onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingReview"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/onboarding/{tenant_id}/reject:
+    post:
+      operationId: rejectOnboarding
+      tags: [staff]
+      summary: Send a submitted onboarding back with a note
+      description: |
+        Requires the operations_admin role and a note of 10 to 1000 characters, which the customer
+        sees. The customer can change their answers and submit again. Production stays locked.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingDecision"
+      responses:
+        "200":
+          description: The rejected onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OnboardingReview"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/audit-log:
     get:
       operationId: listStaffAudit
@@ -339,6 +451,13 @@ paths:
           $ref: "#/components/responses/DefaultError"
 components:
   parameters:
+    TenantID:
+      name: tenant_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: ten_01j9x2k7m3q4r5s6t7v8w9x0yz
     AccessID:
       name: access_id
       in: path
@@ -618,6 +737,87 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/SupportAccess"
+    OnboardingStatus:
+      type: string
+      enum: [draft, submitted, approved, rejected]
+    OnboardingQueueItem:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, tenant_name, tenant_status, tenant_created_at, status, submitted_at, reviewed_at]
+      properties:
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        tenant_status:
+          type: string
+        tenant_created_at:
+          type: string
+          format: date-time
+        status:
+          $ref: "#/components/schemas/OnboardingStatus"
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+    OnboardingQueue:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/OnboardingQueueItem"
+    OnboardingReview:
+      type: object
+      additionalProperties: false
+      required: [tenant_id, tenant_name, status, answers, missing, production_enabled, submitted_at, submitted_by, reviewed_at, reviewed_by, review_note]
+      properties:
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        status:
+          $ref: "#/components/schemas/OnboardingStatus"
+        answers:
+          type: object
+          additionalProperties: true
+          description: The customer's answers (the customer API's OnboardingAnswers).
+        missing:
+          type: array
+          items:
+            type: string
+        production_enabled:
+          type: boolean
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        submitted_by:
+          type: string
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_by:
+          type: string
+          nullable: true
+        review_note:
+          type: string
+          nullable: true
+    OnboardingDecision:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          maxLength: 1000
     StaffAuditEntry:
       type: object
       additionalProperties: false

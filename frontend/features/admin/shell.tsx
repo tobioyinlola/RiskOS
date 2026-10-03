@@ -1,15 +1,31 @@
 "use client";
 
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { cn } from "cn";
-import { LogOut } from "lucide-react";
 import Link from "next/link";
+import { DropdownMenu as M } from "radix-ui";
 import { usePathname, useRouter } from "next/navigation";
 import { createContext, useContext, useEffect, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/states";
+import {
+  Report,
+  Scroll,
+  ShieldCheck,
+  SignOut,
+  UserAdmin,
+} from "@/components/ui/icons";
+import { pillTabClass } from "@/components/ui/misc";
+import { TooltipProvider } from "@/components/ui/tooltip";
 import { Wordmark } from "@/components/ui/wordmark";
+import {
+  menuItem,
+  NavGroup,
+  NavItem,
+  PromoCard,
+  Sidebar,
+  WorkspaceSwitcher,
+} from "@/components/shell/app-shell";
 import {
   adminApi,
   setStaffCsrfToken,
@@ -29,10 +45,20 @@ export function useStaff(): StaffSession {
 }
 
 const NAV = [
-  { href: "/admin", label: "Security" },
-  { href: "/admin/support", label: "Support access" },
-  { href: "/admin/audit", label: "Staff audit log" },
+  { href: "/admin", label: "Security", icon: ShieldCheck },
+  { href: "/admin/onboarding", label: "Onboarding reviews", icon: Report },
+  { href: "/admin/support", label: "Support access", icon: UserAdmin },
+  { href: "/admin/audit", label: "Staff audit log", icon: Scroll },
 ] as const;
+
+/** The "Admin" badge beside the workspace name, so the two realms never look alike. */
+function AdminBadge() {
+  return (
+    <span className="rounded-full bg-ink px-2 py-px text-label text-white">
+      Admin
+    </span>
+  );
+}
 
 /** The staff console: separate from the customer console, signed in with a staff passkey. */
 export function StaffShell({ children }: { children: ReactNode }) {
@@ -69,56 +95,103 @@ export function StaffShell({ children }: { children: ReactNode }) {
       </main>
     );
   }
+  const isActive = (href: string) =>
+    href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
+  const staff = q.data.staff;
   return (
     <StaffContext.Provider value={q.data}>
-      <div className="min-h-dvh bg-bg-canvas">
-        <header className="border-b border-border-subtle bg-bg-surface">
-          <div className="mx-auto flex max-w-6xl flex-wrap items-center gap-4 px-4 py-3">
-            <Wordmark />
-            <span className="rounded-sm bg-risk-high-bg px-2 text-overline text-text-primary uppercase">
-              Staff
-            </span>
-            <nav className="flex flex-wrap gap-1" aria-label="Staff console">
-              {NAV.map((n) => {
-                const active =
-                  n.href === "/admin"
-                    ? pathname === "/admin"
-                    : pathname.startsWith(n.href);
-                return (
+      <TooltipProvider>
+        <div className="flex min-h-dvh bg-bg-canvas">
+          <Sidebar
+            collapsed={false}
+            header={
+              <WorkspaceSwitcher
+                name="RiskOS"
+                badge={<AdminBadge />}
+                detail="Internal staff console"
+              >
+                <div className="px-3 py-2">
+                  <p className="text-body font-medium">{staff.name}</p>
+                  <p className="text-label text-text-muted">
+                    Session ends {formatTimestamp(q.data.expires_at)}
+                  </p>
+                </div>
+                <M.Separator className="my-1 border-t border-border-subtle" />
+                <M.Item className={menuItem} onSelect={() => void signOut()}>
+                  <SignOut /> Sign out
+                </M.Item>
+              </WorkspaceSwitcher>
+            }
+            footer={
+              <PromoCard
+                title="Four-eyes support"
+                action={
+                  <Button variant="primary" size="sm" arrow asChild>
+                    <Link href="/admin/support">Review requests</Link>
+                  </Button>
+                }
+              >
+                Tenant access needs a second staff member and ends on its own.
+              </PromoCard>
+            }
+          >
+            <nav aria-label="Staff console">
+              <NavGroup>
+                {NAV.map((n) => (
+                  <li key={n.href}>
+                    <NavItem
+                      href={n.href}
+                      label={n.label}
+                      icon={n.icon}
+                      active={isActive(n.href)}
+                    />
+                  </li>
+                ))}
+              </NavGroup>
+            </nav>
+          </Sidebar>
+
+          <div className="flex min-w-0 flex-1 flex-col">
+            <header className="sticky top-0 z-20 bg-bg-canvas/85 backdrop-blur-md">
+              <div className="flex h-16 items-center gap-3 px-4 lg:px-8">
+                <span className="flex items-center gap-2 lg:hidden">
+                  <Wordmark className="text-heading-3" />
+                  <AdminBadge />
+                </span>
+                <div className="ml-auto flex items-center gap-3">
+                  <span className="hidden text-label text-text-muted sm:inline">
+                    {staff.name} · session ends{" "}
+                    {formatTimestamp(q.data.expires_at)}
+                  </span>
+                  <Button
+                    size="sm"
+                    icon={<SignOut />}
+                    onClick={() => void signOut()}
+                  >
+                    Sign out
+                  </Button>
+                </div>
+              </div>
+              <nav
+                aria-label="Staff console sections"
+                className="flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden"
+              >
+                {NAV.map((n) => (
                   <Link
                     key={n.href}
                     href={n.href}
-                    aria-current={active ? "page" : undefined}
-                    className={cn(
-                      "rounded-sm px-3 py-1 text-body-sm",
-                      active
-                        ? "bg-bg-raised text-text-primary"
-                        : "text-text-secondary hover:text-text-primary",
-                    )}
+                    aria-current={isActive(n.href) ? "page" : undefined}
+                    className={pillTabClass(isActive(n.href))}
                   >
                     {n.label}
                   </Link>
-                );
-              })}
-            </nav>
-            <div className="ml-auto flex items-center gap-3">
-              <span className="text-label text-text-muted">
-                {q.data.staff.name} · session ends{" "}
-                {formatTimestamp(q.data.expires_at)}
-              </span>
-              <Button
-                size="sm"
-                variant="ghost"
-                icon={<LogOut />}
-                onClick={() => void signOut()}
-              >
-                Sign out
-              </Button>
-            </div>
+                ))}
+              </nav>
+            </header>
+            <main className="flex-1 px-4 pt-2 pb-8 lg:px-8">{children}</main>
           </div>
-        </header>
-        <main className="mx-auto max-w-6xl px-4 py-6">{children}</main>
-      </div>
+        </div>
+      </TooltipProvider>
     </StaffContext.Provider>
   );
 }

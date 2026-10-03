@@ -42,6 +42,9 @@ type FeatureStore struct {
 	seen     *redis.Script
 	velocity *redis.Script
 	amount   *redis.Script
+	window   *redis.Script
+	profile  *redis.Script
+	export   *redis.Script
 	// scriptsLoaded is set once the pipelined scripts are known to be in the Redis script
 	// cache, so Observe can send EVALSHA instead of the whole script body (which costs Redis a
 	// hash and a lookup on every call). Cleared when Redis reports NOSCRIPT (after a restart).
@@ -63,6 +66,9 @@ func NewFeatureStore(rdb Redis, hashKey []byte, timeout time.Duration) *FeatureS
 		seen:     redis.NewScript(seenScript),
 		velocity: redis.NewScript(velocityScript),
 		amount:   redis.NewScript(amountScript),
+		window:   redis.NewScript(windowScript),
+		profile:  redis.NewScript(profileScript),
+		export:   redis.NewScript(exportScript),
 	}
 }
 
@@ -204,6 +210,20 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 	if e.Context.Country != "" {
 		newCountry = seen(user+":cty", e.Context.Country)
 	}
+	// Money flows between the user and its counterparties (PON-01): the senders of incoming
+	// payments are remembered next to the payees, with the same hash, so a counterparty that both
+	// sent and received is recognized.
+	var senderRelated, toPriorSender *redis.BoolCmd
+	if t := e.Transaction; t != nil && t.Direction == "credit" && e.Compliance != nil && e.Compliance.Refs["sender"] != "" {
+		sender := k.hash("ben", e.Compliance.Refs["sender"])
+		senderRelated = pipe.SIsMember(ctx, user+":ben", sender)
+		if write {
+			seen(user+":snd", sender)
+		}
+	}
+	if e.IsDebit() && e.BeneficiaryID() != "" {
+		toPriorSender = pipe.SIsMember(ctx, user+":snd", k.hash("ben", e.BeneficiaryID()))
+	}
 	var credChange *redis.StringCmd
 	if write && e.CredentialChange() {
 		pipe.Set(ctx, user+":cred", time.Now().Unix(), credentialTTL)
@@ -301,6 +321,20 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 		}
 		*c.dst = n == 1
 	}
+	for _, c := range []struct {
+		cmd *redis.BoolCmd
+		dst **bool
+	}{{senderRelated, &v.SenderRelated}, {toPriorSender, &v.ToPriorSender}} {
+		if c.cmd == nil {
+			continue
+		}
+		b, err := c.cmd.Result()
+		if err != nil {
+			degrade(domain.SourceHistory)
+			continue
+		}
+		*c.dst = &b
+	}
 	if credChange != nil {
 		ts, err := credChange.Int64()
 		switch {
@@ -364,7 +398,7 @@ func (s *FeatureStore) loadScripts(ctx context.Context) {
 	// Not Script.Load: on a pipeline it replaces the script's hash with the not-yet-available
 	// reply (an empty string) in go-redis v9.22.
 	pipe := s.rdb.Pipeline()
-	for _, src := range []string{seenScript, velocityScript} {
+	for _, src := range []string{seenScript, velocityScript, windowScript, profileScript, exportScript} {
 		pipe.ScriptLoad(ctx, src)
 	}
 	if _, err := pipe.Exec(ctx); err == nil {

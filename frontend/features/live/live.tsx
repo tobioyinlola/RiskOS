@@ -1,6 +1,5 @@
 "use client";
 
-import { Pause, Play } from "lucide-react";
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -17,16 +16,13 @@ import {
   formatTimestamp,
   humanize,
 } from "@/lib/format";
-import {
-  BANDS,
-  DECISION_LABEL,
-  type Decision,
-  type RiskBand,
-} from "@/lib/risk";
+import { BANDS, type RiskBand } from "@/lib/risk";
 import { useSession } from "@/lib/session";
 
 import { EntityLink } from "../entities/link";
 import { EventDrawer } from "../events/events";
+import { Pause, Play } from "@/components/ui/icons";
+import { DecisionPill } from "@/components/ui/pill";
 
 type Event = Schemas["EventSummary"];
 
@@ -289,8 +285,8 @@ export function LiveMonitor() {
                 <DataCell className="text-text-secondary">
                   {e.country ?? ""}
                 </DataCell>
-                <Td className="text-body-sm">
-                  {DECISION_LABEL[e.decision as Decision]}
+                <Td>
+                  <DecisionPill decision={e.decision} />
                 </Td>
               </Tr>
             ))}

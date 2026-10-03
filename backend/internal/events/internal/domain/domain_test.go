@@ -10,6 +10,7 @@ import (
 	"github.com/stretchr/testify/require"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/domain"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 func event() domain.Event {
@@ -100,4 +101,53 @@ func TestContainsCardNumberIsBounded(t *testing.T) {
 	start := time.Now()
 	domain.ContainsCardNumber([]byte(long))
 	assert.Less(t, time.Since(start), 100*time.Millisecond)
+}
+
+func TestNormalizeComplianceBlock(t *testing.T) {
+	e := event()
+	e.Compliance = &rules.EventContext{
+		Kind:  "cash_withdrawal",
+		Facts: map[string]any{"customer.type": "individual", "account.kyc_tier_norm": map[string]any{"amount": 30_000_000.0, "currency": "NGN"}},
+		Refs:  map[string]string{"card": "crd_1"},
+	}
+	n, _, err := domain.Normalize(e)
+	require.NoError(t, err)
+	raw, err := n.Encode()
+	require.NoError(t, err)
+	assert.Contains(t, string(raw), `"compliance":{"kind":"cash_withdrawal","facts":{"account.kyc_tier_norm":{"amount":30000000,"currency":"NGN"},"customer.type":"individual"},"refs":{"card":"crd_1"}}`)
+
+	// An empty block is dropped, so events without one hash as before.
+	e.Compliance = &rules.EventContext{}
+	n, _, err = domain.Normalize(e)
+	require.NoError(t, err)
+	raw, err = n.Encode()
+	require.NoError(t, err)
+	assert.NotContains(t, string(raw), "compliance")
+
+	for name, c := range map[string]*rules.EventContext{
+		"a login kind on a transaction": {Kind: "auth_failure"},
+		"a fact RiskOS computes":        {Facts: map[string]any{"device.is_new": true}},
+		"a wrongly typed fact":          {Facts: map[string]any{"device.rooted": "yes"}},
+		"an unknown value":              {Facts: map[string]any{"customer.type": "trust"}},
+	} {
+		e.Compliance = c
+		_, _, err := domain.Normalize(e)
+		assert.ErrorIs(t, err, domain.ErrInvalidEvent, name)
+	}
+	e.Compliance = &rules.EventContext{Refs: map[string]string{"bvn": "22212345678"}}
+	_, _, err = domain.Normalize(e)
+	assert.ErrorIs(t, err, rules.ErrSensitiveData, "a raw BVN is refused")
+
+	act := event()
+	act.Type, act.Data, act.Compliance = "activity", json.RawMessage(`{}`), nil
+	_, _, err = domain.Normalize(act)
+	assert.ErrorIs(t, err, domain.ErrInvalidEvent, "an activity names its kind")
+}
+
+func TestNormalizeRoundsCoordinates(t *testing.T) {
+	e := event()
+	e.Context.Geo = &domain.Geo{Lat: 6.524379, Lon: 3.379206}
+	n, _, err := domain.Normalize(e)
+	require.NoError(t, err)
+	assert.Equal(t, &domain.Geo{Lat: 6.52, Lon: 3.38}, n.Context.Geo, "about 1 km, never a precise location")
 }

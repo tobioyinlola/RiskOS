@@ -9,10 +9,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"math"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Errors of the events module.
@@ -43,6 +47,13 @@ type Context struct {
 	IP        string `json:"ip,omitempty"`
 	UserAgent string `json:"user_agent,omitempty"`
 	Country   string `json:"country,omitempty"`
+	Geo       *Geo   `json:"geo,omitempty"`
+}
+
+// Geo is where the end user was, rounded to 2 decimals (about 1 km) when normalized.
+type Geo struct {
+	Lat float64 `json:"lat"`
+	Lon float64 `json:"lon"`
 }
 
 // Event is a validated-by-contract event, before normalization.
@@ -54,6 +65,8 @@ type Event struct {
 	Context    Context
 	// Data is the type-specific object, already schema-validated.
 	Data json.RawMessage
+	// Compliance is what the rule pack needs about the event (EVENTS.md#compliance), or nil.
+	Compliance *rules.EventContext
 }
 
 // Normalized is the canonical form the engine evaluates and the payload hash covers. Field order
@@ -64,6 +77,8 @@ type Normalized struct {
 	Actor      Actor           `json:"actor"`
 	Context    Context         `json:"context"`
 	Data       json.RawMessage `json:"data"`
+	// Compliance is omitted when empty, so events without it hash as before.
+	Compliance *rules.EventContext `json:"compliance,omitempty"`
 }
 
 // Normalize validates what the contract cannot express and returns the canonical form: UTC
@@ -86,11 +101,25 @@ func Normalize(e Event) (Normalized, *netip.Addr, error) {
 		n.Context.IP = addr.String()
 		ip = &addr
 	}
+	if g := e.Context.Geo; g != nil {
+		// Coarse enough not to pinpoint a person, precise enough for travel speeds.
+		n.Context.Geo = &Geo{Lat: math.Round(g.Lat*100) / 100, Lon: math.Round(g.Lon*100) / 100}
+	}
 	var compact bytes.Buffer
 	if err := json.Compact(&compact, e.Data); err != nil {
 		return Normalized{}, nil, fmt.Errorf("%w: data is not valid JSON", ErrInvalidEvent)
 	}
 	n.Data = compact.Bytes()
+	if err := rules.CheckEvent(e.Type, e.Compliance); err != nil {
+		if errors.Is(err, rules.ErrSensitiveData) {
+			return Normalized{}, nil, err
+		}
+		return Normalized{}, nil, fmt.Errorf("%w: %s", ErrInvalidEvent,
+			strings.TrimPrefix(err.Error(), rules.ErrInvalidEvent.Error()+": "))
+	}
+	if c := e.Compliance; c != nil && (c.Kind != "" || len(c.Facts) > 0 || len(c.Refs) > 0) {
+		n.Compliance = c
+	}
 	return n, ip, nil
 }
 
@@ -200,6 +229,29 @@ type Outcome struct {
 	DegradedSignals []string   `json:"degraded_signals"`
 	// WarmingSignals is absent from outcomes stored before it existed.
 	WarmingSignals []string `json:"warming_signals,omitempty"`
+	// Controls and NotEvaluated are the rule pack's results (absent from older outcomes).
+	Controls     []Control      `json:"controls,omitempty"`
+	NotEvaluated []NotEvaluated `json:"not_evaluated,omitempty"`
+}
+
+// Control mirrors the risk module's rule pack control in the stored outcome.
+type Control struct {
+	Rule             string   `json:"rule"`
+	Name             string   `json:"name"`
+	Mode             string   `json:"mode"`
+	Decision         string   `json:"decision,omitempty"`
+	Reason           string   `json:"reason"`
+	Tasks            []string `json:"tasks"`
+	FeePercent       float64  `json:"fee_percent,omitempty"`
+	HoldSeconds      int64    `json:"hold_seconds,omitempty"`
+	Branch           string   `json:"branch,omitempty"`
+	ExemptionUnknown bool     `json:"exemption_unknown,omitempty"`
+}
+
+// NotEvaluated mirrors a rule pack rule that could not be evaluated.
+type NotEvaluated struct {
+	Rule    string   `json:"rule"`
+	Missing []string `json:"missing"`
 }
 
 // Signal mirrors the risk module's signal in the stored outcome.

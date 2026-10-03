@@ -134,6 +134,12 @@ services:
       RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST: "true"
       RISKOS_CONSOLE_SECRET: *console-secret
       RISKOS_CONSOLE_URL: http://localhost:${FRONTEND_PORT:-3000}
+      # Self-serve sign-up (codes are emailed to Mailpit locally). Google sign-in turns on when
+      # RISKOS_GOOGLE_CLIENT_ID and RISKOS_GOOGLE_CLIENT_SECRET are set in .env.
+      RISKOS_SIGNUP_ENABLED: ${RISKOS_SIGNUP_ENABLED:-true}
+      RISKOS_SIGNUP_REGION: ${RISKOS_SIGNUP_REGION:-local-1}
+      RISKOS_GOOGLE_CLIENT_ID: ${RISKOS_GOOGLE_CLIENT_ID:-}
+      RISKOS_GOOGLE_CLIENT_SECRET: ${RISKOS_GOOGLE_CLIENT_SECRET:-}
       # Local development over http; production requires Secure cookies.
       RISKOS_SESSION_COOKIE_SECURE: "false"
       # The console's server proxies browser calls; locally it has some address on the compose

@@ -1,0 +1,1003 @@
+{
+  "rules": [
+    {
+      "id": "MUL-01",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "pass_through",
+        "min_decision": "review",
+        "evidence": [
+          "in_sum",
+          "out_sum",
+          "ratio"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "share",
+          "label": "Share of money received that leaves",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 3600,
+          "min": 600,
+          "max": 86400
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer the rule looks at (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 10000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "MUL-02",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_inbound"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "distinct_count",
+            "event": "transfer_inbound",
+            "window": "window",
+            "by": "account",
+            "field": "sender.id"
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "senders"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "fan_in"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "senders",
+          "label": "Different senders that count as many",
+          "type": "count",
+          "default": 10,
+          "min": 3,
+          "max": 1000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "MUL-03",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "distinct_count",
+            "event": "transfer_outbound",
+            "window": "window",
+            "by": "inflow",
+            "field": "beneficiary.id"
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "recipients"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "fan_out"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "recipients",
+          "label": "Recipients one payment is split among",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 3600,
+          "min": 600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "MUL-04",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "conflicting",
+      "caveat": "KYC tier limits conflict between CBN circulars (2013, 2016, 2017 and a 2026 guide), so no tier norm is built in. Your institution sets its tier norms from the current circular; the rule stays off until it does.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.age"
+          },
+          "op": "lt",
+          "right": {
+            "param": "new_account"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "sum",
+            "event": "transaction_any",
+            "window": "new_account",
+            "by": "account",
+            "field": "txn.amount"
+          }
+        },
+        "op": "gt",
+        "right": {
+          "times": {
+            "factor": "multiple",
+            "of": {
+              "fact": "account.kyc_tier_norm"
+            }
+          }
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "new_account_surge",
+        "evidence": [
+          "volume",
+          "tier_norm"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "new_account",
+          "label": "How long an account counts as new",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "multiple",
+          "label": "How many times its KYC tier's normal volume",
+          "type": "ratio",
+          "default": 10,
+          "min": 2,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "MUL-05",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "account.inactive_for"
+            },
+            "op": "gte",
+            "right": {
+              "param": "dormant"
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "large"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "dormant_reactivation"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "dormant",
+          "label": "No activity for at least",
+          "type": "duration",
+          "default": 7776000,
+          "min": 2592000,
+          "max": 31536000
+        },
+        {
+          "name": "large",
+          "label": "What counts as large after dormancy (set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "MUL-06",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The library gives no period for counting shared identifiers; 180 days is a starting value.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "loan_application",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "device",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "device_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "bvn",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "phone",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "address",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "shared_identifiers",
+        "min_decision": "review",
+        "evidence": [
+          "shared_identifier",
+          "linked_accounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "device_accounts",
+          "label": "Accounts on one device that count as shared",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "identity_accounts",
+          "label": "Accounts sharing a BVN, phone or address",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Period the links are counted over",
+          "type": "duration",
+          "default": 15552000,
+          "min": 604800,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "MUL-07",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The library gives no period for counting reports; 180 days is a starting value.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "fraud_list",
+        "poi_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "fraud_report",
+                "window": "window",
+                "by": "beneficiary",
+                "field": "reporter.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "reporters"
+            }
+          },
+          {
+            "left": {
+              "fact": "beneficiary.on_fraud_list"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "beneficiary.on_poi_list"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "reported_beneficiary",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "reporters",
+          "label": "Unrelated senders who reported the recipient",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Period reports are counted over",
+          "type": "duration",
+          "default": 15552000,
+          "min": 604800,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "MUL-08",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The library's logic compares the withdrawal with the incoming payment; when several payments arrived in the window, their total is used.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "atm_withdrawal",
+          "pos_purchase"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "txn.source"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "card",
+                      "p2p"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.source"
+                      },
+                      "op": "in",
+                      "right": {
+                        "literal": [
+                          "card",
+                          "p2p"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "rapid_cash_out"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time between money arriving and the withdrawal",
+          "type": "duration",
+          "default": 1800,
+          "min": 300,
+          "max": 21600
+        },
+        {
+          "name": "share",
+          "label": "Share of the money withdrawn",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "PON-01",
+      "group": "mule_accounts",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NFIU"
+      ],
+      "sources": [
+        "S9"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The NFIU Ponzi-scheme advisory (April 2025) was not opened; this is a typology rule, not a quoted threshold.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_inbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "field": "sender.id",
+                "where": {
+                  "left": {
+                    "fact": "sender.related"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": false
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "senders"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account"
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "txn.to_prior_sender"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": true
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_outbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "ponzi_pooling",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "senders",
+          "label": "Unrelated senders into one account",
+          "type": "count",
+          "default": 20,
+          "min": 5,
+          "max": 1000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "share",
+          "label": "Share of payouts going to earlier senders",
+          "type": "ratio",
+          "default": 0.3,
+          "min": 0.1,
+          "max": 1
+        }
+      ]
+    }
+  ]
+}

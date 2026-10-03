@@ -7,6 +7,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/engine"
+	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // configTTL bounds how long another API instance keeps using settings or rules after they
@@ -18,6 +19,8 @@ type config struct {
 	settings domain.Settings
 	rules    []engine.CompiledRule
 	deny     domain.DenyList
+	// pack is the tenant's rule pack, nil without a compliance profile.
+	pack *rulepack.TenantPack
 }
 
 type configEntry struct {

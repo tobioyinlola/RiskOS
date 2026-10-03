@@ -49,6 +49,13 @@ tags:
     description: Console sign-in, second factors and sessions (cookie-based; not for API keys).
   - name: team
     description: Console users and invites.
+  - name: onboarding
+    description: Compliance onboarding of self-serve workspaces (know your business).
+  - name: compliance
+    description: |
+      The jurisdiction rule pack a workspace is on (ADR-0006): regulatory controls, risk-scoring
+      rules and governance presets, each with its legal source, effective date, verification status
+      and the library's plain-English wording.
 security:
   - apiKey: []
 paths:
@@ -2384,6 +2391,1310 @@ paths:
           $ref: "#/components/responses/RateLimited"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/options:
+    get:
+      operationId: getSignupOptions
+      tags: [session]
+      summary: Which ways to sign up are available
+      security: []
+      description: |
+        `email` is false when sign-up is switched off or RiskOS cannot send email; `google` is true
+        when Google sign-in is configured. The console shows only what is available.
+      responses:
+        "200":
+          description: The available ways to sign up.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupOptions"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup:
+    post:
+      operationId: startSignup
+      tags: [session]
+      summary: Start creating a workspace with email and password
+      security: []
+      description: |
+        Records the sign-up and emails a 6-digit code to prove the address; nothing is created until
+        the code is verified. The response is the same whether or not the email already has an
+        account (that person gets an email saying so instead of a code). Passwords follow the console
+        rules (12 to 128 characters, not the email, not in known breaches). Sets a cookie, valid for an
+        hour, that ties the sign-up to this browser. Throttled per email and per IP (429).
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupRequest"
+      responses:
+        "202":
+          description: A code is on its way.
+          headers:
+            Set-Cookie:
+              description: The sign-up's browser binding (HttpOnly, SameSite=Lax, one hour).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupPending"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/resend:
+    post:
+      operationId: resendSignupCode
+      tags: [session]
+      summary: Send a new code
+      security: []
+      description: |
+        Sends a new code (the previous one stops working), at most once a minute and five times per
+        sign-up (429 with Retry-After).
+      parameters:
+        - name: riskos_signup
+          in: cookie
+          required: false
+          schema:
+            type: string
+      responses:
+        "200":
+          description: A new code is on its way.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignupPending"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/verify:
+    post:
+      operationId: verifySignup
+      tags: [session]
+      summary: Verify the emailed code and create the workspace
+      security: []
+      description: |
+        With the right code, creates the workspace (a tenant with test and production environments,
+        production locked until onboarding is approved) and its first administrator, and starts a
+        session that must enroll a second factor next. A wrong code gets 400 `CODE_INVALID`; five
+        wrong codes end the sign-up (start again).
+      parameters:
+        - name: riskos_signup
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupVerifyRequest"
+      responses:
+        "200":
+          description: The new session's state.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/signup/complete:
+    post:
+      operationId: completeSignup
+      tags: [session]
+      summary: Name the workspace and create it (Google sign-ups)
+      security: []
+      description: |
+        For a sign-up whose email Google verified: creates the workspace with this business name and
+        its first administrator, and starts a session that must enroll a second factor next.
+      parameters:
+        - name: riskos_signup
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignupCompleteRequest"
+      responses:
+        "200":
+          description: The new session's state.
+          headers:
+            Set-Cookie:
+              description: The session cookie (HttpOnly, SameSite=Strict, Secure outside local development).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthState"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/google/start:
+    post:
+      operationId: startGoogle
+      tags: [session]
+      summary: Start signing in or up with Google
+      security: []
+      description: |
+        Returns Google's authorization URL and sets a short-lived cookie binding the request to this
+        browser. 404 `GOOGLE_NOT_CONFIGURED` when Google sign-in is not set up.
+      responses:
+        "200":
+          description: Where to send the browser.
+          headers:
+            Set-Cookie:
+              description: The request's browser binding (HttpOnly, SameSite=Lax, ten minutes).
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SSOStart"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/auth/google/callback:
+    post:
+      operationId: finishGoogle
+      tags: [session]
+      summary: Finish signing in or up with Google
+      security: []
+      description: |
+        Called by the console's Google callback page with Google's `code` and `state`. Google must
+        confirm the email (`email_verified`). If the email has an account, its first Google sign-in
+        binds Google's subject (later ones must match) and a session starts that still needs RiskOS's
+        second factor (`outcome: signed_in`). Otherwise a sign-up starts with the verified email
+        (`outcome: needs_business`): name the workspace with `completeSignup`. Failures get 401
+        `GOOGLE_FAILED`.
+      parameters:
+        - name: riskos_google
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SSOCallbackRequest"
+      responses:
+        "200":
+          description: Signed in, or a sign-up waiting for its business name.
+          headers:
+            Set-Cookie:
+              description: The session cookie, or the sign-up's browser binding.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GoogleResult"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/onboarding:
+    get:
+      operationId: getOnboarding
+      tags: [onboarding]
+      summary: The workspace's compliance onboarding
+      description: |
+        Requires `team:read`. 404 for workspaces created by RiskOS operators (they have no onboarding).
+        `missing` lists the answers still needed before submitting.
+      responses:
+        "200":
+          description: The onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Onboarding"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: saveOnboarding
+      tags: [onboarding]
+      summary: Save onboarding answers (a draft)
+      description: |
+        Requires `team:write`. Replaces the answers; allowed while the onboarding is a draft or was
+        rejected (saving a rejected one makes it a draft again). 409 once submitted or approved.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/OnboardingAnswers"
+      responses:
+        "200":
+          description: The onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Onboarding"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/onboarding/submit:
+    post:
+      operationId: submitOnboarding
+      tags: [onboarding]
+      summary: Submit the onboarding for review
+      description: |
+        Requires `team:write`. Every required answer must be present (400 lists what is missing).
+        RiskOS staff then review it; approval opens the production environment.
+      responses:
+        "200":
+          description: The submitted onboarding.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Onboarding"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/pack:
+    get:
+      operationId: getCompliancePack
+      tags: [compliance]
+      summary: The workspace's rule pack
+      description: |
+        Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
+        recently loaded pack when no profile is set.
+      responses:
+        "200":
+          description: The workspace's rule pack.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CompliancePack"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules:
+    get:
+      operationId: listComplianceRules
+      tags: [compliance]
+      summary: The pack's rules
+      description: |
+        Requires `compliance:read`. Every rule of the pack, ordered by ID, with its wording, source,
+        effective date, verification status, defaults and bounded parameters. The engineering logic
+        is only on a single rule, for callers with `compliance:engineering`.
+      parameters:
+        - name: group
+          in: query
+          required: false
+          description: Only rules in this group.
+          schema:
+            type: string
+            maxLength: 64
+        - name: kind
+          in: query
+          required: false
+          description: Only rules of this kind.
+          schema:
+            $ref: "#/components/schemas/ComplianceRuleKind"
+        - name: regulator
+          in: query
+          required: false
+          description: Only rules involving this regulator (CBN, NFIU and so on).
+          schema:
+            type: string
+            maxLength: 16
+        - name: verification
+          in: query
+          required: false
+          description: Only rules with this verification status.
+          schema:
+            $ref: "#/components/schemas/ComplianceVerification"
+        - name: q
+          in: query
+          required: false
+          description: Words to find in a rule's ID, name or description.
+          schema:
+            type: string
+            maxLength: 100
+        - name: applicable
+          in: query
+          required: false
+          description: Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile.
+          schema:
+            type: boolean
+      responses:
+        "200":
+          description: The pack's rules.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRuleList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}:
+    get:
+      operationId: getComplianceRule
+      tags: [compliance]
+      summary: One rule
+      description: |
+        Requires `compliance:read`. `engineering_logic` (the library's section 7B) and `definition` (the
+        machine definition) are included only for callers with `compliance:engineering`.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      responses:
+        "200":
+          description: One rule.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceRule"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/config:
+    get:
+      operationId: getPackRuleConfig
+      tags: [compliance]
+      summary: A rule's configuration in this environment
+      description: Requires `compliance:read`. Version 0 means the library's defaults.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      responses:
+        "200":
+          description: The configuration.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleConfig"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: putPackRuleConfig
+      tags: [compliance]
+      summary: Set a rule's mode and settings in this environment
+      description: |
+        Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+        `settings` lists values that differ from the library's defaults; each must be within the
+        setting's bounds (for regulatory limits, the legal maximum). Omitted settings use the
+        default. Applied at once (200), except in production for a regulatory control when any
+        setting changes or the mode moves away from live: that is proposed (202) and applies when
+        another person with `rules:approve` approves it. Audited.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PackRuleConfigRequest"
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleConfig"
+        "202":
+          description: Proposed; applies when another person approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/history:
+    get:
+      operationId: listPackRuleVersions
+      tags: [compliance]
+      summary: A rule's configuration versions in this environment
+      description: Requires `compliance:read`. Newest first; versions never change.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      responses:
+        "200":
+          description: The versions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleVersionList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/rollback:
+    post:
+      operationId: rollbackPackRule
+      tags: [compliance]
+      summary: Restore an earlier configuration as a new version
+      description: |
+        Requires `compliance:configure` and, in the console, a recent second factor. The same
+        approval rule as a configuration change applies.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [version, reason]
+              properties:
+                version:
+                  type: integer
+                  minimum: 1
+                reason:
+                  type: string
+                  minLength: 1
+                  maxLength: 500
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleConfig"
+        "202":
+          description: Proposed; applies when another person approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/rules/{rule_id}/backtest:
+    post:
+      operationId: backtestPackRule
+      tags: [compliance]
+      summary: What a rule would have done over recent events
+      description: |
+        Requires `compliance:read` and `events:read`. Replays this environment's ingested events of
+        the last `days` (default 7, at most 30; at most 20,000 events) through the rule with
+        `settings` (values that differ from the defaults; omitted: the current configuration) and
+        with its current configuration, whatever its mode, with time windows rebuilt in memory.
+        Nothing is stored and live state is untouched. Events evaluated before the rule pack ran
+        are not replayed.
+      parameters:
+        - name: rule_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Z]{3}-[0-9]{2}$"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              properties:
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                settings:
+                  $ref: "#/components/schemas/PackRuleSettings"
+      responses:
+        "200":
+          description: The two configurations' results over the same events.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Backtest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/fx-rates:
+    get:
+      operationId: listComplianceFXRates
+      tags: [compliance]
+      summary: The institution's exchange rates
+      description: |
+        Requires `compliance:read`. US dollars per one unit of each currency, used to compute
+        `txn.amount_usd` for rules on US dollar amounts (REG-10) when the event does not send it.
+      responses:
+        "200":
+          description: The rates.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRateList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/fx-rates/{currency}:
+    parameters:
+      - name: currency
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[A-Z]{3}$"
+    put:
+      operationId: putComplianceFXRate
+      tags: [compliance]
+      summary: Set a currency's exchange rate
+      description: |
+        Requires `compliance:write` (people only) and, in the console, a recent second factor.
+        Audited. Applies to every environment within 5 seconds.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [usd_per_unit]
+              properties:
+                usd_per_unit:
+                  type: number
+                  format: double
+                  description: US dollars per one unit of the currency (for NGN, about 0.00065).
+                  exclusiveMinimum: true
+                  minimum: 0
+                  maximum: 1000000
+      responses:
+        "200":
+          description: The rate.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FXRate"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: deleteComplianceFXRate
+      tags: [compliance]
+      summary: Remove a currency's exchange rate
+      description: Requires `compliance:write` (people only). Audited.
+      responses:
+        "204":
+          description: Removed.
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/restricted-signals:
+    get:
+      operationId: listRestrictedSignals
+      tags: [compliance]
+      summary: Compliance-only signals (no tipping off)
+      description: |
+        Requires `compliance:sensitive`, held only by compliance officers (GOV-09). Rules marked
+        compliance-only (such as INS-01, staff-linked accounts) add their points to the score
+        under the code `compliance_review` everywhere else: in decisions, events, alerts, webhooks
+        and analytics. This lists the evaluations where one fired, with the rule itself, newest
+        first, at most 200.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 7
+      responses:
+        "200":
+          description: The evaluations.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RestrictedEvaluationList"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks:
+    get:
+      operationId: listComplianceTasks
+      tags: [compliance]
+      summary: The compliance work queue
+      description: |
+        Requires `compliance:read`. What fired regulatory controls require (reports to the NFIU,
+        enhanced due diligence, freezing or closing an account), open ones first by deadline, at
+        most 500. Suspicious transaction reports are listed only for `compliance:sensitive`
+        (GOV-09). For callers who read alerts, `escalations` lists alerts still open past REG-14's
+        screening deadline (72 hours by default).
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            $ref: "#/components/schemas/ComplianceTaskStatus"
+      responses:
+        "200":
+          description: The queue.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceQueue"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    get:
+      operationId: getComplianceTask
+      tags: [compliance]
+      summary: One compliance task
+      description: Requires `compliance:read`, and `compliance:sensitive` for a suspicious transaction report.
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/report:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    patch:
+      operationId: editComplianceReport
+      tags: [compliance]
+      summary: Edit a draft report
+      description: |
+        Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+        Only a draft (open) report changes. Omitted fields are unchanged.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceReportFields"
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/approve:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    post:
+      operationId: approveComplianceReport
+      tags: [compliance]
+      summary: Approve a report for filing
+      description: |
+        Requires `compliance:sensitive`: only compliance officers approve reports (GOV-06), and in
+        the console a recent second factor. A suspicious transaction report is approved only when
+        goAML would accept it: a predicate offence, at least one indicator and an accepted
+        category (REG-19); otherwise 400 says what is missing. Audited.
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/file:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    post:
+      operationId: fileComplianceReport
+      tags: [compliance]
+      summary: Record that a report was filed
+      description: |
+        Requires `compliance:sensitive`. Records that a person filed the approved report with the
+        regulator, with the reference its portal gave. RiskOS never submits reports. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [filing_ref]
+              properties:
+                filing_ref:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/close:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    post:
+      operationId: closeComplianceTask
+      tags: [compliance]
+      summary: Mark a task done or dismiss it
+      description: |
+        Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+        Reports are closed by filing them; dismissing any task needs a note. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status]
+              properties:
+                status:
+                  type: string
+                  enum: [done, dismissed]
+                note:
+                  type: string
+                  maxLength: 1000
+      responses:
+        "200":
+          description: The task.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/tasks/{task_id}/export:
+    parameters:
+      - name: task_id
+        in: path
+        required: true
+        schema:
+          type: string
+          maxLength: 64
+    get:
+      operationId: exportComplianceReport
+      tags: [compliance]
+      summary: An approved report, for filing by hand
+      description: |
+        Requires `compliance:write`, and `compliance:sensitive` for a suspicious transaction report.
+        Returns the approved report for a person to enter in the regulator's portal. Audited.
+      responses:
+        "200":
+          description: The report.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/suspicion:
+    post:
+      operationId: confirmSuspicion
+      tags: [compliance]
+      summary: Confirm suspicion on a case
+      description: |
+        Requires `compliance:sensitive` (compliance officers) and, in the console, a recent second
+        factor. Opens a suspicious transaction report for the case, due within REG-14's `str_due`
+        (24 hours by default) from now. Nothing about it is visible outside compliance roles
+        (GOV-09). Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [case_id]
+              properties:
+                case_id:
+                  type: string
+                  maxLength: 64
+                note:
+                  type: string
+                  maxLength: 4000
+                  description: The first lines of the report's narrative.
+      responses:
+        "201":
+          description: The report, a draft.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTask"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/changes:
+    get:
+      operationId: listPackRuleChanges
+      tags: [compliance]
+      summary: Configuration changes in this environment
+      description: Requires `compliance:read`. Newest first, at most 200.
+      parameters:
+        - name: status
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [pending, approved, rejected]
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChangeList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/changes/{change_id}/approve:
+    post:
+      operationId: approvePackRuleChange
+      tags: [compliance]
+      summary: Approve a pending change
+      description: |
+        Requires `rules:approve` (people only) and, in the console, a recent second factor. Nobody
+        can approve their own change. Applies the change as the rule's next version, credited to
+        its proposer, only if the rule has not changed since (409 otherwise). Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionNote"
+      responses:
+        "200":
+          description: The approved change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/changes/{change_id}/reject:
+    post:
+      operationId: rejectPackRuleChange
+      tags: [compliance]
+      summary: Reject or withdraw a pending change
+      description: |
+        Requires `rules:approve`, or being the change's proposer (withdrawing it). Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionNote"
+      responses:
+        "200":
+          description: The rejected change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/PackRuleChange"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/clocks:
+    get:
+      operationId: listComplianceClocks
+      tags: [compliance]
+      summary: The pack's legal deadlines
+      description: |
+        Requires `compliance:read`. The reporting and response deadlines the pack's workflows time.
+      responses:
+        "200":
+          description: The pack's legal deadlines.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceClockList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/gaps:
+    get:
+      operationId: listComplianceGaps
+      tags: [compliance]
+      summary: The pack's open questions
+      description: |
+        Requires `compliance:read`. Open legal questions a person must settle (conflicting or unconfirmed sources).
+      responses:
+        "200":
+          description: The pack's open questions.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceGapList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/glossary:
+    get:
+      operationId: listComplianceGlossary
+      tags: [compliance]
+      summary: The pack's glossary
+      description: |
+        Requires `compliance:read`. Plain-English meanings of the terms the rules use.
+      responses:
+        "200":
+          description: The pack's glossary.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceTermList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/profile:
+    get:
+      operationId: getComplianceProfile
+      tags: [compliance]
+      summary: The workspace's compliance profile
+      description: |
+        Requires `compliance:read`. 404 until a profile is set.
+      responses:
+        "200":
+          description: The workspace's compliance profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceProfile"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: putComplianceProfile
+      tags: [compliance]
+      summary: Set the workspace's compliance profile
+      description: |
+        Requires `compliance:write` (people only). Sets the jurisdiction, licence type and capabilities
+        that decide which rules apply. Saving adopts the jurisdiction's latest pack version
+        (`latest_version` on the pack); rule configuration carries over. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ComplianceProfileRequest"
+      responses:
+        "200":
+          description: The profile.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ComplianceProfile"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/sso:
     get:
       operationId: getSSO
@@ -2560,6 +3871,970 @@ components:
           schema:
             $ref: "#/components/schemas/ErrorResponse"
   schemas:
+    SignupOptions:
+      type: object
+      additionalProperties: false
+      required: [email, google]
+      properties:
+        email:
+          type: boolean
+          description: Sign-up with email, business name and password is available.
+        google:
+          type: boolean
+          description: Signing in and up with Google is available.
+    SignupRequest:
+      type: object
+      additionalProperties: false
+      required: [name, email, business_name, password]
+      properties:
+        name:
+          type: string
+          maxLength: 100
+        email:
+          type: string
+          maxLength: 254
+        business_name:
+          type: string
+          maxLength: 200
+        password:
+          type: string
+          maxLength: 128
+    SignupPending:
+      type: object
+      additionalProperties: false
+      required: [email, resend_after_seconds, expires_at]
+      properties:
+        email:
+          type: string
+          description: Where the code was sent.
+        resend_after_seconds:
+          type: integer
+          description: How long until another code can be requested.
+        expires_at:
+          type: string
+          format: date-time
+          description: When the sign-up lapses (start again after).
+    SignupVerifyRequest:
+      type: object
+      additionalProperties: false
+      required: [code]
+      properties:
+        code:
+          type: string
+          pattern: "^[0-9]{6}$"
+    SignupCompleteRequest:
+      type: object
+      additionalProperties: false
+      required: [business_name]
+      properties:
+        business_name:
+          type: string
+          maxLength: 200
+    GoogleResult:
+      type: object
+      additionalProperties: false
+      required: [outcome]
+      properties:
+        outcome:
+          type: string
+          enum: [signed_in, needs_business]
+        auth:
+          $ref: "#/components/schemas/AuthState"
+        email:
+          type: string
+          description: The Google account's email (needs_business).
+        name:
+          type: string
+          description: The Google account's name (needs_business).
+    OnboardingStatus:
+      type: string
+      enum: [draft, submitted, approved, rejected]
+    OnboardingAnswers:
+      type: object
+      additionalProperties: false
+      description: |
+        Know-your-business answers. Every field is optional while drafting; `submitOnboarding`
+        requires the ones listed in `Onboarding.missing`.
+      properties:
+        legal_name:
+          type: string
+          maxLength: 200
+        trading_name:
+          type: string
+          maxLength: 200
+        country:
+          type: string
+          description: Country of incorporation, ISO 3166-1 alpha-2.
+          pattern: "^[A-Z]{2}$"
+        registration_number:
+          type: string
+          maxLength: 100
+        website:
+          type: string
+          maxLength: 300
+        industry:
+          type: string
+          enum: [payments, lending, banking, crypto, marketplace, insurance, gaming, other]
+        regulated:
+          type: boolean
+          description: Licensed or registered with a financial regulator.
+        regulator:
+          type: string
+          maxLength: 200
+        licence_number:
+          type: string
+          maxLength: 100
+        aml_program:
+          type: boolean
+          description: Has a documented AML/CFT programme.
+        compliance_officer_name:
+          type: string
+          maxLength: 100
+        compliance_officer_email:
+          type: string
+          maxLength: 254
+        screening_provider:
+          type: string
+          maxLength: 200
+          description: Sanctions and PEP screening provider, if any.
+        monitored_events:
+          type: array
+          maxItems: 6
+          uniqueItems: true
+          items:
+            type: string
+            enum: [payments, payouts, transfers, logins, signups, card_transactions]
+        monthly_volume:
+          type: string
+          enum: [under_10k, 10k_100k, 100k_1m, 1m_10m, over_10m]
+        regions_served:
+          type: array
+          maxItems: 60
+          uniqueItems: true
+          items:
+            type: string
+            pattern: "^[A-Z]{2}$"
+        go_live:
+          type: string
+          enum: [now, within_3_months, within_6_months, later]
+        data_protection:
+          type: array
+          maxItems: 8
+          uniqueItems: true
+          items:
+            type: string
+            enum: [gdpr, uk_gdpr, ndpr, popia, ccpa, lgpd, other]
+        data_residency:
+          type: string
+          enum: [eu, uk, us, africa, no_preference]
+        dpo_email:
+          type: string
+          maxLength: 254
+        accept_terms:
+          type: boolean
+        accept_dpa:
+          type: boolean
+    Backtest:
+      type: object
+      additionalProperties: false
+      required: [rule, from, to, replayed, truncated, candidate, current]
+      properties:
+        rule:
+          type: string
+        from:
+          type: string
+          format: date-time
+        to:
+          type: string
+          format: date-time
+        replayed:
+          type: integer
+          description: Events replayed.
+        truncated:
+          type: boolean
+          description: The event limit cut the period short; the replay covers its oldest events.
+        candidate:
+          $ref: "#/components/schemas/BacktestTally"
+        current:
+          $ref: "#/components/schemas/BacktestTally"
+    BacktestTally:
+      type: object
+      additionalProperties: false
+      required: [triggered, fired, clear, not_evaluated, missing, fired_samples]
+      properties:
+        triggered:
+          type: integer
+        fired:
+          type: integer
+        clear:
+          type: integer
+        not_evaluated:
+          type: integer
+        missing:
+          type: array
+          description: What made the rule not evaluated, most frequent first.
+          items:
+            $ref: "#/components/schemas/BacktestMissing"
+        fired_samples:
+          type: array
+          description: Events the rule fired on (at most 20, oldest first).
+          items:
+            type: string
+    BacktestMissing:
+      type: object
+      additionalProperties: false
+      required: [item, events]
+      properties:
+        item:
+          type: string
+        events:
+          type: integer
+    FXRate:
+      type: object
+      additionalProperties: false
+      required: [currency, usd_per_unit, updated_at, updated_by]
+      properties:
+        currency:
+          type: string
+        usd_per_unit:
+          type: number
+          format: double
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+    FXRateList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/FXRate"
+    RestrictedSignal:
+      type: object
+      additionalProperties: false
+      required: [rule, name, weight, mode]
+      properties:
+        rule:
+          type: string
+        name:
+          type: string
+        weight:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+    RestrictedEvaluation:
+      type: object
+      additionalProperties: false
+      required: [evaluation_id, event_id, created_at, signals]
+      properties:
+        evaluation_id:
+          type: string
+        event_id:
+          type: string
+          nullable: true
+        created_at:
+          type: string
+          format: date-time
+        signals:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestrictedSignal"
+    RestrictedEvaluationList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/RestrictedEvaluation"
+    ComplianceTaskStatus:
+      type: string
+      description: Reports go open (a draft), approved, filed; other tasks open, done. Any may be dismissed.
+      enum: [open, approved, filed, done, dismissed]
+    ComplianceReportFields:
+      type: object
+      additionalProperties: false
+      properties:
+        category:
+          type: string
+          enum: [terrorism_financing, kidnapping_ransom, corruption, fraud, drug_trafficking, general, other]
+        predicate_offence:
+          type: string
+          maxLength: 4000
+        indicators:
+          type: array
+          maxItems: 20
+          items:
+            type: string
+            maxLength: 200
+        narrative:
+          type: string
+          maxLength: 4000
+    ComplianceTask:
+      type: object
+      additionalProperties: false
+      required: [id, kind, rule, status, sensitive, due_at, overdue, subject_ref, evaluation_id, event_id, case_id, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref]
+      properties:
+        id:
+          type: string
+          example: ctk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        kind:
+          type: string
+          description: report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account.
+        rule:
+          type: string
+        status:
+          $ref: "#/components/schemas/ComplianceTaskStatus"
+        sensitive:
+          type: boolean
+          description: A suspicious transaction report, seen only by compliance officers.
+        due_at:
+          type: string
+          format: date-time
+          nullable: true
+        overdue:
+          type: boolean
+        subject_ref:
+          type: string
+          nullable: true
+        evaluation_id:
+          type: string
+          nullable: true
+        event_id:
+          type: string
+          nullable: true
+        case_id:
+          type: string
+          nullable: true
+        report:
+          type: object
+          additionalProperties: true
+          description: The report's fields (category, predicate offence, indicators, narrative, amount...).
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        approved_by:
+          type: string
+          nullable: true
+        approved_at:
+          type: string
+          format: date-time
+          nullable: true
+        closed_by:
+          type: string
+          nullable: true
+        closed_at:
+          type: string
+          format: date-time
+          nullable: true
+        close_note:
+          type: string
+          nullable: true
+        filing_ref:
+          type: string
+          nullable: true
+    ScreeningEscalation:
+      type: object
+      additionalProperties: false
+      required: [alert_id, title, subject_ref, created_at, due_at]
+      properties:
+        alert_id:
+          type: string
+        title:
+          type: string
+        subject_ref:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        due_at:
+          type: string
+          format: date-time
+          description: When screening was due (REG-14).
+    ComplianceQueue:
+      type: object
+      additionalProperties: false
+      required: [data, escalations]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceTask"
+        escalations:
+          type: array
+          items:
+            $ref: "#/components/schemas/ScreeningEscalation"
+    PackRuleMode:
+      type: string
+      description: live (it acts), shadow (it is evaluated and recorded only) or off.
+      enum: [live, shadow, "off"]
+    PackRuleSettings:
+      type: object
+      description: Settings that differ from the library's defaults, by name, in the setting's unit.
+      maxProperties: 32
+      additionalProperties:
+        type: number
+        format: double
+    PackRuleConfigRequest:
+      type: object
+      additionalProperties: false
+      required: [mode, settings, reason]
+      properties:
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+          minLength: 1
+          maxLength: 500
+          description: Why, for the audit log and the approver.
+    PackRuleConfig:
+      type: object
+      additionalProperties: false
+      required: [rule, version, mode, settings, reason, updated_at, updated_by, pending]
+      properties:
+        rule:
+          type: string
+        version:
+          type: integer
+          description: 0 while the rule runs with the library's defaults.
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+          nullable: true
+        updated_by:
+          type: string
+          nullable: true
+        pending:
+          allOf:
+            - $ref: "#/components/schemas/PackRuleChange"
+          nullable: true
+          description: The change awaiting a second person, if any.
+    PackRuleChange:
+      type: object
+      additionalProperties: false
+      required: [id, rule, base_version, mode, settings, reason, restored_from, status, proposed_by, proposed_at, decided_by, decided_at, decision_note, applied_version]
+      properties:
+        id:
+          type: string
+          example: pch_01j9x2k7m3q4r5s6t7v8w9x0yz
+        rule:
+          type: string
+        base_version:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+        restored_from:
+          type: integer
+          nullable: true
+        status:
+          type: string
+          enum: [pending, approved, rejected]
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        decided_by:
+          type: string
+          nullable: true
+        decided_at:
+          type: string
+          format: date-time
+          nullable: true
+        decision_note:
+          type: string
+          nullable: true
+        applied_version:
+          type: integer
+          nullable: true
+    PackRuleChangeList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackRuleChange"
+    PackRuleVersion:
+      type: object
+      additionalProperties: false
+      required: [version, mode, settings, reason, created_at, created_by, change_id, restored_from]
+      properties:
+        version:
+          type: integer
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        settings:
+          $ref: "#/components/schemas/PackRuleSettings"
+        reason:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+        change_id:
+          type: string
+          nullable: true
+        restored_from:
+          type: integer
+          nullable: true
+    PackRuleVersionList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/PackRuleVersion"
+    DecisionNote:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          maxLength: 500
+    ComplianceRuleKind:
+      type: string
+      description: control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+      enum: [control, signal, governance]
+    ComplianceVerification:
+      type: string
+      description: How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
+      enum: [confirmed, secondary_source_only, conflicting, awaiting_regulator]
+    ComplianceOption:
+      type: object
+      additionalProperties: false
+      required: [id, label]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+    ComplianceGroup:
+      type: object
+      additionalProperties: false
+      required: [id, label, rules]
+      properties:
+        id:
+          type: string
+        label:
+          type: string
+        rules:
+          type: integer
+          description: How many rules the group has.
+    ComplianceLink:
+      type: object
+      additionalProperties: false
+      required: [title, url]
+      properties:
+        title:
+          type: string
+        url:
+          type: string
+    ComplianceSource:
+      type: object
+      additionalProperties: false
+      required: [id, title, links]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        links:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceLink"
+    ComplianceCounts:
+      type: object
+      additionalProperties: false
+      required: [controls, signals, governance]
+      properties:
+        controls:
+          type: integer
+        signals:
+          type: integer
+        governance:
+          type: integer
+    CompliancePack:
+      type: object
+      additionalProperties: false
+      required: [id, jurisdiction, name, version, latest_version, checksum, loaded_at, groups, licence_types, capabilities, sources, counts]
+      properties:
+        id:
+          type: string
+        jurisdiction:
+          type: string
+          description: ISO 3166-1 alpha-2 country code.
+        name:
+          type: string
+        version:
+          type: string
+        latest_version:
+          type: string
+          description: The newest loaded version for the jurisdiction. When it differs from `version`, saving the compliance profile adopts it.
+        checksum:
+          type: string
+          description: SHA-256 of the pack's files. A loaded version never changes.
+        loaded_at:
+          type: string
+          format: date-time
+        groups:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceGroup"
+        licence_types:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceOption"
+        capabilities:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceOption"
+        sources:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceSource"
+        counts:
+          $ref: "#/components/schemas/ComplianceCounts"
+    ComplianceParameter:
+      type: object
+      additionalProperties: false
+      required: [name, label, type, default, value, min, max]
+      properties:
+        name:
+          type: string
+        label:
+          type: string
+        type:
+          type: string
+          description: |
+            The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
+            the day in Africa/Lagos time; flag is 0 or 1.
+          enum: [money, duration, count, ratio, points, percent, speed, hour, score, flag]
+        currency:
+          type: string
+        default:
+          type: number
+          format: double
+          nullable: true
+          description: Null when the institution must set the value.
+        value:
+          type: number
+          format: double
+          nullable: true
+          description: The value in this environment (configured, else the default); null when unset.
+        min:
+          type: number
+          format: double
+        max:
+          type: number
+          format: double
+          description: For regulatory limits, the legal maximum.
+    ComplianceEffective:
+      type: object
+      additionalProperties: false
+      required: [text]
+      properties:
+        date:
+          type: string
+          description: YYYY-MM-DD, set only when the source states a full date.
+        text:
+          type: string
+    ComplianceDefaults:
+      type: object
+      additionalProperties: false
+      required: [enabled, mode]
+      properties:
+        enabled:
+          type: boolean
+        mode:
+          type: string
+          enum: [live, shadow]
+    ComplianceOutcome:
+      type: object
+      additionalProperties: false
+      required: [tasks]
+      properties:
+        decision:
+          type: string
+        severity:
+          type: string
+        tasks:
+          type: array
+          items:
+            type: string
+    ComplianceRule:
+      type: object
+      additionalProperties: false
+      required: [id, name, description, group, kind, status, regulators, applies_to, requires, sources, effective, verification, defaults, inputs, events, outcome, parameters, applicable, mode, config_version]
+      properties:
+        id:
+          type: string
+        name:
+          type: string
+          description: The library's plain-English name, verbatim.
+        description:
+          type: string
+          description: The library's plain-English description, verbatim.
+        action:
+          type: string
+          description: What the system does (controls only), verbatim.
+        points:
+          type: string
+          description: The library's points column (signals only), verbatim.
+        group:
+          type: string
+        kind:
+          $ref: "#/components/schemas/ComplianceRuleKind"
+        status:
+          type: string
+          enum: [regulatory, recommended, governance]
+        regulators:
+          type: array
+          items:
+            type: string
+        applies_to:
+          type: array
+          description: Licence types the rule applies to. Empty means every institution.
+          items:
+            type: string
+        requires:
+          type: array
+          description: Capabilities the workspace must have for the rule to apply.
+          items:
+            type: string
+        sources:
+          type: array
+          description: Source IDs (see the pack's sources).
+          items:
+            type: string
+        effective:
+          $ref: "#/components/schemas/ComplianceEffective"
+        verification:
+          $ref: "#/components/schemas/ComplianceVerification"
+        caveat:
+          type: string
+        defaults:
+          $ref: "#/components/schemas/ComplianceDefaults"
+        inputs:
+          type: array
+          description: The data the rule needs. When one is unavailable the rule is reported as not evaluated.
+          items:
+            type: string
+        events:
+          type: array
+          description: The event types the rule is evaluated on.
+          items:
+            type: string
+        outcome:
+          $ref: "#/components/schemas/ComplianceOutcome"
+        parameters:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceParameter"
+        applicable:
+          type: boolean
+          nullable: true
+          description: Whether the rule applies to the workspace's profile; null without a profile.
+        mode:
+          $ref: "#/components/schemas/PackRuleMode"
+        config_version:
+          type: integer
+          description: The rule's configuration version in this environment; 0 means the library's defaults.
+        engineering_logic:
+          type: string
+          description: The library's section 7B logic. Only for `compliance:engineering`.
+        definition:
+          type: object
+          additionalProperties: true
+          description: The machine definition the engine interprets. Only for `compliance:engineering`.
+    ComplianceRuleList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceRule"
+    ComplianceClock:
+      type: object
+      additionalProperties: false
+      required: [id, duration, duty, applies_to, requirement, hours, sources, rules]
+      properties:
+        id:
+          type: string
+        duration:
+          type: string
+        duty:
+          type: string
+        applies_to:
+          type: string
+        requirement:
+          type: string
+        hours:
+          type: integer
+          description: The deadline in hours.
+        sources:
+          type: array
+          items:
+            type: string
+        rules:
+          type: array
+          items:
+            type: string
+    ComplianceClockList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceClock"
+    ComplianceGap:
+      type: object
+      additionalProperties: false
+      required: [id, title, detail, rules, sources]
+      properties:
+        id:
+          type: string
+        title:
+          type: string
+        detail:
+          type: string
+        rules:
+          type: array
+          items:
+            type: string
+        sources:
+          type: array
+          items:
+            type: string
+    ComplianceGapList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceGap"
+    ComplianceTerm:
+      type: object
+      additionalProperties: false
+      required: [term, expansion, definition]
+      properties:
+        term:
+          type: string
+        expansion:
+          type: string
+        definition:
+          type: string
+    ComplianceTermList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceTerm"
+    ComplianceProfile:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, licence_type, capabilities, pack_id, pack_version, updated_at, updated_by]
+      properties:
+        jurisdiction:
+          type: string
+        licence_type:
+          type: string
+        capabilities:
+          type: array
+          items:
+            type: string
+        pack_id:
+          type: string
+        pack_version:
+          type: string
+        updated_at:
+          type: string
+          format: date-time
+        updated_by:
+          type: string
+    ComplianceProfileRequest:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, licence_type, capabilities]
+      properties:
+        jurisdiction:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        licence_type:
+          type: string
+          maxLength: 64
+        capabilities:
+          type: array
+          maxItems: 32
+          items:
+            type: string
+            maxLength: 64
+    Onboarding:
+      type: object
+      additionalProperties: false
+      required: [status, answers, missing, production_enabled, submitted_at, reviewed_at, review_note, updated_at]
+      properties:
+        status:
+          $ref: "#/components/schemas/OnboardingStatus"
+        answers:
+          $ref: "#/components/schemas/OnboardingAnswers"
+        missing:
+          type: array
+          description: Answers still needed before submitting, by field name.
+          items:
+            type: string
+        production_enabled:
+          type: boolean
+        submitted_at:
+          type: string
+          format: date-time
+          nullable: true
+        reviewed_at:
+          type: string
+          format: date-time
+          nullable: true
+        review_note:
+          type: string
+          nullable: true
+          description: The reviewer's note (always given when rejected).
+        updated_at:
+          type: string
+          format: date-time
     SSOStartRequest:
       type: object
       additionalProperties: false
@@ -2740,7 +5015,7 @@ components:
           maxLength: 128
     Role:
       type: string
-      enum: [customer_admin, developer, risk_manager, analyst]
+      enum: [customer_admin, developer, risk_manager, analyst, compliance_officer, auditor]
     Passkey:
       type: object
       additionalProperties: false
@@ -2780,12 +5055,15 @@ components:
         tenant:
           type: object
           additionalProperties: false
-          required: [id, name]
+          required: [id, name, production_enabled]
           properties:
             id:
               type: string
             name:
               type: string
+            production_enabled:
+              type: boolean
+              description: False for a self-serve workspace until RiskOS approves its onboarding; production requests get 403 `PRODUCTION_LOCKED` meanwhile.
         permissions:
           type: array
           items:
@@ -3476,9 +5754,12 @@ components:
     Scope:
       type: string
       description: |
-        A permission. API keys can hold any except `rules:approve`, which only people hold (a
-        second person approves production rule changes).
-      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write]
+        A permission. API keys can hold any except `rules:approve`, `compliance:write`,
+        `compliance:configure` and `compliance:sensitive`, which only people hold (a second person
+        approves production rule changes; a person sets the compliance profile and configures pack
+        rules; only compliance officers see suspicious transaction reports and compliance-only
+        signals).
+      enum: [api_keys:read, api_keys:write, audit_logs:read, events:write, events:read, risk:evaluate, rules:read, rules:write, rules:approve, risk:configure, alerts:read, alerts:write, cases:read, cases:write, webhooks:read, webhooks:write, team:read, team:write, compliance:read, compliance:engineering, compliance:write, compliance:configure, compliance:sensitive]
     Whoami:
       type: object
       additionalProperties: false
@@ -3674,6 +5955,7 @@ components:
         - $ref: "#/components/schemas/DeviceChangeEvent"
         - $ref: "#/components/schemas/SessionChangeEvent"
         - $ref: "#/components/schemas/ProfileChangeEvent"
+        - $ref: "#/components/schemas/ActivityEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -3683,6 +5965,89 @@ components:
           device_change: "#/components/schemas/DeviceChangeEvent"
           session_change: "#/components/schemas/SessionChangeEvent"
           profile_change: "#/components/schemas/ProfileChangeEvent"
+          activity: "#/components/schemas/ActivityEvent"
+    ActivityEvent:
+      type: object
+      description: |
+        Account or platform activity that is neither a money movement nor a sign-in (an account
+        opened, an API request, a data export, a staff action...). `compliance.kind` says which.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, compliance]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
+        type:
+          type: string
+          enum: [activity]
+    ComplianceContext:
+      type: object
+      description: |
+        What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+        Everything is optional: a rule whose data is missing is reported as not evaluated, never
+        treated as no risk.
+      additionalProperties: false
+      properties:
+        kind:
+          $ref: "#/components/schemas/ComplianceEventKind"
+        facts:
+          type: object
+          maxProperties: 64
+          description: |
+            Facts from your systems and providers, by the names in the pack's catalog
+            (`device.rooted`, `telco.sim_swap`, `customer.type`...): true or false, a number (a
+            duration in seconds, a count, a ratio, a score), one of the fact's listed values, or
+            for amounts `{"amount": <minor units>, "currency": "NGN"}`. Facts RiskOS computes
+            itself (behaviour history, workflows, the amount and identifiers of the event) are
+            refused.
+          additionalProperties: {}
+        refs:
+          $ref: "#/components/schemas/ComplianceRefs"
+    ComplianceRefs:
+      type: object
+      description: |
+        Opaque references for the entities rules keep time windows for. Never the BVN, phone
+        number, card number or address itself: send your own reference for it.
+      additionalProperties: false
+      properties:
+        card:
+          $ref: "#/components/schemas/Reference"
+        bvn:
+          $ref: "#/components/schemas/Reference"
+        phone:
+          $ref: "#/components/schemas/Reference"
+        address:
+          $ref: "#/components/schemas/Reference"
+        loan:
+          $ref: "#/components/schemas/Reference"
+        inflow:
+          $ref: "#/components/schemas/Reference"
+        merchant:
+          $ref: "#/components/schemas/Reference"
+        api_key:
+          $ref: "#/components/schemas/Reference"
+        sender:
+          $ref: "#/components/schemas/Reference"
+        reporter:
+          $ref: "#/components/schemas/Reference"
+        funding_source:
+          $ref: "#/components/schemas/Reference"
+    ComplianceEventKind:
+      type: string
+      description: |
+        What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
+        sign-in kinds with `login`, `device_bound` and `device_reregistered` with `device_change`,
+        and the others with `activity`. Without it, RiskOS derives the kind from the event (a debit
+        is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
+      enum: [transfer_outbound, transfer_inbound, transfer_international, cash_payment, cash_withdrawal, cash_deposit, atm_withdrawal, pos_purchase, card_authorization, crypto_purchase, crypto_withdrawal, crypto_transfer, fiat_inflow, funding, loan_disbursement, loan_repayment, login, auth_failure, auth_success, device_bound, device_reregistered, beneficiary_added, session_activity, profile_change, loan_application, mfa_prompt, sim_reregistered, account_opened, account_reactivated, customer_onboarded, customer_review, credit_requested, list_updated, telco_lookup, data_export, api_request, api_lookup, config_change, role_change, staff_action, fraud_report, merchant_daily, terminal_activity]
     LoginEvent:
       type: object
       description: A sign-in attempt.
@@ -3698,6 +6063,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [login]
@@ -3718,6 +6085,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [transaction]
@@ -3738,6 +6107,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [beneficiary_added]
@@ -3758,6 +6129,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [device_change]
@@ -3778,6 +6151,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [session_change]
@@ -3798,6 +6173,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [profile_change]
@@ -3805,7 +6182,7 @@ components:
           $ref: "#/components/schemas/ProfileChangeData"
     EventType:
       type: string
-      enum: [login, transaction, beneficiary_added, device_change, session_change, profile_change]
+      enum: [login, transaction, beneficiary_added, device_change, session_change, profile_change, activity]
     EventKey:
       type: string
       description: The customer's unique ID for the event; the idempotency key.
@@ -3843,6 +6220,26 @@ components:
           type: string
           pattern: "^[A-Z]{2}$"
           description: ISO 3166-1 alpha-2.
+        geo:
+          $ref: "#/components/schemas/GeoPoint"
+    GeoPoint:
+      type: object
+      additionalProperties: false
+      required: [lat, lon]
+      description: |
+        Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
+        decimals (about 1 km) before storing it.
+      properties:
+        lat:
+          type: number
+          format: double
+          minimum: -90
+          maximum: 90
+        lon:
+          type: number
+          format: double
+          minimum: -180
+          maximum: 180
     LoginData:
       type: object
       additionalProperties: false
@@ -3985,10 +6382,21 @@ components:
                 $ref: "#/components/schemas/Decision"
     Decision:
       type: string
-      enum: [allow, review, step_up, block]
+      enum: [allow, fee, flag, step_up, review, restrict, hold, block_session, decline, block]
       description: |
-        `block` is produced only for Critical scores in an environment that switched automatic
-        blocking on (see AutoBlockStatus).
+        The recommended action, from least to most severe. The score policy produces `allow`,
+        `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+        where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+        the action the law requires (see `controls` on the decision):
+        - `fee`: allow, and charge the regulatory fee given in the control;
+        - `flag`: allow, and do the follow-up the control names;
+        - `restrict`: limit the account until the requirement is met;
+        - `hold`: hold the funds for review, for at most the control's hold period;
+        - `block_session`: end the session and require fresh authentication;
+        - `decline`: decline this transaction (a legal limit);
+        - `block`: stop the event.
+        The most severe applicable action is returned. Clients that switch on the decision must
+        handle every value.
     AutoBlockMode:
       type: string
       enum: ["off", shadow, "on"]
@@ -4054,7 +6462,7 @@ components:
         100. degraded_signals lists sources that could not be evaluated for this event.
         warming_signals lists history signals held back while behavioural history rebuilds after
         RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
-      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals, warming_signals]
+      required: [request_id, event_id, evaluation_id, risk_score, risk_level, decision, engine_version, signals, degraded_signals, warming_signals, controls, not_evaluated]
       properties:
         request_id:
           type: string
@@ -4088,6 +6496,72 @@ components:
             type: string
         warming_signals:
           type: array
+          items:
+            type: string
+        controls:
+          type: array
+          description: |
+            The regulatory controls of the workspace's rule pack that applied to the event (see the
+            console's Rules library). A live control's decision is reflected in `decision`; a shadow
+            control is reported only. Empty without a compliance profile.
+          items:
+            $ref: "#/components/schemas/ControlResult"
+        not_evaluated:
+          type: array
+          description: |
+            Rules of the pack the event triggered that could not be evaluated because data or a
+            setting they need was unavailable. Missing data is never treated as no risk: send the
+            listed facts in the event's `compliance` block, or set the listed settings.
+          items:
+            $ref: "#/components/schemas/NotEvaluatedRule"
+    ControlResult:
+      type: object
+      additionalProperties: false
+      required: [rule, name, mode, reason, tasks, exemption_unknown]
+      properties:
+        rule:
+          type: string
+          example: REG-01
+        name:
+          type: string
+        mode:
+          type: string
+          enum: [live, shadow]
+        decision:
+          $ref: "#/components/schemas/Decision"
+        reason:
+          type: string
+        tasks:
+          type: array
+          description: What the institution must do (report.CTR, case.open, edd...).
+          items:
+            type: string
+        fee_percent:
+          type: number
+          format: double
+        hold_seconds:
+          type: integer
+          format: int64
+          description: The longest the funds may be held.
+        branch:
+          type: string
+        exemption_unknown:
+          type: boolean
+          description: The control applied because its exemption could not be checked.
+    NotEvaluatedRule:
+      type: object
+      additionalProperties: false
+      required: [rule, missing]
+      properties:
+        rule:
+          type: string
+          example: ATO-04
+        missing:
+          type: array
+          description: |
+            What was unavailable: `fact:<name>` (send it in `compliance.facts`), `setting:<name>`
+            (set it for the rule), `history:<window>` (behaviour history, or a reference the window
+            is kept for) or `currency:<fact>` (an amount in another currency than the rule's).
           items:
             type: string
     EventSummary:
@@ -4169,13 +6643,25 @@ components:
     DecisionCounts:
       type: object
       additionalProperties: false
-      required: [allow, step_up, review, block]
+      required: [allow, fee, flag, step_up, review, restrict, hold, block_session, decline, block]
       properties:
         allow:
+          type: integer
+        fee:
+          type: integer
+        flag:
           type: integer
         step_up:
           type: integer
         review:
+          type: integer
+        restrict:
+          type: integer
+        hold:
+          type: integer
+        block_session:
+          type: integer
+        decline:
           type: integer
         block:
           type: integer

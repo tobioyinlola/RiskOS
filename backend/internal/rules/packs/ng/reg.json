@@ -1,0 +1,1770 @@
+{
+  "rules": [
+    {
+      "id": "REG-01",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "applies_to": [
+        "bank",
+        "mfb",
+        "psp"
+      ],
+      "requires": [
+        "instant_payments"
+      ],
+      "sources": [
+        "S2"
+      ],
+      "effective": {
+        "text": "In force 1 July 2026 (CBN instant payment guidelines of 12 March 2026)",
+        "date": "2026-07-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "device_binding",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "new_device_cap"
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "device.bound_age"
+                },
+                "op": "lt",
+                "right": {
+                  "param": "new_device_window"
+                }
+              },
+              {
+                "left": {
+                  "fact": "account.age"
+                },
+                "op": "lt",
+                "right": {
+                  "param": "new_device_window"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "new_device_or_account_cap",
+        "evidence": [
+          "txn.amount",
+          "device.bound_age",
+          "account.age"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "new_device_cap",
+          "label": "Most a customer can send within 24 hours of a new device or a new account",
+          "type": "money",
+          "default": 2000000,
+          "min": 0,
+          "max": 2000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "new_device_window",
+          "label": "How long a new device or account counts as new",
+          "type": "duration",
+          "default": 86400,
+          "min": 86400,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "REG-02",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "applies_to": [
+        "bank",
+        "mfb",
+        "psp"
+      ],
+      "requires": [
+        "instant_payments"
+      ],
+      "sources": [
+        "S2"
+      ],
+      "effective": {
+        "text": "In force 1 July 2026 (CBN instant payment guidelines of 12 March 2026)",
+        "date": "2026-07-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "device_binding"
+      ],
+      "trigger": {
+        "events": [
+          "login"
+        ],
+        "scope": {
+          "left": {
+            "fact": "event.channel"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "mobile_app"
+          }
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "account.has_bound_device"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "device.is_bound_device"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block_session",
+        "reason": "single_active_device",
+        "tasks": [
+          {
+            "type": "fresh_auth_on_new_device"
+          }
+        ],
+        "evidence": [
+          "device.id"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-03",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "applies_to": [
+        "bank",
+        "mfb",
+        "psp"
+      ],
+      "requires": [
+        "instant_payments"
+      ],
+      "sources": [
+        "S2"
+      ],
+      "effective": {
+        "text": "In force 1 July 2026 (CBN instant payment guidelines of 12 March 2026)",
+        "date": "2026-07-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "login"
+        ],
+        "scope": {
+          "left": {
+            "fact": "event.channel"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "web"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "fact": "device.is_new"
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "decision": "step_up",
+        "reason": "new_device_web_login",
+        "tasks": [
+          {
+            "type": "enhanced_mfa"
+          }
+        ],
+        "evidence": [
+          "device.id"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-04",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "applies_to": [
+        "bank",
+        "mfb",
+        "psp"
+      ],
+      "requires": [
+        "instant_payments"
+      ],
+      "sources": [
+        "S2"
+      ],
+      "effective": {
+        "text": "In force 1 July 2026 (CBN instant payment guidelines of 12 March 2026)",
+        "date": "2026-07-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "individual"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "ceiling_individual"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "corporate"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "ceiling_corporate"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "high_value_ceiling",
+        "unless": {
+          "left": {
+            "fact": "account.limit_raised_with_edd_and_mfa"
+          },
+          "op": "eq",
+          "right": {
+            "literal": true
+          }
+        },
+        "tasks": [
+          {
+            "type": "route_to_edd"
+          }
+        ],
+        "evidence": [
+          "txn.amount",
+          "customer.type"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ceiling_individual",
+          "label": "Largest transfer for an individual",
+          "type": "money",
+          "default": 2500000000,
+          "min": 0,
+          "max": 2500000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "ceiling_corporate",
+          "label": "Largest transfer for a company",
+          "type": "money",
+          "default": 25000000000,
+          "min": 0,
+          "max": 25000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "REG-05",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN",
+        "NIBSS"
+      ],
+      "applies_to": [
+        "bank",
+        "mfb",
+        "psp"
+      ],
+      "requires": [
+        "instant_payments"
+      ],
+      "sources": [
+        "S2"
+      ],
+      "effective": {
+        "text": "In force 1 July 2026 (CBN instant payment guidelines of 12 March 2026)",
+        "date": "2026-07-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "suspect_bvn_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "customer.bvn_on_suspect_list"
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "decision": "hold",
+        "reason": "suspect_bvn_hold",
+        "hold": "hold_max",
+        "tasks": [
+          {
+            "type": "case.open"
+          }
+        ],
+        "evidence": [
+          "customer.bvn_on_suspect_list"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "hold_max",
+          "label": "Longest a transfer can be held while it is investigated",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "REG-06",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN",
+        "NIBSS"
+      ],
+      "applies_to": [
+        "bank",
+        "mfb",
+        "psp"
+      ],
+      "requires": [
+        "instant_payments"
+      ],
+      "sources": [
+        "S2"
+      ],
+      "effective": {
+        "text": "In force 1 July 2026 (CBN instant payment guidelines of 12 March 2026)",
+        "date": "2026-07-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "identity"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "account_reactivated"
+        ],
+        "scope": {
+          "left": {
+            "fact": "event.channel"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "digital"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "kyc.liveness_passed"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "kyc.bvn_live_check"
+            },
+            "op": "ne",
+            "right": {
+              "literal": "verified"
+            }
+          },
+          {
+            "left": {
+              "fact": "kyc.nin_live_check"
+            },
+            "op": "ne",
+            "right": {
+              "literal": "verified"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "digital_onboarding_identity_incomplete",
+        "evidence": [
+          "kyc.liveness_passed",
+          "kyc.bvn_live_check",
+          "kyc.nin_live_check"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-07",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "law"
+      ],
+      "sources": [
+        "S4"
+      ],
+      "effective": {
+        "text": "Money Laundering (Prevention and Prohibition) Act 2022; the library does not state the commencement date"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on summaries of the 2022 Act. The NFIU also uses the ₦5m and ₦10m figures as the currency transaction report threshold (REG-17), but the Act does not say so; both values stay configurable.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "cash_payment"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "individual"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "cash_ceiling_individual"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "corporate"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "cash_ceiling_corporate"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "flag",
+        "reason": "cash_ceiling",
+        "tasks": [
+          {
+            "type": "route_via_financial_institution"
+          }
+        ],
+        "evidence": [
+          "txn.amount",
+          "customer.type"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "cash_ceiling_individual",
+          "label": "Largest cash payment for an individual",
+          "type": "money",
+          "default": 500000000,
+          "min": 0,
+          "max": 500000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "cash_ceiling_corporate",
+          "label": "Largest cash payment for a company",
+          "type": "money",
+          "default": 1000000000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "REG-08",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "applies_to": [
+        "bank"
+      ],
+      "requires": [
+        "cash_fee"
+      ],
+      "sources": [
+        "S3"
+      ],
+      "effective": {
+        "text": "In force 1 January 2026 (CBN cash policy)",
+        "date": "2026-01-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "cash_withdrawal"
+        ]
+      },
+      "branches": [
+        {
+          "label": "Individual",
+          "fee": "fee_individual",
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "individual"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "cash_withdrawal",
+                    "window": "cash_week",
+                    "by": "customer",
+                    "field": "txn.amount"
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "weekly_cash_individual"
+                }
+              }
+            ]
+          }
+        },
+        {
+          "label": "Company",
+          "fee": "fee_corporate",
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "corporate"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "cash_withdrawal",
+                    "window": "cash_week",
+                    "by": "customer",
+                    "field": "txn.amount"
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "weekly_cash_corporate"
+                }
+              }
+            ]
+          }
+        }
+      ],
+      "outcome": {
+        "decision": "fee",
+        "reason": "weekly_cash_limit",
+        "evidence": [
+          "txn.amount",
+          "customer.type"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weekly_cash_individual",
+          "label": "Weekly cash withdrawals before the charge, individual",
+          "type": "money",
+          "default": 150000000,
+          "min": 0,
+          "max": 150000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "weekly_cash_corporate",
+          "label": "Weekly cash withdrawals before the charge, company",
+          "type": "money",
+          "default": 500000000,
+          "min": 0,
+          "max": 500000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "fee_individual",
+          "label": "Charge on the excess, individual",
+          "type": "percent",
+          "default": 3,
+          "min": 3,
+          "max": 3
+        },
+        {
+          "name": "fee_corporate",
+          "label": "Charge on the excess, company",
+          "type": "percent",
+          "default": 5,
+          "min": 5,
+          "max": 5
+        },
+        {
+          "name": "cash_week",
+          "label": "The week the limit counts over (a calendar week)",
+          "type": "duration",
+          "default": 604800,
+          "min": 604800,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "REG-09",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S3"
+      ],
+      "effective": {
+        "text": "In force 1 January 2026 (CBN cash policy)",
+        "date": "2026-01-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from law-firm and press summaries of the CBN circular, not the circular itself: the CBN website blocked downloads. Confirm the amounts, scope and effective date against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "atm_withdrawal"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "atm_withdrawal",
+                "window": "atm_day",
+                "by": "customer",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gt",
+            "right": {
+              "param": "atm_daily"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "atm_withdrawal",
+                "window": "atm_week",
+                "by": "customer",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gt",
+            "right": {
+              "param": "atm_weekly"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "atm_limit",
+        "evidence": [
+          "txn.amount"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "atm_daily",
+          "label": "ATM withdrawals allowed in a day",
+          "type": "money",
+          "default": 10000000,
+          "min": 0,
+          "max": 10000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "atm_weekly",
+          "label": "ATM withdrawals allowed in a week",
+          "type": "money",
+          "default": 85000000,
+          "min": 0,
+          "max": 85000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "atm_day",
+          "label": "The day the daily limit counts over",
+          "type": "duration",
+          "default": 86400,
+          "min": 86400,
+          "max": 86400
+        },
+        {
+          "name": "atm_week",
+          "label": "The week the weekly limit counts over",
+          "type": "duration",
+          "default": 604800,
+          "min": 604800,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "REG-10",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "law",
+        "NFIU"
+      ],
+      "sources": [
+        "S4"
+      ],
+      "effective": {
+        "text": "Money Laundering (Prevention and Prohibition) Act 2022; the library does not state the commencement date"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on law-firm summaries of the 2022 Act. The US dollar equivalent uses the exchange rate your institution configures; until it does, this rule is not evaluated.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_international"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "txn.amount_usd"
+        },
+        "op": "gte",
+        "right": {
+          "param": "ftr_threshold"
+        }
+      },
+      "outcome": {
+        "reason": "cross_border_report",
+        "tasks": [
+          {
+            "type": "report.FTR",
+            "due": "ftr_due",
+            "to": [
+              "NFIU"
+            ]
+          }
+        ],
+        "evidence": [
+          "txn.amount_usd"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ftr_threshold",
+          "label": "International transfers reported from (US dollar equivalent)",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000,
+          "currency": "USD"
+        },
+        {
+          "name": "ftr_due",
+          "label": "Time to report after the transaction",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "REG-11",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "law",
+        "CBN"
+      ],
+      "sources": [
+        "S8",
+        "S1"
+      ],
+      "effective": {
+        "text": "Terrorism (Prevention and Prohibition) Act 2022; CBN baseline standards issued 10 March 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Reports say freezes are immediate under the 2022 terrorism act but give no hour count; confirm the legal timeline. Needs a sanctions list provider with fuzzy and transliteration-aware matching.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "sanctions_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "customer_onboarded",
+          "list_updated"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "screening.sanctions_score"
+            },
+            "op": "gte",
+            "right": {
+              "param": "match_threshold"
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "screening.sanctions_confirmed"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "param": "auto_block_strong_match"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "sanctions_match",
+        "tasks": [
+          {
+            "type": "freeze_account"
+          },
+          {
+            "type": "case.open"
+          },
+          {
+            "type": "report.sanctions",
+            "to": [
+              "NFIU",
+              "NigSaC"
+            ]
+          }
+        ],
+        "evidence": [
+          "screening.sanctions_score",
+          "screening.sanctions_list"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "match_threshold",
+          "label": "Similarity score that counts as a match",
+          "type": "score",
+          "default": 90,
+          "min": 70,
+          "max": 100
+        },
+        {
+          "name": "auto_block_strong_match",
+          "label": "Block automatically on a strong match before review (1 = yes)",
+          "type": "flag",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "REG-12",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "law",
+        "CBN"
+      ],
+      "sources": [
+        "S4",
+        "S1"
+      ],
+      "effective": {
+        "text": "Money Laundering (Prevention and Prohibition) Act 2022; the library does not state the commencement date"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on law-firm summaries of the 2022 Act. Needs a PEP list provider.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "pep_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "customer_onboarded",
+          "customer_review"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "customer.is_pep"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "customer.has_pep_owner"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "pep",
+        "tasks": [
+          {
+            "type": "edd"
+          },
+          {
+            "type": "source_of_funds"
+          },
+          {
+            "type": "source_of_wealth"
+          },
+          {
+            "type": "senior_approval"
+          }
+        ],
+        "evidence": [
+          "customer.is_pep",
+          "customer.has_pep_owner"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-13",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "NIBSS",
+        "CBN"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "NIBSS and CBN Person of Interest portal (list size reported as of January 2026)"
+      },
+      "verification": "conflicting",
+      "caveat": "One report says the Person of Interest list has 3,417 entries and another says 13,417. The count does not change the rule; check it against the portal.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "poi_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "customer_onboarded"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "party.on_poi_list"
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "person_of_interest",
+        "tasks": [
+          {
+            "type": "case.open"
+          }
+        ],
+        "evidence": [
+          "party.on_poi_list"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-14",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "NFIU",
+        "law"
+      ],
+      "sources": [
+        "S4",
+        "S9"
+      ],
+      "effective": {
+        "text": "NFIU suspicious transaction report guidelines of 18 December 2024",
+        "date": "2024-12-18"
+      },
+      "verification": "conflicting",
+      "caveat": "Timing differs by source: the NFIU guidelines say 72 hours to screen and 24 hours to file after suspicion is confirmed; summaries of the 2022 Act say 24 hours from the transaction; SEC material for virtual-asset providers mentions 48 hours. This rule follows the NFIU; confirm with counsel.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "trigger": {
+        "events": [
+          "alert_screening_due",
+          "suspicion_confirmed"
+        ]
+      },
+      "outcome": {
+        "reason": "str_clocks",
+        "tasks": [
+          {
+            "type": "escalate",
+            "on": "alert_screening_due",
+            "due": "screen_within",
+            "to": [
+              "compliance_officer"
+            ]
+          },
+          {
+            "type": "report.STR",
+            "on": "suspicion_confirmed",
+            "due": "str_due",
+            "to": [
+              "NFIU"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "screen_within",
+          "label": "Time to screen an alert before it is escalated",
+          "type": "duration",
+          "default": 259200,
+          "min": 3600,
+          "max": 259200
+        },
+        {
+          "name": "str_due",
+          "label": "Time to file after suspicion is confirmed",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "REG-15",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S14"
+      ],
+      "effective": {
+        "text": "CBN BVN watchlist framework, 2017; confirm it is still the current version"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on the 2017 CBN circular; confirm it is still current. Listings last 5 years for category 0 and 10 years for the others; the watchlist provider reports whether a listing is still active.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "bvn_watchlist"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "customer_onboarded",
+          "credit_requested",
+          "login"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "bvn_watchlist.category"
+            },
+            "op": "in",
+            "right": {
+              "literal": [
+                "0",
+                "1",
+                "2",
+                "99"
+              ]
+            }
+          },
+          {
+            "left": {
+              "fact": "bvn_watchlist.active"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "bvn_watchlist",
+        "evidence": [
+          "bvn_watchlist.category"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-16",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "CBN"
+      ],
+      "sources": [
+        "S16"
+      ],
+      "effective": {
+        "text": "CBN BVN framework as reported in 2023"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on 2023 press reports of the CBN framework.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "daily_job"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "account.has_bvn"
+        },
+        "op": "eq",
+        "right": {
+          "literal": false
+        }
+      },
+      "outcome": {
+        "decision": "restrict",
+        "reason": "no_bvn_inflow_only",
+        "tasks": [
+          {
+            "type": "close_account",
+            "due": "close_after"
+          }
+        ],
+        "evidence": [
+          "account.has_bvn"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "close_after",
+          "label": "Time before an account without a BVN is closed",
+          "type": "duration",
+          "default": 2592000,
+          "min": 86400,
+          "max": 2592000
+        }
+      ]
+    },
+    {
+      "id": "REG-17",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "NFIU"
+      ],
+      "sources": [
+        "S10"
+      ],
+      "effective": {
+        "text": "In force 1 February 2026 (NFIU goAML upgrade)",
+        "date": "2026-02-01"
+      },
+      "verification": "conflicting",
+      "caveat": "The NFIU's goAML upgrade sets the report threshold at ₦5m (individual) and ₦10m (company) for domestic cash, but the 2022 Act treats those figures as cash-payment ceilings, not a reporting threshold. Both stay configurable.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "cash_deposit",
+          "cash_withdrawal",
+          "cash_payment"
+        ],
+        "scope": {
+          "left": {
+            "fact": "txn.domestic"
+          },
+          "op": "eq",
+          "right": {
+            "literal": true
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "individual"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gte",
+                "right": {
+                  "param": "ctr_individual"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "customer.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "corporate"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gte",
+                "right": {
+                  "param": "ctr_corporate"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "reason": "currency_transaction_report",
+        "tasks": [
+          {
+            "type": "report.CTR",
+            "to": [
+              "NFIU"
+            ]
+          }
+        ],
+        "evidence": [
+          "txn.amount",
+          "customer.type"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ctr_individual",
+          "label": "Domestic cash reported from, individual",
+          "type": "money",
+          "default": 500000000,
+          "min": 0,
+          "max": 500000000,
+          "currency": "NGN"
+        },
+        {
+          "name": "ctr_corporate",
+          "label": "Domestic cash reported from, company",
+          "type": "money",
+          "default": 1000000000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "REG-18",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "NFIU"
+      ],
+      "sources": [
+        "S10"
+      ],
+      "effective": {
+        "text": "In force 1 February 2026 (NFIU goAML upgrade)",
+        "date": "2026-02-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on a law-firm summary of the NFIU goAML upgrade.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "pep_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "customer.is_pep"
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "reason": "monthly_pep_report",
+        "tasks": [
+          {
+            "type": "report.PEP_monthly",
+            "to": [
+              "NFIU"
+            ]
+          }
+        ],
+        "evidence": [
+          "customer.is_pep"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "REG-19",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "regulators": [
+        "NFIU"
+      ],
+      "sources": [
+        "S10"
+      ],
+      "effective": {
+        "text": "In force 1 February 2026 (NFIU goAML upgrade)",
+        "date": "2026-02-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on a law-firm summary of the NFIU goAML upgrade.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "trigger": {
+        "events": [
+          "report_submit"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "report.has_predicate_offence"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "report.has_indicator"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "report.category"
+            },
+            "op": "not_in",
+            "right": {
+              "literal": [
+                "terrorism_financing",
+                "kidnapping_ransom",
+                "corruption",
+                "fraud",
+                "drug_trafficking",
+                "general"
+              ]
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "goaml_would_reject",
+        "evidence": [
+          "report.has_predicate_offence",
+          "report.has_indicator",
+          "report.category"
+        ]
+      },
+      "parameters": []
+    }
+  ]
+}

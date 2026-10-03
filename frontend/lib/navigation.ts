@@ -11,7 +11,8 @@ type Scope = Schemas["Scope"];
 export interface NavSection {
   href: Route;
   label: string;
-  group: "Monitor" | "Investigate" | "Configure" | "Organization";
+  /** "Main" items are listed first without a heading; the others under their label. */
+  group: "Main" | "Workflows" | "Compliance" | "Organization";
   icon:
     | "gauge"
     | "radio"
@@ -27,6 +28,7 @@ export interface NavSection {
     | "code"
     | "users"
     | "scroll"
+    | "scales"
     | "key";
   anyOf: readonly Scope[];
 }
@@ -35,86 +37,100 @@ export const navSections = [
   {
     href: "/",
     label: "Overview",
-    group: "Monitor",
+    group: "Main",
     icon: "gauge",
     anyOf: ["events:read", "alerts:read"],
   },
   {
     href: "/live",
     label: "Live monitor",
-    group: "Monitor",
+    group: "Main",
     icon: "radio",
     anyOf: ["events:read"],
   },
   {
     href: "/alerts",
     label: "Alerts",
-    group: "Monitor",
+    group: "Main",
     icon: "alert",
     anyOf: ["alerts:read"],
   },
   {
     href: "/cases",
     label: "Cases",
-    group: "Monitor",
+    group: "Main",
     icon: "folder",
     anyOf: ["cases:read"],
   },
   {
     href: "/events",
     label: "Events",
-    group: "Investigate",
+    group: "Main",
     icon: "activity",
     anyOf: ["events:read"],
   },
   {
     href: "/transactions",
     label: "Transactions",
-    group: "Investigate",
+    group: "Main",
     icon: "receipt",
     anyOf: ["events:read"],
   },
   {
     href: "/entities",
     label: "Entities",
-    group: "Investigate",
+    group: "Main",
     icon: "fingerprint",
     anyOf: ["events:read"],
   },
   {
     href: "/analytics",
     label: "Analytics",
-    group: "Investigate",
+    group: "Main",
     icon: "chart",
     anyOf: ["events:read"],
   },
   {
     href: "/rules",
     label: "Rules",
-    group: "Configure",
+    group: "Workflows",
     icon: "shield",
     anyOf: ["rules:read"],
   },
   {
     href: "/deny-lists",
     label: "Deny lists",
-    group: "Configure",
+    group: "Workflows",
     icon: "ban",
     anyOf: ["rules:read", "risk:configure"],
   },
   {
     href: "/settings",
     label: "Risk settings",
-    group: "Configure",
+    group: "Workflows",
     icon: "sliders",
     anyOf: ["risk:configure"],
   },
   {
     href: "/developer",
     label: "Developer",
-    group: "Configure",
+    group: "Workflows",
     icon: "code",
     anyOf: ["api_keys:read", "webhooks:read"],
+  },
+  {
+    href: "/compliance",
+    label: "Rules library",
+    group: "Compliance",
+    icon: "scales",
+    anyOf: ["compliance:read"],
+  },
+  {
+    href: "/compliance/work",
+    label: "Work queue",
+    group: "Compliance",
+    icon: "folder",
+    anyOf: ["compliance:read"],
   },
   {
     href: "/team",
@@ -152,5 +168,12 @@ export function isActiveSection(href: string, pathname: string): boolean {
   if (href === "/") {
     return pathname === "/";
   }
-  return pathname === href || pathname.startsWith(`${href}/`);
+  // The most specific section wins: /compliance/work is not inside /compliance.
+  const deeper = navSections.some(
+    (s) =>
+      s.href !== href &&
+      s.href.startsWith(`${href}/`) &&
+      (pathname === s.href || pathname.startsWith(`${s.href}/`)),
+  );
+  return !deeper && (pathname === href || pathname.startsWith(`${href}/`));
 }

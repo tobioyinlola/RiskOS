@@ -199,8 +199,8 @@ export function Enrollment({
 
   useEffect(() => {
     if (!totp) return;
-    // The library draws in black and white; recolour with theme tokens. The container is pinned
-    // to the Paper theme, because scanners expect dark modules on a light ground.
+    // The library draws in black and white; recolour with the surface and text tokens (dark
+    // modules on a light ground, as scanners expect).
     void QRCode.toString(totp.otpauth_uri, { type: "svg", margin: 1 }).then(
       (svg) =>
         setQr(
@@ -298,8 +298,7 @@ export function Enrollment({
           </p>
           {qr ? (
             <div
-              data-theme="light"
-              className="size-40 self-start bg-bg-surface"
+              className="size-40 self-start rounded-md border border-border-subtle bg-bg-surface p-1"
               role="img"
               aria-label="QR code for your authenticator app"
               dangerouslySetInnerHTML={{ __html: qr }}

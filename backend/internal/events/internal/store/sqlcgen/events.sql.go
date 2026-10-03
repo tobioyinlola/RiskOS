@@ -28,10 +28,18 @@ SELECT
   coalesce(max(received_at), 'epoch')::timestamptz AS last_seen,
   coalesce(max(risk_score), 0)::int AS max_score,
   coalesce(round(avg(risk_score)), 0)::int AS mean_score,
-  count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
-  count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
-  count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
-  count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+  jsonb_build_object(
+    'allow', count(*) FILTER (WHERE decision = 'allow'),
+    'fee', count(*) FILTER (WHERE decision = 'fee'),
+    'flag', count(*) FILTER (WHERE decision = 'flag'),
+    'step_up', count(*) FILTER (WHERE decision = 'step_up'),
+    'review', count(*) FILTER (WHERE decision = 'review'),
+    'restrict', count(*) FILTER (WHERE decision = 'restrict'),
+    'hold', count(*) FILTER (WHERE decision = 'hold'),
+    'block_session', count(*) FILTER (WHERE decision = 'block_session'),
+    'decline', count(*) FILTER (WHERE decision = 'decline'),
+    'block', count(*) FILTER (WHERE decision = 'block')
+  ) AS decisions,
   coalesce((SELECT jsonb_agg(x) FROM (
     SELECT user_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
     GROUP BY user_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS users,
@@ -62,10 +70,7 @@ type AccountProfileRow struct {
 	LastSeen   time.Time
 	MaxScore   int32
 	MeanScore  int32
-	Allowed    int64
-	SteppedUp  int64
-	Reviewed   int64
-	Blocked    int64
+	Decisions  []byte
 	Users      []byte
 	Accounts   []byte
 	Devices    []byte
@@ -83,10 +88,7 @@ func (q *Queries) AccountProfile(ctx context.Context, arg AccountProfileParams) 
 		&i.LastSeen,
 		&i.MaxScore,
 		&i.MeanScore,
-		&i.Allowed,
-		&i.SteppedUp,
-		&i.Reviewed,
-		&i.Blocked,
+		&i.Decisions,
 		&i.Users,
 		&i.Accounts,
 		&i.Devices,
@@ -142,10 +144,18 @@ SELECT
   coalesce(max(received_at), 'epoch')::timestamptz AS last_seen,
   coalesce(max(risk_score), 0)::int AS max_score,
   coalesce(round(avg(risk_score)), 0)::int AS mean_score,
-  count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
-  count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
-  count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
-  count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+  jsonb_build_object(
+    'allow', count(*) FILTER (WHERE decision = 'allow'),
+    'fee', count(*) FILTER (WHERE decision = 'fee'),
+    'flag', count(*) FILTER (WHERE decision = 'flag'),
+    'step_up', count(*) FILTER (WHERE decision = 'step_up'),
+    'review', count(*) FILTER (WHERE decision = 'review'),
+    'restrict', count(*) FILTER (WHERE decision = 'restrict'),
+    'hold', count(*) FILTER (WHERE decision = 'hold'),
+    'block_session', count(*) FILTER (WHERE decision = 'block_session'),
+    'decline', count(*) FILTER (WHERE decision = 'decline'),
+    'block', count(*) FILTER (WHERE decision = 'block')
+  ) AS decisions,
   coalesce((SELECT jsonb_agg(x) FROM (
     SELECT user_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
     GROUP BY user_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS users,
@@ -176,10 +186,7 @@ type DeviceProfileRow struct {
 	LastSeen   time.Time
 	MaxScore   int32
 	MeanScore  int32
-	Allowed    int64
-	SteppedUp  int64
-	Reviewed   int64
-	Blocked    int64
+	Decisions  []byte
 	Users      []byte
 	Accounts   []byte
 	Devices    []byte
@@ -197,10 +204,7 @@ func (q *Queries) DeviceProfile(ctx context.Context, arg DeviceProfileParams) (D
 		&i.LastSeen,
 		&i.MaxScore,
 		&i.MeanScore,
-		&i.Allowed,
-		&i.SteppedUp,
-		&i.Reviewed,
-		&i.Blocked,
+		&i.Decisions,
 		&i.Users,
 		&i.Accounts,
 		&i.Devices,
@@ -214,10 +218,18 @@ const eventTimeline = `-- name: EventTimeline :many
 SELECT date_bin($1::interval, received_at, $2::timestamptz)::timestamptz AS bucket,
        count(*)::bigint AS events,
        coalesce(round(avg(risk_score)), 0)::int AS mean_score,
-       count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
-       count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
-       count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
-       count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+       jsonb_build_object(
+         'allow', count(*) FILTER (WHERE decision = 'allow'),
+         'fee', count(*) FILTER (WHERE decision = 'fee'),
+         'flag', count(*) FILTER (WHERE decision = 'flag'),
+         'step_up', count(*) FILTER (WHERE decision = 'step_up'),
+         'review', count(*) FILTER (WHERE decision = 'review'),
+         'restrict', count(*) FILTER (WHERE decision = 'restrict'),
+         'hold', count(*) FILTER (WHERE decision = 'hold'),
+         'block_session', count(*) FILTER (WHERE decision = 'block_session'),
+         'decline', count(*) FILTER (WHERE decision = 'decline'),
+         'block', count(*) FILTER (WHERE decision = 'block')
+       ) AS decisions,
        count(*) FILTER (WHERE risk_level = 'minimal')::bigint AS minimal,
        count(*) FILTER (WHERE risk_level = 'low')::bigint AS low,
        count(*) FILTER (WHERE risk_level = 'elevated')::bigint AS elevated,
@@ -241,10 +253,7 @@ type EventTimelineRow struct {
 	Bucket    time.Time
 	Events    int64
 	MeanScore int32
-	Allowed   int64
-	SteppedUp int64
-	Reviewed  int64
-	Blocked   int64
+	Decisions []byte
 	Minimal   int64
 	Low       int64
 	Elevated  int64
@@ -272,10 +281,7 @@ func (q *Queries) EventTimeline(ctx context.Context, arg EventTimelineParams) ([
 			&i.Bucket,
 			&i.Events,
 			&i.MeanScore,
-			&i.Allowed,
-			&i.SteppedUp,
-			&i.Reviewed,
-			&i.Blocked,
+			&i.Decisions,
 			&i.Minimal,
 			&i.Low,
 			&i.Elevated,
@@ -627,10 +633,18 @@ SELECT
   coalesce(max(received_at), 'epoch')::timestamptz AS last_seen,
   coalesce(max(risk_score), 0)::int AS max_score,
   coalesce(round(avg(risk_score)), 0)::int AS mean_score,
-  count(*) FILTER (WHERE decision = 'allow')::bigint AS allowed,
-  count(*) FILTER (WHERE decision = 'step_up')::bigint AS stepped_up,
-  count(*) FILTER (WHERE decision = 'review')::bigint AS reviewed,
-  count(*) FILTER (WHERE decision = 'block')::bigint AS blocked,
+  jsonb_build_object(
+    'allow', count(*) FILTER (WHERE decision = 'allow'),
+    'fee', count(*) FILTER (WHERE decision = 'fee'),
+    'flag', count(*) FILTER (WHERE decision = 'flag'),
+    'step_up', count(*) FILTER (WHERE decision = 'step_up'),
+    'review', count(*) FILTER (WHERE decision = 'review'),
+    'restrict', count(*) FILTER (WHERE decision = 'restrict'),
+    'hold', count(*) FILTER (WHERE decision = 'hold'),
+    'block_session', count(*) FILTER (WHERE decision = 'block_session'),
+    'decline', count(*) FILTER (WHERE decision = 'decline'),
+    'block', count(*) FILTER (WHERE decision = 'block')
+  ) AS decisions,
   coalesce((SELECT jsonb_agg(x) FROM (
     SELECT user_ref AS ref, count(*) AS events, max(received_at) AS last_seen FROM ev
     GROUP BY user_ref ORDER BY max(received_at) DESC LIMIT 20) x), '[]')::jsonb AS users,
@@ -661,10 +675,7 @@ type UserProfileRow struct {
 	LastSeen   time.Time
 	MaxScore   int32
 	MeanScore  int32
-	Allowed    int64
-	SteppedUp  int64
-	Reviewed   int64
-	Blocked    int64
+	Decisions  []byte
 	Users      []byte
 	Accounts   []byte
 	Devices    []byte
@@ -682,10 +693,7 @@ func (q *Queries) UserProfile(ctx context.Context, arg UserProfileParams) (UserP
 		&i.LastSeen,
 		&i.MaxScore,
 		&i.MeanScore,
-		&i.Allowed,
-		&i.SteppedUp,
-		&i.Reviewed,
-		&i.Blocked,
+		&i.Decisions,
 		&i.Users,
 		&i.Accounts,
 		&i.Devices,

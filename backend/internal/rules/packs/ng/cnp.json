@@ -1,0 +1,365 @@
+{
+  "rules": [
+    {
+      "id": "CNP-01",
+      "group": "cards",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "card_authorization"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "card_authorization",
+                "window": "window",
+                "by": "card",
+                "where": {
+                  "any": [
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "lt",
+                      "right": {
+                        "param": "tiny"
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "card.result"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "declined"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "attempts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "card_authorization",
+                "window": "window",
+                "by": "ip",
+                "where": {
+                  "any": [
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "lt",
+                      "right": {
+                        "param": "tiny"
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "card.result"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "declined"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "attempts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "card_authorization",
+                "window": "window",
+                "by": "device",
+                "where": {
+                  "any": [
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "lt",
+                      "right": {
+                        "param": "tiny"
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "card.result"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "declined"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "attempts"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "card_testing",
+        "min_decision": "step_up"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "attempts",
+          "label": "Tiny or declined attempts that count",
+          "type": "count",
+          "default": 10,
+          "min": 3,
+          "max": 200
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 300,
+          "min": 60,
+          "max": 3600
+        },
+        {
+          "name": "tiny",
+          "label": "What counts as a tiny amount",
+          "type": "money",
+          "default": 50000,
+          "min": 100,
+          "max": 1000000,
+          "currency": "NGN"
+        }
+      ]
+    },
+    {
+      "id": "CNP-02",
+      "group": "cards",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "card_authorization"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "card_authorization",
+                "window": "window",
+                "by": "device",
+                "field": "card.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "cards"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "card_authorization",
+                "window": "window",
+                "by": "ip",
+                "field": "card.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "cards"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "many_cards_one_device",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "cards",
+          "label": "Different cards that count as many",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 3600,
+          "min": 300,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "CNP-03",
+      "group": "cards",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "merchant_monitoring"
+      ],
+      "trigger": {
+        "events": [
+          "merchant_daily",
+          "terminal_activity"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "merchant.refund_rate_to_baseline"
+            },
+            "op": "gt",
+            "right": {
+              "param": "multiple"
+            }
+          },
+          {
+            "left": {
+              "fact": "merchant.chargeback_rate_to_baseline"
+            },
+            "op": "gt",
+            "right": {
+              "param": "multiple"
+            }
+          },
+          {
+            "left": {
+              "fact": "terminal.impossible_location"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "merchant_anomaly"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "multiple",
+          "label": "Times the merchant's own normal refund or chargeback rate",
+          "type": "ratio",
+          "default": 3,
+          "min": 1.5,
+          "max": 20
+        }
+      ]
+    }
+  ]
+}

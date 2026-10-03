@@ -18,7 +18,7 @@ var currencyPattern = regexp.MustCompile(`^[A-Z]{3}$`) //nolint:gochecknoglobals
 
 // eventTypes are the event types a fail policy can be set for.
 func eventTypes() []string {
-	return []string{"login", "transaction", "beneficiary_added", "device_change", "session_change", "profile_change"}
+	return []string{"login", "transaction", "beneficiary_added", "device_change", "session_change", "profile_change", "activity"}
 }
 
 // Settings returns the environment's risk settings (defaults when never set). Requires

@@ -7,7 +7,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select } from "@/components/ui/field";
-import { CopyValue, KeyValues, Tag } from "@/components/ui/misc";
+import { CopyValue, KeyValues, pillTabClass, Tag } from "@/components/ui/misc";
+import { StatusPill, type Tone } from "@/components/ui/pill";
 import { Drawer, Modal } from "@/components/ui/overlay";
 import { PageHeader, Panel } from "@/components/ui/panel";
 import { ReasonList } from "@/components/ui/reason-list";
@@ -60,6 +61,14 @@ const STATUS_LABEL: Record<Alert["status"], string> = {
   escalated: "In a case",
   false_positive: "False positive",
   resolved: "Resolved",
+};
+
+const STATUS_TONE: Record<Alert["status"], Tone> = {
+  open: "warning",
+  investigating: "info",
+  escalated: "info",
+  false_positive: "neutral",
+  resolved: "success",
 };
 
 const bandRank = (b: string) => BANDS.findIndex((x) => x.band === b);
@@ -168,7 +177,7 @@ export function AlertQueue() {
         <div
           role="tablist"
           aria-label="Status"
-          className="flex flex-wrap gap-1"
+          className="flex flex-wrap gap-2"
         >
           {STATUS_TABS.map((t) => (
             <button
@@ -179,7 +188,7 @@ export function AlertQueue() {
                 setCursor(0);
                 setParam("status", t.value);
               }}
-              className={`h-control-sm rounded-md px-3 text-body-sm ${status === t.value ? "bg-accent-subtle text-text-primary" : "text-text-secondary hover:bg-bg-raised"}`}
+              className={pillTabClass(status === t.value)}
             >
               {t.label}
             </button>
@@ -248,7 +257,9 @@ export function AlertQueue() {
                   {userName(a.assignee)}
                 </Td>
                 <Td>
-                  <Tag>{STATUS_LABEL[a.status]}</Tag>
+                  <StatusPill tone={STATUS_TONE[a.status]}>
+                    {STATUS_LABEL[a.status]}
+                  </StatusPill>
                 </Td>
                 <DataCell className="text-text-muted">
                   {formatAge(a.last_seen_at)}
@@ -400,7 +411,9 @@ function AlertDrawer({
         <div className="flex flex-col gap-5">
           <div className="flex flex-wrap items-center gap-2">
             <RiskBadge band={a.severity as RiskBand} score={a.max_score} />
-            <Tag>{STATUS_LABEL[a.status]}</Tag>
+            <StatusPill tone={STATUS_TONE[a.status]}>
+              {STATUS_LABEL[a.status]}
+            </StatusPill>
             <Tag>{a.kind === "risk" ? "Risk" : "Security"}</Tag>
           </div>
           {triage.error ? <Notice tone="error">{triage.error}</Notice> : null}

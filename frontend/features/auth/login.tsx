@@ -1,6 +1,7 @@
 "use client";
 
 import { useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 import {
   useEffect,
@@ -16,6 +17,7 @@ import { Notice } from "@/components/ui/states";
 import { api, ApiError, unwrap } from "@/lib/api/client";
 
 import { Enrollment, RecoveryCodes, SecondFactor, type AuthState } from "./mfa";
+import { GoogleButton, OrDivider, useSignupOptions } from "./signup";
 
 /** Only same-site relative paths are followed after sign-in (no open redirects). */
 function safeNext(next: string | null): string {
@@ -31,6 +33,7 @@ export function Login() {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sso, setSSO] = useState(false);
+  const options = useSignupOptions();
 
   const enter = async () => {
     await qc.resetQueries();
@@ -137,12 +140,20 @@ export function Login() {
 
   return (
     <form onSubmit={(e) => void onSubmit(e)} className="flex flex-col gap-4">
-      <div>
-        <h1 className="text-heading-1">Sign in</h1>
-        <p className="mt-1 text-body text-text-secondary">
-          Use the email your administrator invited.
+      <div className="mb-2">
+        <h1 className="text-heading-1">
+          Welcome <span className="accent-italic">back.</span>
+        </h1>
+        <p className="mt-2 text-body text-text-secondary">
+          Sign in to your RiskOS workspace.
         </p>
       </div>
+      {options.data?.google ? (
+        <>
+          <GoogleButton />
+          <OrDivider>or with your email</OrDivider>
+        </>
+      ) : null}
       {error ? <Notice tone="error">{error}</Notice> : null}
       <Field label="Email">
         {(p) => (
@@ -179,8 +190,17 @@ export function Login() {
       >
         Sign in with single sign-on
       </Button>
-      <p className="text-body-sm text-text-muted">
-        No account yet? Ask your RiskOS administrator for an invite link.
+      <p className="text-body-sm text-text-secondary">
+        {options.data?.email || options.data?.google ? (
+          <>
+            New to RiskOS?{" "}
+            <Link href="/signup" className="font-medium text-accent">
+              Create a workspace
+            </Link>
+          </>
+        ) : (
+          "No account yet? Ask your RiskOS administrator for an invite link."
+        )}
       </p>
     </form>
   );

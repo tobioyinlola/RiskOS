@@ -51,6 +51,18 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 	if err != nil {
 		return fmt.Errorf("encode shadow signals: %w", err)
 	}
+	controls, err := json.Marshal(nonNilControls(r.Controls))
+	if err != nil {
+		return fmt.Errorf("encode controls: %w", err)
+	}
+	notEvaluated, err := json.Marshal(nonNilNotEvaluated(r.NotEvaluated))
+	if err != nil {
+		return fmt.Errorf("encode rules not evaluated: %w", err)
+	}
+	restricted, err := json.Marshal(nonNil(r.Restricted))
+	if err != nil {
+		return fmt.Errorf("encode restricted signals: %w", err)
+	}
 	us := min(duration.Microseconds(), int64(math.MaxInt32))
 	if err := q.InsertEvaluation(ctx, sqlcgen.InsertEvaluationParams{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID,
@@ -61,6 +73,7 @@ func (Store) Insert(ctx context.Context, r domain.Result, eventKey string, featu
 		DurationUs:    int32(us), //nolint:gosec // clamped above
 		PolicyReasons: nonNilStrings(r.PolicyReasons), ShadowSignals: shadow,
 		WarmingSignals: nonNilStrings(r.WarmingSignals),
+		Controls:       controls, NotEvaluated: notEvaluated, RestrictedSignals: restricted,
 	}); err != nil {
 		return fmt.Errorf("insert evaluation: %w", err)
 	}
@@ -87,11 +100,34 @@ func (Store) Get(ctx context.Context, id uuid.UUID, createdAt time.Time) (domain
 	if err := json.Unmarshal(row.Signals, &signals); err != nil {
 		return domain.Result{}, fmt.Errorf("decode signals: %w", err)
 	}
+	var controls []domain.Control
+	if err := json.Unmarshal(row.Controls, &controls); err != nil {
+		return domain.Result{}, fmt.Errorf("decode controls: %w", err)
+	}
+	var notEvaluated []domain.NotEvaluated
+	if err := json.Unmarshal(row.NotEvaluated, &notEvaluated); err != nil {
+		return domain.Result{}, fmt.Errorf("decode rules not evaluated: %w", err)
+	}
 	return domain.Result{
 		ID: row.ID, CreatedAt: row.CreatedAt, EventID: row.EventID, EngineVersion: row.EngineVersion,
 		Score: int(row.RiskScore), Level: domain.Level(row.RiskLevel), Decision: domain.Decision(row.Decision),
 		Signals: nonNil(signals), DegradedSignals: nonNilStrings(row.DegradedSignals), RequestID: row.RequestID,
+		Controls: nonNilControls(controls), NotEvaluated: nonNilNotEvaluated(notEvaluated),
 	}, nil
+}
+
+func nonNilControls(c []domain.Control) []domain.Control {
+	if c == nil {
+		return []domain.Control{}
+	}
+	return c
+}
+
+func nonNilNotEvaluated(n []domain.NotEvaluated) []domain.NotEvaluated {
+	if n == nil {
+		return []domain.NotEvaluated{}
+	}
+	return n
 }
 
 func nonNil(s []domain.Signal) []domain.Signal {
@@ -121,6 +157,60 @@ func (Store) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCo
 	out := make([]domain.SignalCount, len(rows))
 	for i, r := range rows {
 		out[i] = domain.SignalCount{Code: r.Code, Label: r.Label, Hits: int(r.Hits)}
+	}
+	return out, nil
+}
+
+// PackReplay is a stored evaluation's features, for a backtest.
+type PackReplay struct {
+	EventID  *uuid.UUID
+	Features []byte
+}
+
+// PackReplays returns the features of ingested evaluations with a rule pack replay record since
+// since, oldest first, at most limit: one batch read per backtest.
+func (Store) PackReplays(ctx context.Context, since time.Time, limit int) ([]PackReplay, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.PackReplays(ctx, sqlcgen.PackReplaysParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since, MaxRows: int32(limit), //nolint:gosec // bounded by the caller
+	})
+	if err != nil {
+		return nil, fmt.Errorf("pack replays: %w", err)
+	}
+	out := make([]PackReplay, len(rows))
+	for i, r := range rows {
+		out[i] = PackReplay{EventID: r.EventID, Features: r.Features}
+	}
+	return out, nil
+}
+
+// RestrictedEvaluation is an evaluation with compliance-only signals.
+type RestrictedEvaluation struct {
+	ID        uuid.UUID
+	EventID   *uuid.UUID
+	CreatedAt time.Time
+	Signals   []domain.Signal
+}
+
+// RestrictedSignals lists evaluations with compliance-only signals since since, newest first.
+func (Store) RestrictedSignals(ctx context.Context, since time.Time) ([]RestrictedEvaluation, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.RestrictedSignals(ctx, sqlcgen.RestrictedSignalsParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since})
+	if err != nil {
+		return nil, fmt.Errorf("restricted signals: %w", err)
+	}
+	out := make([]RestrictedEvaluation, len(rows))
+	for i, r := range rows {
+		out[i] = RestrictedEvaluation{ID: r.ID, EventID: r.EventID, CreatedAt: r.CreatedAt}
+		if err := json.Unmarshal(r.RestrictedSignals, &out[i].Signals); err != nil {
+			return nil, fmt.Errorf("decode restricted signals: %w", err)
+		}
 	}
 	return out, nil
 }

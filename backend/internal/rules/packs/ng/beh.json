@@ -1,0 +1,308 @@
+{
+  "rules": [
+    {
+      "id": "BEH-01",
+      "group": "behaviour",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "history.amount_zscore"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "deviations"
+                }
+              },
+              {
+                "left": {
+                  "fact": "history.amount_to_max"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "max_multiple"
+                }
+              }
+            ]
+          },
+          {
+            "left": {
+              "fact": "customer.history_age"
+            },
+            "op": "gte",
+            "right": {
+              "param": "history"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "amount_anomaly"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 24,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "deviations",
+          "label": "Standard deviations above the usual amount",
+          "type": "ratio",
+          "default": 3,
+          "min": 2,
+          "max": 10
+        },
+        {
+          "name": "max_multiple",
+          "label": "Times the customer's largest amount",
+          "type": "ratio",
+          "default": 5,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "history",
+          "label": "History needed before the rule applies",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 15552000
+        }
+      ]
+    },
+    {
+      "id": "BEH-02",
+      "group": "behaviour",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "login",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "branches": [
+        {
+          "label": "New country or region",
+          "weight": "weight_new_place",
+          "condition": {
+            "left": {
+              "fact": "geo.country_usual"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        },
+        {
+          "label": "Impossible travel",
+          "weight": "weight_impossible",
+          "condition": {
+            "left": {
+              "fact": "geo.speed_from_previous"
+            },
+            "op": "gt",
+            "right": {
+              "param": "max_speed"
+            }
+          }
+        }
+      ],
+      "outcome": {
+        "severity": "medium",
+        "reason": "location_anomaly"
+      },
+      "parameters": [
+        {
+          "name": "weight_new_place",
+          "label": "Points for a new country or region",
+          "type": "points",
+          "default": 10,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "weight_impossible",
+          "label": "Points for impossible travel",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "max_speed",
+          "label": "Fastest travel that is possible (km/h)",
+          "type": "speed",
+          "default": 900,
+          "min": 300,
+          "max": 2000
+        }
+      ]
+    },
+    {
+      "id": "BEH-03",
+      "group": "behaviour",
+      "kind": "signal",
+      "status": "recommended",
+      "regulators": [
+        "NIBSS"
+      ],
+      "sources": [
+        "S7"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the library of 2 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "history.hour_usual"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "customer.history_age"
+            },
+            "op": "gte",
+            "right": {
+              "param": "history"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "low",
+        "reason": "time_anomaly"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 8,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "history",
+          "label": "History needed before the rule applies",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 15552000
+        }
+      ]
+    }
+  ]
+}

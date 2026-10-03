@@ -1,11 +1,11 @@
 "use client";
 
-import { cn } from "cn";
-import { CornerDownLeft, Search } from "lucide-react";
+import { cn } from "@/lib/cn";
 import { Dialog as D } from "radix-ui";
 import { useEffect, useMemo, useRef, useState, type ReactNode } from "react";
 
 import { Kbd } from "@/components/ui/kbd";
+import { Enter, Search } from "@/components/ui/icons";
 
 export interface Command {
   id: string;
@@ -69,7 +69,7 @@ export function CommandPalette({
     >
       <D.Portal>
         <D.Overlay
-          className="fixed inset-0 z-50 bg-bg-canvas/70"
+          className="fixed inset-0 z-50 bg-ink/30 backdrop-blur-[2px]"
           style={{ animation: "fade-in 120ms ease-out" }}
         />
         <D.Content
@@ -92,7 +92,7 @@ export function CommandPalette({
           <D.Title className="sr-only">Command palette</D.Title>
           <div className="flex items-center gap-2 border-b border-border-subtle px-4">
             <Search
-              className="size-icon-sm shrink-0 stroke-[1.5] text-text-muted"
+              className="size-icon-sm shrink-0 text-text-muted"
               aria-hidden="true"
             />
             <input
@@ -131,7 +131,7 @@ export function CommandPalette({
               return (
                 <li key={c.id} role="presentation">
                   {header ? (
-                    <p className="px-3 pt-3 pb-1 text-overline text-text-secondary uppercase">
+                    <p className="px-3 pt-3 pb-1 text-label text-text-muted">
                       {header}
                     </p>
                   ) : null}
@@ -149,7 +149,7 @@ export function CommandPalette({
                         : "text-text-secondary",
                     )}
                   >
-                    <span className="flex size-icon-sm items-center justify-center [&_svg]:size-icon-sm [&_svg]:stroke-[1.5]">
+                    <span className="flex size-icon-sm items-center justify-center [&_svg]:size-icon-sm">
                       {c.icon}
                     </span>
                     <span className="flex-1 truncate">{c.label}</span>
@@ -161,8 +161,8 @@ export function CommandPalette({
                       </span>
                     ) : null}
                     {i === active ? (
-                      <CornerDownLeft
-                        className="size-icon-sm stroke-[1.5] text-text-muted"
+                      <Enter
+                        className="size-icon-sm text-text-muted"
                         aria-hidden="true"
                       />
                     ) : null}

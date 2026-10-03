@@ -49,21 +49,22 @@ type Linked struct {
 
 // Profile summarizes an entity's recent activity.
 type Profile struct {
-	Kind                                  EntityKind
-	Ref                                   string
-	Events                                int
-	FirstSeen, LastSeen                   time.Time
-	MaxScore, MeanScore                   int
-	Allowed, SteppedUp, Reviewed, Blocked int
-	Users, Accounts, Devices, Countries   []Linked
-	IPs                                   []Linked
+	Kind                EntityKind
+	Ref                 string
+	Events              int
+	FirstSeen, LastSeen time.Time
+	MaxScore, MeanScore int
+	// Decisions counts events by decision.
+	Decisions                           map[string]int
+	Users, Accounts, Devices, Countries []Linked
+	IPs                                 []Linked
 }
 
 // Point is one time bucket of analytics.
 type Point struct {
 	At                                     time.Time
 	Events, MeanScore                      int
-	Allowed, SteppedUp, Reviewed, Blocked  int
+	Decisions                              map[string]int
 	Minimal, Low, Elevated, High, Critical int
 }
 

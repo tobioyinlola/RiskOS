@@ -4,6 +4,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,20 +42,48 @@ func (t Thresholds) Valid() bool {
 // Decision is the recommended action. Decisions are advisory: the customer's flow enforces them.
 type Decision string
 
-// Decisions.
+// Decisions. The score policy produces allow, step_up, review and block; regulatory controls of a
+// rule pack (ADR-0006) also set the action the law requires.
 const (
 	DecisionAllow  Decision = "allow"
 	DecisionReview Decision = "review"
 	DecisionStepUp Decision = "step_up"
 	DecisionBlock  Decision = "block"
+	// DecisionFee allows the event and charges a regulatory fee (a cash withdrawal charge).
+	DecisionFee Decision = "fee"
+	// DecisionFlag allows the event and flags it for a required follow-up.
+	DecisionFlag Decision = "flag"
+	// DecisionRestrict limits the account until a requirement is met (a missing BVN).
+	DecisionRestrict Decision = "restrict"
+	// DecisionHold holds the funds for review, for at most the control's hold period.
+	DecisionHold Decision = "hold"
+	// DecisionBlockSession ends the session and requires fresh authentication.
+	DecisionBlockSession Decision = "block_session"
+	// DecisionDecline declines this transaction (a legal limit).
+	DecisionDecline Decision = "decline"
 )
+
+// ParseDecision returns the decision named s.
+func ParseDecision(s string) (Decision, bool) {
+	d := Decision(s)
+	return d, decisionRank(d) >= 0
+}
 
 // Signal is one explained reason contributing to the score.
 type Signal struct {
 	Code   string `json:"code"`
 	Label  string `json:"label"`
 	Weight int    `json:"weight"`
+	// Mode is set on restricted signals only: live or shadow.
+	Mode string `json:"mode,omitempty"`
 }
+
+// The masked form of a compliance-only signal (GOV-09): it explains its points without saying
+// what compliance is looking at. Tenant rules cannot use the code.
+const (
+	SignalComplianceReview = "compliance_review"
+	ComplianceReviewLabel  = "Compliance review"
+)
 
 // MaxScore caps the score.
 const MaxScore = 100
@@ -136,9 +165,44 @@ type Result struct {
 	PolicyReasons []string
 	ShadowSignals []Signal
 	RuleVersions  []string
+	// Controls are the rule pack's regulatory controls that applied to the event (ADR-0006),
+	// live or in shadow; NotEvaluated the pack rules it triggered whose data was unavailable.
+	Controls     []Control
+	NotEvaluated []NotEvaluated
+	// Restricted are compliance-only signals as they fired (GOV-09). Stored, never returned
+	// with the evaluation: only compliance roles read them, through the compliance API.
+	Restricted []Signal
 	// RaiseAlert is set when the decision reaches the environment's alert threshold. Not stored:
 	// the caller acts on it in the same transaction (dry runs never raise alerts).
 	RaiseAlert bool
+}
+
+// Control is a regulatory control of the workspace's rule pack that applied to an event.
+type Control struct {
+	Rule string `json:"rule"`
+	Name string `json:"name"`
+	// Mode is live (it set the decision) or shadow (recorded only).
+	Mode string `json:"mode"`
+	// Decision is the action the control requires; empty for controls that only create tasks.
+	Decision Decision `json:"decision,omitempty"`
+	Reason   string   `json:"reason"`
+	// Tasks are what the institution must do: report.CTR, case.open, edd...
+	Tasks []string `json:"tasks"`
+	// FeePercent and HoldSeconds detail fee and hold decisions; Branch names the variant that
+	// applied.
+	FeePercent  float64 `json:"fee_percent,omitempty"`
+	HoldSeconds int64   `json:"hold_seconds,omitempty"`
+	Branch      string  `json:"branch,omitempty"`
+	// ExemptionUnknown is set when the control applied because its exemption could not be
+	// checked (the legal limit applies until it is shown).
+	ExemptionUnknown bool `json:"exemption_unknown,omitempty"`
+}
+
+// NotEvaluated is a pack rule an event triggered that could not be evaluated: what it needed
+// was unavailable ("fact:telco.sim_swap", "setting:floor", "history:count ... by card").
+type NotEvaluated struct {
+	Rule    string   `json:"rule"`
+	Missing []string `json:"missing"`
 }
 
 // SignalCount is how often a signal fired over a window (analytics).
@@ -147,3 +211,6 @@ type SignalCount struct {
 	Label string
 	Hits  int
 }
+
+// ErrBacktestInvalid means a backtest request is malformed; the message says why.
+var ErrBacktestInvalid = errors.New("invalid backtest")

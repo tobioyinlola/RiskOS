@@ -50,7 +50,7 @@ test("invite, passkey, every section, and back in", async ({
   await page.getByLabel("I have saved these codes somewhere safe").check();
   await page.getByRole("button", { name: "Continue to RiskOS" }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Overview" }),
+    page.getByRole("heading", { level: 1, name: /^Welcome back/ }),
   ).toBeVisible();
 
   for (const section of navSections) {
@@ -59,7 +59,11 @@ test("invite, passkey, every section, and back in", async ({
       .getByRole("link", { name: section.label, exact: true })
       .click();
     await expect(
-      page.getByRole("heading", { level: 1, name: section.label }),
+      page.getByRole("heading", {
+        level: 1,
+        // The overview greets the user; every other section is titled by its label.
+        name: section.href === "/" ? /^Welcome back/ : section.label,
+      }),
     ).toBeVisible();
     await page.waitForLoadState("networkidle");
     await expect(page.getByRole("main").getByRole("alert")).toHaveCount(0);
@@ -77,10 +81,10 @@ test("invite, passkey, every section, and back in", async ({
 
   await page.getByLabel("Email").fill(email);
   await page.getByLabel("Password").fill(PASSWORD);
-  await page.getByRole("button", { name: "Continue" }).click();
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
   await page.getByRole("button", { name: "Use your passkey" }).click();
   await expect(
-    page.getByRole("heading", { level: 1, name: "Overview" }),
+    page.getByRole("heading", { level: 1, name: /^Welcome back/ }),
   ).toBeVisible();
 });
 
