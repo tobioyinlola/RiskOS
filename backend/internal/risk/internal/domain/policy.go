@@ -5,18 +5,13 @@ import (
 	"time"
 )
 
-// decisionRank orders decisions by severity.
+// decisionRank orders decisions by severity; -1 for an unknown decision. Fee and flag allow the
+// event with an action; restrict, hold, block_session, decline and block stop or limit it.
 func decisionRank(d Decision) int {
-	switch d {
-	case DecisionStepUp:
-		return 1
-	case DecisionReview:
-		return 2
-	case DecisionBlock:
-		return 3
-	default:
-		return 0
-	}
+	return slices.Index([]Decision{
+		DecisionAllow, DecisionFee, DecisionFlag, DecisionStepUp, DecisionReview, DecisionRestrict,
+		DecisionHold, DecisionBlockSession, DecisionDecline, DecisionBlock,
+	}, d)
 }
 
 // AtLeast returns the more severe of d and floor.

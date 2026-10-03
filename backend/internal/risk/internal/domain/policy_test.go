@@ -114,3 +114,24 @@ func TestRaisesAlert(t *testing.T) {
 	assert.True(t, domain.Settings{}.RaisesAlert(domain.DecisionReview), "unset means REVIEW")
 	assert.False(t, domain.Settings{}.RaisesAlert(domain.DecisionStepUp))
 }
+
+func TestDecisionSeverity(t *testing.T) {
+	// From least to most severe; a control's action is kept only when it is the stronger one.
+	order := []domain.Decision{
+		domain.DecisionAllow, domain.DecisionFee, domain.DecisionFlag, domain.DecisionStepUp, domain.DecisionReview,
+		domain.DecisionRestrict, domain.DecisionHold, domain.DecisionBlockSession, domain.DecisionDecline, domain.DecisionBlock,
+	}
+	for i := 1; i < len(order); i++ {
+		assert.Equal(t, order[i], domain.AtLeast(order[i-1], order[i]))
+		assert.Equal(t, order[i], domain.AtLeast(order[i], order[i-1]))
+	}
+	settings := domain.DefaultSettings()
+	assert.True(t, settings.RaisesAlert(domain.DecisionDecline), "declines and holds reach the review threshold")
+	assert.True(t, settings.RaisesAlert(domain.DecisionHold))
+	assert.False(t, settings.RaisesAlert(domain.DecisionFee), "a fee alone is not an alert")
+	_, ok := domain.ParseDecision("deny")
+	assert.False(t, ok)
+	d, ok := domain.ParseDecision("block_session")
+	assert.True(t, ok)
+	assert.Equal(t, domain.DecisionBlockSession, d)
+}

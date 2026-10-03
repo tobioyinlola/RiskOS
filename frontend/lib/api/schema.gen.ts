@@ -2687,11 +2687,22 @@ export interface components {
             }[];
         };
         /**
-         * @description `block` is produced only for Critical scores in an environment that switched automatic
-         *     blocking on (see AutoBlockStatus).
+         * @description The recommended action, from least to most severe. The score policy produces `allow`,
+         *     `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+         *     where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+         *     the action the law requires (see `controls` on the decision):
+         *     - `fee`: allow, and charge the regulatory fee given in the control;
+         *     - `flag`: allow, and do the follow-up the control names;
+         *     - `restrict`: limit the account until the requirement is met;
+         *     - `hold`: hold the funds for review, for at most the control's hold period;
+         *     - `block_session`: end the session and require fresh authentication;
+         *     - `decline`: decline this transaction (a legal limit);
+         *     - `block`: stop the event.
+         *     The most severe applicable action is returned. Clients that switch on the decision must
+         *     handle every value.
          * @enum {string}
          */
-        Decision: "allow" | "review" | "step_up" | "block";
+        Decision: "allow" | "fee" | "flag" | "step_up" | "review" | "restrict" | "hold" | "block_session" | "decline" | "block";
         /**
          * @description `off`: Critical scores get REVIEW. `shadow`: they still get REVIEW, and the evaluation is
          *     marked `would_block` in its policy reasons, to gather evidence. `on`: they get BLOCK
@@ -2794,8 +2805,14 @@ export interface components {
         };
         DecisionCounts: {
             allow: number;
+            fee: number;
+            flag: number;
             step_up: number;
             review: number;
+            restrict: number;
+            hold: number;
+            block_session: number;
+            decline: number;
             block: number;
         };
         EntityProfile: {

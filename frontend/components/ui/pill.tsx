@@ -63,7 +63,13 @@ export function StatusPill({
 /** Decisions as pills: Allow reads as completed, Block as stopped, Review as pending. */
 export const DECISION_TONE: Record<Decision, Tone> = {
   allow: "success",
+  fee: "neutral",
+  flag: "info",
   step_up: "info",
+  restrict: "danger",
+  hold: "warning",
+  block_session: "danger",
+  decline: "danger",
   review: "warning",
   block: "danger",
 };

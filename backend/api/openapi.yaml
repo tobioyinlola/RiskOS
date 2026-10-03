@@ -5127,10 +5127,21 @@ components:
                 $ref: "#/components/schemas/Decision"
     Decision:
       type: string
-      enum: [allow, review, step_up, block]
+      enum: [allow, fee, flag, step_up, review, restrict, hold, block_session, decline, block]
       description: |
-        `block` is produced only for Critical scores in an environment that switched automatic
-        blocking on (see AutoBlockStatus).
+        The recommended action, from least to most severe. The score policy produces `allow`,
+        `step_up`, `review` and `block` (`block` only for a deny-list match or for Critical scores
+        where automatic blocking is on). A regulatory control of the workspace's rule pack sets
+        the action the law requires (see `controls` on the decision):
+        - `fee`: allow, and charge the regulatory fee given in the control;
+        - `flag`: allow, and do the follow-up the control names;
+        - `restrict`: limit the account until the requirement is met;
+        - `hold`: hold the funds for review, for at most the control's hold period;
+        - `block_session`: end the session and require fresh authentication;
+        - `decline`: decline this transaction (a legal limit);
+        - `block`: stop the event.
+        The most severe applicable action is returned. Clients that switch on the decision must
+        handle every value.
     AutoBlockMode:
       type: string
       enum: ["off", shadow, "on"]
@@ -5311,13 +5322,25 @@ components:
     DecisionCounts:
       type: object
       additionalProperties: false
-      required: [allow, step_up, review, block]
+      required: [allow, fee, flag, step_up, review, restrict, hold, block_session, decline, block]
       properties:
         allow:
+          type: integer
+        fee:
+          type: integer
+        flag:
           type: integer
         step_up:
           type: integer
         review:
+          type: integer
+        restrict:
+          type: integer
+        hold:
+          type: integer
+        block_session:
+          type: integer
+        decline:
           type: integer
         block:
           type: integer

@@ -33,7 +33,12 @@ import { EventTable } from "../events/events";
 import { DenyEntityButton } from "../deny/deny";
 import { entityHref, EntityLink } from "./link";
 import { Device, User, Wallet, type Icon } from "@/components/ui/icons";
-import { DECISION_FILL, DECISION_LABEL } from "@/lib/risk";
+import {
+  GROUP_FILL,
+  GROUP_LABEL,
+  groupDecisions,
+  type Decision,
+} from "@/lib/risk";
 
 export { entityHref, EntityLink };
 
@@ -343,12 +348,17 @@ export function EntityProfile({
 }
 
 /** Decisions as one segmented bar with a legend (and the counts as text). */
-export function DecisionBar({ counts }: { counts: Schemas["DecisionCounts"] }) {
-  const parts = (["allow", "step_up", "review", "block"] as const).map((d) => ({
-    key: d,
-    label: DECISION_LABEL[d],
-    value: counts[d],
-    fill: DECISION_FILL[d],
+export function DecisionBar({
+  counts,
+}: {
+  counts: Partial<Record<Decision, number>>;
+}) {
+  const groups = groupDecisions(counts);
+  const parts = (["allow", "step_up", "review", "stop"] as const).map((g) => ({
+    key: g,
+    label: GROUP_LABEL[g],
+    value: groups[g],
+    fill: GROUP_FILL[g],
   }));
   const total = parts.reduce((s, p) => s + p.value, 0) || 1;
   return (

@@ -16,7 +16,13 @@ import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import type { Schemas } from "@/lib/api/client";
 import { formatCount } from "@/lib/format";
 import { useAnalytics, type AnalyticsWindow } from "@/lib/queries";
-import { BAND_FILL, BANDS } from "@/lib/risk";
+import {
+  BAND_FILL,
+  BANDS,
+  groupDecisions,
+  NO_DECISIONS,
+  type Decision,
+} from "@/lib/risk";
 
 import { DecisionBar, TopUsers } from "../entities/entities";
 
@@ -45,7 +51,7 @@ function continuous(
   const step = bucket === "day" ? 86_400_000 : 3_600_000;
   const byTime = new Map(points.map((p) => [new Date(p.at).getTime(), p]));
   const start = new Date(since).getTime();
-  const zero = { allow: 0, step_up: 0, review: 0, block: 0 };
+  const zero = NO_DECISIONS;
   const zeroBands = { minimal: 0, low: 0, elevated: 0, high: 0, critical: 0 };
   return Array.from({ length: count }, (_, i) => {
     const t = start + i * step;
@@ -179,19 +185,15 @@ export function Analytics() {
   const totals = useMemo(() => {
     const t = {
       events: 0,
-      allow: 0,
-      step_up: 0,
-      review: 0,
-      block: 0,
+      decisions: { ...NO_DECISIONS },
       high: 0,
       scoreSum: 0,
     };
     for (const p of a?.series ?? []) {
       t.events += p.events;
-      t.allow += p.decisions.allow;
-      t.step_up += p.decisions.step_up;
-      t.review += p.decisions.review;
-      t.block += p.decisions.block;
+      for (const d of Object.keys(t.decisions) as Decision[]) {
+        t.decisions[d] += p.decisions[d];
+      }
       t.high += p.bands.high + p.bands.critical;
       t.scoreSum += p.mean_score * p.events;
     }
@@ -252,8 +254,11 @@ export function Analytics() {
             </Metric>
             <Metric label="High or critical" value={formatCount(totals.high)} />
             <Metric
-              label="Reviewed or blocked"
-              value={formatCount(totals.review + totals.block)}
+              label="Reviewed, stopped or held"
+              value={formatCount(
+                groupDecisions(totals.decisions).review +
+                  groupDecisions(totals.decisions).stop,
+              )}
             />
           </div>
 
@@ -285,14 +290,7 @@ export function Analytics() {
 
           <Panel className="mb-5 overflow-hidden">
             <PanelHeader title="Decisions" />
-            <DecisionBar
-              counts={{
-                allow: totals.allow,
-                step_up: totals.step_up,
-                review: totals.review,
-                block: totals.block,
-              }}
-            />
+            <DecisionBar counts={totals.decisions} />
           </Panel>
 
           <div className="grid grid-cols-1 gap-5 xl:grid-cols-2">

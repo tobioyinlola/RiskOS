@@ -41,13 +41,32 @@ func (t Thresholds) Valid() bool {
 // Decision is the recommended action. Decisions are advisory: the customer's flow enforces them.
 type Decision string
 
-// Decisions.
+// Decisions. The score policy produces allow, step_up, review and block; regulatory controls of a
+// rule pack (ADR-0006) also set the action the law requires.
 const (
 	DecisionAllow  Decision = "allow"
 	DecisionReview Decision = "review"
 	DecisionStepUp Decision = "step_up"
 	DecisionBlock  Decision = "block"
+	// DecisionFee allows the event and charges a regulatory fee (a cash withdrawal charge).
+	DecisionFee Decision = "fee"
+	// DecisionFlag allows the event and flags it for a required follow-up.
+	DecisionFlag Decision = "flag"
+	// DecisionRestrict limits the account until a requirement is met (a missing BVN).
+	DecisionRestrict Decision = "restrict"
+	// DecisionHold holds the funds for review, for at most the control's hold period.
+	DecisionHold Decision = "hold"
+	// DecisionBlockSession ends the session and requires fresh authentication.
+	DecisionBlockSession Decision = "block_session"
+	// DecisionDecline declines this transaction (a legal limit).
+	DecisionDecline Decision = "decline"
 )
+
+// ParseDecision returns the decision named s.
+func ParseDecision(s string) (Decision, bool) {
+	d := Decision(s)
+	return d, decisionRank(d) >= 0
+}
 
 // Signal is one explained reason contributing to the score.
 type Signal struct {

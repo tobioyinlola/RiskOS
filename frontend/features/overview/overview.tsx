@@ -35,7 +35,10 @@ import {
   BAND_FILL,
   BANDS,
   bandInfo,
-  DECISION_FILL,
+  GROUP_FILL,
+  GROUP_LABEL,
+  groupDecisions,
+  NO_DECISIONS,
   DECISION_LABEL,
   type Decision,
   type RiskBand,
@@ -147,12 +150,7 @@ function summarize(sample: EventRow[]): Stats {
     RiskBand,
     number
   >;
-  const byDecision: Record<Decision, number> = {
-    allow: 0,
-    step_up: 0,
-    review: 0,
-    block: 0,
-  };
+  const byDecision: Record<Decision, number> = { ...NO_DECISIONS };
   for (const e of sample) {
     byBand[e.risk_level as RiskBand] += 1;
     byDecision[e.decision as Decision] += 1;
@@ -390,24 +388,14 @@ function DecisionsCard({
   stats: Stats;
   canAddRule: boolean;
 }) {
-  const d = stats.byDecision;
-  const interventions = d.step_up + d.review + d.block;
-  const parts = [
-    { key: "allow", value: d.allow, fill: DECISION_FILL.allow, label: "Allow" },
-    {
-      key: "step_up",
-      value: d.step_up,
-      fill: DECISION_FILL.step_up,
-      label: "Step-up",
-    },
-    {
-      key: "review",
-      value: d.review,
-      fill: DECISION_FILL.review,
-      label: "Review",
-    },
-    { key: "block", value: d.block, fill: DECISION_FILL.block, label: "Block" },
-  ];
+  const d = groupDecisions(stats.byDecision);
+  const interventions = d.step_up + d.review + d.stop;
+  const parts = (["allow", "step_up", "review", "stop"] as const).map((g) => ({
+    key: g,
+    value: d[g],
+    fill: GROUP_FILL[g],
+    label: GROUP_LABEL[g],
+  }));
   const driver = parts
     .slice(1)
     .sort((a, b) => b.value - a.value)
