@@ -28,34 +28,60 @@ const (
 	profileTTL = 400 * 24 * time.Hour
 )
 
-// windowScript records an event in the window KEYS[1] (write mode, with a member) and computes
-// aggregates over [now - window, now] for each query. A dry run counts its own member without
-// storing it. Members are "<id>|<flag>|<field>|<per>|<amount>|<currency>"; flag "?" marks an event
-// whose filter could not be checked, which makes every result of the window unknown ("?").
-// Amounts are summed in the event's currency only.
+// windowScript records an event in a window (write mode, with a member) and computes aggregates
+// over [now - window, now] for each query. A dry run counts its own member without storing it.
+//
+// KEYS[1] is a sorted set of the window's events by time. Members are
+// "<id>|<flag>|<field>|<per>|<amount>|<currency>"; flag "?" marks an event whose filter could not
+// be checked, which makes every result of the window unknown ("?"). Amounts are summed in the
+// event's currency only.
+//
+// Reads must not scan the whole window: a busy entity (a biller paid by thousands of customers)
+// would cost every event milliseconds of Redis time, shared by every tenant. So the script keeps,
+// next to the sorted set, the unknown events by time in KEYS[2] (one ZCOUNT says whether a window
+// is unknown), each counted field's latest time in KEYS[3] (a distinct count is one ZCOUNT), and
+// in KEYS[4] the count and the sum per currency of each time bucket (about 1,024 per retention).
+// Counts and exists are one ZCOUNT (no unknown entry means every entry counts). Sums and daily
+// averages add whole buckets and scan only the two partial buckets at the window's edges, once
+// per window length, unless the window holds fewer entries than its buckets would cost to fetch:
+// then it is scanned. An empty window answers at once. The bucket size follows the retention a write
+// gives (an event that only reads a window gives none, so its longest query stands in), and a
+// write with another retention reindexes the window; a query over more than 4,096 buckets scans
+// instead. A write costs a few commands: trimming, dropping old buckets and refreshing the
+// indexes' expiry happen once per bucket. Concurrent events reach Redis slightly out of order, so an event at most a minute
+// older than the newest one counts the identifiers seen up to the newest; an older one,
+// and the rarer distinct_count_once and max_distinct_per_value, scan the window. Every result is
+// exact, except that a distinct count may include identifiers first seen in that minute after
+// the event, or seen only in entries evicted beyond the cap: more risk, never less. A window written before these structures existed is
+// indexed on first use.
 const windowScript = `
-local now = tonumber(ARGV[3])
+local K, KU, KF, KB = KEYS[1], KEYS[2], KEYS[3], KEYS[4]
+local write = ARGV[1] == '1'
 local member = ARGV[2]
-if ARGV[1] == '1' and member ~= '' then
-  local retention = tonumber(ARGV[4])
-  redis.call('ZADD', KEYS[1], now, member)
-  redis.call('ZREMRANGEBYSCORE', KEYS[1], '-inf', '(' .. (now - retention))
-  local n = redis.call('ZCARD', KEYS[1])
-  local cap = tonumber(ARGV[5])
-  if n > cap then redis.call('ZREMRANGEBYRANK', KEYS[1], 0, n - cap - 1) end
-  redis.call('PEXPIRE', KEYS[1], retention + tonumber(ARGV[6]))
-end
+local now = tonumber(ARGV[3])
+local retention = tonumber(ARGV[4])
+local cap = tonumber(ARGV[5])
+local ttl = retention + tonumber(ARGV[6])
 local cur = ARGV[7]
-local out = {}
-for q = 0, tonumber(ARGV[8]) - 1 do
-  local fn = ARGV[9 + 2 * q]
-  local win = tonumber(ARGV[10 + 2 * q])
-  local ms = redis.call('ZRANGEBYSCORE', KEYS[1], now - win, now)
-  if ARGV[1] ~= '1' and member ~= '' then ms[#ms + 1] = member end
+-- How much older than the newest entry an event may be for its distinct counts to use the index.
+local skew = 60000
+
+local function parse(m)
+  return string.match(m, '^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)$')
+end
+
+local dry = (not write) and member ~= ''
+local _, dflag, dfield, _, damt, dc
+if dry then _, dflag, dfield, _, damt, dc = parse(member) end
+
+-- scan computes fn over the whole window, member by member.
+local function scan(fn, win)
+  local ms = redis.call('ZRANGEBYSCORE', K, now - win, now)
+  if dry then ms[#ms + 1] = member end
   local unknown, count, sum = false, 0, 0
   local fields, per = {}, {}
   for _, m in ipairs(ms) do
-    local _, flag, field, pv, amt, c = string.match(m, '^([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)|([^|]*)$')
+    local _, flag, field, pv, amt, c = parse(m)
     if flag == '?' then
       unknown = true
     elseif flag == '1' then
@@ -70,31 +96,191 @@ for q = 0, tonumber(ARGV[8]) - 1 do
       end
     end
   end
-  local v
-  if unknown then
-    v = '?'
-  elseif fn == 'count' then
-    v = count
-  elseif fn == 'exists' then
-    if count > 0 then v = 1 else v = 0 end
-  elseif fn == 'sum' then
-    v = sum
-  elseif fn == 'daily_avg' then
-    v = sum / (win / 86400000)
-  elseif fn == 'distinct_count' or fn == 'distinct_count_once' then
-    v = 0
+  if unknown then return '?' end
+  if fn == 'count' then return count end
+  if fn == 'exists' then if count > 0 then return 1 end return 0 end
+  if fn == 'sum' then return sum end
+  if fn == 'daily_avg' then return sum / (win / 86400000) end
+  if fn == 'distinct_count' or fn == 'distinct_count_once' then
+    local v = 0
     for _, n in pairs(fields) do
       if fn == 'distinct_count' or n == 1 then v = v + 1 end
     end
-  elseif fn == 'max_distinct_per_value' then
-    v = 0
+    return v
+  end
+  if fn == 'max_distinct_per_value' then
+    local v = 0
     for _, set in pairs(per) do
       local d = 0
       for _ in pairs(set) do d = d + 1 end
       if d > v then v = d end
     end
+    return v
+  end
+  return '?'
+end
+
+local writing = write and member ~= ''
+local entries = redis.call('ZCARD', K)
+-- Most windows an event reads are empty for its entity: answer them without touching the indexes.
+if not writing and entries == 0 then
+  local out = {}
+  for q = 0, tonumber(ARGV[8]) - 1 do
+    out[#out + 1] = string.format('%s', scan(ARGV[9 + 2 * q], tonumber(ARGV[10 + 2 * q])))
+  end
+  return out
+end
+
+local meta = redis.call('HMGET', KB, 'B', 'last')
+local B, last = tonumber(meta[1] or ''), tonumber(meta[2] or '')
+local function bucket(t) return math.floor(t / B) end
+local function size(r) return math.max(1000, math.ceil(r / 1024)) end
+local longest = 0
+for q = 0, tonumber(ARGV[8]) - 1 do longest = math.max(longest, tonumber(ARGV[10 + 2 * q])) end
+
+-- apply adds (sign 1) or removes (sign -1) a member's share of the aggregates.
+local function apply(m, t, sign)
+  local id, flag, field, _, amt, c = parse(m)
+  if flag == '?' then
+    if sign > 0 then redis.call('ZADD', KU, t, id) else redis.call('ZREM', KU, id) end
+  elseif flag == '1' then
+    local b = bucket(t)
+    redis.call('HINCRBY', KB, 'c' .. b, sign)
+    if amt ~= '' then
+      if sign < 0 then amt = '-' .. amt end
+      redis.call('HINCRBY', KB, 's' .. b .. ':' .. c, amt)
+    end
+    if sign > 0 and field ~= '' then redis.call('ZADD', KF, 'GT', t, field) end
+  end
+end
+
+-- reindex rebuilds the indexes from the window with bucket size b.
+local function reindex(b)
+  redis.call('DEL', KU, KF, KB)
+  B, last = b, nil
+  if entries == 0 then return end
+  redis.call('HSET', KB, 'B', B)
+  local all = redis.call('ZRANGE', K, 0, -1, 'WITHSCORES')
+  for i = 1, #all, 2 do apply(all[i], tonumber(all[i + 1]), 1) end
+  for _, k in ipairs({KU, KF, KB}) do redis.call('PEXPIRE', k, ttl) end
+end
+
+if writing and B ~= size(retention) then
+  reindex(size(retention))
+elseif not B then
+  reindex(size(math.max(retention, longest)))
+end
+
+if writing then
+  if redis.call('ZADD', K, 'NX', now, member) == 1 then
+    entries = entries + 1
+    apply(member, now, 1)
+  end
+  redis.call('PEXPIRE', K, ttl)
+  if entries > cap then
+    local evicted = redis.call('ZRANGE', K, 0, entries - cap - 1, 'WITHSCORES')
+    for i = 1, #evicted, 2 do apply(evicted[i], tonumber(evicted[i + 1]), -1) end
+    redis.call('ZREMRANGEBYRANK', K, 0, entries - cap - 1)
+    entries = cap
+  end
+  -- Once per new bucket: trim to the retention, drop older buckets and refresh the indexes'
+  -- expiry (missing indexes are rebuilt from the window, so they may expire first).
+  local nb = bucket(now)
+  if not last or nb > last then
+    local oldest = now - retention
+    for _, k in ipairs({K, KU, KF}) do redis.call('ZREMRANGEBYSCORE', k, '-inf', '(' .. oldest) end
+    redis.call('HSET', KB, 'B', B, 'last', nb)
+    local keep = bucket(oldest) - 1
+    for _, f in ipairs(redis.call('HKEYS', KB)) do
+      local b = tonumber(string.match(f, '^[cs](%d+)'))
+      if b and b < keep then redis.call('HDEL', KB, f) end
+    end
+    for _, k in ipairs({KU, KF, KB}) do redis.call('PEXPIRE', k, ttl) end
+    entries = redis.call('ZCARD', K)
+  end
+end
+
+local top = redis.call('ZRANGE', K, -1, -1, 'WITHSCORES')
+local lag = 0
+if #top > 0 then lag = tonumber(top[2]) - now end
+
+-- totals returns the count and the sum of a window from the buckets and its edges, once per
+-- window length.
+local totals = {}
+local function total(win)
+  if totals[win] then return totals[win][1], totals[win][2] end
+  local lo, hi = now - win, now
+  local count, sum = 0, 0
+  local function add(m)
+    local _, flag, _, _, amt, c = parse(m)
+    if flag == '1' then
+      count = count + 1
+      if c == cur and amt ~= '' then sum = sum + tonumber(amt) end
+    end
+  end
+  local bl, bh = bucket(lo), bucket(hi)
+  -- Scan when the window holds fewer entries than the buckets would cost to fetch.
+  local n = 0
+  if entries > 0 then n = redis.call('ZCOUNT', K, lo, hi) end
+  if n == 0 then
+    -- Nothing stored in the window: only a dry run's own event counts.
+  elseif bl == bh or bh - bl > 4096 or n <= 2 * (bh - bl) + 64 then
+    for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, lo, hi)) do add(m) end
   else
-    v = '?'
+    for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, lo, (bl + 1) * B - 1)) do add(m) end
+    for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, bh * B, hi)) do add(m) end
+    if bh - bl > 1 then
+      local f = {}
+      for b = bl + 1, bh - 1 do
+        f[#f + 1] = 'c' .. b
+        f[#f + 1] = 's' .. b .. ':' .. cur
+      end
+      local v = redis.call('HMGET', KB, unpack(f))
+      for i = 1, #v, 2 do
+        count = count + tonumber(v[i] or 0)
+        sum = sum + tonumber(v[i + 1] or 0)
+      end
+    end
+  end
+  if dry then add(member) end
+  totals[win] = {count, sum}
+  return count, sum
+end
+
+-- fast computes count, exists, sum, daily_avg and (in order) distinct_count from the indexes.
+local function fast(fn, win)
+  local lo, hi = now - win, now
+  if (dry and dflag == '?') or redis.call('ZCOUNT', KU, lo, hi) > 0 then return '?' end
+  if fn == 'distinct_count' then
+    local v = redis.call('ZCOUNT', KF, lo, '+inf')
+    if dry and dflag == '1' and dfield ~= '' then
+      local p = redis.call('ZSCORE', KF, dfield)
+      if not p or tonumber(p) < lo then v = v + 1 end
+    end
+    return v
+  end
+  if fn == 'count' or fn == 'exists' then
+    -- With no unknown entry in the window, every entry counts: one ZCOUNT.
+    local count = redis.call('ZCOUNT', K, lo, hi)
+    if dry and dflag == '1' then count = count + 1 end
+    if fn == 'count' then return count end
+    if count > 0 then return 1 end
+    return 0
+  end
+  local _, sum = total(win)
+  if fn == 'sum' then return sum end
+  return sum / (win / 86400000)
+end
+
+local out = {}
+for q = 0, tonumber(ARGV[8]) - 1 do
+  local fn = ARGV[9 + 2 * q]
+  local win = tonumber(ARGV[10 + 2 * q])
+  local v
+  if fn == 'count' or fn == 'exists' or fn == 'sum' or fn == 'daily_avg' or (fn == 'distinct_count' and lag <= skew) then
+    v = fast(fn, win)
+  else
+    v = scan(fn, win)
   end
   out[#out + 1] = string.format('%s', v)
 end
@@ -192,7 +378,7 @@ func (s *FeatureStore) Windows(ctx context.Context, ops []features.WindowOp, e f
 		}
 		// The entity's hash tag comes first, so one entity's windows share a Redis Cluster slot.
 		key := k.entity("w:"+op.EntityKind, op.EntityID) + ":" + op.Key
-		cmds[i] = s.window.EvalSha(ctx, pipe, []string{key}, args...)
+		cmds[i] = s.window.EvalSha(ctx, pipe, []string{key, key + ":u", key + ":f", key + ":b"}, args...)
 	}
 	user := k.entity("u", e.UserID) + ":pf"
 	account := user

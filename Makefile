@@ -165,11 +165,11 @@ load: ## Load test the running API (make up first; RATE=req/s DURATION=30s); res
 	  run --summary-export=/scripts/results/health-summary.json /scripts/health.js
 
 .PHONY: load-events
-load-events: ## Load test event ingest (make up first): make load-events API_KEY=rsk_test_... [RATE=500]
+load-events: ## Load test event ingest (make up first): make load-events API_KEY=rsk_test_... [RATE=500] [PACK=1]
 	@test -n "$(API_KEY)" || { echo "API_KEY is required (a key with events:write)" >&2; exit 1; }
 	mkdir -p backend/test/load/results
 	docker run --rm --network host --user "$$(id -u):$$(id -g)" -v "$(CURDIR)/backend/test/load:/scripts" \
-	  -e API_URL=$${API_URL:-http://127.0.0.1:8080} -e API_KEY -e RATE -e DURATION \
+	  -e API_URL=$${API_URL:-http://127.0.0.1:8080} -e API_KEY -e RATE -e DURATION -e PACK -e ACCOUNTS \
 	  grafana/k6:2.3.0@sha256:9c2dee7f8ed74d317e4027c06a10f169b625638189de8d4555d0b3486a5aeb34 \
 	  run --summary-export=/scripts/results/events-summary.json /scripts/events.js
 

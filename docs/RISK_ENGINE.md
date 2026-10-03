@@ -305,6 +305,18 @@ queried from Postgres per event:
 - One sorted set per window definition and entity (`rk:<tenant>:<env>:{w:<entity kind>:<hmac>}:<key>`),
   scored by the event's `occurred_at`, trimmed to the longest window the rule's setting allows
   and to 20,000 entries. Identifiers and event IDs are HMAC'd like every feature-store key.
+- Reads do not scan the window, so a busy entity (a biller paid by thousands of customers) costs
+  no more per event than a quiet one. Next to the sorted set each window keeps its unknown
+  entries by time (`:u`), each counted identifier's latest time (`:f`), and per time bucket (about
+  1,024 per retention) its count and its sum per currency (`:b`). A count is one `ZCOUNT`, and so
+  is a distinct count; sums and daily averages add whole buckets and scan only the two buckets at
+  the window's edges, unless the window holds fewer entries than its buckets would cost to fetch
+  (then it is scanned; empty windows answer at once). An event more than a minute older than the window's newest, `distinct_count_once` and
+  `max_distinct_per_value` scan the window. Results are exactly the backtest's (tested on random
+  event streams), except that a distinct count may include identifiers first seen in the minute
+  after a slightly late event (concurrent events reach Redis out of order), or seen only in
+  entries evicted beyond the cap: more risk, never less. A window
+  written before these indexes existed, or written with another retention, is reindexed once.
 - A window's key covers the events it holds, the entity, the identifier it counts and its filter
   with the filter's settings: aggregates that differ only by function or length share a window,
   and changing a filter's setting starts a fresh one.

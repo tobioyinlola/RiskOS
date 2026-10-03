@@ -5,7 +5,6 @@ each with the phase that closes it. An item leaves this list in the commit that 
 
 | Item | Effect today | Closes in |
 |---|---|---|
-| End-to-end decision-path p95 with the pack, Redis included | Interpreter cost only is measured | Phase 6 |
 | Live monitor e2e test occasionally fails under parallel load | Passes on rerun | Phase 6 |
 
 ## Decisions confirmed (Phase 3 review)
