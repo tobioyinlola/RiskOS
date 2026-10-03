@@ -145,6 +145,31 @@ type ComplianceFxRate struct {
 	UpdatedBy  string
 }
 
+type ComplianceTask struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	RuleID        string
+	EvaluationID  *uuid.UUID
+	EventID       *uuid.UUID
+	CaseID        *uuid.UUID
+	SubjectRef    *string
+	Sensitive     bool
+	Status        string
+	DueAt         *time.Time
+	Report        []byte
+	CreatedAt     time.Time
+	CreatedBy     string
+	UpdatedAt     time.Time
+	ApprovedBy    *string
+	ApprovedAt    *time.Time
+	ClosedBy      *string
+	ClosedAt      *time.Time
+	CloseNote     *string
+	FilingRef     *string
+}
+
 type ConsoleSession struct {
 	ID               uuid.UUID
 	TenantID         uuid.UUID

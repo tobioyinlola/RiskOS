@@ -261,6 +261,48 @@ func (q *Queries) GetRuleChange(ctx context.Context, arg GetRuleChangeParams) (G
 	return i, err
 }
 
+const getTask = `-- name: GetTask :one
+SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref FROM compliance_tasks
+WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
+FOR UPDATE
+`
+
+type GetTaskParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+func (q *Queries) GetTask(ctx context.Context, arg GetTaskParams) (ComplianceTask, error) {
+	row := q.db.QueryRow(ctx, getTask, arg.TenantID, arg.EnvironmentID, arg.ID)
+	var i ComplianceTask
+	err := row.Scan(
+		&i.TenantID,
+		&i.EnvironmentID,
+		&i.ID,
+		&i.Kind,
+		&i.RuleID,
+		&i.EvaluationID,
+		&i.EventID,
+		&i.CaseID,
+		&i.SubjectRef,
+		&i.Sensitive,
+		&i.Status,
+		&i.DueAt,
+		&i.Report,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.UpdatedAt,
+		&i.ApprovedBy,
+		&i.ApprovedAt,
+		&i.ClosedBy,
+		&i.ClosedAt,
+		&i.CloseNote,
+		&i.FilingRef,
+	)
+	return i, err
+}
+
 const insertPack = `-- name: InsertPack :exec
 INSERT INTO rule_packs (id, version, jurisdiction, name, checksum, meta)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -387,6 +429,56 @@ func (q *Queries) InsertRuleVersion(ctx context.Context, arg InsertRuleVersionPa
 		arg.RestoredFrom,
 	)
 	return err
+}
+
+const insertTask = `-- name: InsertTask :execrows
+
+INSERT INTO compliance_tasks (tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id,
+  subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+  $9, $10, 'open', $11, $12, $13, $14, $13)
+ON CONFLICT DO NOTHING
+`
+
+type InsertTaskParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+	Kind          string
+	RuleID        string
+	EvaluationID  *uuid.UUID
+	EventID       *uuid.UUID
+	CaseID        *uuid.UUID
+	SubjectRef    *string
+	Sensitive     bool
+	DueAt         *time.Time
+	Report        []byte
+	CreatedAt     time.Time
+	CreatedBy     string
+}
+
+// Compliance tasks (per environment).
+func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertTask,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+		arg.Kind,
+		arg.RuleID,
+		arg.EvaluationID,
+		arg.EventID,
+		arg.CaseID,
+		arg.SubjectRef,
+		arg.Sensitive,
+		arg.DueAt,
+		arg.Report,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const latestPack = `-- name: LatestPack :one
@@ -526,6 +618,70 @@ func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams
 	return items, nil
 }
 
+const listTasks = `-- name: ListTasks :many
+SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref FROM compliance_tasks
+WHERE tenant_id = $1 AND environment_id = $2
+  AND ($3::text IS NULL OR status = $3::text)
+  AND ($4::boolean OR NOT sensitive)
+ORDER BY (status IN ('open', 'approved')) DESC, due_at NULLS LAST, created_at DESC
+LIMIT 500
+`
+
+type ListTasksParams struct {
+	TenantID         uuid.UUID
+	EnvironmentID    uuid.UUID
+	Status           *string
+	IncludeSensitive bool
+}
+
+func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ComplianceTask, error) {
+	rows, err := q.db.Query(ctx, listTasks,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Status,
+		arg.IncludeSensitive,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ComplianceTask
+	for rows.Next() {
+		var i ComplianceTask
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.Kind,
+			&i.RuleID,
+			&i.EvaluationID,
+			&i.EventID,
+			&i.CaseID,
+			&i.SubjectRef,
+			&i.Sensitive,
+			&i.Status,
+			&i.DueAt,
+			&i.Report,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.ApprovedBy,
+			&i.ApprovedAt,
+			&i.ClosedBy,
+			&i.ClosedAt,
+			&i.CloseNote,
+			&i.FilingRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const packChecksum = `-- name: PackChecksum :one
 
 SELECT checksum FROM rule_packs WHERE id = $1 AND version = $2
@@ -602,6 +758,46 @@ func (q *Queries) RuleVersions(ctx context.Context, arg RuleVersionsParams) ([]R
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateTask = `-- name: UpdateTask :exec
+UPDATE compliance_tasks
+SET status = $1, report = $2, updated_at = $3, approved_by = $4, approved_at = $5,
+    closed_by = $6, closed_at = $7, close_note = $8, filing_ref = $9
+WHERE tenant_id = $10 AND environment_id = $11 AND id = $12
+`
+
+type UpdateTaskParams struct {
+	Status        string
+	Report        []byte
+	UpdatedAt     time.Time
+	ApprovedBy    *string
+	ApprovedAt    *time.Time
+	ClosedBy      *string
+	ClosedAt      *time.Time
+	CloseNote     *string
+	FilingRef     *string
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	ID            uuid.UUID
+}
+
+func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) error {
+	_, err := q.db.Exec(ctx, updateTask,
+		arg.Status,
+		arg.Report,
+		arg.UpdatedAt,
+		arg.ApprovedBy,
+		arg.ApprovedAt,
+		arg.ClosedBy,
+		arg.ClosedAt,
+		arg.CloseNote,
+		arg.FilingRef,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.ID,
+	)
+	return err
 }
 
 const upsertCompliance = `-- name: UpsertCompliance :one

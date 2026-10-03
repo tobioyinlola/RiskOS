@@ -77,6 +77,8 @@ const ComplianceSensitive Permission = "compliance:sensitive"
 const (
 	// AlertsRaise creates and groups alerts from evaluations.
 	AlertsRaise Permission = "system:alerts_raise"
+	// ComplianceTasksCreate records the compliance work fired controls require.
+	ComplianceTasksCreate Permission = "system:compliance_tasks"
 	// WebhooksDeliver attempts webhook deliveries.
 	WebhooksDeliver Permission = "system:webhooks_deliver"
 )

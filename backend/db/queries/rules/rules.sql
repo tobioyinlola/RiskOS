@@ -104,3 +104,31 @@ ON CONFLICT (tenant_id, currency) DO UPDATE SET
 
 -- name: DeleteFXRate :execrows
 DELETE FROM compliance_fx_rates WHERE tenant_id = @tenant_id AND currency = @currency;
+
+-- Compliance tasks (per environment).
+
+-- name: InsertTask :execrows
+INSERT INTO compliance_tasks (tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id,
+  subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
+VALUES (@tenant_id, @environment_id, @id, @kind, @rule_id, @evaluation_id, @event_id, @case_id,
+  @subject_ref, @sensitive, 'open', @due_at, @report, @created_at, @created_by, @created_at)
+ON CONFLICT DO NOTHING;
+
+-- name: GetTask :one
+SELECT * FROM compliance_tasks
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id
+FOR UPDATE;
+
+-- name: ListTasks :many
+SELECT * FROM compliance_tasks
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id
+  AND (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
+  AND (@include_sensitive::boolean OR NOT sensitive)
+ORDER BY (status IN ('open', 'approved')) DESC, due_at NULLS LAST, created_at DESC
+LIMIT 500;
+
+-- name: UpdateTask :exec
+UPDATE compliance_tasks
+SET status = @status, report = @report, updated_at = @updated_at, approved_by = @approved_by, approved_at = @approved_at,
+    closed_by = @closed_by, closed_at = @closed_at, close_note = @close_note, filing_ref = @filing_ref
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id;

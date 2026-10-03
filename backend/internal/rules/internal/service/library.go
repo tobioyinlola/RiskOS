@@ -40,6 +40,10 @@ type Service struct {
 	// database refuses updates), so entries never go stale.
 	mu    sync.Mutex
 	packs map[string]*pack.Pack
+
+	// alerts and cases are read by the compliance workflow (nil until connected).
+	alerts AlertSource
+	cases  CaseSource
 }
 
 // New returns the service.
