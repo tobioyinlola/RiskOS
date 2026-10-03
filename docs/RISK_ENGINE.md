@@ -282,7 +282,7 @@ queried from Postgres per event:
 `history.hour_usual`, `geo.speed_from_previous`, `flows.prior_sender_outflow_share`,
 `sender.related` and `export.rows_to_*_baseline` need behaviour RiskOS does not record yet. The
 rules on them (BEH-02's impossible-travel branch, BEH-03, PON-01, SEC-12) are reported as not
-evaluated until it does.
+evaluated until it does; [the tracker](compliance/TRACKER.md) names the phase that adds each.
 
 ### Reproducibility
 
