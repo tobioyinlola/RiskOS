@@ -2511,7 +2511,69 @@ export interface components {
          *     rejected everywhere. Identifiers are the customer's own opaque references: do not send
          *     names, emails or other personal data as identifiers.
          */
-        Event: components["schemas"]["LoginEvent"] | components["schemas"]["TransactionEvent"] | components["schemas"]["BeneficiaryAddedEvent"] | components["schemas"]["DeviceChangeEvent"] | components["schemas"]["SessionChangeEvent"] | components["schemas"]["ProfileChangeEvent"];
+        Event: components["schemas"]["LoginEvent"] | components["schemas"]["TransactionEvent"] | components["schemas"]["BeneficiaryAddedEvent"] | components["schemas"]["DeviceChangeEvent"] | components["schemas"]["SessionChangeEvent"] | components["schemas"]["ProfileChangeEvent"] | components["schemas"]["ActivityEvent"];
+        /**
+         * @description Account or platform activity that is neither a money movement nor a sign-in (an account
+         *     opened, an API request, a data export, a staff action...). `compliance.kind` says which.
+         */
+        ActivityEvent: {
+            event_id: components["schemas"]["EventKey"];
+            /** Format: date-time */
+            occurred_at: string;
+            actor: components["schemas"]["Actor"];
+            context?: components["schemas"]["EventContext"];
+            compliance: components["schemas"]["ComplianceContext"];
+            /**
+             * @description discriminator enum property added by openapi-typescript
+             * @enum {string}
+             */
+            type: "activity";
+        };
+        /**
+         * @description What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+         *     Everything is optional: a rule whose data is missing is reported as not evaluated, never
+         *     treated as no risk.
+         */
+        ComplianceContext: {
+            kind?: components["schemas"]["ComplianceEventKind"];
+            /**
+             * @description Facts from your systems and providers, by the names in the pack's catalog
+             *     (`device.rooted`, `telco.sim_swap`, `customer.type`...): true or false, a number (a
+             *     duration in seconds, a count, a ratio, a score), one of the fact's listed values, or
+             *     for amounts `{"amount": <minor units>, "currency": "NGN"}`. Facts RiskOS computes
+             *     itself (behaviour history, workflows, the amount and identifiers of the event) are
+             *     refused.
+             */
+            facts?: {
+                [key: string]: unknown;
+            };
+            refs?: components["schemas"]["ComplianceRefs"];
+        };
+        /**
+         * @description Opaque references for the entities rules keep time windows for. Never the BVN, phone
+         *     number, card number or address itself: send your own reference for it.
+         */
+        ComplianceRefs: {
+            card?: components["schemas"]["Reference"];
+            bvn?: components["schemas"]["Reference"];
+            phone?: components["schemas"]["Reference"];
+            address?: components["schemas"]["Reference"];
+            loan?: components["schemas"]["Reference"];
+            inflow?: components["schemas"]["Reference"];
+            merchant?: components["schemas"]["Reference"];
+            api_key?: components["schemas"]["Reference"];
+            sender?: components["schemas"]["Reference"];
+            reporter?: components["schemas"]["Reference"];
+            funding_source?: components["schemas"]["Reference"];
+        };
+        /**
+         * @description What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
+         *     sign-in kinds with `login`, `device_bound` and `device_reregistered` with `device_change`,
+         *     and the others with `activity`. Without it, RiskOS derives the kind from the event (a debit
+         *     is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
+         * @enum {string}
+         */
+        ComplianceEventKind: "transfer_outbound" | "transfer_inbound" | "transfer_international" | "cash_payment" | "cash_withdrawal" | "cash_deposit" | "atm_withdrawal" | "pos_purchase" | "card_authorization" | "crypto_purchase" | "crypto_withdrawal" | "crypto_transfer" | "fiat_inflow" | "funding" | "loan_disbursement" | "loan_repayment" | "login" | "auth_failure" | "auth_success" | "device_bound" | "device_reregistered" | "beneficiary_added" | "session_activity" | "profile_change" | "loan_application" | "mfa_prompt" | "sim_reregistered" | "account_opened" | "account_reactivated" | "customer_onboarded" | "customer_review" | "credit_requested" | "list_updated" | "telco_lookup" | "data_export" | "api_request" | "api_lookup" | "config_change" | "role_change" | "staff_action" | "fraud_report" | "merchant_daily" | "terminal_activity";
         /** @description A sign-in attempt. */
         LoginEvent: {
             event_id: components["schemas"]["EventKey"];
@@ -2519,6 +2581,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2533,6 +2596,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2547,6 +2611,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2561,6 +2626,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2575,6 +2641,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2589,6 +2656,7 @@ export interface components {
             occurred_at: string;
             actor: components["schemas"]["Actor"];
             context?: components["schemas"]["EventContext"];
+            compliance?: components["schemas"]["ComplianceContext"];
             /**
              * @description discriminator enum property added by openapi-typescript
              * @enum {string}
@@ -2597,7 +2665,7 @@ export interface components {
             data: components["schemas"]["ProfileChangeData"];
         };
         /** @enum {string} */
-        EventType: "login" | "transaction" | "beneficiary_added" | "device_change" | "session_change" | "profile_change";
+        EventType: "login" | "transaction" | "beneficiary_added" | "device_change" | "session_change" | "profile_change" | "activity";
         /**
          * @description The customer's unique ID for the event; the idempotency key.
          * @example txn_2026_000123

@@ -10,9 +10,12 @@ import (
 	"errors"
 	"fmt"
 	"net/netip"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
 
 // Errors of the events module.
@@ -54,6 +57,8 @@ type Event struct {
 	Context    Context
 	// Data is the type-specific object, already schema-validated.
 	Data json.RawMessage
+	// Compliance is what the rule pack needs about the event (EVENTS.md#compliance), or nil.
+	Compliance *rules.EventContext
 }
 
 // Normalized is the canonical form the engine evaluates and the payload hash covers. Field order
@@ -64,6 +69,8 @@ type Normalized struct {
 	Actor      Actor           `json:"actor"`
 	Context    Context         `json:"context"`
 	Data       json.RawMessage `json:"data"`
+	// Compliance is omitted when empty, so events without it hash as before.
+	Compliance *rules.EventContext `json:"compliance,omitempty"`
 }
 
 // Normalize validates what the contract cannot express and returns the canonical form: UTC
@@ -91,6 +98,16 @@ func Normalize(e Event) (Normalized, *netip.Addr, error) {
 		return Normalized{}, nil, fmt.Errorf("%w: data is not valid JSON", ErrInvalidEvent)
 	}
 	n.Data = compact.Bytes()
+	if err := rules.CheckEvent(e.Type, e.Compliance); err != nil {
+		if errors.Is(err, rules.ErrSensitiveData) {
+			return Normalized{}, nil, err
+		}
+		return Normalized{}, nil, fmt.Errorf("%w: %s", ErrInvalidEvent,
+			strings.TrimPrefix(err.Error(), rules.ErrInvalidEvent.Error()+": "))
+	}
+	if c := e.Compliance; c != nil && (c.Kind != "" || len(c.Facts) > 0 || len(c.Refs) > 0) {
+		n.Compliance = c
+	}
 	return n, ip, nil
 }
 

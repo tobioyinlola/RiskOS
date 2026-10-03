@@ -48,6 +48,7 @@ const EVENT_TYPES: Schemas["EventType"][] = [
   "device_change",
   "session_change",
   "profile_change",
+  "activity",
 ];
 
 /** Reads the event filters from the URL (?type=&decision=&risk_level=&user=). */

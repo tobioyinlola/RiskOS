@@ -41,8 +41,38 @@ Every event has `event_id`, `type`, `occurred_at`, `actor` (`user_id` required; 
 | `device_change` | `new_device_id`, optional `previous_device_id` |
 | `session_change` | `change` (created, refreshed, terminated) |
 | `profile_change` | `fields` (email, phone, address, name, password), which fields changed, never their values |
+| `activity` | none; `compliance.kind` (required) says what it is: an account opened, an API request, a data export, a staff action... |
 
 Identifiers are opaque customer references (`[A-Za-z0-9._:-]{1,128}`); never names or emails.
+
+## Compliance
+
+Every event may carry a `compliance` block with what the workspace's rule pack needs
+([ADR-0006](adr/ADR-0006-jurisdiction-rule-packs.md); the pack's catalog is in the console's
+Rules library). Everything in it is optional: a rule whose data is missing is reported as not
+evaluated, never treated as no risk.
+
+- **`kind`** is what the event is in the pack's terms. Money kinds (`cash_withdrawal`,
+  `card_authorization`, `crypto_purchase`, `loan_repayment`...) go with `transaction` events;
+  `login`, `auth_failure` and `auth_success` with `login`; `device_bound` and
+  `device_reregistered` with `device_change`; the rest with `activity`. Without it, the kind is
+  derived: a debit is `transfer_outbound` (`card_authorization` on the card channel), a credit
+  `transfer_inbound`, a successful login `login` and `auth_success`, a failed one `auth_failure`.
+  Every event also counts as `activity_any`, and money movements as `transaction_any`.
+- **`facts`** are values from the customer's systems and providers, by catalog name
+  (`device.rooted`, `telco.sim_swap`, `customer.type`, `screening.sanctions_score`...): `true` or
+  `false`, a number at least 0 (durations in seconds; scores up to 100; hours up to 24), one of
+  the fact's listed values, or `{"amount": <whole minor units>, "currency": "NGN"}`. Facts RiskOS
+  computes are refused: behaviour history, workflow facts, identifiers (sent as `refs`), and the
+  event's own amount, local hour and changed profile fields. At most 64.
+- **`refs`** are opaque references for the entities rules keep time windows for: `card`, `bvn`,
+  `phone`, `address`, `loan`, `inflow`, `merchant`, `api_key`, `sender`, `reporter`,
+  `funding_source`. Never the value itself: a `bvn` of 11 digits or a `phone` that is a phone
+  number is refused with `422 SENSITIVE_DATA`, like card numbers anywhere.
+
+A kind that does not fit the event type, an unknown or computed fact, or a value of the wrong
+type is `422 INVALID_EVENT`, naming the problem. The block is part of the normalized event, so
+it is stored, hashed for idempotency and shown with the event.
 
 ## Validation limits and errors
 

@@ -4816,6 +4816,7 @@ components:
         - $ref: "#/components/schemas/DeviceChangeEvent"
         - $ref: "#/components/schemas/SessionChangeEvent"
         - $ref: "#/components/schemas/ProfileChangeEvent"
+        - $ref: "#/components/schemas/ActivityEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -4825,6 +4826,89 @@ components:
           device_change: "#/components/schemas/DeviceChangeEvent"
           session_change: "#/components/schemas/SessionChangeEvent"
           profile_change: "#/components/schemas/ProfileChangeEvent"
+          activity: "#/components/schemas/ActivityEvent"
+    ActivityEvent:
+      type: object
+      description: |
+        Account or platform activity that is neither a money movement nor a sign-in (an account
+        opened, an API request, a data export, a staff action...). `compliance.kind` says which.
+      additionalProperties: false
+      required: [event_id, type, occurred_at, actor, compliance]
+      properties:
+        event_id:
+          $ref: "#/components/schemas/EventKey"
+        occurred_at:
+          type: string
+          format: date-time
+        actor:
+          $ref: "#/components/schemas/Actor"
+        context:
+          $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
+        type:
+          type: string
+          enum: [activity]
+    ComplianceContext:
+      type: object
+      description: |
+        What the workspace's rule pack needs about the event (ADR-0006; EVENTS.md#compliance).
+        Everything is optional: a rule whose data is missing is reported as not evaluated, never
+        treated as no risk.
+      additionalProperties: false
+      properties:
+        kind:
+          $ref: "#/components/schemas/ComplianceEventKind"
+        facts:
+          type: object
+          maxProperties: 64
+          description: |
+            Facts from your systems and providers, by the names in the pack's catalog
+            (`device.rooted`, `telco.sim_swap`, `customer.type`...): true or false, a number (a
+            duration in seconds, a count, a ratio, a score), one of the fact's listed values, or
+            for amounts `{"amount": <minor units>, "currency": "NGN"}`. Facts RiskOS computes
+            itself (behaviour history, workflows, the amount and identifiers of the event) are
+            refused.
+          additionalProperties: {}
+        refs:
+          $ref: "#/components/schemas/ComplianceRefs"
+    ComplianceRefs:
+      type: object
+      description: |
+        Opaque references for the entities rules keep time windows for. Never the BVN, phone
+        number, card number or address itself: send your own reference for it.
+      additionalProperties: false
+      properties:
+        card:
+          $ref: "#/components/schemas/Reference"
+        bvn:
+          $ref: "#/components/schemas/Reference"
+        phone:
+          $ref: "#/components/schemas/Reference"
+        address:
+          $ref: "#/components/schemas/Reference"
+        loan:
+          $ref: "#/components/schemas/Reference"
+        inflow:
+          $ref: "#/components/schemas/Reference"
+        merchant:
+          $ref: "#/components/schemas/Reference"
+        api_key:
+          $ref: "#/components/schemas/Reference"
+        sender:
+          $ref: "#/components/schemas/Reference"
+        reporter:
+          $ref: "#/components/schemas/Reference"
+        funding_source:
+          $ref: "#/components/schemas/Reference"
+    ComplianceEventKind:
+      type: string
+      description: |
+        What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
+        sign-in kinds with `login`, `device_bound` and `device_reregistered` with `device_change`,
+        and the others with `activity`. Without it, RiskOS derives the kind from the event (a debit
+        is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
+      enum: [transfer_outbound, transfer_inbound, transfer_international, cash_payment, cash_withdrawal, cash_deposit, atm_withdrawal, pos_purchase, card_authorization, crypto_purchase, crypto_withdrawal, crypto_transfer, fiat_inflow, funding, loan_disbursement, loan_repayment, login, auth_failure, auth_success, device_bound, device_reregistered, beneficiary_added, session_activity, profile_change, loan_application, mfa_prompt, sim_reregistered, account_opened, account_reactivated, customer_onboarded, customer_review, credit_requested, list_updated, telco_lookup, data_export, api_request, api_lookup, config_change, role_change, staff_action, fraud_report, merchant_daily, terminal_activity]
     LoginEvent:
       type: object
       description: A sign-in attempt.
@@ -4840,6 +4924,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [login]
@@ -4860,6 +4946,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [transaction]
@@ -4880,6 +4968,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [beneficiary_added]
@@ -4900,6 +4990,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [device_change]
@@ -4920,6 +5012,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [session_change]
@@ -4940,6 +5034,8 @@ components:
           $ref: "#/components/schemas/Actor"
         context:
           $ref: "#/components/schemas/EventContext"
+        compliance:
+          $ref: "#/components/schemas/ComplianceContext"
         type:
           type: string
           enum: [profile_change]
@@ -4947,7 +5043,7 @@ components:
           $ref: "#/components/schemas/ProfileChangeData"
     EventType:
       type: string
-      enum: [login, transaction, beneficiary_added, device_change, session_change, profile_change]
+      enum: [login, transaction, beneficiary_added, device_change, session_change, profile_change, activity]
     EventKey:
       type: string
       description: The customer's unique ID for the event; the idempotency key.
