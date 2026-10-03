@@ -123,3 +123,104 @@ test("an unknown rule says so", async ({ page }) => {
   await page.goto("/compliance/rules/ZZZ-99");
   await expect(page.getByText("No such rule")).toBeVisible();
 });
+
+test("configure a rule: settings in natural units, a backtest, a version", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/compliance/rules/VEL-01");
+  await expect(page.getByText("Shadow in test")).toBeVisible();
+  await page.getByRole("button", { name: "Configure" }).click();
+  const dialog = page.getByRole("dialog", { name: "Configure VEL-01" });
+  await dialog.getByLabel("Mode", { exact: true }).selectOption("live");
+  // The window reads in minutes, not seconds.
+  await expect(dialog.getByLabel("Time window", { exact: true })).toHaveValue(
+    "10",
+  );
+  await dialog.getByLabel("Transfers out that count as a burst").fill("4");
+  await dialog.getByRole("button", { name: "Backtest" }).click();
+  await expect(dialog.getByRole("table", { name: "Backtest" })).toContainText(
+    "5",
+  );
+  await dialog.getByLabel("Transfers out that count as a burst").fill("1");
+  await expect(dialog.getByText(/must be between 2 and 100/)).toBeVisible();
+  await dialog.getByLabel("Transfers out that count as a burst").fill("4");
+  await dialog.getByLabel("Reason").fill("Bursts of four are enough");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText("Saved as version 1.")).toBeVisible();
+  await expect(page.getByText("Live in test")).toBeVisible();
+  const settings = page.getByRole("table", { name: "Settings" });
+  await expect(
+    settings.getByRole("cell", { name: "4", exact: true }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Configuration history" }),
+  ).toContainText("Bursts of four are enough");
+  expect(api.problems).toEqual([]);
+  expect(api.calls).toContain("PUT /compliance/rules/VEL-01/config");
+});
+
+test("production: a control's change waits for a second person", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.ruleChanges.push({
+    id: "pch_seed",
+    env: "production",
+    rule: "REG-13",
+    base_version: 0,
+    mode: "shadow",
+    settings: {},
+    reason: "Screen the list elsewhere",
+    restored_from: null,
+    status: "pending",
+    proposed_by: "usr_other",
+    proposed_at: "2026-09-30T12:00:00Z",
+    decided_by: null,
+    decided_at: null,
+    decision_note: null,
+    applied_version: null,
+  });
+  await page.goto("/compliance");
+  await page.getByRole("radio", { name: "Production" }).click();
+  await expect(page.getByText("1 change awaits approval")).toBeVisible();
+  await page.getByRole("link", { name: "REG-13", exact: true }).first().click();
+  await expect(page.getByText(/Awaiting approval/)).toBeVisible();
+  await page.getByRole("button", { name: "Approve" }).click();
+  await expect(page.getByText("Shadow in production")).toBeVisible();
+  await expect(page.getByText(/Awaiting approval/)).toBeHidden();
+
+  // My own change to REG-01 is only proposed.
+  await page.goto("/compliance/rules/REG-01");
+  await page.getByRole("button", { name: "Configure" }).click();
+  const dialog = page.getByRole("dialog", { name: "Configure REG-01" });
+  await dialog
+    .getByLabel(
+      "Most a customer can send within 24 hours of a new device or a new account",
+    )
+    .fill("10000");
+  await dialog.getByLabel("Reason").fill("Stricter cap");
+  await dialog.getByRole("button", { name: "Save" }).click();
+  await expect(page.getByText(/^Proposed\./)).toBeVisible();
+  await expect(
+    page.getByText(/Another person must approve your change/),
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Approve" })).toHaveCount(0);
+  expect(api.problems).toEqual([]);
+});
+
+test("exchange rates", async ({ page }) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/compliance");
+  await page.getByRole("tab", { name: "Exchange rates" }).click();
+  await expect(page.getByText("No exchange rates")).toBeVisible();
+  await page.getByLabel("US dollars per unit").fill("0.00065");
+  await page.getByRole("button", { name: "Save rate" }).click();
+  await expect(
+    page.getByRole("table", { name: "Exchange rates" }),
+  ).toContainText("0.00065");
+  expect(api.problems).toEqual([]);
+});

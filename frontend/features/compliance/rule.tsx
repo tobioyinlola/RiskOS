@@ -1,8 +1,9 @@
 "use client";
 
 import Link from "next/link";
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 
+import { Button } from "@/components/ui/button";
 import { CodeBlock, KeyValues, Tag } from "@/components/ui/misc";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
@@ -12,13 +13,22 @@ import { ApiError, type Schemas } from "@/lib/api/client";
 import {
   defaultLabel,
   formatDefault,
+  formatParameterValue,
   formatRange,
   KIND_LABEL,
+  MODE_LABEL,
   VERIFICATION,
   wordingHeadings,
 } from "@/lib/compliance";
 import { humanize } from "@/lib/format";
-import { useCompliancePack, useComplianceRule } from "@/lib/queries";
+import {
+  useComplianceConfig,
+  useCompliancePack,
+  useComplianceRule,
+} from "@/lib/queries";
+import { useSession } from "@/lib/session";
+
+import { ConfigHistory, ConfigureDialog, PendingChange } from "./configure";
 
 type Pack = Schemas["CompliancePack"];
 type Rule = Schemas["ComplianceRule"];
@@ -79,6 +89,12 @@ function RuleView({
   const group =
     pack.groups.find((g) => g.id === rule.group)?.label ?? rule.group;
   const verification = VERIFICATION[rule.verification];
+  const { can, environment } = useSession();
+  const config = useComplianceConfig(rule.id);
+  const [editing, setEditing] = useState(false);
+  const [message, setMessage] = useState<string>();
+  const pending = config.data?.pending ?? null;
+  const configurable = can("compliance:configure");
   return (
     <>
       <PageHeader
@@ -94,9 +110,22 @@ function RuleView({
             <StatusPill tone={verification.tone}>
               {verification.label}
             </StatusPill>
+            <StatusPill tone={rule.mode === "live" ? "success" : "neutral"}>
+              {MODE_LABEL[rule.mode]} in {environment}
+            </StatusPill>
           </>
         }
       />
+      {message ? (
+        <div className="mb-5">
+          <Notice tone="ok">{message}</Notice>
+        </div>
+      ) : null}
+      {pending ? (
+        <div className="mb-5">
+          <PendingChange rule={rule} change={pending} />
+        </div>
+      ) : null}
       {rule.caveat ? (
         <div className="mb-5">
           <Notice tone="warn">
@@ -129,13 +158,35 @@ function RuleView({
           <Panel className="overflow-hidden">
             <PanelHeader
               title="Settings"
-              legend="every threshold is a setting with bounds"
+              legend={
+                rule.config_version
+                  ? `version ${rule.config_version} in ${environment}`
+                  : `library defaults in ${environment}`
+              }
+              actions={
+                configurable ? (
+                  <Button
+                    size="sm"
+                    onClick={() => {
+                      setMessage(undefined);
+                      setEditing(true);
+                    }}
+                    disabled={!!pending}
+                    title={
+                      pending ? "A change is awaiting approval" : undefined
+                    }
+                  >
+                    Configure
+                  </Button>
+                ) : null
+              }
             />
             {rule.parameters.length ? (
               <Table aria-label="Settings">
                 <thead>
                   <tr>
                     <Th>Setting</Th>
+                    <Th>In use</Th>
                     <Th>Default</Th>
                     <Th>Allowed</Th>
                   </tr>
@@ -144,6 +195,19 @@ function RuleView({
                   {rule.parameters.map((p) => (
                     <Tr key={p.name}>
                       <Td className="py-2.5">{p.label}</Td>
+                      <Td
+                        className={
+                          p.value === null
+                            ? "text-body-sm text-status-warning"
+                            : p.value !== p.default
+                              ? "mono text-data font-medium whitespace-nowrap"
+                              : "mono text-data whitespace-nowrap"
+                        }
+                      >
+                        {p.value === null
+                          ? "Not set"
+                          : formatParameterValue(p, p.value)}
+                      </Td>
                       <Td
                         className={
                           p.default === null
@@ -166,6 +230,7 @@ function RuleView({
               </p>
             )}
           </Panel>
+          <ConfigHistory rule={rule} onDone={setMessage} />
           {rule.engineering_logic ? (
             <Panel>
               <PanelHeader
@@ -239,6 +304,7 @@ function RuleView({
                 items={[
                   ["Group", group],
                   ["By default", defaultLabel(rule.defaults)],
+                  [`In ${environment}`, MODE_LABEL[rule.mode]],
                   [
                     "Applies to",
                     list(
@@ -289,6 +355,14 @@ function RuleView({
           </Panel>
         </div>
       </div>
+      {configurable && editing ? (
+        <ConfigureDialog
+          rule={rule}
+          open={editing}
+          onOpenChange={setEditing}
+          onDone={setMessage}
+        />
+      ) : null}
     </>
   );
 }

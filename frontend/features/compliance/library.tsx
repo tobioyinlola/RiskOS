@@ -27,6 +27,7 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { ApiError, type Schemas } from "@/lib/api/client";
 import {
   defaultLabel,
+  MODE_LABEL,
   KIND_LABEL,
   matchesFilter,
   NO_FILTER,
@@ -40,10 +41,12 @@ import {
   useComplianceGlossary,
   useCompliancePack,
   useComplianceProfile,
+  useComplianceChanges,
   useComplianceRules,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
+import { FXRatesTab } from "./fx";
 import { ProfileDialog, profileSummary } from "./profile";
 
 type Pack = Schemas["CompliancePack"];
@@ -103,6 +106,7 @@ function Library({ pack }: { pack: Pack }) {
         description="Every rule in the pack, in the library's own words, with its legal source, when it took effect and how far its facts are confirmed. Where sources conflict, it says so."
       />
       <ProfileBar pack={pack} />
+      <PendingApprovals />
       <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
         <Metric
           label="Regulatory controls"
@@ -128,6 +132,7 @@ function Library({ pack }: { pack: Pack }) {
           <Tab value="gaps">Open questions</Tab>
           <Tab value="glossary">Glossary</Tab>
           <Tab value="sources">Sources</Tab>
+          <Tab value="fx">Exchange rates</Tab>
         </TabList>
         <TabPanel value="rules">
           <RulesTab pack={pack} />
@@ -140,6 +145,9 @@ function Library({ pack }: { pack: Pack }) {
         </TabPanel>
         <TabPanel value="glossary">
           <GlossaryTab />
+        </TabPanel>
+        <TabPanel value="fx">
+          <FXRatesTab />
         </TabPanel>
         <TabPanel value="sources">
           <SourcesTab pack={pack} />
@@ -319,7 +327,7 @@ function RulesTab({ pack }: { pack: Pack }) {
               <Th>Type</Th>
               <Th>Regulators</Th>
               <Th>Verification</Th>
-              <Th>Default</Th>
+              <Th>Mode</Th>
               <Th>Applies</Th>
             </tr>
           </thead>
@@ -352,7 +360,18 @@ function RulesTab({ pack }: { pack: Pack }) {
                     {VERIFICATION[r.verification].label}
                   </StatusPill>
                 </Td>
-                <Td className="text-body-sm">{defaultLabel(r.defaults)}</Td>
+                <Td className="text-body-sm whitespace-nowrap">
+                  {MODE_LABEL[r.mode]}
+                  {r.config_version ? (
+                    <span className="block text-label text-text-muted">
+                      v{r.config_version}
+                    </span>
+                  ) : (
+                    <span className="block text-label text-text-muted">
+                      default ({defaultLabel(r.defaults)})
+                    </span>
+                  )}
+                </Td>
                 <Td>
                   <AppliesCell applicable={r.applicable} />
                 </Td>
@@ -521,5 +540,30 @@ function SourcesTab({ pack }: { pack: Pack }) {
         ))}
       </ol>
     </Panel>
+  );
+}
+
+/** Changes awaiting a second person in this environment. */
+function PendingApprovals() {
+  const { environment } = useSession();
+  const q = useComplianceChanges("pending");
+  const pending = q.data?.data ?? [];
+  if (!pending.length) return null;
+  return (
+    <div className="mb-5">
+      <Notice tone="warn">
+        <span className="font-medium">
+          {pending.length === 1
+            ? "1 change awaits approval"
+            : `${pending.length} changes await approval`}{" "}
+          in {environment}:{" "}
+        </span>
+        <span className="inline-flex flex-wrap gap-x-2">
+          {pending.map((c) => (
+            <RuleLink key={c.id} id={c.rule} />
+          ))}
+        </span>
+      </Notice>
+    </div>
   );
 }

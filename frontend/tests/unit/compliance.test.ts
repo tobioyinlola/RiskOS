@@ -2,7 +2,11 @@ import { describe, expect, it } from "vitest";
 
 import type { Schemas } from "@/lib/api/client";
 import {
+  bestUnit,
   defaultLabel,
+  fromInput,
+  inputUnits,
+  toInput,
   formatDefault,
   formatDuration,
   formatRange,
@@ -87,5 +91,36 @@ describe("compliance display", () => {
     expect(matchesFilter(rule, { ...NO_FILTER, applicableOnly: true })).toBe(
       false,
     );
+  });
+});
+
+describe("settings typed in natural units", () => {
+  it("reads money in naira and stores kobo", () => {
+    const p = param({
+      type: "money",
+      currency: "NGN",
+      default: 2_000_000,
+      max: 2_000_000,
+    });
+    const unit = bestUnit(p, p.default);
+    expect(unit.label).toBe("NGN");
+    expect(toInput(2_000_000, unit)).toBe("20000");
+    expect(fromInput(p, "15000.5", unit)).toBe(1_500_050);
+    expect(fromInput(p, "", unit)).toBeNull();
+    expect(fromInput(p, "abc", unit)).toBeNull();
+  });
+
+  it("reads durations in their largest whole unit", () => {
+    const p = param({ type: "duration", default: 600, min: 60, max: 3600 });
+    expect(bestUnit(p, 600).id).toBe("minutes");
+    expect(bestUnit(p, 86_400).id).toBe("days");
+    expect(bestUnit(p, 7_200).id).toBe("hours");
+    const hours = inputUnits(p).find((u) => u.id === "hours")!;
+    expect(fromInput(p, "1.5", hours)).toBe(5_400);
+  });
+
+  it("keeps fractions where the unit allows them", () => {
+    const p = param({ type: "ratio", default: 0.8, min: 0.5, max: 1 });
+    expect(fromInput(p, "0.75", bestUnit(p, 0.8))).toBe(0.75);
   });
 });

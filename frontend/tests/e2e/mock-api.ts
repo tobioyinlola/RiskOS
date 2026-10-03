@@ -45,6 +45,7 @@ const ALL_PERMISSIONS = [
   "compliance:read",
   "compliance:engineering",
   "compliance:write",
+  "compliance:configure",
 ];
 
 const THRESHOLDS = { low: 20, elevated: 50, high: 70, critical: 90 };
@@ -66,6 +67,39 @@ const ALERT = {
   updated_at: NOW,
 };
 
+export interface MockRuleVersion {
+  version: number;
+  mode: string;
+  settings: Record<string, number>;
+  reason: string;
+  created_at: string;
+  created_by: string;
+  change_id: string | null;
+  restored_from: number | null;
+}
+
+export interface MockRuleConfig {
+  versions: MockRuleVersion[];
+}
+
+export interface MockRuleChange {
+  id: string;
+  env: string;
+  rule: string;
+  base_version: number;
+  mode: string;
+  settings: Record<string, number>;
+  reason: string;
+  restored_from: number | null;
+  status: "pending" | "approved" | "rejected";
+  proposed_by: string;
+  proposed_at: string;
+  decided_by: string | null;
+  decided_at: string | null;
+  decision_note: string | null;
+  applied_version: number | null;
+}
+
 export interface MockApi {
   /** Requests the console made, as "METHOD /path". */
   calls: string[];
@@ -84,6 +118,11 @@ export interface MockApi {
   onboarding: { status: string; answers: Record<string, unknown> } | null;
   /** The signed-in user's permissions; tests narrow them to act as another role. */
   permissions: string[];
+  /** Pack rule configuration by "<environment>/<rule>", and changes awaiting approval. */
+  ruleConfigs: Record<string, MockRuleConfig>;
+  ruleChanges: MockRuleChange[];
+  /** Exchange rates by currency. */
+  fxRates: Record<string, number>;
   /** The workspace's compliance profile (null until set). */
   complianceProfile: {
     jurisdiction: string;
@@ -280,6 +319,9 @@ export async function mockApi(page: Page): Promise<MockApi> {
     onboarding: null,
     permissions: ALL_PERMISSIONS,
     complianceProfile: null,
+    ruleConfigs: {},
+    ruleChanges: [],
+    fxRates: {},
   };
   const csrf = "csrf-test-token";
   let challenge = "";
@@ -339,8 +381,35 @@ export async function mockApi(page: Page): Promise<MockApi> {
   const error = (route: Route, status: number, code: string, message: string) =>
     json(route, { error: { code, message, request_id: "req_test" } }, status);
 
-  const ruleView = (r: (typeof RULES)[number], detail: boolean) => ({
+  type FixtureRule = (typeof RULES)[number];
+  const defaultMode = (r: FixtureRule) =>
+    r.defaults.enabled ? r.defaults.mode : "off";
+  const currentVersion = (env: string, r: FixtureRule) =>
+    state.ruleConfigs[`${env}/${r.id}`]?.versions.at(-1);
+  const configView = (env: string, r: FixtureRule) => {
+    const v = currentVersion(env, r);
+    return {
+      rule: r.id,
+      version: v?.version ?? 0,
+      mode: v?.mode ?? defaultMode(r),
+      settings: v?.settings ?? {},
+      reason: v?.reason ?? "",
+      updated_at: v?.created_at ?? null,
+      updated_by: v?.created_by ?? null,
+      pending:
+        state.ruleChanges.find(
+          (c) => c.env === env && c.rule === r.id && c.status === "pending",
+        ) ?? null,
+    };
+  };
+  const ruleView = (r: FixtureRule, detail: boolean, env: string) => ({
     ...r,
+    mode: configView(env, r).mode,
+    config_version: configView(env, r).version,
+    parameters: r.parameters.map((p) => ({
+      ...p,
+      value: configView(env, r).settings[p.name] ?? p.default,
+    })),
     applicable: applies(r, state.complianceProfile),
     ...(detail &&
     state.permissions.includes("compliance:engineering") &&
@@ -349,27 +418,206 @@ export async function mockApi(page: Page): Promise<MockApi> {
       : {}),
   });
 
+  const applyVersion = (
+    env: string,
+    r: FixtureRule,
+    v: Omit<MockRuleVersion, "version" | "created_at">,
+  ) => {
+    const key = `${env}/${r.id}`;
+    const versions = state.ruleConfigs[key]?.versions ?? [];
+    const next = { ...v, version: versions.length + 1, created_at: NOW };
+    state.ruleConfigs[key] = { versions: [...versions, next] };
+    return next;
+  };
+
   const compliance = (
     route: Route,
     path: string,
     method: string,
     body: Record<string, unknown> | null,
+    env: string,
   ) => {
     if (!state.permissions.includes("compliance:read")) {
       return error(route, 403, "FORBIDDEN", "Not allowed.");
     }
-    const ruleId = path.match(/^\/compliance\/rules\/(.+)$/)?.[1];
-    if (ruleId) {
-      const r = RULES.find((x) => x.id === ruleId);
-      return r
-        ? json(route, ruleView(r, true))
-        : error(route, 404, "NOT_FOUND", "No such rule.");
+    const sub = path.match(
+      /^\/compliance\/rules\/([A-Z]{3}-[0-9]{2})(?:\/(config|history|backtest|rollback))?$/,
+    );
+    if (sub) {
+      const r = RULES.find((x) => x.id === sub[1]);
+      if (!r) return error(route, 404, "NOT_FOUND", "No such rule.");
+      switch (sub[2]) {
+        case undefined:
+          return json(route, ruleView(r, true, env));
+        case "history":
+          return json(route, {
+            data: [
+              ...(state.ruleConfigs[`${env}/${r.id}`]?.versions ?? []),
+            ].reverse(),
+          });
+        case "backtest":
+          return json(route, {
+            rule: r.id,
+            from: NOW,
+            to: NOW,
+            replayed: 120,
+            truncated: false,
+            current: {
+              triggered: 120,
+              fired: 2,
+              clear: 110,
+              not_evaluated: 8,
+              missing: [
+                {
+                  item: "history:count transfer_outbound by account",
+                  events: 8,
+                },
+              ],
+              fired_samples: [],
+            },
+            candidate: {
+              triggered: 120,
+              fired: 5,
+              clear: 107,
+              not_evaluated: 8,
+              missing: [
+                {
+                  item: "history:count transfer_outbound by account",
+                  events: 8,
+                },
+              ],
+              fired_samples: [],
+            },
+          });
+        case "config":
+          if (method === "GET") return json(route, configView(env, r));
+          break;
+        default:
+          break;
+      }
+      if (!state.permissions.includes("compliance:configure")) {
+        return error(route, 403, "FORBIDDEN", "Not allowed.");
+      }
+      const cur = configView(env, r);
+      const target =
+        sub[2] === "rollback"
+          ? state.ruleConfigs[`${env}/${r.id}`]?.versions.find(
+              (v) => v.version === body?.version,
+            )
+          : undefined;
+      const mode = String(target?.mode ?? body?.mode);
+      const settings = (target?.settings ?? body?.settings ?? {}) as Record<
+        string,
+        number
+      >;
+      const rank = (m: string) => ["off", "shadow", "live"].indexOf(m);
+      const changed = JSON.stringify(settings) !== JSON.stringify(cur.settings);
+      if (
+        env === "production" &&
+        r.kind === "control" &&
+        (changed || rank(mode) < rank(cur.mode))
+      ) {
+        const change: MockRuleChange = {
+          id: `pch_${state.ruleChanges.length + 1}`,
+          env,
+          rule: r.id,
+          base_version: cur.version,
+          mode,
+          settings,
+          reason: String(body?.reason),
+          restored_from: target?.version ?? null,
+          status: "pending",
+          proposed_by: "usr_admin",
+          proposed_at: NOW,
+          decided_by: null,
+          decided_at: null,
+          decision_note: null,
+          applied_version: null,
+        };
+        state.ruleChanges.push(change);
+        return json(route, change, 202);
+      }
+      applyVersion(env, r, {
+        mode,
+        settings,
+        reason: String(body?.reason),
+        created_by: "usr_admin",
+        change_id: null,
+        restored_from: target?.version ?? null,
+      });
+      return json(route, configView(env, r));
+    }
+    const decision = path.match(
+      /^\/compliance\/changes\/([^/]+)\/(approve|reject)$/,
+    );
+    if (decision) {
+      const c = state.ruleChanges.find((x) => x.id === decision[1]);
+      if (!c || c.status !== "pending")
+        return error(route, 409, "CONFLICT", "Decided.");
+      if (decision[2] === "approve") {
+        if (c.proposed_by === "usr_admin") {
+          return error(
+            route,
+            403,
+            "FORBIDDEN",
+            "A change needs another person's approval.",
+          );
+        }
+        const r = RULES.find((x) => x.id === c.rule)!;
+        const v = applyVersion(c.env, r, {
+          mode: c.mode,
+          settings: c.settings,
+          reason: c.reason,
+          created_by: c.proposed_by,
+          change_id: c.id,
+          restored_from: c.restored_from,
+        });
+        Object.assign(c, { status: "approved", applied_version: v.version });
+      } else {
+        c.status = "rejected";
+      }
+      Object.assign(c, { decided_by: "usr_admin", decided_at: NOW });
+      return json(route, c);
+    }
+    const fx = path.match(/^\/compliance\/fx-rates\/([A-Z]{3})$/);
+    if (fx) {
+      const code = fx[1]!;
+      if (method === "DELETE") {
+        delete state.fxRates[code];
+        return route.fulfill({ status: 204 });
+      }
+      state.fxRates[code] = Number(body?.usd_per_unit);
+      return json(route, {
+        currency: code,
+        usd_per_unit: state.fxRates[code],
+        updated_at: NOW,
+        updated_by: "usr_admin",
+      });
     }
     switch (path) {
+      case "/compliance/changes": {
+        const status = new URL(route.request().url()).searchParams.get(
+          "status",
+        );
+        return json(route, {
+          data: state.ruleChanges.filter(
+            (c) => c.env === env && (!status || c.status === status),
+          ),
+        });
+      }
+      case "/compliance/fx-rates":
+        return json(route, {
+          data: Object.entries(state.fxRates).map(([currency, usd]) => ({
+            currency,
+            usd_per_unit: usd,
+            updated_at: NOW,
+            updated_by: "usr_admin",
+          })),
+        });
       case "/compliance/pack":
         return json(route, PACK);
       case "/compliance/rules":
-        return json(route, { data: RULES.map((r) => ruleView(r, false)) });
+        return json(route, { data: RULES.map((r) => ruleView(r, false, env)) });
       case "/compliance/clocks":
         return json(route, { data: CLOCKS });
       case "/compliance/gaps":
@@ -422,7 +670,13 @@ export async function mockApi(page: Page): Promise<MockApi> {
     }
 
     if (path.startsWith("/compliance/")) {
-      return compliance(route, path, method, body);
+      return compliance(
+        route,
+        path,
+        method,
+        body,
+        req.headers()["riskos-environment"] ?? "test",
+      );
     }
 
     if (path.startsWith("/deny-list/") && method === "DELETE") {

@@ -401,8 +401,9 @@ export function useCompliancePack() {
 
 /** Every rule of the pack (lists never carry engineering logic). */
 export function useComplianceRules() {
+  const key = useKey("compliance", "rules");
   return useQuery({
-    queryKey: ["compliance", "rules"],
+    queryKey: key,
     staleTime: COMPLIANCE_STALE,
     queryFn: async () => unwrap(await api().GET("/api/v1/compliance/rules")),
   });
@@ -410,8 +411,9 @@ export function useComplianceRules() {
 
 /** One rule; the engineering logic is present only when the caller may see it. */
 export function useComplianceRule(ruleId: string) {
+  const key = useKey("compliance", "rule", ruleId);
   return useQuery({
-    queryKey: ["compliance", "rule", ruleId],
+    queryKey: key,
     staleTime: COMPLIANCE_STALE,
     retry: false,
     queryFn: async () =>
@@ -460,5 +462,57 @@ export function useComplianceProfile() {
         throw e;
       }
     },
+  });
+}
+
+/** A rule's configuration in the current environment, with any change awaiting approval. */
+export function useComplianceConfig(ruleId: string) {
+  const key = useKey("compliance", "config", ruleId);
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/rules/{rule_id}/config", {
+          params: { path: { rule_id: ruleId } },
+        }),
+      ),
+  });
+}
+
+/** A rule's configuration versions in the current environment, newest first. */
+export function useComplianceHistory(ruleId: string) {
+  const key = useKey("compliance", "history", ruleId);
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/rules/{rule_id}/history", {
+          params: { path: { rule_id: ruleId } },
+        }),
+      ),
+  });
+}
+
+/** Configuration changes in the current environment. */
+export function useComplianceChanges(
+  status?: Schemas["PackRuleChange"]["status"],
+) {
+  const key = useKey("compliance", "changes", status ?? "all");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/changes", {
+          params: { query: status ? { status } : {} },
+        }),
+      ),
+  });
+}
+
+/** The institution's exchange rates. */
+export function useFXRates() {
+  return useQuery({
+    queryKey: ["compliance", "fx-rates"],
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/fx-rates")),
   });
 }

@@ -3,7 +3,7 @@
  * from the pack the API serves; these helpers only label and format them.
  */
 import type { Schemas } from "@/lib/api/client";
-import { formatAmount, formatCount } from "@/lib/format";
+import { currencyDigits, formatAmount, formatCount } from "@/lib/format";
 import type { Tone } from "@/components/ui/pill";
 
 type Rule = Schemas["ComplianceRule"];
@@ -133,4 +133,76 @@ export function matchesFilter(r: Rule, f: RuleFilter): boolean {
   const q = f.query.trim().toLowerCase();
   if (!q) return true;
   return `${r.id}\n${r.name}\n${r.description}`.toLowerCase().includes(q);
+}
+
+export type Mode = Schemas["PackRuleMode"];
+
+export const MODE_LABEL: Record<Mode, string> = {
+  live: "Live",
+  shadow: "Shadow",
+  off: "Off",
+};
+
+export const MODE_HELP: Record<Mode, string> = {
+  live: "It acts: controls set the decision, signals add points.",
+  shadow: "It is evaluated and recorded, and changes nothing.",
+  off: "It is not evaluated.",
+};
+
+/** A unit a setting is typed in: the stored value is the typed number times factor. */
+export type InputUnit = { id: string; label: string; factor: number };
+
+/** The units a setting can be typed in: naira (not kobo), minutes to days (not seconds). */
+export function inputUnits(p: Parameter): InputUnit[] {
+  switch (p.type) {
+    case "money": {
+      const currency = p.currency ?? "NGN";
+      return [
+        {
+          id: currency,
+          label: currency,
+          factor: 10 ** currencyDigits(currency),
+        },
+      ];
+    }
+    case "duration":
+      return [
+        { id: "minutes", label: "minutes", factor: 60 },
+        { id: "hours", label: "hours", factor: 3_600 },
+        { id: "days", label: "days", factor: 86_400 },
+      ];
+    case "percent":
+      return [{ id: "percent", label: "%", factor: 1 }];
+    case "points":
+      return [{ id: "points", label: "points", factor: 1 }];
+    default:
+      return [{ id: "value", label: "", factor: 1 }];
+  }
+}
+
+/** The largest unit a value is a whole number of (for durations), else the first. */
+export function bestUnit(p: Parameter, value: number | null): InputUnit {
+  const units = inputUnits(p);
+  if (value === null) return units[0]!;
+  return [...units].reverse().find((u) => value % u.factor === 0) ?? units[0]!;
+}
+
+/** A stored value as typed in unit. */
+export function toInput(value: number | null, unit: InputUnit): string {
+  if (value === null) return "";
+  return String(Math.round((value / unit.factor) * 1e6) / 1e6);
+}
+
+/** A typed number back to the stored value; null when it is not a number. */
+export function fromInput(
+  p: Parameter,
+  text: string,
+  unit: InputUnit,
+): number | null {
+  if (text.trim() === "") return null;
+  const n = Number(text);
+  if (!Number.isFinite(n)) return null;
+  const v = n * unit.factor;
+  const whole = ["money", "count", "duration", "hour", "points", "flag"];
+  return whole.includes(p.type) ? Math.round(v) : Math.round(v * 1e6) / 1e6;
 }
