@@ -126,7 +126,8 @@ type Patch struct {
 
 // Filter selects cases for a list.
 type Filter struct {
-	Status *Status
-	Limit  int
-	Before *uuid.UUID
+	Status     *Status
+	Resolution *Resolution
+	Limit      int
+	Before     *uuid.UUID
 }

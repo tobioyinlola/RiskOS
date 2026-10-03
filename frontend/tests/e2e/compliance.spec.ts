@@ -310,3 +310,49 @@ test("a newer pack version can be adopted", async ({ page }) => {
     .poll(() => api.calls.filter((c) => c === "PUT /compliance/profile").length)
     .toBe(1);
 });
+
+test("governance: urgent alerts escalate and confirmed fraud is reported", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  const ago = (minutes: number) =>
+    new Date(Date.now() - minutes * 60_000).toISOString();
+  api.escalations.push({
+    alert_id: "alt_urgent",
+    rule: "GOV-11",
+    title: "Card testing burst",
+    subject_ref: "usr_4812",
+    severity: "critical",
+    created_at: ago(40),
+    due_at: ago(10),
+  });
+  api.unreportedFraud.push({
+    case_id: "cas_fraud",
+    title: "Account takeover",
+    resolved_at: ago(60),
+  });
+  await page.goto("/compliance/work");
+  await expect(
+    page.getByRole("alert").filter({ hasText: "GOV-11" }),
+  ).toContainText(
+    "1 urgent alert nobody has picked up within the fraud response target (GOV-11)",
+  );
+  await expect(
+    page.getByRole("link", { name: "Card testing burst" }),
+  ).toHaveAttribute("href", /alert=alt_urgent/);
+
+  const unreported = page.getByRole("table", {
+    name: "Confirmed fraud not yet reported",
+  });
+  await unreported
+    .getByRole("button", { name: "Prepare a report for Account takeover" })
+    .click();
+  const dialog = page.getByRole("dialog");
+  await expect(dialog).toContainText("Industry fraud report");
+  await expect(dialog).toContainText("Credentials phished.");
+  await expect(unreported).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Approve for filing" }).click();
+  await expect(dialog).toContainText("industry fraud channel (NIBSS)");
+  expect(api.problems).toEqual([]);
+});

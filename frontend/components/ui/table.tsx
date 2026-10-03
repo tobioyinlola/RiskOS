@@ -1,7 +1,7 @@
 "use client";
 
 import { cn } from "@/lib/cn";
-import type { ComponentProps } from "react";
+import { useEffect, useRef, useState, type ComponentProps } from "react";
 
 import { usePreferences } from "@/lib/preferences";
 
@@ -12,8 +12,33 @@ import { usePreferences } from "@/lib/preferences";
  * set. Inside a card, the first and last columns align with the card's padding.
  */
 export function Table({ className, ...props }: ComponentProps<"table">) {
+  // A table wider than its card scrolls sideways; keyboard users reach the scroll region by Tab
+  // (WCAG 2.1.1). It is a tab stop only while it actually scrolls.
+  const ref = useRef<HTMLDivElement>(null);
+  const [scrolls, setScrolls] = useState(false);
+  useEffect(() => {
+    const el = ref.current;
+    if (!el || typeof ResizeObserver === "undefined") return;
+    const observer = new ResizeObserver(() =>
+      setScrolls(el.scrollWidth > el.clientWidth + 1),
+    );
+    observer.observe(el);
+    if (el.firstElementChild) observer.observe(el.firstElementChild);
+    return () => observer.disconnect();
+  }, []);
+  const label = props["aria-label"];
   return (
-    <div className="overflow-x-auto">
+    <div
+      ref={ref}
+      className="overflow-x-auto"
+      {...(scrolls
+        ? {
+            tabIndex: 0,
+            role: "region",
+            "aria-label": `${label ?? "Table"}, scrolls sideways`,
+          }
+        : {})}
+    >
       <table
         className={cn(
           "w-full border-collapse text-body-sm [&_td:first-child]:pl-5 [&_td:last-child]:pr-5 [&_th:first-child]:pl-5 [&_th:last-child]:pr-5",

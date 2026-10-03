@@ -28,12 +28,22 @@ const (
 	TaskDismissed = "dismissed"
 )
 
-// The STR rule (REG-14) and the report completeness rule (REG-19).
+// The rules the workflow enforces itself.
 const (
-	ruleSTR          = "REG-14"
-	ruleSTRCheck     = "REG-19"
-	kindSTR          = "report.STR"
-	screenDueParam   = "screen_within"
+	// Suspicious transaction reports (REG-14) and their completeness (REG-19).
+	ruleSTR        = "REG-14"
+	ruleSTRCheck   = "REG-19"
+	kindSTR        = "report.STR"
+	screenDueParam = "screen_within"
+	// Accounts without a BVN are closed (REG-16).
+	ruleNoBVN        = "REG-16"
+	kindCloseAccount = "close_account"
+	// Confirmed fraud is acted on fast (GOV-11) and reported to the industry channel (GOV-12).
+	ruleFraudResponse  = "GOV-11"
+	respondParam       = "respond_within"
+	ruleFraudReport    = "GOV-12"
+	kindIndustryReport = "report.industry_fraud"
+
 	systemTaskAuthor = "system:compliance"
 )
 
@@ -50,20 +60,33 @@ func isReport(kind string) bool { return strings.HasPrefix(kind, "report.") }
 
 // Workflow sources: alerts and cases (other modules).
 type (
-	// OpenAlert is an alert still open (REG-14 counts its screening time from creation).
+	// OpenAlert is an alert still open (REG-14 and GOV-11 count from its creation).
 	OpenAlert struct {
 		ID         uuid.UUID
 		Title      string
 		SubjectRef string
+		Severity   string
 		CreatedAt  time.Time
 	}
 	// AlertSource lists alerts still open since before a time.
 	AlertSource interface {
 		OpenAlertsBefore(ctx context.Context, before time.Time, limit int) ([]OpenAlert, error)
 	}
-	// CaseSource returns who a case is about (the subject of its alerts), or ErrNotFound.
+	// CaseSource returns who a case is about (the subject of its alerts) and cases resolved as
+	// confirmed fraud; a missing case is ErrNotFound.
 	CaseSource interface {
 		CaseSubject(ctx context.Context, id uuid.UUID) (string, error)
+		FraudCase(ctx context.Context, id uuid.UUID) (FraudCase, error)
+		ConfirmedFraud(ctx context.Context, limit int) ([]FraudCase, error)
+	}
+	// FraudCase is a resolved case; Confirmed when it was resolved as confirmed fraud.
+	FraudCase struct {
+		ID         uuid.UUID
+		Title      string
+		Confirmed  bool
+		ResolvedAt time.Time
+		Note       string
+		SubjectRef string
 	}
 )
 
@@ -81,9 +104,13 @@ type TasksInput struct {
 	EvaluationID, EventID uuid.UUID
 	OccurredAt            time.Time
 	SubjectRef            string
-	Amount                int64
-	Currency              string
-	Controls              []TaskControl
+	// AccountRef is the event's account; HasBVN what the event said of its BVN, if anything
+	// (the account register of REG-16).
+	AccountRef string
+	HasBVN     *bool
+	Amount     int64
+	Currency   string
+	Controls   []TaskControl
 }
 
 // taskDue resolves a task's deadline from its rule's setting in this environment.
@@ -127,6 +154,15 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 		return err
 	}
 	return s.runner.Run(ctx, func(ctx context.Context) error {
+		if in.AccountRef != "" && in.HasBVN != nil {
+			var subject *string
+			if in.SubjectRef != "" {
+				subject = &in.SubjectRef
+			}
+			if err := s.store.RecordAccount(ctx, in.AccountRef, subject, *in.HasBVN, in.OccurredAt); err != nil {
+				return err
+			}
+		}
 		for _, c := range in.Controls {
 			_, def, cfg, err := s.rule(ctx, scope, c.Rule)
 			if errors.Is(err, ErrNotFound) {
@@ -146,6 +182,9 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 				}
 				if in.SubjectRef != "" {
 					t.SubjectRef = &in.SubjectRef
+				}
+				if in.AccountRef != "" {
+					t.AccountRef = &in.AccountRef
 				}
 				if isReport(kind) && in.Currency != "" {
 					t.Report = map[string]any{"amount": in.Amount, "currency": in.Currency, "occurred_at": in.OccurredAt}
@@ -206,9 +245,10 @@ func (s *Service) ConfirmSuspicion(ctx context.Context, caseID uuid.UUID, note s
 	return out, err
 }
 
-// Escalation is an alert open beyond its screening deadline (REG-14): the compliance officer
-// must look at it.
+// Escalation is an alert open beyond a deadline: REG-14's screening deadline, or GOV-11's
+// response target for a high or critical alert. The compliance officer must look at it.
 type Escalation struct {
+	Rule  string
 	Alert OpenAlert
 	DueAt time.Time
 }
@@ -217,11 +257,17 @@ type Escalation struct {
 type Queue struct {
 	Tasks       []store.Task
 	Escalations []Escalation
+	// Unreported are confirmed-fraud cases without an industry fraud report (GOV-12).
+	Unreported []FraudCase
 }
 
+// queueLimit bounds the escalations and unreported cases the queue lists.
+const queueLimit = 200
+
 // Queue lists the environment's compliance tasks (suspicious transaction reports only for
-// compliance:sensitive) and, for callers who read alerts, the alerts past REG-14's screening
-// deadline. Requires compliance:read.
+// compliance:sensitive); for callers who read alerts, the alerts past REG-14's screening deadline
+// and the high or critical ones past GOV-11's response target; and for callers who read cases,
+// the confirmed-fraud cases not yet reported (GOV-12). Requires compliance:read.
 func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queue, error) {
 	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
 		return Queue{}, err
@@ -232,33 +278,230 @@ func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queu
 	}
 	sensitive := authz.Require(ctx, authz.ComplianceSensitive) == nil
 	readsAlerts := authz.Require(ctx, authz.AlertsRead) == nil
+	readsCases := authz.Require(ctx, authz.CasesRead) == nil
 	var out Queue
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
 		if out.Tasks, err = s.store.Tasks(ctx, status, sensitive); err != nil {
 			return err
 		}
-		if s.alerts == nil || !readsAlerts || (status != "" && status != TaskOpen) {
+		if status != "" && status != TaskOpen {
 			return nil
 		}
-		_, def, cfg, err := s.rule(ctx, scope, ruleSTR)
-		if err != nil || cfg.Mode == ModeOff {
-			return err
+		if s.alerts != nil && readsAlerts {
+			for _, d := range []struct {
+				rule, param string
+				urgent      bool
+			}{{ruleSTR, screenDueParam, false}, {ruleFraudResponse, respondParam, true}} {
+				late, err := s.lateAlerts(ctx, scope, d.rule, d.param, d.urgent, now)
+				if err != nil {
+					return err
+				}
+				out.Escalations = append(out.Escalations, late...)
+			}
 		}
-		within, ok := interp.Compile(def, cfg.Settings).Param(screenDueParam)
-		if !ok {
-			return nil
-		}
-		limit := time.Duration(within) * time.Second
-		late, err := s.alerts.OpenAlertsBefore(ctx, now.Add(-limit), 200)
-		if err != nil {
-			return err
-		}
-		for _, a := range late {
-			out.Escalations = append(out.Escalations, Escalation{Alert: a, DueAt: a.CreatedAt.Add(limit)})
+		if s.cases != nil && readsCases {
+			if out.Unreported, err = s.unreported(ctx, scope); err != nil {
+				return err
+			}
 		}
 		return nil
 	})
 	return out, err
+}
+
+// lateAlerts returns the alerts still open past the deadline the rule's setting param gives,
+// only high and critical ones when urgent. Nothing when the rule is off or does not apply.
+func (s *Service) lateAlerts(ctx context.Context, scope tenancy.Scope, rule, param string, urgent bool, now time.Time) ([]Escalation, error) {
+	_, def, cfg, err := s.rule(ctx, scope, rule)
+	if errors.Is(err, ErrNotFound) || (err == nil && cfg.Mode == ModeOff) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	within, ok := interp.Compile(def, cfg.Settings).Param(param)
+	if !ok {
+		return nil, nil
+	}
+	limit := time.Duration(within) * time.Second
+	late, err := s.alerts.OpenAlertsBefore(ctx, now.Add(-limit), queueLimit)
+	if err != nil {
+		return nil, err
+	}
+	var out []Escalation
+	for _, a := range late {
+		if urgent && a.Severity != "high" && a.Severity != "critical" {
+			continue
+		}
+		out = append(out, Escalation{Rule: rule, Alert: a, DueAt: a.CreatedAt.Add(limit)})
+	}
+	return out, nil
+}
+
+// unreported returns the confirmed-fraud cases without an industry fraud report that was not
+// dismissed (GOV-12). Nothing when the rule is off or does not apply.
+func (s *Service) unreported(ctx context.Context, scope tenancy.Scope) ([]FraudCase, error) {
+	_, _, cfg, err := s.rule(ctx, scope, ruleFraudReport)
+	if errors.Is(err, ErrNotFound) || (err == nil && cfg.Mode == ModeOff) {
+		return nil, nil
+	}
+	if err != nil {
+		return nil, err
+	}
+	confirmed, err := s.cases.ConfirmedFraud(ctx, queueLimit)
+	if err != nil {
+		return nil, err
+	}
+	reported, err := s.store.TaskCaseIDs(ctx, ruleFraudReport, kindIndustryReport)
+	if err != nil {
+		return nil, err
+	}
+	var out []FraudCase
+	for _, c := range confirmed {
+		if !slices.Contains(reported, c.ID) {
+			out = append(out, c)
+		}
+	}
+	return out, nil
+}
+
+// PrepareFraudReport opens a draft industry fraud report (GOV-12) for a case resolved as
+// confirmed fraud, prefilled from the case. It has no deadline: the source states none. A person
+// files it with the industry channel; RiskOS never submits it. Requires compliance:write.
+func (s *Service) PrepareFraudReport(ctx context.Context, caseID uuid.UUID, now time.Time) (store.Task, error) {
+	scope, err := person(ctx, authz.ComplianceWrite)
+	if err != nil {
+		return store.Task{}, err
+	}
+	if s.cases == nil {
+		return store.Task{}, fmt.Errorf("%w: cases are not connected", ErrInvalidInput)
+	}
+	var out store.Task
+	err = s.runner.Run(ctx, func(ctx context.Context) error {
+		if _, _, _, err := s.rule(ctx, scope, ruleFraudReport); err != nil {
+			return err
+		}
+		c, err := s.cases.FraudCase(ctx, caseID)
+		if err != nil {
+			return err
+		}
+		if !c.Confirmed {
+			return fmt.Errorf("%w: only a case resolved as confirmed fraud is reported", ErrInvalidInput)
+		}
+		t := store.Task{
+			ID: ids.NewV7(), Kind: kindIndustryReport, RuleID: ruleFraudReport, CaseID: &caseID, Status: TaskOpen,
+			Report: map[string]any{
+				"category": "fraud", "case_title": c.Title, "confirmed_at": c.ResolvedAt.UTC().Format(time.RFC3339),
+			},
+			CreatedAt: now, CreatedBy: scope.Principal.ID,
+		}
+		if c.Note != "" {
+			t.Report["narrative"] = c.Note
+		}
+		if c.SubjectRef != "" {
+			t.SubjectRef = &c.SubjectRef
+		}
+		created, err := s.store.InsertTask(ctx, t)
+		if err != nil {
+			return err
+		}
+		if !created {
+			return fmt.Errorf("%w: this case already has an industry fraud report", ErrConflict)
+		}
+		out = t
+		return s.recordTask(ctx, "compliance.task_created", t)
+	})
+	return out, err
+}
+
+// dailyBatch is how many accounts the daily check handles per transaction; dailyBatches bounds
+// a run (the rest waits for the next day).
+const (
+	dailyBatch   = 500
+	dailyBatches = 40
+)
+
+// DailyResult is what a daily check did.
+type DailyResult struct {
+	Opened, Closed int
+}
+
+// DailyCheck runs REG-16 over the account register: every account without a BVN gets a task to
+// close it, due close_after from when the account was first seen, and open tasks of accounts
+// that now have a BVN are done. Only when REG-16 is live in the environment. Idempotent.
+// Requires the system permission of the compliance jobs.
+func (s *Service) DailyCheck(ctx context.Context, now time.Time) (DailyResult, error) {
+	if err := authz.Require(ctx, authz.ComplianceTasksCreate); err != nil {
+		return DailyResult{}, err
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return DailyResult{}, err
+	}
+	var res DailyResult
+	for range dailyBatches {
+		var n int
+		err := s.runner.Run(ctx, func(ctx context.Context) error {
+			var err error
+			n, err = s.dailyBatch(ctx, scope, now, &res)
+			return err
+		})
+		if err != nil {
+			return res, err
+		}
+		if n < dailyBatch {
+			break
+		}
+	}
+	return res, nil
+}
+
+// dailyBatch handles one batch of the daily check and returns the size of its larger half.
+func (s *Service) dailyBatch(ctx context.Context, scope tenancy.Scope, now time.Time, res *DailyResult) (int, error) {
+	_, def, cfg, err := s.rule(ctx, scope, ruleNoBVN)
+	if errors.Is(err, ErrNotFound) || (err == nil && cfg.Mode != ModeLive) {
+		return 0, nil
+	}
+	if err != nil {
+		return 0, err
+	}
+	accounts, err := s.store.AccountsWithoutTask(ctx, ruleNoBVN, kindCloseAccount, dailyBatch)
+	if err != nil {
+		return 0, err
+	}
+	for _, a := range accounts {
+		t := store.Task{
+			ID: ids.NewV7(), Kind: kindCloseAccount, RuleID: ruleNoBVN, SubjectRef: a.SubjectRef, AccountRef: &a.Ref,
+			Status: TaskOpen, DueAt: taskDue(def, cfg, kindCloseAccount, a.FirstSeenAt), Report: map[string]any{},
+			CreatedAt: now, CreatedBy: systemTaskAuthor,
+		}
+		created, err := s.store.InsertTask(ctx, t)
+		if err != nil {
+			return 0, err
+		}
+		if created {
+			res.Opened++
+			if err := s.recordTask(ctx, "compliance.task_created", t); err != nil {
+				return 0, err
+			}
+		}
+	}
+	tasks, err := s.store.OpenTasksOfAccountsWithBVN(ctx, ruleNoBVN, kindCloseAccount, dailyBatch)
+	if err != nil {
+		return 0, err
+	}
+	note, by := "A BVN is now on file for the account.", systemTaskAuthor
+	for _, t := range tasks {
+		t.Status, t.ClosedBy, t.ClosedAt, t.CloseNote, t.UpdatedAt = TaskDone, &by, &now, &note, now
+		if err := s.store.UpdateTask(ctx, t); err != nil {
+			return 0, err
+		}
+		if err := s.recordTask(ctx, "compliance.task_done", t); err != nil {
+			return 0, err
+		}
+	}
+	res.Closed += len(tasks)
+	return max(len(accounts), len(tasks)), nil
 }
 
 // ReportFields are what a person writes in a report.

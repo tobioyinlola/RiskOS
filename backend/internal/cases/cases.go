@@ -49,3 +49,13 @@ var ErrNotFound = domain.ErrNotFound
 
 // Get returns a case with its alerts. Requires cases:read.
 func (m *Module) Get(ctx context.Context, id uuid.UUID) (Detail, error) { return m.svc.Get(ctx, id) }
+
+// Case is an investigation case.
+type Case = domain.Case
+
+// ConfirmedFraud lists cases resolved as confirmed fraud, newest first, at most limit. Requires
+// cases:read.
+func (m *Module) ConfirmedFraud(ctx context.Context, limit int) ([]Case, error) {
+	status, resolution := domain.StatusResolved, domain.ResolutionConfirmedFraud
+	return m.svc.List(ctx, domain.Filter{Status: &status, Resolution: &resolution, Limit: limit})
+}

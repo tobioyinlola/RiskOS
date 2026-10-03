@@ -18,7 +18,7 @@ type Task struct {
 	ID                            uuid.UUID
 	Kind, RuleID                  string
 	EvaluationID, EventID, CaseID *uuid.UUID
-	SubjectRef                    *string
+	SubjectRef, AccountRef        *string
 	Sensitive                     bool
 	Status                        string
 	DueAt                         *time.Time
@@ -34,7 +34,7 @@ type Task struct {
 func taskOf(r sqlcgen.ComplianceTask) (Task, error) {
 	t := Task{
 		ID: r.ID, Kind: r.Kind, RuleID: r.RuleID, EvaluationID: r.EvaluationID, EventID: r.EventID, CaseID: r.CaseID,
-		SubjectRef: r.SubjectRef, Sensitive: r.Sensitive, Status: r.Status, DueAt: r.DueAt, CreatedAt: r.CreatedAt,
+		SubjectRef: r.SubjectRef, AccountRef: r.AccountRef, Sensitive: r.Sensitive, Status: r.Status, DueAt: r.DueAt, CreatedAt: r.CreatedAt,
 		CreatedBy: r.CreatedBy, UpdatedAt: r.UpdatedAt, ApprovedBy: r.ApprovedBy, ApprovedAt: r.ApprovedAt,
 		ClosedBy: r.ClosedBy, ClosedAt: r.ClosedAt, CloseNote: r.CloseNote, FilingRef: r.FilingRef,
 	}
@@ -57,7 +57,7 @@ func (Store) InsertTask(ctx context.Context, t Task) (created bool, err error) {
 	n, err := q.InsertTask(ctx, sqlcgen.InsertTaskParams{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, ID: t.ID, Kind: t.Kind, RuleID: t.RuleID,
 		EvaluationID: t.EvaluationID, EventID: t.EventID, CaseID: t.CaseID, SubjectRef: t.SubjectRef,
-		Sensitive: t.Sensitive, DueAt: t.DueAt, Report: report, CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy,
+		AccountRef: t.AccountRef, Sensitive: t.Sensitive, DueAt: t.DueAt, Report: report, CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy,
 	})
 	if err != nil {
 		return false, fmt.Errorf("insert compliance task: %w", err)
@@ -122,4 +122,105 @@ func (Store) UpdateTask(ctx context.Context, t Task) error {
 		return fmt.Errorf("update compliance task: %w", err)
 	}
 	return nil
+}
+
+// TaskCaseIDs returns the cases with a task of rule and kind that was not dismissed.
+func (Store) TaskCaseIDs(ctx context.Context, rule, kind string) ([]uuid.UUID, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := q.TaskCaseIDs(ctx, sqlcgen.TaskCaseIDsParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, RuleID: rule, Kind: kind,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list task cases: %w", err)
+	}
+	return out, nil
+}
+
+// Account is what the register knows of an account's BVN (REG-16).
+type Account struct {
+	Ref         string
+	SubjectRef  *string
+	HasBVN      bool
+	FirstSeenAt time.Time
+}
+
+// RecordAccount records an event's BVN fact about an account. The register keeps the earliest
+// time the account was seen and the latest fact by event time.
+func (Store) RecordAccount(ctx context.Context, ref string, subject *string, hasBVN bool, observedAt time.Time) error {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return err
+	}
+	if err := q.UpsertComplianceAccount(ctx, sqlcgen.UpsertComplianceAccountParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, AccountRef: ref, SubjectRef: subject,
+		HasBvn: hasBVN, ObservedAt: observedAt,
+	}); err != nil {
+		return fmt.Errorf("record compliance account: %w", err)
+	}
+	return nil
+}
+
+// AccountsWithoutTask returns accounts without a BVN that never had a task of rule and kind,
+// oldest first, at most limit.
+func (Store) AccountsWithoutTask(ctx context.Context, rule, kind string, limit int32) ([]Account, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.AccountsWithoutTask(ctx, sqlcgen.AccountsWithoutTaskParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, RuleID: rule, Kind: kind, RowLimit: limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list accounts without a task: %w", err)
+	}
+	out := make([]Account, len(rows))
+	for i, r := range rows {
+		out[i] = Account{Ref: r.AccountRef, SubjectRef: r.SubjectRef, HasBVN: r.HasBvn, FirstSeenAt: r.FirstSeenAt}
+	}
+	return out, nil
+}
+
+// OpenTasksOfAccountsWithBVN returns open tasks of rule and kind whose account now has a BVN,
+// locked until the transaction ends, at most limit.
+func (Store) OpenTasksOfAccountsWithBVN(ctx context.Context, rule, kind string, limit int32) ([]Task, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.OpenTasksOfAccountsWithBVN(ctx, sqlcgen.OpenTasksOfAccountsWithBVNParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, RuleID: rule, Kind: kind, RowLimit: limit,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list tasks of accounts with a BVN: %w", err)
+	}
+	out := make([]Task, len(rows))
+	for i, r := range rows {
+		if out[i], err = taskOf(r); err != nil {
+			return nil, err
+		}
+	}
+	return out, nil
+}
+
+// DBTX runs queries outside a tenant transaction (a connection pool).
+type DBTX = sqlcgen.DBTX
+
+// Scope is a tenant environment.
+type Scope struct{ TenantID, EnvironmentID uuid.UUID }
+
+// AccountScopes returns every environment with accounts in the register. It runs outside any
+// tenant scope, on db, and returns identifiers only.
+func AccountScopes(ctx context.Context, db DBTX) ([]Scope, error) {
+	rows, err := sqlcgen.New(db).AccountScopes(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("list account scopes: %w", err)
+	}
+	out := make([]Scope, len(rows))
+	for i, r := range rows {
+		out[i] = Scope{TenantID: r.TenantID, EnvironmentID: r.EnvironmentID}
+	}
+	return out, nil
 }

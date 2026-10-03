@@ -233,6 +233,8 @@ test("investigate: live monitor, transactions, entity profile, analytics", async
   isMobile,
 }) => {
   test.skip(isMobile, "hover holds are a desktop interaction");
+  // Five pages in one journey: under parallel load it outlasts the default 30 s.
+  test.slow();
   const csp = watchCsp(page);
   const api = await mockApi(page);
   api.signedIn = true;
@@ -245,6 +247,7 @@ test("investigate: live monitor, transactions, entity profile, analytics", async
   api.events.unshift(eventSummary(81));
   await expect(table.getByText("usr_4812")).toBeVisible({ timeout: 6000 });
   await table.hover();
+  await expect(page.getByText("New events wait above the table")).toBeVisible();
   api.events.unshift(eventSummary(55, "usr_2002"));
   await expect(
     page.getByRole("button", { name: "Show 1 new event" }),
@@ -288,6 +291,10 @@ test("investigate: live monitor, transactions, entity profile, analytics", async
 
   // Analytics: a chart with a table view.
   await page.goto("/analytics");
+  // The route's code loads on first visit; under parallel load that can outlast the default wait.
+  await expect(
+    page.getByRole("heading", { level: 1, name: "Analytics" }),
+  ).toBeVisible({ timeout: 15_000 });
   await expect(
     page.getByRole("img", { name: /Events per bucket by risk band/ }),
   ).toBeVisible();

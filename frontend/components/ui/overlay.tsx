@@ -89,7 +89,8 @@ export function Modal({
             className,
           )}
           style={{ animation: "fade-in 150ms ease-out" }}
-          aria-describedby={undefined}
+          // Radix links the description when there is one; without one, say so explicitly.
+          {...(description ? {} : { "aria-describedby": undefined })}
         >
           <D.Title className="text-heading-2">{title}</D.Title>
           {description ? (

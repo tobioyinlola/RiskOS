@@ -131,13 +131,18 @@ export function CopyValue({
   );
 }
 
-/** JSON, code and payloads: mono on bg-sunken, with a copy button. */
+/**
+ * JSON, code and payloads: mono on bg-sunken, with a copy button. The block scrolls, so it is a
+ * labelled region keyboard users can reach (WCAG 2.1.1).
+ */
 export function CodeBlock({
   value,
   className,
+  label = "Code",
 }: {
   value: unknown;
   className?: string;
+  label?: string;
 }) {
   const text =
     typeof value === "string" ? value : JSON.stringify(value, null, 2);
@@ -145,6 +150,9 @@ export function CodeBlock({
   return (
     <div className="relative">
       <pre
+        tabIndex={0}
+        role="region"
+        aria-label={label}
         className={cn(
           "mono max-h-96 overflow-auto rounded-md border border-border-subtle bg-bg-sunken p-3 pr-10 text-data text-text-secondary",
           className,

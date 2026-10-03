@@ -155,6 +155,8 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 
 // recordComplianceWork enqueues the job that records what the decision's live regulatory
 // controls require (reports, enhanced due diligence...), in the decision transaction like alerts.
+// An event that says whether its account has a BVN also feeds the account register REG-16's
+// daily check reads.
 func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n domain.Normalized, res risk.Result) error {
 	var controls []rules.TaskControl
 	for _, c := range res.Controls {
@@ -163,7 +165,13 @@ func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n
 		}
 		controls = append(controls, rules.TaskControl{Rule: c.Rule, Tasks: c.Tasks})
 	}
-	if len(controls) == 0 {
+	var hasBVN *bool
+	if n.Compliance != nil && n.Actor.AccountID != "" {
+		if v, ok := n.Compliance.Facts[rules.FactHasBVN].(bool); ok {
+			hasBVN = &v
+		}
+	}
+	if len(controls) == 0 && hasBVN == nil {
 		return nil
 	}
 	scope, err := tenancy.FromContext(ctx)
@@ -172,7 +180,8 @@ func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n
 	}
 	args := rules.TasksArgs{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, EvaluationID: res.ID, EventID: eventID,
-		OccurredAt: n.OccurredAt, SubjectRef: n.Actor.UserID, Controls: controls,
+		OccurredAt: n.OccurredAt, SubjectRef: n.Actor.UserID, AccountRef: n.Actor.AccountID, HasBVN: hasBVN,
+		Controls: controls,
 	}
 	var data struct {
 		Amount   int64  `json:"amount"`

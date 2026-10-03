@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -30,6 +31,24 @@ import { RuleLink } from "./library";
 
 type Task = Schemas["ComplianceTask"];
 type Status = Schemas["ComplianceTaskStatus"];
+type Escalation = Schemas["ScreeningEscalation"];
+
+/** What each escalation means, by the rule whose deadline passed. */
+const ESCALATION: Record<
+  Escalation["rule"],
+  { one: string; many: string; tone: "warn" | "error" }
+> = {
+  "GOV-11": {
+    one: "urgent alert nobody has picked up within the fraud response target",
+    many: "urgent alerts nobody has picked up within the fraud response target",
+    tone: "error",
+  },
+  "REG-14": {
+    one: "alert is past its screening deadline",
+    many: "alerts are past their screening deadline",
+    tone: "warn",
+  },
+};
 
 const INVALIDATE = ["compliance"];
 
@@ -69,22 +88,14 @@ export function WorkQueue() {
         title="Work queue"
         description="Reports and actions your regulatory controls require, with their legal deadlines. Reports are approved by a compliance officer and filed by a person: RiskOS never submits them."
       />
-      {q.data?.escalations.length ? (
-        <div className="mb-5">
-          <Notice tone="warn">
-            <span className="font-medium">
-              {q.data.escalations.length === 1
-                ? "1 alert is past its screening deadline"
-                : `${q.data.escalations.length} alerts are past their screening deadline`}{" "}
-              (REG-14):{" "}
-            </span>
-            {q.data.escalations
-              .slice(0, 5)
-              .map((e) => `${e.title} (${formatDue(e.due_at, now)})`)
-              .join("; ")}
-          </Notice>
-        </div>
-      ) : null}
+      {(["GOV-11", "REG-14"] as const).map((rule) => (
+        <Escalations
+          key={rule}
+          rule={rule}
+          list={(q.data?.escalations ?? []).filter((e) => e.rule === rule)}
+          now={now}
+        />
+      ))}
       <div className="mb-3 flex items-center gap-2">
         <Select
           aria-label="Status"
@@ -124,7 +135,14 @@ export function WorkQueue() {
                     {t.sensitive ? " · compliance only" : ""}
                   </span>
                 </Td>
-                <Td className="mono text-data">{t.subject_ref ?? "–"}</Td>
+                <Td className="mono text-data">
+                  {t.subject_ref ?? "–"}
+                  {t.account_ref ? (
+                    <span className="block text-label text-text-muted">
+                      account {t.account_ref}
+                    </span>
+                  ) : null}
+                </Td>
                 <Td
                   className={
                     t.overdue
@@ -144,7 +162,11 @@ export function WorkQueue() {
                   </StatusPill>
                 </Td>
                 <Td className="text-right">
-                  <Button size="sm" onClick={() => setOpen(t)}>
+                  <Button
+                    size="sm"
+                    aria-label={`Open ${TASK_LABEL[t.kind] ?? t.kind}${t.subject_ref ? ` for ${t.subject_ref}` : ""}`}
+                    onClick={() => setOpen(t)}
+                  >
                     Open
                   </Button>
                 </Td>
@@ -160,6 +182,9 @@ export function WorkQueue() {
           </Empty>
         ) : null}
       </Panel>
+      {q.data?.unreported_fraud.length ? (
+        <UnreportedFraud list={q.data.unreported_fraud} onPrepared={setOpen} />
+      ) : null}
       {sensitive ? <RestrictedSignals /> : null}
       {open ? (
         <TaskDialog
@@ -169,6 +194,114 @@ export function WorkQueue() {
         />
       ) : null}
     </>
+  );
+}
+
+/** Alerts past one rule's deadline, at most five named, each linking to the alert. */
+function Escalations({
+  rule,
+  list,
+  now,
+}: {
+  rule: Escalation["rule"];
+  list: Escalation[];
+  now: Date;
+}) {
+  if (!list.length) return null;
+  const e = ESCALATION[rule];
+  return (
+    <div className="mb-5">
+      <Notice tone={e.tone}>
+        <span className="font-medium">
+          {list.length === 1 ? `1 ${e.one}` : `${list.length} ${e.many}`} (
+          {rule}):{" "}
+        </span>
+        {list.slice(0, 5).map((a, i) => (
+          <span key={a.alert_id}>
+            {i ? "; " : ""}
+            <Link
+              className="underline"
+              href={`/alerts?status=all&alert=${a.alert_id}` as "/alerts"}
+            >
+              {a.title}
+            </Link>{" "}
+            ({a.severity}, {formatDue(a.due_at, now)})
+          </span>
+        ))}
+        {list.length > 5 ? `; and ${list.length - 5} more` : ""}
+      </Notice>
+    </div>
+  );
+}
+
+/** Confirmed-fraud cases without an industry fraud report (GOV-12). */
+function UnreportedFraud({
+  list,
+  onPrepared,
+}: {
+  list: Schemas["UnreportedFraudCase"][];
+  onPrepared: (t: Task) => void;
+}) {
+  const { can } = useSession();
+  const prepare = useAction(
+    async (caseId: string) =>
+      unwrap(
+        await api().POST("/api/v1/compliance/fraud-reports", {
+          body: { case_id: caseId },
+        }),
+      ),
+    { invalidate: INVALIDATE, onSuccess: onPrepared },
+  );
+  return (
+    <Panel className="mb-5 overflow-hidden">
+      <PanelHeader
+        title="Confirmed fraud not yet reported"
+        legend="GOV-12: report confirmed fraud to the industry channel (NIBSS)"
+      />
+      {prepare.error ? (
+        <div className="px-5 pb-3">
+          <Notice tone="error">{prepare.error}</Notice>
+        </div>
+      ) : null}
+      <Table aria-label="Confirmed fraud not yet reported">
+        <thead>
+          <tr>
+            <Th>Case</Th>
+            <Th>Confirmed</Th>
+            <Th />
+          </tr>
+        </thead>
+        <tbody>
+          {list.map((c) => (
+            <Tr key={c.case_id}>
+              <Td className="py-2.5">
+                <Link
+                  className="font-medium underline"
+                  href={`/cases/${c.case_id}` as "/cases"}
+                >
+                  {c.title}
+                </Link>
+              </Td>
+              <Td className="text-body-sm text-text-secondary">
+                {formatTimestamp(c.resolved_at)}
+              </Td>
+              <Td className="text-right">
+                {can("compliance:write") ? (
+                  <Button
+                    size="sm"
+                    disabled={prepare.busy}
+                    aria-label={`Prepare a report for ${c.title}`}
+                    onClick={() => void prepare.run(c.case_id)}
+                  >
+                    Prepare report
+                  </Button>
+                ) : null}
+              </Td>
+            </Tr>
+          ))}
+        </tbody>
+      </Table>
+    </Panel>
   );
 }
 
@@ -407,8 +540,9 @@ function TaskDialog({
         {report && task.status === "approved" && writable ? (
           <div className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
             <p className="text-body-sm text-text-secondary">
-              Enter the report in the regulator&apos;s portal (goAML for the
-              NFIU), then record the reference it gave.
+              {task.kind === "report.industry_fraud"
+                ? "Report it to the industry fraud channel (NIBSS), then record the reference it gave."
+                : "Enter the report in the regulator\u2019s portal (goAML for the NFIU), then record the reference it gave."}
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <Button
