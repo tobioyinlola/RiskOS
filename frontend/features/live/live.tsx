@@ -229,7 +229,11 @@ export function LiveMonitor() {
       {error ? <ErrorState error={error} className="mb-3" /> : null}
       <Panel
         className="overflow-hidden"
-        onMouseEnter={() => setHovering(true)}
+        onMouseEnter={() => {
+          // Hold at once: a poll landing before the next render must not move the rows.
+          holdingRef.current = true;
+          setHovering(true);
+        }}
         onMouseLeave={() => setHovering(false)}
       >
         <Table aria-label="Live events">
