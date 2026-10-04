@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { CodeBlock, KeyValues, Tag } from "@/components/ui/misc";
+import { KeyValues, Tag } from "@/components/ui/misc";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
 import { Empty, ErrorState, Loading, Notice } from "@/components/ui/states";
@@ -41,8 +41,8 @@ export function ComplianceRule({ id }: { id: string }) {
   const rule = useComplianceRule(id);
   const pack = useCompliancePack();
   const back = (
-    <Link href="/compliance" className="hover:underline">
-      Rules library
+    <Link href="/rules?tab=presets" className="hover:text-accent">
+      Rules
     </Link>
   );
   if (rule.isLoading || pack.isLoading) {
@@ -231,32 +231,6 @@ function RuleView({
             )}
           </Panel>
           <ConfigHistory rule={rule} onDone={setMessage} />
-          {rule.engineering_logic ? (
-            <Panel>
-              <PanelHeader
-                title="Engineering logic"
-                legend="for engineers and administrators"
-              />
-              <div className="flex flex-col gap-3 px-5 pb-5">
-                <CodeBlock
-                  value={rule.engineering_logic}
-                  label="Engineering logic"
-                />
-                {rule.definition ? (
-                  <details>
-                    <summary className="cursor-pointer text-body-sm text-text-secondary">
-                      Machine definition the engine interprets
-                    </summary>
-                    <CodeBlock
-                      value={rule.definition}
-                      label="Rule definition"
-                      className="mt-2"
-                    />
-                  </details>
-                ) : null}
-              </div>
-            </Panel>
-          ) : null}
         </div>
         <div className="flex min-w-0 flex-col gap-5">
           <Panel>

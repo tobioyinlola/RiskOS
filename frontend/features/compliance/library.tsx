@@ -1,23 +1,12 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/field";
+import { KeyValues } from "@/components/ui/misc";
+import { Panel, PanelHeader } from "@/components/ui/panel";
 import {
-  KeyValues,
-  Status,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Tag,
-} from "@/components/ui/misc";
-import { Metric, PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
-import { StatusPill } from "@/components/ui/pill";
-import {
-  Empty,
   ErrorState,
   Loading,
   Notice,
@@ -25,33 +14,19 @@ import {
 } from "@/components/ui/states";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
-import { ApiError, api, unwrap, type Schemas } from "@/lib/api/client";
-import {
-  defaultLabel,
-  MODE_LABEL,
-  KIND_LABEL,
-  matchesFilter,
-  NO_FILTER,
-  VERIFICATION,
-  type RuleFilter,
-} from "@/lib/compliance";
-import { formatCount } from "@/lib/format";
+import { api, unwrap, type Schemas } from "@/lib/api/client";
 import {
   useComplianceClocks,
   useComplianceGaps,
   useComplianceGlossary,
-  useCompliancePack,
   useComplianceProfile,
   useComplianceChanges,
-  useComplianceRules,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
-import { FXRatesTab } from "./fx";
 import { ProfileDialog, profileSummary } from "./profile";
 
 type Pack = Schemas["CompliancePack"];
-type Rule = Schemas["ComplianceRule"];
 
 /** A rule ID linking to its page. */
 export function RuleLink({ id }: { id: string }) {
@@ -65,102 +40,8 @@ export function RuleLink({ id }: { id: string }) {
   );
 }
 
-/** Compliance → Rules library: the jurisdiction pack the workspace is on. */
-export function ComplianceLibrary() {
-  const pack = useCompliancePack();
-  if (pack.isLoading) {
-    return (
-      <>
-        <PageHeader title="Rules library" />
-        <Loading label="Loading the rules library" />
-      </>
-    );
-  }
-  if (pack.isError || !pack.data) {
-    const none = pack.error instanceof ApiError && pack.error.status === 404;
-    return (
-      <>
-        <PageHeader title="Rules library" />
-        {none ? (
-          <Panel>
-            <Empty title="No rule pack is loaded">
-              Rule packs are loaded when RiskOS is deployed. Ask your RiskOS
-              contact which jurisdictions are available.
-            </Empty>
-          </Panel>
-        ) : (
-          <ErrorState error={pack.error} />
-        )}
-      </>
-    );
-  }
-  return <Library pack={pack.data} />;
-}
-
-function Library({ pack }: { pack: Pack }) {
-  const gaps = useComplianceGaps();
-  return (
-    <>
-      <PageHeader
-        title="Rules library"
-        eyebrow={`${pack.name} · version ${pack.version}`}
-        description="Every rule in the pack, in the library's own words, with its legal source, when it took effect and how far its facts are confirmed. Where sources conflict, it says so."
-      />
-      <ProfileBar pack={pack} />
-      <NewerVersion pack={pack} />
-      <PendingApprovals />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Metric
-          label="Regulatory controls"
-          value={String(pack.counts.controls)}
-        />
-        <Metric
-          label="Risk-scoring rules"
-          value={String(pack.counts.signals)}
-        />
-        <Metric
-          label="Governance presets"
-          value={String(pack.counts.governance)}
-        />
-        <Metric
-          label="Open questions"
-          value={gaps.data ? String(gaps.data.data.length) : "–"}
-        />
-      </div>
-      <Tabs defaultValue="rules">
-        <TabList aria-label="Library sections" className="mb-4">
-          <Tab value="rules">Rules</Tab>
-          <Tab value="clocks">Deadlines</Tab>
-          <Tab value="gaps">Open questions</Tab>
-          <Tab value="glossary">Glossary</Tab>
-          <Tab value="sources">Sources</Tab>
-          <Tab value="fx">Exchange rates</Tab>
-        </TabList>
-        <TabPanel value="rules">
-          <RulesTab pack={pack} />
-        </TabPanel>
-        <TabPanel value="clocks">
-          <ClocksTab />
-        </TabPanel>
-        <TabPanel value="gaps">
-          <GapsTab />
-        </TabPanel>
-        <TabPanel value="glossary">
-          <GlossaryTab />
-        </TabPanel>
-        <TabPanel value="fx">
-          <FXRatesTab />
-        </TabPanel>
-        <TabPanel value="sources">
-          <SourcesTab pack={pack} />
-        </TabPanel>
-      </Tabs>
-    </>
-  );
-}
-
 /** The workspace's licence type and capabilities, which decide what applies. */
-function ProfileBar({ pack }: { pack: Pack }) {
+export function ProfileBar({ pack }: { pack: Pack }) {
   const { can } = useSession();
   const profile = useComplianceProfile();
   const [open, setOpen] = useState(false);
@@ -171,7 +52,22 @@ function ProfileBar({ pack }: { pack: Pack }) {
   const p = profile.data;
   return (
     <div className="mb-5">
-      {p ? (
+      {p && !p.confirmed ? (
+        <Notice tone="warn">
+          <span className="flex flex-wrap items-center gap-3">
+            <span>
+              {writable
+                ? "Confirm what kind of institution you are, so the right rules apply. Until then RiskOS treats you as “Other”."
+                : "A compliance officer or administrator should confirm the institution type, so the right rules apply."}
+            </span>
+            {writable ? (
+              <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
+                Confirm institution type
+              </Button>
+            ) : null}
+          </span>
+        </Notice>
+      ) : p ? (
         <Panel className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <p className="text-label text-text-muted">Your institution</p>
@@ -183,22 +79,7 @@ function ProfileBar({ pack }: { pack: Pack }) {
             </Button>
           ) : null}
         </Panel>
-      ) : (
-        <Notice tone="info">
-          <span className="flex flex-wrap items-center gap-3">
-            <span>
-              {writable
-                ? "Tell RiskOS what kind of institution you are to see which rules apply to you."
-                : "An administrator or compliance officer sets the institution's licence type, which decides which rules apply."}
-            </span>
-            {writable ? (
-              <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
-                Set licence type
-              </Button>
-            ) : null}
-          </span>
-        </Notice>
-      )}
+      ) : null}
       {writable ? (
         <ProfileDialog
           open={open}
@@ -208,192 +89,6 @@ function ProfileBar({ pack }: { pack: Pack }) {
         />
       ) : null}
     </div>
-  );
-}
-
-function AppliesCell({ applicable }: { applicable: boolean | null }) {
-  if (applicable === null) return <span className="text-text-muted">–</span>;
-  return applicable ? (
-    <Status tone="ok">Applies</Status>
-  ) : (
-    <Status tone="off">Not for you</Status>
-  );
-}
-
-function RulesTab({ pack }: { pack: Pack }) {
-  const q = useComplianceRules();
-  const [f, setF] = useState<RuleFilter>(NO_FILTER);
-  const all = useMemo(() => q.data?.data ?? [], [q.data]);
-  const rules = useMemo(() => all.filter((r) => matchesFilter(r, f)), [all, f]);
-  const regulators = useMemo(
-    () => [...new Set(all.flatMap((r) => r.regulators))].sort(),
-    [all],
-  );
-  const hasProfile = all.some((r) => r.applicable !== null);
-  const groupLabel = (id: string) =>
-    pack.groups.find((g) => g.id === id)?.label ?? id;
-  const set = <K extends keyof RuleFilter>(k: K, v: RuleFilter[K]) =>
-    setF((cur) => ({ ...cur, [k]: v }));
-  const control = "h-control-sm text-body-sm";
-  return (
-    <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          aria-label="Search rules"
-          placeholder="Search by ID or words"
-          className={`${control} w-60`}
-          value={f.query}
-          onChange={(e) => set("query", e.target.value)}
-        />
-        <Select
-          aria-label="Type"
-          className={`${control} w-48`}
-          value={f.kind}
-          onChange={(e) => set("kind", e.target.value as RuleFilter["kind"])}
-        >
-          <option value="">All types</option>
-          {(Object.keys(KIND_LABEL) as Rule["kind"][]).map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABEL[k]}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Group"
-          className={`${control} w-52`}
-          value={f.group}
-          onChange={(e) => set("group", e.target.value)}
-        >
-          <option value="">All groups</option>
-          {pack.groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.label}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Regulator"
-          className={`${control} w-44`}
-          value={f.regulator}
-          onChange={(e) => set("regulator", e.target.value)}
-        >
-          <option value="">All regulators</option>
-          {regulators.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Verification"
-          className={`${control} w-48`}
-          value={f.verification}
-          onChange={(e) =>
-            set("verification", e.target.value as RuleFilter["verification"])
-          }
-        >
-          <option value="">Any verification</option>
-          {(Object.keys(VERIFICATION) as Rule["verification"][]).map((v) => (
-            <option key={v} value={v}>
-              {VERIFICATION[v].label}
-            </option>
-          ))}
-        </Select>
-        {hasProfile ? (
-          <label className="inline-flex items-center gap-2 text-body-sm text-text-secondary">
-            <input
-              type="checkbox"
-              className="size-4 accent-ink"
-              checked={f.applicableOnly}
-              onChange={(e) => set("applicableOnly", e.target.checked)}
-            />
-            Only rules that apply to us
-          </label>
-        ) : null}
-        <span
-          className="ml-auto text-label text-text-muted"
-          role="status"
-          aria-live="polite"
-        >
-          {q.data
-            ? `${formatCount(rules.length)} of ${formatCount(all.length)} rules`
-            : ""}
-        </span>
-      </div>
-      <Panel className="overflow-hidden">
-        <Table aria-label="Rules in the pack">
-          <thead>
-            <tr>
-              <Th>Rule</Th>
-              <Th>Type</Th>
-              <Th>Regulators</Th>
-              <Th>Verification</Th>
-              <Th>Mode</Th>
-              <Th>Applies</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {q.isLoading ? <SkeletonRows columns={6} /> : null}
-            {rules.map((r) => (
-              <Tr key={r.id}>
-                <Td className="max-w-xl py-2.5">
-                  <div className="flex items-baseline gap-2">
-                    <RuleLink id={r.id} />
-                    <span className="font-medium text-text-primary">
-                      {r.name}
-                    </span>
-                  </div>
-                  <p className="line-clamp-2 text-body-sm text-text-secondary">
-                    {r.description}
-                  </p>
-                  <p className="text-label text-text-muted">
-                    {groupLabel(r.group)}
-                  </p>
-                </Td>
-                <Td>
-                  <Tag>{KIND_LABEL[r.kind]}</Tag>
-                </Td>
-                <Td className="text-body-sm text-text-secondary">
-                  {r.regulators.join(", ")}
-                </Td>
-                <Td>
-                  <StatusPill tone={VERIFICATION[r.verification].tone}>
-                    {VERIFICATION[r.verification].label}
-                  </StatusPill>
-                </Td>
-                <Td className="text-body-sm whitespace-nowrap">
-                  {MODE_LABEL[r.mode]}
-                  {r.config_version ? (
-                    <span className="block text-label text-text-muted">
-                      v{r.config_version}
-                    </span>
-                  ) : (
-                    <span className="block text-label text-text-muted">
-                      default ({defaultLabel(r.defaults)})
-                    </span>
-                  )}
-                </Td>
-                <Td>
-                  <AppliesCell applicable={r.applicable} />
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-        {q.isError ? <ErrorState error={q.error} className="m-4" /> : null}
-        {q.isSuccess && rules.length === 0 ? (
-          <Empty
-            title="No rules match"
-            action={
-              <Button size="sm" onClick={() => setF(NO_FILTER)}>
-                Clear filters
-              </Button>
-            }
-          />
-        ) : null}
-      </Panel>
-    </>
   );
 }
 
@@ -408,7 +103,7 @@ function RuleLinks({ ids }: { ids: string[] }) {
   );
 }
 
-function ClocksTab() {
+export function ClocksTab() {
   const q = useComplianceClocks();
   const clocks = q.data?.data ?? [];
   return (
@@ -451,7 +146,7 @@ function ClocksTab() {
   );
 }
 
-function GapsTab() {
+export function GapsTab() {
   const q = useComplianceGaps();
   if (q.isLoading) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
@@ -482,7 +177,7 @@ function GapsTab() {
   );
 }
 
-function GlossaryTab() {
+export function GlossaryTab() {
   const q = useComplianceGlossary();
   if (q.isLoading) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
@@ -510,7 +205,7 @@ function GlossaryTab() {
   );
 }
 
-function SourcesTab({ pack }: { pack: Pack }) {
+export function SourcesTab({ pack }: { pack: Pack }) {
   return (
     <Panel>
       <ol className="divide-y divide-border-subtle">
@@ -546,7 +241,7 @@ function SourcesTab({ pack }: { pack: Pack }) {
 }
 
 /** Changes awaiting a second person in this environment. */
-function PendingApprovals() {
+export function PendingApprovals() {
   const { environment } = useSession();
   const q = useComplianceChanges("pending");
   const pending = q.data?.data ?? [];
@@ -571,7 +266,7 @@ function PendingApprovals() {
 }
 
 /** A newer pack version is loaded: saving the profile adopts it. */
-function NewerVersion({ pack }: { pack: Pack }) {
+export function NewerVersion({ pack }: { pack: Pack }) {
   const { can } = useSession();
   const profile = useComplianceProfile();
   const p = profile.data;

@@ -2580,6 +2580,12 @@ export interface components {
         ComplianceProfile: {
             jurisdiction: string;
             licence_type: string;
+            /**
+             * @description False for the profile every workspace gets automatically until a person saves it: its
+             *     licence type ("other") is a placeholder. Automatic profiles start the regulatory
+             *     controls at their defaults and every risk signal off.
+             */
+            confirmed: boolean;
             capabilities: string[];
             pack_id: string;
             pack_version: string;
@@ -3928,6 +3934,28 @@ export interface components {
                 /** @enum {string} */
                 type: "number" | "string" | "boolean";
                 operators: string[];
+                /** @description What the fact is, in plain words. */
+                label: string;
+                /** @description Event, Transaction, Login, Customer history or Recent activity. */
+                group: string;
+                /**
+                 * @description How a number reads: money (minor units of the event's currency), count, or ratio
+                 *     (1.5 = one and a half times).
+                 * @enum {string}
+                 */
+                unit?: "money" | "count" | "ratio";
+                /**
+                 * @description A free-text string that is an ISO country or currency code.
+                 * @enum {string}
+                 */
+                kind?: "country" | "currency";
+                /** @description The only values a string field takes, with their labels. */
+                values?: {
+                    value: string;
+                    label: string;
+                }[];
+                /** @description The event types that carry the fact; empty means every event. */
+                events: string[];
             }[];
         };
     };

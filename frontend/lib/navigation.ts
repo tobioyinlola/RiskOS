@@ -31,6 +31,8 @@ export interface NavSection {
     | "scales"
     | "key";
   anyOf: readonly Scope[];
+  /** Other paths that belong to the section (a preset rule's page belongs to Rules). */
+  also?: readonly string[];
 }
 
 export const navSections = [
@@ -95,7 +97,8 @@ export const navSections = [
     label: "Rules",
     group: "Workflows",
     icon: "shield",
-    anyOf: ["rules:read"],
+    anyOf: ["rules:read", "compliance:read"],
+    also: ["/compliance/rules"],
   },
   {
     href: "/deny-lists",
@@ -117,13 +120,6 @@ export const navSections = [
     group: "Workflows",
     icon: "code",
     anyOf: ["api_keys:read", "webhooks:read"],
-  },
-  {
-    href: "/compliance",
-    label: "Rules library",
-    group: "Compliance",
-    icon: "scales",
-    anyOf: ["compliance:read"],
   },
   {
     href: "/compliance/work",
@@ -175,5 +171,9 @@ export function isActiveSection(href: string, pathname: string): boolean {
       s.href.startsWith(`${href}/`) &&
       (pathname === s.href || pathname.startsWith(`${s.href}/`)),
   );
-  return !deeper && (pathname === href || pathname.startsWith(`${href}/`));
+  const inside = (p: string) => pathname === p || pathname.startsWith(`${p}/`);
+  const also =
+    (navSections as readonly NavSection[]).find((s) => s.href === href)?.also ??
+    [];
+  return (!deeper && inside(href)) || also.some(inside);
 }

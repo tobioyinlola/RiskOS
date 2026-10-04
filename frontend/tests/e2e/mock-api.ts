@@ -130,12 +130,19 @@ export interface MockApi {
   unreportedFraud: { case_id: string; title: string; resolved_at: string }[];
   /** Exchange rates by currency. */
   fxRates: Record<string, number>;
-  /** The workspace's compliance profile (null until set). */
+  /**
+   * The workspace's compliance profile: every workspace starts with the automatic one (licence
+   * "other", unconfirmed, risk signals off) until a person saves it.
+   */
   complianceProfile: {
     jurisdiction: string;
     licence_type: string;
     capabilities: string[];
-  } | null;
+    confirmed: boolean;
+    signalsOff: boolean;
+  };
+  /** The workspace's own rules (POST /rules), newest last. */
+  rules: Record<string, unknown>[];
 }
 
 /** The answers onboarding needs before it can be submitted. */
@@ -206,6 +213,71 @@ export function eventSummary(score: number, user = "usr_4812") {
     },
   };
 }
+
+/** The rule fields the builder offers (GET /risk/catalog), as the engine describes them. */
+const CATALOG_FIELDS = [
+  {
+    name: "event.type",
+    type: "string",
+    operators: ["eq", "ne", "in", "not_in"],
+    label: "Event type",
+    group: "Event",
+    events: [],
+    values: [
+      { value: "transaction", label: "Transaction" },
+      { value: "login", label: "Login" },
+      { value: "beneficiary_added", label: "Beneficiary added" },
+    ],
+  },
+  {
+    name: "transaction.amount",
+    type: "number",
+    operators: ["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in"],
+    label: "Amount",
+    group: "Transaction",
+    unit: "money",
+    events: ["transaction"],
+  },
+  {
+    name: "transaction.channel",
+    type: "string",
+    operators: ["eq", "ne", "in", "not_in"],
+    label: "Channel",
+    group: "Transaction",
+    events: ["transaction"],
+    values: [
+      { value: "card", label: "Card" },
+      { value: "bank_transfer", label: "Bank transfer" },
+      { value: "wallet", label: "Wallet" },
+    ],
+  },
+  {
+    name: "beneficiary.country",
+    type: "string",
+    operators: ["eq", "ne", "in", "not_in"],
+    label: "Beneficiary's country",
+    group: "Transaction",
+    kind: "country",
+    events: ["transaction", "beneficiary_added"],
+  },
+  {
+    name: "feature.new_beneficiary",
+    type: "boolean",
+    operators: ["eq", "ne"],
+    label: "New beneficiary for this customer",
+    group: "Customer history",
+    events: [],
+  },
+  {
+    name: "feature.failed_logins_15m",
+    type: "number",
+    operators: ["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in"],
+    label: "Failed logins in the last 15 minutes",
+    group: "Recent activity",
+    unit: "count",
+    events: ["login"],
+  },
+];
 
 function hourAgo(h: number): string {
   return (
@@ -325,7 +397,14 @@ export async function mockApi(page: Page): Promise<MockApi> {
     productionEnabled: true,
     onboarding: null,
     permissions: ALL_PERMISSIONS,
-    complianceProfile: null,
+    complianceProfile: {
+      jurisdiction: "NG",
+      licence_type: "other",
+      capabilities: [],
+      confirmed: false,
+      signalsOff: true,
+    },
+    rules: [],
     ruleConfigs: {},
     ruleChanges: [],
     fxRates: {},
@@ -393,7 +472,10 @@ export async function mockApi(page: Page): Promise<MockApi> {
 
   type FixtureRule = (typeof RULES)[number];
   const defaultMode = (r: FixtureRule) =>
-    r.defaults.enabled ? r.defaults.mode : "off";
+    !r.defaults.enabled ||
+    (r.kind === "signal" && state.complianceProfile.signalsOff)
+      ? "off"
+      : r.defaults.mode;
   const currentVersion = (env: string, r: FixtureRule) =>
     state.ruleConfigs[`${env}/${r.id}`]?.versions.at(-1);
   const configView = (env: string, r: FixtureRule) => {
@@ -719,26 +801,31 @@ export async function mockApi(page: Page): Promise<MockApi> {
         return json(route, { data: GLOSSARY });
       case "/compliance/profile": {
         const view = () => ({
-          ...state.complianceProfile,
+          jurisdiction: state.complianceProfile.jurisdiction,
+          licence_type: state.complianceProfile.licence_type,
+          capabilities: state.complianceProfile.capabilities,
+          confirmed: state.complianceProfile.confirmed,
           pack_id: "ng",
           pack_version: PACK.version,
           updated_at: NOW,
-          updated_by: "usr_admin",
+          updated_by: state.complianceProfile.confirmed
+            ? "usr_admin"
+            : "system:default",
         });
         if (method === "PUT") {
           if (!state.permissions.includes("compliance:write")) {
             return error(route, 403, "FORBIDDEN", "Not allowed.");
           }
           state.complianceProfile = {
+            ...state.complianceProfile,
             jurisdiction: String(body?.jurisdiction),
             licence_type: String(body?.licence_type),
             capabilities: (body?.capabilities as string[]) ?? [],
+            confirmed: true,
           };
           return json(route, view());
         }
-        return state.complianceProfile
-          ? json(route, view())
-          : error(route, 404, "NOT_FOUND", "No compliance profile.");
+        return json(route, view());
       }
       default:
         state.problems.push(`unmocked ${method} ${path}`);
@@ -976,6 +1063,20 @@ export async function mockApi(page: Page): Promise<MockApi> {
     }
 
     // Console data.
+    const own = path.match(/^\/rules\/(rul_[0-9]+)(\/versions)?$/);
+    if (own) {
+      const rule = state.rules.find((r) => r.id === own[1]);
+      if (!rule) return error(route, 404, "NOT_FOUND", "No such rule.");
+      if (own[2])
+        return json(route, {
+          data: [{ ...rule, created_by: "usr_admin" }],
+          current_version: rule.version,
+        });
+      if (method === "PATCH") {
+        Object.assign(rule, body, { version: Number(rule.version) + 1 });
+      }
+      return json(route, rule);
+    }
     switch (path) {
       case `/alerts/${ALERT.id}`:
         return json(route, {
@@ -1073,13 +1174,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
               strengthenable: true,
             },
           ],
-          fields: [
-            {
-              name: "amount",
-              type: "number",
-              operators: ["gt", "gte", "lt", "lte", "eq"],
-            },
-          ],
+          fields: CATALOG_FIELDS,
         });
       case "/risk/settings":
         return json(route, {
@@ -1151,6 +1246,20 @@ export async function mockApi(page: Page): Promise<MockApi> {
         state.changeStatus = "approved";
         return json(route, ruleChange("approved"));
       case "/rules":
+        if (method === "POST") {
+          const rule = {
+            id: `rul_${state.rules.length + 1}`,
+            ...body,
+            version: 1,
+            restored_from: null,
+            created_at: NOW,
+            updated_at: NOW,
+            pending_change_id: null,
+          };
+          state.rules.push(rule);
+          return json(route, rule, 201);
+        }
+        return json(route, { data: state.rules });
       case "/webhooks":
       case "/team/invites":
         return json(route, { data: [] });

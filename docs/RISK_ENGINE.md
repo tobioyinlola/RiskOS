@@ -174,7 +174,9 @@ default, or STEP_UP) raise `risk` alerts asynchronously; see [ALERTS_AND_CASES.m
 Tenants add their own signals as rules (`/api/v1/rules`, scopes `rules:read` / `rules:write`).
 
 - **Conditions** are JSON: `{"all": [...]}`, `{"any": [...]}`, `{"not": ...}` and comparisons
-  `{"field", "op", "value"}` over a typed catalog of facts (`GET /api/v1/risk/catalog`): event
+  `{"field", "op", "value"}` over a typed catalog of facts (`GET /api/v1/risk/catalog`, which
+  also gives each fact a plain label, group, unit, allowed values and the event types that carry
+  it, for the console's no-code builder): event
   fields (`transaction.amount`, `context.country`, `login.outcome`, ...) and feature values
   (`feature.new_beneficiary`, `feature.account_txn_1h`, `feature.amount_to_mean_ratio`, ...).
   Operators: `eq ne gt gte lt lte in not_in` for numbers, `eq ne in not_in` for strings, `eq ne`
@@ -264,6 +266,13 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
   either, the rule is not evaluated.
 
 ### Configuration
+
+**Every workspace has a profile.** A workspace gets the automatic profile when it is created
+(migration 00028; existing workspaces through the migration and the pack loader): the Nigeria
+pack, licence type "other" and `confirmed: false` until a person saves it. Its regulatory
+controls start at their defaults (on, as the law requires) and every risk signal starts off until
+a compliance person activates it (`signal_default = off`). Profiles set up before keep the pack's
+defaults for signals (monitoring).
 
 Each environment can set a rule's mode (`live`, `shadow`, `off`) and its settings
 (`PUT /api/v1/compliance/rules/{rule_id}/config`, people with `compliance:configure`, a recent

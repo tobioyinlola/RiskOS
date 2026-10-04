@@ -1,9 +1,6 @@
-import type { Metadata } from "next";
+import { redirect } from "next/navigation";
 
-import { ComplianceLibrary } from "@/features/compliance/library";
-
-export const metadata: Metadata = { title: "Rules library" };
-
+/** The rules library moved into Rules → Preset rules. */
 export default function Page() {
-  return <ComplianceLibrary />;
+  redirect("/rules?tab=presets");
 }
