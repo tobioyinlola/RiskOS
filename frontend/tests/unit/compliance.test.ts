@@ -46,7 +46,7 @@ describe("compliance display", () => {
       "15 points",
     );
     expect(formatDefault(param({ type: "hour", default: 22 }))).toBe(
-      "22:00 Lagos time",
+      "22:00 local time",
     );
     expect(formatDefault(param({ type: "flag", default: 0 }))).toBe("Off");
     expect(

@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
@@ -16,12 +17,16 @@ import {
   formatParameterValue,
   formatRange,
   KIND_LABEL,
+  lineageText,
   MODE_LABEL,
+  OFF_REASON,
+  PROVENANCE,
   VERIFICATION,
   wordingHeadings,
 } from "@/lib/compliance";
 import { humanize } from "@/lib/format";
 import {
+  useActivations,
   useComplianceConfig,
   useCompliancePack,
   useComplianceRule,
@@ -29,6 +34,7 @@ import {
 import { useSession } from "@/lib/session";
 
 import { ConfigHistory, ConfigureDialog, PendingChange } from "./configure";
+import { PenaltyRegister } from "./penalties";
 
 type Pack = Schemas["CompliancePack"];
 type Rule = Schemas["ComplianceRule"];
@@ -36,12 +42,24 @@ type Rule = Schemas["ComplianceRule"];
 const list = (items: string[], fallback = "–") =>
   items.length ? items.join(", ") : fallback;
 
-/** One rule of the library: its wording verbatim, its legal basis and how it runs. */
+/**
+ * One rule of the library: its wording verbatim, where it comes from, its legal basis and how it
+ * runs. ?jurisdiction= names the country (a country rule ID names its own).
+ */
 export function ComplianceRule({ id }: { id: string }) {
-  const rule = useComplianceRule(id);
-  const pack = useCompliancePack();
+  const params = useSearchParams();
+  const country = params.get("jurisdiction") ?? undefined;
+  const rule = useComplianceRule(id, country);
+  const pack = useCompliancePack(country ?? rule.data?.jurisdiction);
   const back = (
-    <Link href="/rules?tab=presets" className="hover:text-accent">
+    <Link
+      href={
+        (country
+          ? `/rules?tab=presets&country=${country}`
+          : "/rules?tab=presets") as "/rules"
+      }
+      className="hover:text-accent"
+    >
       Rules
     </Link>
   );
@@ -94,7 +112,14 @@ function RuleView({
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string>();
   const pending = config.data?.pending ?? null;
-  const configurable = can("compliance:configure");
+  const acts = useActivations();
+  const fallback = acts.data?.data.find((a) => a.fallback)?.jurisdiction;
+  // Settings are changed here for the default country's rules; another country's arrive with
+  // its activation.
+  const configurable =
+    can("compliance:configure") &&
+    rule.applicable !== null &&
+    rule.jurisdiction === fallback;
   return (
     <>
       <PageHeader
@@ -233,6 +258,40 @@ function RuleView({
           <ConfigHistory rule={rule} onDone={setMessage} />
         </div>
         <div className="flex min-w-0 flex-col gap-5">
+          {rule.provenance || rule.inherited_from ? (
+            <Panel>
+              <PanelHeader title="Where it comes from" />
+              <div className="flex flex-col gap-3 px-5 pb-5">
+                {rule.provenance ? (
+                  <p className="flex flex-col items-start gap-1.5">
+                    <StatusPill tone={PROVENANCE[rule.provenance].tone}>
+                      {PROVENANCE[rule.provenance].label}
+                    </StatusPill>
+                    <span className="text-body-sm text-text-secondary">
+                      {PROVENANCE[rule.provenance].meaning}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="text-body-sm">{lineageText(rule)}</p>
+                {rule.off_reason ? (
+                  <Notice tone="warn">
+                    {OFF_REASON[rule.off_reason]}. Enter the confirmed values
+                    and a reason before switching it on.
+                  </Notice>
+                ) : null}
+                {rule.basis ? (
+                  <section>
+                    <h3 className="text-label text-text-muted">
+                      The library says
+                    </h3>
+                    <p className="mt-1 text-body-sm text-text-secondary">
+                      {rule.basis}
+                    </p>
+                  </section>
+                ) : null}
+              </div>
+            </Panel>
+          ) : null}
           <Panel>
             <PanelHeader title="Legal basis" />
             <div className="px-5 pb-5">
@@ -334,6 +393,9 @@ function RuleView({
               </p>
             </div>
           </Panel>
+          {rule.status === "regulatory" ? (
+            <PenaltyRegister pack={pack} compact />
+          ) : null}
         </div>
       </div>
       {configurable && editing ? (

@@ -61,7 +61,7 @@ test("preset rules: confirm the institution, activate, turn off; no code anywher
   // A rule's page: the library's words and its settings, never engineering logic or code.
   await page.getByLabel("Only rules for our institution type").uncheck();
   await page.getByRole("link", { name: "New-device limit" }).click();
-  await expect(page).toHaveURL(/\/compliance\/rules\/REG-01$/);
+  await expect(page).toHaveURL(/\/compliance\/rules\/REG-01\?jurisdiction=NG$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "New-device limit" }),
   ).toBeVisible();
@@ -87,7 +87,7 @@ test("deadlines, open questions and the glossary", async ({ page }) => {
   const api = await mockApi(page);
   api.signedIn = true;
   await page.goto("/rules?tab=references");
-  await page.getByRole("tab", { name: "Legal deadlines" }).click();
+  await page.getByRole("tab", { name: "Deadlines" }).click();
   await expect(
     page.getByText("Report cyber incidents to the CBN"),
   ).toBeVisible();

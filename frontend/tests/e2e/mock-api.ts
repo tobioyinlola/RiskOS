@@ -9,6 +9,14 @@ import {
   PACK,
   RULES,
   task,
+  ACTIVATIONS,
+  CLOCK_MATRIX,
+  JURISDICTIONS,
+  RW_CLOCKS,
+  RW_GAPS,
+  RW_GLOSSARY,
+  RW_PACK,
+  RW_RULES,
 } from "./compliance-fixtures";
 
 /**
@@ -496,6 +504,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
   };
   const ruleView = (r: FixtureRule, detail: boolean, env: string) => ({
     ...r,
+    jurisdiction: "NG",
     mode: configView(env, r).mode,
     config_version: configView(env, r).version,
     parameters: r.parameters.map((p) => ({
@@ -532,9 +541,25 @@ export async function mockApi(page: Page): Promise<MockApi> {
     if (!state.permissions.includes("compliance:read")) {
       return error(route, 403, "FORBIDDEN", "Not allowed.");
     }
-    const sub = path.match(
-      /^\/compliance\/rules\/([A-Z]{3}-[0-9]{2})(?:\/(config|history|backtest|rollback))?$/,
+    const country = new URL(route.request().url()).searchParams.get(
+      "jurisdiction",
     );
+    const rwanda = country === "RW";
+    const rwView = (r: (typeof RW_RULES)[number]) => ({
+      ...r,
+      mode: r.defaults.enabled ? r.defaults.mode : "off",
+      config_version: 0,
+      parameters: r.parameters.map((p) => ({ ...p, value: p.default })),
+      applicable: null,
+    });
+    const sub = path.match(
+      /^\/compliance\/rules\/((?:[A-Z]{3}|[A-Z]{2}-(?:REG|TM|SEC|GOV))-[0-9]{2})(?:\/(config|history|backtest|rollback))?$/,
+    );
+    if (sub && (rwanda || sub[1]?.startsWith("RW-"))) {
+      const r = RW_RULES.find((x) => x.id === sub[1]);
+      if (!r || sub[2]) return error(route, 404, "NOT_FOUND", "No such rule.");
+      return json(route, rwView(r));
+    }
     if (sub) {
       const r = RULES.find((x) => x.id === sub[1]);
       if (!r) return error(route, 404, "NOT_FOUND", "No such rule.");
@@ -767,8 +792,36 @@ export async function mockApi(page: Page): Promise<MockApi> {
               signals: 1,
               governance: 0,
               current: true,
+              activated: true,
+            },
+            {
+              id: "rw",
+              jurisdiction: "RW",
+              name: "Rwanda",
+              version: RW_PACK.version,
+              controls: 1,
+              signals: 1,
+              governance: 0,
+              current: false,
+              activated: false,
             },
           ],
+        });
+      case "/compliance/jurisdictions":
+        return json(route, { data: JURISDICTIONS });
+      case "/compliance/activations":
+        return json(route, { data: ACTIVATIONS });
+      case "/compliance/clock-matrix":
+        return json(route, { data: CLOCK_MATRIX });
+      case "/compliance/export":
+        return route.fulfill({
+          status: 200,
+          contentType: "text/csv",
+          headers: {
+            "Content-Disposition":
+              'attachment; filename="riskos-rules-rw-2026-09-30.csv"',
+          },
+          body: "Country,Rule\nRwanda,RW-REG-04\n",
         });
       case "/compliance/changes": {
         const status = new URL(route.request().url()).searchParams.get(
@@ -805,15 +858,22 @@ export async function mockApi(page: Page): Promise<MockApi> {
           })),
         });
       case "/compliance/pack":
-        return json(route, PACK);
+        return json(route, rwanda ? RW_PACK : PACK);
       case "/compliance/rules":
-        return json(route, { data: RULES.map((r) => ruleView(r, false, env)) });
+        return json(route, {
+          data: rwanda
+            ? RW_RULES.map(rwView)
+            : RULES.map((r) => ({
+                ...ruleView(r, false, env),
+                jurisdiction: "NG",
+              })),
+        });
       case "/compliance/clocks":
-        return json(route, { data: CLOCKS });
+        return json(route, { data: rwanda ? RW_CLOCKS : CLOCKS });
       case "/compliance/gaps":
-        return json(route, { data: GAPS });
+        return json(route, { data: rwanda ? RW_GAPS : GAPS });
       case "/compliance/glossary":
-        return json(route, { data: GLOSSARY });
+        return json(route, { data: rwanda ? RW_GLOSSARY : GLOSSARY });
       case "/compliance/profile": {
         const view = () => ({
           jurisdiction: state.complianceProfile.jurisdiction,

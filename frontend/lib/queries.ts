@@ -444,9 +444,12 @@ export function useComplianceRules(jurisdiction?: string) {
   });
 }
 
-/** One rule; the engineering logic is present only when the caller may see it. */
-export function useComplianceRule(ruleId: string) {
-  const key = useKey("compliance", "rule", ruleId);
+/**
+ * One rule; the engineering logic is present only when the caller may see it. Without a
+ * jurisdiction, a country rule ID (GH-REG-01) names its own; others are the fallback pack's.
+ */
+export function useComplianceRule(ruleId: string, jurisdiction?: string) {
+  const key = useKey("compliance", "rule", ruleId, jurisdiction ?? "own");
   return useQuery({
     queryKey: key,
     staleTime: COMPLIANCE_STALE,
@@ -454,33 +457,81 @@ export function useComplianceRule(ruleId: string) {
     queryFn: async () =>
       unwrap(
         await api().GET("/api/v1/compliance/rules/{rule_id}", {
-          params: { path: { rule_id: ruleId } },
+          params: {
+            path: { rule_id: ruleId },
+            query: jurisdiction ? { jurisdiction } : {},
+          },
         }),
       ),
   });
 }
 
-export function useComplianceClocks() {
+const byCountry = (jurisdiction?: string) => ({
+  params: { query: jurisdiction ? { jurisdiction } : {} },
+});
+
+/** A country's clocks (the fallback pack's without one). */
+export function useComplianceClocks(jurisdiction?: string) {
   return useQuery({
-    queryKey: ["compliance", "clocks"],
+    queryKey: ["compliance", "clocks", jurisdiction ?? "own"],
     staleTime: COMPLIANCE_STALE,
-    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/clocks")),
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/clocks", byCountry(jurisdiction)),
+      ),
   });
 }
 
-export function useComplianceGaps() {
+/** A country's open questions. */
+export function useComplianceGaps(jurisdiction?: string) {
   return useQuery({
-    queryKey: ["compliance", "gaps"],
+    queryKey: ["compliance", "gaps", jurisdiction ?? "own"],
     staleTime: COMPLIANCE_STALE,
-    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/gaps")),
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/gaps", byCountry(jurisdiction)),
+      ),
   });
 }
 
-export function useComplianceGlossary() {
+/** A country's glossary. */
+export function useComplianceGlossary(jurisdiction?: string) {
   return useQuery({
-    queryKey: ["compliance", "glossary"],
+    queryKey: ["compliance", "glossary", jurisdiction ?? "own"],
     staleTime: COMPLIANCE_STALE,
-    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/glossary")),
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/glossary", byCountry(jurisdiction)),
+      ),
+  });
+}
+
+/** The countries with a pack, and whether the workspace activated each. */
+export function useJurisdictions() {
+  return useQuery({
+    queryKey: ["compliance", "jurisdictions"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/jurisdictions")),
+  });
+}
+
+/** The workspace's country activations, the fallback first. */
+export function useActivations() {
+  return useQuery({
+    queryKey: ["compliance", "activations"],
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/activations")),
+  });
+}
+
+/** The library's side-by-side comparison of the countries' clocks and thresholds. */
+export function useClockMatrix() {
+  return useQuery({
+    queryKey: ["compliance", "clock-matrix"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/clock-matrix")),
   });
 }
 

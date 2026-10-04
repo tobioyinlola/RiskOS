@@ -44,8 +44,10 @@ import { useSession } from "@/lib/session";
 import { FXRatesTab } from "../compliance/fx";
 import {
   ClocksTab,
+  ExportLibrary,
   GapsTab,
   GlossaryTab,
+  MatrixTab,
   NewerVersion,
   PendingApprovals,
   ProfileBar,
@@ -54,6 +56,8 @@ import {
 import { RuleActivity, Sparkline } from "./activity";
 import { isChange, PendingChangeNotice, PendingChanges } from "./approvals";
 import { RuleBuilder } from "./builder";
+import { PenaltyRegister } from "../compliance/penalties";
+import { AllCountries, CountrySwitcher, useCountry } from "./countries";
 import { PresetRules } from "./presets";
 
 type Rule = Schemas["Rule"];
@@ -76,7 +80,11 @@ export function RulesHome() {
   const { can } = useSession();
   const router = useRouter();
   const params = useSearchParams();
+  // The default country's pack holds the institution profile; the switcher picks the country
+  // the preset and reference tabs show.
   const pack = useCompliancePack();
+  const { country, all, fallback } = useCountry();
+  const shown = useCompliancePack(country || undefined);
   const compliance = can("compliance:read");
   const custom = can("rules:read");
   const tabs: TabId[] = [
@@ -91,9 +99,11 @@ export function RulesHome() {
       <PageHeader
         title="Rules"
         eyebrow={
-          pack.data
-            ? `${pack.data.name} · version ${pack.data.version}`
-            : undefined
+          all
+            ? "All countries"
+            : shown.data
+              ? `${shown.data.name} · version ${shown.data.version}`
+              : undefined
         }
         description="Choose which of the preset rules apply to your institution, and add your own. Nothing here needs code."
         actions={
@@ -115,9 +125,13 @@ export function RulesHome() {
       {tab ? (
         <Tabs
           value={tab}
-          onValueChange={(v) =>
-            router.replace(`/rules?tab=${v}` as "/rules", { scroll: false })
-          }
+          onValueChange={(v) => {
+            const next = new URLSearchParams(params.toString());
+            next.set("tab", v);
+            router.replace(`/rules?${next.toString()}` as "/rules", {
+              scroll: false,
+            });
+          }}
         >
           <TabList aria-label="Rules" className="mb-4">
             {tabs.includes("presets") ? (
@@ -130,12 +144,15 @@ export function RulesHome() {
               <Tab value="references">Deadlines and references</Tab>
             ) : null}
           </TabList>
+          {compliance && tab !== "custom" ? <CountrySwitcher /> : null}
           {tabs.includes("presets") ? (
             <TabPanel value="presets">
-              {pack.isError ? (
-                <ErrorState error={pack.error} />
+              {all ? (
+                <AllCountries />
+              ) : shown.isError ? (
+                <ErrorState error={shown.error} />
               ) : (
-                <PresetRules />
+                <PresetRules country={country} fallback={fallback} />
               )}
             </TabPanel>
           ) : null}
@@ -144,9 +161,20 @@ export function RulesHome() {
               <CustomRules />
             </TabPanel>
           ) : null}
-          {tabs.includes("references") && pack.data ? (
+          {tabs.includes("references") ? (
             <TabPanel value="references">
-              <References pack={pack.data} />
+              {all ? (
+                <div className="flex flex-col gap-4">
+                  <ExportLibrary name="every country" />
+                  <MatrixTab />
+                </div>
+              ) : shown.data ? (
+                <References pack={shown.data} jurisdiction={country} />
+              ) : shown.isError ? (
+                <ErrorState error={shown.error} />
+              ) : (
+                <Loading />
+              )}
             </TabPanel>
           ) : null}
         </Tabs>
@@ -155,25 +183,44 @@ export function RulesHome() {
   );
 }
 
-function References({ pack }: { pack: Schemas["CompliancePack"] }) {
+function References({
+  pack,
+  jurisdiction,
+}: {
+  pack: Schemas["CompliancePack"];
+  jurisdiction: string;
+}) {
   return (
     <Tabs defaultValue="clocks">
+      <div className="mb-4">
+        <ExportLibrary jurisdiction={jurisdiction} name={pack.name} />
+      </div>
       <TabList aria-label="References" className="mb-4">
-        <Tab value="clocks">Legal deadlines</Tab>
+        <Tab value="clocks">Deadlines</Tab>
         <Tab value="gaps">Open questions</Tab>
+        <Tab value="matrix">Countries side by side</Tab>
         <Tab value="glossary">Glossary</Tab>
         <Tab value="sources">Sources</Tab>
+        {pack.penalties?.length ? <Tab value="penalties">Penalties</Tab> : null}
         <Tab value="fx">Exchange rates</Tab>
       </TabList>
       <TabPanel value="clocks">
-        <ClocksTab />
+        <ClocksTab jurisdiction={jurisdiction} />
       </TabPanel>
       <TabPanel value="gaps">
-        <GapsTab />
+        <GapsTab jurisdiction={jurisdiction} />
+      </TabPanel>
+      <TabPanel value="matrix">
+        <MatrixTab />
       </TabPanel>
       <TabPanel value="glossary">
-        <GlossaryTab />
+        <GlossaryTab jurisdiction={jurisdiction} />
       </TabPanel>
+      {pack.penalties?.length ? (
+        <TabPanel value="penalties">
+          <PenaltyRegister pack={pack} />
+        </TabPanel>
+      ) : null}
       <TabPanel value="sources">
         <SourcesTab pack={pack} />
       </TabPanel>

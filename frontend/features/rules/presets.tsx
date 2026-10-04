@@ -18,12 +18,18 @@ import {
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
-import { matchesFilter, NO_FILTER, type RuleFilter } from "@/lib/compliance";
+import {
+  matchesFilter,
+  NO_FILTER,
+  OFF_REASON,
+  PROVENANCE,
+  type RuleFilter,
+} from "@/lib/compliance";
 import { formatCount } from "@/lib/format";
 import {
   useCompliancePack,
-  useCompliancePacks,
   useComplianceRules,
+  useJurisdictions,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
@@ -44,6 +50,7 @@ const STATE: Record<Mode, { label: string; tone: Tone }> = {
 };
 
 type Show = "" | "active" | "off";
+type Origin = "" | NonNullable<Rule["provenance"]> | "inherited";
 
 /** Turn a preset on or off, keeping its settings. Legal controls need a reason to go off. */
 function useSetMode() {
@@ -72,21 +79,43 @@ function useSetMode() {
   );
 }
 
+/** Where a preset comes from: its provenance, or the Nigerian rule it inherits. */
+function Origin({ rule }: { rule: Rule }) {
+  return (
+    <span className="flex flex-col items-start gap-1">
+      {rule.provenance ? (
+        <StatusPill tone={PROVENANCE[rule.provenance].tone}>
+          {PROVENANCE[rule.provenance].label}
+        </StatusPill>
+      ) : null}
+      {rule.inherited_from ? <Tag>From Nigeria&apos;s library</Tag> : null}
+      {rule.template ? <Tag>Based on {rule.template}</Tag> : null}
+      {rule.off_reason ? <Tag>{OFF_REASON[rule.off_reason]}</Tag> : null}
+    </span>
+  );
+}
+
 /**
- * Rules → Preset rules: the jurisdiction pack's rules, each activated or turned off here; the
- * packs of other jurisdictions can be browsed, read-only.
+ * Rules → Preset rules: one country's pack. In the default country each rule is activated or
+ * turned off here; other countries are read here, and switched on with a readiness check.
  */
-export function PresetRules() {
+export function PresetRules({
+  country,
+  fallback,
+}: {
+  country: string;
+  fallback: string | undefined;
+}) {
   const { can, environment } = useSession();
-  const packs = useCompliancePacks();
-  const own = packs.data?.data.find((p) => p.current);
-  const [jurisdiction, setJurisdiction] = useState("");
-  const browsing = !!jurisdiction && jurisdiction !== own?.jurisdiction;
-  const pack = useCompliancePack(browsing ? jurisdiction : undefined);
-  const q = useComplianceRules(browsing ? jurisdiction : undefined);
+  const jurisdictions = useJurisdictions();
+  const here = jurisdictions.data?.data.find((j) => j.code === country);
+  const browsing = !!here && !here.activated;
+  const pack = useCompliancePack(country || undefined);
+  const q = useComplianceRules(country || undefined);
   const setMode = useSetMode();
   const [f, setF] = useState<RuleFilter>(NO_FILTER);
   const [show, setShow] = useState<Show>("");
+  const [origin, setOrigin] = useState<Origin>("");
   const [turningOff, setTurningOff] = useState<Rule>();
   const [message, setMessage] = useState<string>();
   const all = useMemo(() => q.data?.data ?? [], [q.data]);
@@ -94,12 +123,20 @@ export function PresetRules() {
   const rules = all.filter(
     (r) =>
       matchesFilter(r, f) &&
-      (!show || (show === "active" ? r.mode !== "off" : r.mode === "off")),
+      (!show || (show === "active" ? r.mode !== "off" : r.mode === "off")) &&
+      (!origin ||
+        (origin === "inherited"
+          ? !!r.inherited_from
+          : r.provenance === origin)),
   );
+  const tagged = all.some((r) => r.provenance);
   const set = <K extends keyof RuleFilter>(k: K, v: RuleFilter[K]) =>
     setF((cur) => ({ ...cur, [k]: v }));
   const groups = pack.data?.groups ?? [];
-  const configurable = can("compliance:configure") && !browsing;
+  // Rules of the default country are configured here; another country's, once its
+  // activation has its own settings (activation and governance).
+  const configurable =
+    can("compliance:configure") && !browsing && country === fallback;
   const count = (k: Rule["kind"]) => {
     const of = mine.filter((r) => r.kind === k);
     return `${formatCount(of.filter((r) => r.mode === "live").length)} of ${formatCount(of.length)}`;
@@ -116,33 +153,22 @@ export function PresetRules() {
 
   return (
     <>
-      <div className="mb-4 flex flex-wrap items-center gap-3">
-        <Select
-          aria-label="Jurisdiction"
-          className="h-control-sm w-72 text-body-sm"
-          value={browsing ? jurisdiction : (own?.jurisdiction ?? "")}
-          onChange={(e) => setJurisdiction(e.target.value)}
-        >
-          {(packs.data?.data ?? []).map((p) => (
-            <option key={p.jurisdiction} value={p.jurisdiction}>
-              {p.name} ({p.jurisdiction}){p.current ? " · your pack" : ""}
-            </option>
-          ))}
-        </Select>
-        {packs.data && packs.data.data.length < 2 ? (
-          <span className="text-label text-text-muted">
-            Other jurisdictions appear here as their rule packs are researched
-            and verified.
-          </span>
-        ) : null}
-      </div>
       {browsing ? (
         <div className="mb-5">
           <Notice tone="info">
-            You are browsing the {pack.data?.name ?? jurisdiction} pack. Your
-            institution uses {own ? `the ${own.name} pack` : "another pack"}; to
-            use this one, change the jurisdiction in your institution profile.
-            Statuses here are the pack&apos;s defaults.
+            {pack.data?.name ?? country} is not switched on for your
+            institution, so these are its rules as the library ships them.
+            Switching a country on asks which licensed entity operates there,
+            checks what data its rules need, and needs a second person&apos;s
+            approval to go live.
+          </Notice>
+        </div>
+      ) : country !== fallback ? (
+        <div className="mb-5">
+          <Notice tone="info">
+            {pack.data?.name ?? country} is switched on for your institution.
+            Its rules run on events booked by its entity; changing their
+            settings here comes with country activation.
           </Notice>
         </div>
       ) : (
@@ -210,6 +236,24 @@ export function PresetRules() {
           <option value="active">On</option>
           <option value="off">Off</option>
         </Select>
+        {tagged ? (
+          <Select
+            aria-label="Where it comes from"
+            className="h-control-sm w-52 text-body-sm"
+            value={origin}
+            onChange={(e) => setOrigin(e.target.value as Origin)}
+          >
+            <option value="">Any origin</option>
+            {(Object.keys(PROVENANCE) as (keyof typeof PROVENANCE)[]).map(
+              (p) => (
+                <option key={p} value={p}>
+                  {PROVENANCE[p].label}
+                </option>
+              ),
+            )}
+            <option value="inherited">From Nigeria&apos;s library</option>
+          </Select>
+        ) : null}
         <label className="inline-flex items-center gap-2 text-body-sm text-text-secondary">
           <input
             type="checkbox"
@@ -229,35 +273,47 @@ export function PresetRules() {
             : ""}
         </span>
       </div>
+      {tagged ? (
+        <dl
+          aria-label="Where rules come from"
+          className="mb-3 grid gap-x-6 gap-y-1 text-body-sm text-text-secondary md:grid-cols-3"
+        >
+          {(Object.keys(PROVENANCE) as (keyof typeof PROVENANCE)[]).map((p) => (
+            <div key={p}>
+              <dt className="inline font-medium text-text-primary">
+                {PROVENANCE[p].label}:{" "}
+              </dt>
+              <dd className="inline">{PROVENANCE[p].meaning}</dd>
+            </div>
+          ))}
+        </dl>
+      ) : null}
       <Panel className="overflow-hidden">
         <Table aria-label="Preset rules">
           <thead>
             <tr>
               <Th>Rule</Th>
+              {tagged ? <Th>Where it comes from</Th> : null}
               <Th>Type</Th>
               <Th>Status</Th>
               <Th />
             </tr>
           </thead>
           <tbody>
-            {q.isLoading ? <SkeletonRows columns={4} /> : null}
+            {q.isLoading ? <SkeletonRows columns={tagged ? 5 : 4} /> : null}
             {rules.map((r) => {
               const fits = r.applicable !== false;
               return (
                 <Tr key={r.id}>
                   <Td className="max-w-2xl py-3">
-                    {browsing ? (
-                      <span className="font-medium text-text-primary">
-                        {r.name}
-                      </span>
-                    ) : (
-                      <Link
-                        href={`/compliance/rules/${r.id}`}
-                        className="font-medium text-text-primary hover:text-accent"
-                      >
-                        {r.name}
-                      </Link>
-                    )}
+                    <Link
+                      href={
+                        `/compliance/rules/${r.id}?jurisdiction=${country}` as "/compliance"
+                      }
+                      className="font-medium text-text-primary hover:text-accent"
+                    >
+                      {r.name}
+                    </Link>
                     <p className="line-clamp-2 text-body-sm text-text-secondary">
                       {r.description}
                     </p>
@@ -266,13 +322,24 @@ export function PresetRules() {
                       {r.regulators.join(", ")} · {r.id}
                     </p>
                   </Td>
+                  {tagged ? (
+                    <Td>
+                      <Origin rule={r} />
+                    </Td>
+                  ) : null}
                   <Td>
                     <StatusPill tone={KIND[r.kind].tone}>
                       {KIND[r.kind].label}
                     </StatusPill>
                   </Td>
                   <Td className="whitespace-nowrap">
-                    {fits ? (
+                    {browsing ? (
+                      <span className="text-body-sm text-text-muted">
+                        {r.defaults.enabled
+                          ? "On by default"
+                          : "Off by default"}
+                      </span>
+                    ) : fits ? (
                       <StatusPill tone={STATE[r.mode].tone}>
                         {STATE[r.mode].label}
                       </StatusPill>
