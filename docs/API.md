@@ -7,6 +7,11 @@ of truth: Go server stubs (`backend/internal/apigen`) and the TypeScript client
 (`frontend/lib/api/schema.gen.ts`) are generated from it with `make generate`, and CI fails when
 generated code is stale. An operation that is not in the contract cannot be routed.
 
+The public developer documentation (`/docs` on the site, linked from the landing page's footer)
+holds the integration guides (`frontend/app/(marketing)/docs`) and an API reference rendered from
+`frontend/lib/api/openapi.gen.json`, which `make generate` writes from the same contract. Guides
+state only what the code and these documents establish; change them with the behaviour.
+
 ## Current operations
 
 | Method | Path | Purpose |

@@ -81,7 +81,7 @@ generate: ## Regenerate server stubs, SQL code and the TypeScript API client
 	$(BACKEND) $(GO_TOOL) sqlc generate
 	$(FRONTEND) pnpm --silent generate:api
 
-GENERATED := backend/internal/apigen backend/internal/adminapi backend/internal/platform/db/sqlcgen frontend/lib/api/schema.gen.ts frontend/lib/api/admin.gen.ts
+GENERATED := backend/internal/apigen backend/internal/adminapi backend/internal/platform/db/sqlcgen frontend/lib/api/schema.gen.ts frontend/lib/api/admin.gen.ts frontend/lib/api/openapi.gen.json
 
 .PHONY: generate-check
 generate-check: generate ## Fail if generated code is not up to date with its sources

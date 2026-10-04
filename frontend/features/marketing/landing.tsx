@@ -295,15 +295,16 @@ function Footer() {
         { href: "#features", label: "Real-time scoring" },
         { href: "#features", label: "Alerts and cases" },
         { href: "#features", label: "Rules" },
-        { href: "#features", label: "Developer API" },
+        { href: "/docs", label: "Developer API" },
       ],
     },
     {
       title: "Resources",
       links: [
+        { href: "/docs", label: "Developer docs" },
+        { href: "/docs/reference", label: "API reference" },
         { href: GITHUB_URL, label: "Source code" },
         { href: `${GITHUB_URL}/blob/main/docs/SECURITY.md`, label: "Security" },
-        { href: `${GITHUB_URL}/tree/main/docs`, label: "Documentation" },
       ],
     },
   ];
