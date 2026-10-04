@@ -364,6 +364,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rules/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How often each of the workspace's rules matched
+         * @description Requires `rules:read`. For every rule of the environment, how many evaluations it matched
+         *     (active and monitoring alike) over the last `days` days, the last match and a count per UTC
+         *     day, beside the number of evaluations in the period. Dry runs are not counted.
+         */
+        get: operations["getRuleStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/test-recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a condition on recent events
+         * @description Requires `rules:read`. Runs a condition, saved or not, against the facts of the
+         *     environment's most recent evaluations (at most 5,000, within `days` days) and says how
+         *     many it would have matched, with up to 25 of them, newest first. Nothing is stored and no
+         *     score changes. The facts are those recorded at the time; behaviour that has changed since
+         *     is not recomputed.
+         */
+        post: operations["testRuleOnRecentEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -1496,6 +1542,27 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The jurisdictions with a rule pack
+         * @description Requires `compliance:read`. The latest version of every loaded jurisdiction pack, with its
+         *     rule counts, and which one the workspace's profile uses.
+         */
+        get: operations["listCompliancePacks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/pack": {
         parameters: {
             query?: never;
@@ -1506,7 +1573,8 @@ export interface paths {
         /**
          * The workspace's rule pack
          * @description Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
-         *     recently loaded pack when no profile is set.
+         *     recently loaded pack when no profile is set; with `jurisdiction`, another jurisdiction's
+         *     latest pack, to browse.
          */
         get: operations["getCompliancePack"];
         put?: never;
@@ -2541,6 +2609,68 @@ export interface components {
             definition?: {
                 [key: string]: unknown;
             };
+        };
+        CompliancePackSummary: {
+            id: string;
+            jurisdiction: string;
+            name: string;
+            version: string;
+            controls: number;
+            signals: number;
+            governance: number;
+            /** @description The pack the workspace's profile uses. */
+            current: boolean;
+        };
+        RuleStats: {
+            /**
+             * Format: date-time
+             * @description Start of the first UTC day counted.
+             */
+            since: string;
+            days: number;
+            /**
+             * Format: int64
+             * @description Evaluations (not dry runs) in the period.
+             */
+            evaluations: number;
+            rules: {
+                rule_id: string;
+                /** Format: int64 */
+                matches: number;
+                /** Format: date-time */
+                last_matched_at: string | null;
+                /** @description Matches per UTC day, oldest first, one entry per day of the period. */
+                daily: {
+                    /** Format: date */
+                    day: string;
+                    /** Format: int64 */
+                    matches: number;
+                }[];
+            }[];
+        };
+        RecentRuleTest: {
+            /** Format: date-time */
+            since: string;
+            /** @description Evaluations checked. */
+            checked: number;
+            matched: number;
+            /** @description More evaluations in the period than were checked (the newest 5,000 were). */
+            truncated: boolean;
+            sample: {
+                evaluation_id: string;
+                event_id: string;
+                /** Format: date-time */
+                at: string;
+                event_type: string;
+                /**
+                 * Format: int64
+                 * @description Minor units of currency, for transactions.
+                 */
+                amount: number | null;
+                currency: string | null;
+                decision: string;
+                risk_score: number;
+            }[];
         };
         ComplianceRuleList: {
             data: components["schemas"]["ComplianceRule"][];
@@ -4628,6 +4758,64 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
+    getRuleStats: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statistics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleStats"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    testRuleOnRecentEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    condition: components["schemas"]["RuleCondition"];
+                    /** @default 7 */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description What the condition would have matched. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentRuleTest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
     getRule: {
         parameters: {
             query?: never;
@@ -6361,9 +6549,40 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
-    getCompliancePack: {
+    listCompliancePacks: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The packs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CompliancePackSummary"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getCompliancePack: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+                 *     the library's default modes. Without it, the workspace's own pack.
+                 */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6400,6 +6619,11 @@ export interface operations {
                 q?: string;
                 /** @description Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile. */
                 applicable?: boolean;
+                /**
+                 * @description Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+                 *     the library's default modes. Without it, the workspace's own pack.
+                 */
+                jurisdiction?: string;
             };
             header?: never;
             path?: never;

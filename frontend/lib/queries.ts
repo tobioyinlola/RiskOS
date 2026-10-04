@@ -390,22 +390,57 @@ export function useInvites() {
  */
 const COMPLIANCE_STALE = 10 * 60_000;
 
-export function useCompliancePack() {
+/** The workspace's pack or, with a jurisdiction, that jurisdiction's pack to browse. */
+export function useCompliancePack(jurisdiction?: string) {
   return useQuery({
-    queryKey: ["compliance", "pack"],
+    queryKey: ["compliance", "pack", jurisdiction ?? "own"],
     staleTime: COMPLIANCE_STALE,
     retry: false,
-    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/pack")),
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/pack", {
+          params: { query: jurisdiction ? { jurisdiction } : {} },
+        }),
+      ),
+  });
+}
+
+/** Every loaded jurisdiction's pack. */
+export function useCompliancePacks() {
+  return useQuery({
+    queryKey: ["compliance", "packs"],
+    staleTime: COMPLIANCE_STALE,
+    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/packs")),
+  });
+}
+
+/** How often each of the workspace's rules matched, per day, over the last days. */
+export function useRuleStats(days = 7) {
+  const key = useKey("rules", "stats", days);
+  return useQuery({
+    queryKey: key,
+    refetchInterval: 60_000,
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/rules/stats", {
+          params: { query: { days } },
+        }),
+      ),
   });
 }
 
 /** Every rule of the pack (lists never carry engineering logic). */
-export function useComplianceRules() {
-  const key = useKey("compliance", "rules");
+export function useComplianceRules(jurisdiction?: string) {
+  const key = useKey("compliance", "rules", jurisdiction ?? "own");
   return useQuery({
     queryKey: key,
     staleTime: COMPLIANCE_STALE,
-    queryFn: async () => unwrap(await api().GET("/api/v1/compliance/rules")),
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/rules", {
+          params: { query: jurisdiction ? { jurisdiction } : {} },
+        }),
+      ),
   });
 }
 

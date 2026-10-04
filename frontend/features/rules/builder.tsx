@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, type FormEvent } from "react";
+import Link from "next/link";
+import { useId, useMemo, useState, type FormEvent } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input, Select, Textarea } from "@/components/ui/field";
@@ -8,7 +9,13 @@ import { Panel, PanelBody, PanelHeader } from "@/components/ui/panel";
 import { Notice } from "@/components/ui/states";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
-import { humanize } from "@/lib/format";
+import { countryOptions, currencyOptions, type Option } from "@/lib/countries";
+import {
+  formatAmount,
+  formatCount,
+  formatTimestamp,
+  humanize,
+} from "@/lib/format";
 import { useCatalog, useRules } from "@/lib/queries";
 import {
   codeFromName,
@@ -23,6 +30,7 @@ import {
   type Draft,
   type Group,
   type Match,
+  type Tree,
   type Value,
 } from "@/lib/rule-builder";
 import { useSession } from "@/lib/session";
@@ -30,6 +38,7 @@ import { useSession } from "@/lib/session";
 import type { RuleChange } from "./approvals";
 
 type Rule = Schemas["Rule"];
+type RecentTest = Schemas["RecentRuleTest"];
 type Severity = Schemas["Severity"];
 type Status = "monitor" | "active" | "off";
 
@@ -152,20 +161,102 @@ function ValueInput({
         })}
       </fieldset>
     );
-  // Countries and currencies: ISO codes, separated by commas.
+  // Countries and currencies: picked by name, kept as ISO codes.
   return (
-    <Input
-      aria-label={label}
-      value={chosen.join(", ")}
-      onChange={(e) => {
-        const codes = e.target.value
-          .split(/[\s,]+/)
-          .map((x) => x.trim().toUpperCase())
-          .filter(Boolean);
-        onChange(codes.length ? codes : null);
-      }}
-      placeholder={field.kind === "currency" ? "e.g. NGN, USD" : "e.g. NG, GH"}
+    <CodePicker
+      label={label}
+      noun={field.kind === "currency" ? "currency" : "country"}
+      options={field.kind === "currency" ? currencyOptions() : countryOptions()}
+      value={chosen}
+      onChange={(codes) => onChange(codes.length ? codes : null)}
     />
+  );
+}
+
+/** Pick countries or currencies by typing their name; each choice shows as a removable chip. */
+function CodePicker({
+  label,
+  noun,
+  options,
+  value,
+  onChange,
+}: {
+  label: string;
+  noun: string;
+  options: Option[];
+  value: string[];
+  onChange: (codes: string[]) => void;
+}) {
+  const id = useId();
+  const [text, setText] = useState("");
+  const name = (code: string) =>
+    options.find((o) => o.code === code)?.name ?? code;
+  const add = (code: string) => {
+    if (!value.includes(code)) onChange([...value, code]);
+    setText("");
+  };
+  const exact = (t: string) => {
+    const q = t.trim().toLowerCase();
+    return q
+      ? options.find(
+          (o) => o.name.toLowerCase() === q || o.code.toLowerCase() === q,
+        )
+      : undefined;
+  };
+  return (
+    <div className="flex flex-col gap-2">
+      {value.length ? (
+        <ul className="flex flex-wrap gap-1.5" aria-label={`${label}: chosen`}>
+          {value.map((code) => (
+            <li
+              key={code}
+              className="inline-flex items-center gap-1 rounded-full border border-border-strong bg-bg-raised py-0.5 pr-1 pl-2.5 text-body-sm"
+            >
+              {name(code)}
+              <button
+                type="button"
+                className="inline-flex size-5 items-center justify-center rounded-full text-text-muted hover:bg-bg-sunken hover:text-text-primary"
+                aria-label={`Remove ${name(code)}`}
+                onClick={() => onChange(value.filter((c) => c !== code))}
+              >
+                ×
+              </button>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+      <Input
+        aria-label={label}
+        list={`${id}-options`}
+        value={text}
+        placeholder={`Type a ${noun}, then pick it`}
+        onChange={(e) => {
+          const hit = exact(e.target.value);
+          if (hit) add(hit.code);
+          else setText(e.target.value);
+        }}
+        onKeyDown={(e) => {
+          if (e.key !== "Enter") return;
+          e.preventDefault();
+          const q = text.trim().toLowerCase();
+          const hit = q
+            ? options.find(
+                (o) =>
+                  o.name.toLowerCase().startsWith(q) ||
+                  o.code.toLowerCase() === q,
+              )
+            : undefined;
+          if (hit) add(hit.code);
+        }}
+      />
+      <datalist id={`${id}-options`}>
+        {options
+          .filter((o) => !value.includes(o.code))
+          .map((o) => (
+            <option key={o.code} value={o.name} />
+          ))}
+      </datalist>
+    </div>
   );
 }
 
@@ -621,6 +712,10 @@ export function RuleBuilder({
             <p className="text-label text-text-muted">
               {STATUS[status].label}: {STATUS[status].help}
             </p>
+            <TryRecent
+              tree={"tree" in built ? built.tree : null}
+              catalog={catalog}
+            />
             {environment === "production" ? (
               <Notice>
                 Production: saving sends the rule for approval. It applies when
@@ -705,6 +800,109 @@ function GroupBox({
       >
         Add condition to group
       </Button>
+    </div>
+  );
+}
+
+/** Run the rule as it stands on recent events: what it would have matched, nothing stored. */
+function TryRecent({
+  tree,
+  catalog,
+}: {
+  tree: Tree | null;
+  catalog: CatalogField[];
+}) {
+  const [days, setDays] = useState(7);
+  const [result, setResult] = useState<{
+    key: string;
+    days: number;
+    r: RecentTest;
+  }>();
+  const key = JSON.stringify(tree);
+  const types = catalog.find((f) => f.name === EVENT_TYPE)?.values ?? [];
+  const typeLabel = (t: string) => types.find((x) => x.value === t)?.label ?? t;
+  const run = useAction(
+    async () =>
+      unwrap(
+        await api().POST("/api/v1/rules/test-recent", {
+          body: { condition: tree as Record<string, unknown>, days },
+        }),
+      ),
+    { onSuccess: (r) => setResult({ key, days, r }) },
+  );
+  const shown = result && result.key === key ? result : undefined;
+  const pct =
+    shown && shown.r.checked ? (shown.r.matched / shown.r.checked) * 100 : 0;
+  return (
+    <div className="flex flex-col gap-3 border-t border-border-subtle pt-4">
+      <p className="text-label font-medium text-text-primary">
+        Try it on recent events
+      </p>
+      <div className="flex items-center gap-2">
+        <Select
+          aria-label="Period to try"
+          className="h-control-sm w-auto text-body-sm"
+          value={days}
+          onChange={(e) => setDays(Number(e.target.value))}
+        >
+          <option value={1}>Last 24 hours</option>
+          <option value={7}>Last 7 days</option>
+          <option value={30}>Last 30 days</option>
+        </Select>
+        <Button
+          type="button"
+          size="sm"
+          disabled={!tree || run.busy}
+          onClick={() => void run.run()}
+        >
+          Try it
+        </Button>
+      </div>
+      {!tree ? (
+        <p className="text-label text-text-muted">
+          Finish the conditions to try the rule.
+        </p>
+      ) : null}
+      {run.error ? <Notice tone="error">{run.error}</Notice> : null}
+      {shown ? (
+        <div className="flex flex-col gap-2" role="status">
+          <p className="text-body-sm">
+            Would have matched <strong>{formatCount(shown.r.matched)}</strong>{" "}
+            of {formatCount(shown.r.checked)} events in the{" "}
+            {shown.days === 1 ? "last 24 hours" : `last ${shown.days} days`}
+            {shown.r.checked
+              ? ` (${pct < 0.1 && pct > 0 ? "<0.1" : pct.toFixed(1)}%)`
+              : ""}
+            .
+          </p>
+          {shown.r.truncated ? (
+            <p className="text-label text-text-muted">
+              Only the newest 5,000 events were checked.
+            </p>
+          ) : null}
+          {shown.r.sample.length ? (
+            <ul className="flex flex-col gap-1 text-label">
+              {shown.r.sample.slice(0, 5).map((m) => (
+                <li key={m.evaluation_id}>
+                  <Link
+                    href={`/events?event=${m.event_id}` as "/events"}
+                    className="text-text-secondary hover:text-accent"
+                  >
+                    {formatTimestamp(m.at)} · {typeLabel(m.event_type)}
+                    {m.amount !== null && m.currency
+                      ? ` · ${formatAmount(m.amount, m.currency)}`
+                      : ""}{" "}
+                    · {humanize(m.decision)}
+                  </Link>
+                </li>
+              ))}
+            </ul>
+          ) : null}
+          <p className="text-label text-text-muted">
+            Uses what was known when each event happened; nothing is stored.
+          </p>
+        </div>
+      ) : null}
     </div>
   );
 }

@@ -755,6 +755,21 @@ export async function mockApi(page: Page): Promise<MockApi> {
       });
     }
     switch (path) {
+      case "/compliance/packs":
+        return json(route, {
+          data: [
+            {
+              id: "ng",
+              jurisdiction: "NG",
+              name: "Nigeria",
+              version: PACK.version,
+              controls: 2,
+              signals: 1,
+              governance: 0,
+              current: true,
+            },
+          ],
+        });
       case "/compliance/changes": {
         const status = new URL(route.request().url()).searchParams.get(
           "status",
@@ -1245,6 +1260,46 @@ export async function mockApi(page: Page): Promise<MockApi> {
       case `/rule-changes/${RULE_CHANGE_ID}/approve`:
         state.changeStatus = "approved";
         return json(route, ruleChange("approved"));
+      case "/rules/stats": {
+        const today = new Date().toISOString().slice(0, 10);
+        const day = (back: number) =>
+          new Date(Date.parse(today) - back * 86_400_000)
+            .toISOString()
+            .slice(0, 10);
+        return json(route, {
+          since: `${day(6)}T00:00:00Z`,
+          days: 7,
+          evaluations: 1240,
+          rules: state.rules.map((r) => ({
+            rule_id: r.id,
+            matches: 9,
+            last_matched_at: NOW,
+            daily: [6, 5, 4, 3, 2, 1, 0].map((b) => ({
+              day: day(b),
+              matches: b === 0 ? 4 : b % 2,
+            })),
+          })),
+        });
+      }
+      case "/rules/test-recent":
+        return json(route, {
+          since: NOW,
+          checked: 1240,
+          matched: 4,
+          truncated: false,
+          sample: [
+            {
+              evaluation_id: "evl_1",
+              event_id: "evt_1",
+              at: NOW,
+              event_type: "transaction",
+              amount: 250_000_000,
+              currency: "NGN",
+              decision: "review",
+              risk_score: 62,
+            },
+          ],
+        });
       case "/rules":
         if (method === "POST") {
           const rule = {

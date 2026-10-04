@@ -50,14 +50,50 @@ test("build a rule without code: when, if with and / or, then", async ({
   await expect(page.getByText(/would never be true/)).toBeVisible();
   await page.getByRole("button", { name: "Remove condition 4" }).click();
 
+  // Countries are picked by name; the rule keeps their codes.
+  await page
+    .getByRole("button", { name: "Add condition", exact: true })
+    .click();
+  await page
+    .getByLabel("Condition 4: what to check")
+    .selectOption("beneficiary.country");
+  await page
+    .getByRole("combobox", { name: "Condition 4: value" })
+    .fill("Ghana");
+  await expect(
+    page.getByRole("button", { name: "Remove Ghana" }),
+  ).toBeVisible();
+  await page
+    .getByRole("combobox", { name: "Condition 4: value" })
+    .fill("united kingdom");
+  await page
+    .getByRole("combobox", { name: "Condition 4: value" })
+    .press("Enter");
+  await expect(
+    page.getByRole("button", { name: "Remove United Kingdom" }),
+  ).toBeVisible();
+
   // Then: 40 risk points, high.
   await page.getByLabel("Risk points to add").fill("40");
   await page.getByLabel("How serious it is").selectOption("high");
   await expect(
     page.getByText(
-      "When a transaction happens, if amount is more than 1,000,000.00 and new beneficiary for this customer is yes and (channel is card or wallet), add 40 risk points (high severity).",
+      "When a transaction happens, if amount is more than 1,000,000.00 and new beneficiary for this customer is yes and (channel is card or wallet) and beneficiary's country is Ghana or United Kingdom, add 40 risk points (high severity).",
     ),
   ).toBeVisible();
+
+  // Try it on recent events before saving.
+  await page.getByLabel("Period to try").selectOption("30");
+  await page.getByRole("button", { name: "Try it" }).click();
+  await expect(
+    page.getByText(/Would have matched 4 of 1,240 events in the last 30 days/),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", {
+      name: /Transaction · .*2,500,000\.00.* · Review/,
+    }),
+  ).toHaveAttribute("href", "/events?event=evt_1");
+  expect(api.calls).toContain("POST /rules/test-recent");
   await expect(
     page.getByRole("radio", { name: /Monitor first/ }),
   ).toBeChecked();
@@ -80,6 +116,7 @@ test("build a rule without code: when, if with and / or, then", async ({
         { field: "transaction.amount", op: "gt", value: 100_000_000 },
         { field: "feature.new_beneficiary", op: "eq", value: true },
         { field: "transaction.channel", op: "in", value: ["card", "wallet"] },
+        { field: "beneficiary.country", op: "in", value: ["GH", "GB"] },
       ],
     },
   });
@@ -90,8 +127,25 @@ test("build a rule without code: when, if with and / or, then", async ({
     .getByRole("main")
     .getByRole("link", { name: "Rules", exact: true })
     .click();
-  await expect(page.getByRole("table", { name: "Your rules" })).toContainText(
-    "add 40 risk points (high severity)",
-  );
+  const list = page.getByRole("table", { name: "Your rules" });
+  await expect(list).toContainText("add 40 risk points (high severity)");
+  // How many are on, and what each matched over the last 7 days.
+  await expect(
+    page.getByText("Monitoring", { exact: true }).first(),
+  ).toBeVisible();
+  await expect(
+    list.getByRole("img", { name: /matches per day: .*4 on/ }),
+  ).toBeVisible();
+  await expect(list).toContainText("9");
+
+  // The rule's own activity.
+  await list
+    .getByRole("link", { name: "Large transfer to a new beneficiary" })
+    .click();
+  await page.getByRole("tab", { name: "Activity" }).click();
+  await expect(page.getByText("Events matched")).toBeVisible();
+  await expect(
+    page.getByRole("img", { name: /^Matches per day:/ }),
+  ).toBeVisible();
   expect(api.problems).toEqual([]);
 });

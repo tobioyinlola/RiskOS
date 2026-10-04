@@ -20,7 +20,11 @@ import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { matchesFilter, NO_FILTER, type RuleFilter } from "@/lib/compliance";
 import { formatCount } from "@/lib/format";
-import { useCompliancePack, useComplianceRules } from "@/lib/queries";
+import {
+  useCompliancePack,
+  useCompliancePacks,
+  useComplianceRules,
+} from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
 type Rule = Schemas["ComplianceRule"];
@@ -68,11 +72,18 @@ function useSetMode() {
   );
 }
 
-/** Rules → Preset rules: the jurisdiction pack's rules, each activated or turned off here. */
+/**
+ * Rules → Preset rules: the jurisdiction pack's rules, each activated or turned off here; the
+ * packs of other jurisdictions can be browsed, read-only.
+ */
 export function PresetRules() {
   const { can, environment } = useSession();
-  const pack = useCompliancePack();
-  const q = useComplianceRules();
+  const packs = useCompliancePacks();
+  const own = packs.data?.data.find((p) => p.current);
+  const [jurisdiction, setJurisdiction] = useState("");
+  const browsing = !!jurisdiction && jurisdiction !== own?.jurisdiction;
+  const pack = useCompliancePack(browsing ? jurisdiction : undefined);
+  const q = useComplianceRules(browsing ? jurisdiction : undefined);
   const setMode = useSetMode();
   const [f, setF] = useState<RuleFilter>(NO_FILTER);
   const [show, setShow] = useState<Show>("");
@@ -88,7 +99,7 @@ export function PresetRules() {
   const set = <K extends keyof RuleFilter>(k: K, v: RuleFilter[K]) =>
     setF((cur) => ({ ...cur, [k]: v }));
   const groups = pack.data?.groups ?? [];
-  const configurable = can("compliance:configure");
+  const configurable = can("compliance:configure") && !browsing;
   const count = (k: Rule["kind"]) => {
     const of = mine.filter((r) => r.kind === k);
     return `${formatCount(of.filter((r) => r.mode === "live").length)} of ${formatCount(of.length)}`;
@@ -105,11 +116,45 @@ export function PresetRules() {
 
   return (
     <>
-      <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
-        <Metric label="Legal controls active" value={count("control")} />
-        <Metric label="Risk signals active" value={count("signal")} />
-        <Metric label="Governance presets active" value={count("governance")} />
+      <div className="mb-4 flex flex-wrap items-center gap-3">
+        <Select
+          aria-label="Jurisdiction"
+          className="h-control-sm w-72 text-body-sm"
+          value={browsing ? jurisdiction : (own?.jurisdiction ?? "")}
+          onChange={(e) => setJurisdiction(e.target.value)}
+        >
+          {(packs.data?.data ?? []).map((p) => (
+            <option key={p.jurisdiction} value={p.jurisdiction}>
+              {p.name} ({p.jurisdiction}){p.current ? " · your pack" : ""}
+            </option>
+          ))}
+        </Select>
+        {packs.data && packs.data.data.length < 2 ? (
+          <span className="text-label text-text-muted">
+            Other jurisdictions appear here as their rule packs are researched
+            and verified.
+          </span>
+        ) : null}
       </div>
+      {browsing ? (
+        <div className="mb-5">
+          <Notice tone="info">
+            You are browsing the {pack.data?.name ?? jurisdiction} pack. Your
+            institution uses {own ? `the ${own.name} pack` : "another pack"}; to
+            use this one, change the jurisdiction in your institution profile.
+            Statuses here are the pack&apos;s defaults.
+          </Notice>
+        </div>
+      ) : (
+        <div className="mb-5 grid grid-cols-1 gap-4 sm:grid-cols-3">
+          <Metric label="Legal controls active" value={count("control")} />
+          <Metric label="Risk signals active" value={count("signal")} />
+          <Metric
+            label="Governance presets active"
+            value={count("governance")}
+          />
+        </div>
+      )}
       {message ? (
         <div className="mb-4">
           <Notice tone="info">{message}</Notice>
@@ -201,12 +246,18 @@ export function PresetRules() {
               return (
                 <Tr key={r.id}>
                   <Td className="max-w-2xl py-3">
-                    <Link
-                      href={`/compliance/rules/${r.id}`}
-                      className="font-medium text-text-primary hover:text-accent"
-                    >
-                      {r.name}
-                    </Link>
+                    {browsing ? (
+                      <span className="font-medium text-text-primary">
+                        {r.name}
+                      </span>
+                    ) : (
+                      <Link
+                        href={`/compliance/rules/${r.id}`}
+                        className="font-medium text-text-primary hover:text-accent"
+                      >
+                        {r.name}
+                      </Link>
+                    )}
                     <p className="line-clamp-2 text-body-sm text-text-secondary">
                       {r.description}
                     </p>

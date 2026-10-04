@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from "next/navigation";
 import { Button } from "@/components/ui/button";
 import { Tab, TabList, TabPanel, Tabs } from "@/components/ui/misc";
 import {
+  Metric,
   PageHeader,
   Panel,
   PanelBody,
@@ -22,12 +23,13 @@ import {
 import { DataCell, Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
-import { formatAge, formatTimestamp } from "@/lib/format";
+import { formatAge, formatCount, formatTimestamp } from "@/lib/format";
 import {
   useCatalog,
   useCompliancePack,
   useRule,
   useRules,
+  useRuleStats,
   useRuleVersions,
   useUserName,
 } from "@/lib/queries";
@@ -49,6 +51,7 @@ import {
   ProfileBar,
   SourcesTab,
 } from "../compliance/library";
+import { RuleActivity, Sparkline } from "./activity";
 import { isChange, PendingChangeNotice, PendingChanges } from "./approvals";
 import { RuleBuilder } from "./builder";
 import { PresetRules } from "./presets";
@@ -181,65 +184,103 @@ function References({ pack }: { pack: Schemas["CompliancePack"] }) {
   );
 }
 
-/** Rules → Your rules: the institution's own rules, each said in words. */
+/**
+ * Rules → Your rules: the institution's own rules, each said in words, with how many are on and
+ * what each has matched over the last 7 days.
+ */
 function CustomRules() {
   const q = useRules();
   const catalog = useCatalog();
+  const stats = useRuleStats(7);
   const fields = catalog.data?.fields ?? [];
   const rules = q.data?.data ?? [];
+  const statOf = (id: string) =>
+    stats.data?.rules.find((x) => x.rule_id === id);
+  const count = (label: string) =>
+    rules.filter((r) => STATE(r).label === label).length;
+  const total = (stats.data?.rules ?? []).reduce((n, x) => n + x.matches, 0);
   return (
-    <Panel className="overflow-hidden">
-      <Table aria-label="Your rules">
-        <thead>
-          <tr>
-            <Th>Rule</Th>
-            <Th>Status</Th>
-            <Th className="text-right">Risk points</Th>
-            <Th>Changed</Th>
-          </tr>
-        </thead>
-        <tbody>
-          {q.isLoading ? <SkeletonRows columns={4} /> : null}
-          {rules.map((r) => (
-            <Tr key={r.id}>
-              <Td className="max-w-2xl py-3">
-                <Link
-                  href={`/rules/${r.id}` as "/rules"}
-                  className="font-medium text-text-primary hover:text-accent"
-                >
-                  {r.name}
-                </Link>
-                {fields.length ? (
-                  <p className="text-body-sm text-text-secondary">
-                    {ruleSentence(r, fields)}
-                  </p>
-                ) : null}
-              </Td>
-              <Td className="whitespace-nowrap">
-                <StatusPill tone={STATE(r).tone}>{STATE(r).label}</StatusPill>
-                {r.pending_change_id ? (
-                  <span className="mt-1 block text-label text-text-muted">
-                    Waiting for approval
-                  </span>
-                ) : null}
-              </Td>
-              <DataCell className="text-right">+{r.weight}</DataCell>
-              <DataCell className="text-text-muted">
-                {formatAge(r.updated_at)}
-              </DataCell>
-            </Tr>
-          ))}
-        </tbody>
-      </Table>
-      {q.isError ? <ErrorState error={q.error} className="m-4" /> : null}
-      {q.isSuccess && rules.length === 0 ? (
-        <Empty title="No rules of your own yet">
-          The preset rules and built-in signals already check every event. Add a
-          rule for what only your institution knows; start it in monitoring to
-          see what it would catch.
-        </Empty>
-      ) : null}
-    </Panel>
+    <>
+      <div className="mb-5 grid grid-cols-2 gap-4 lg:grid-cols-4">
+        <Metric label="Active" value={formatCount(count("Active"))} />
+        <Metric label="Monitoring" value={formatCount(count("Monitoring"))} />
+        <Metric label="Off" value={formatCount(count("Off"))} />
+        <Metric
+          label="Matches · last 7 days"
+          value={stats.data ? formatCount(total) : "–"}
+        />
+      </div>
+      <Panel className="overflow-hidden">
+        <Table aria-label="Your rules">
+          <thead>
+            <tr>
+              <Th>Rule</Th>
+              <Th>Status</Th>
+              <Th>Last 7 days</Th>
+              <Th>Last match</Th>
+              <Th className="text-right">Risk points</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.isLoading ? <SkeletonRows columns={5} /> : null}
+            {rules.map((r) => (
+              <Tr key={r.id}>
+                <Td className="max-w-2xl py-3">
+                  <Link
+                    href={`/rules/${r.id}` as "/rules"}
+                    className="font-medium text-text-primary hover:text-accent"
+                  >
+                    {r.name}
+                  </Link>
+                  {fields.length ? (
+                    <p className="text-body-sm text-text-secondary">
+                      {ruleSentence(r, fields)}
+                    </p>
+                  ) : null}
+                </Td>
+                <Td className="whitespace-nowrap">
+                  <StatusPill tone={STATE(r).tone}>{STATE(r).label}</StatusPill>
+                  {r.pending_change_id ? (
+                    <span className="mt-1 block text-label text-text-muted">
+                      Waiting for approval
+                    </span>
+                  ) : null}
+                </Td>
+                <Td>
+                  {statOf(r.id) ? (
+                    <span className="flex items-center gap-2">
+                      <Sparkline
+                        daily={statOf(r.id)!.daily}
+                        label={`${r.name}, matches per day`}
+                      />
+                      <span className="text-body-sm tabular-nums">
+                        {formatCount(statOf(r.id)!.matches)}
+                      </span>
+                    </span>
+                  ) : (
+                    <span className="text-text-muted">–</span>
+                  )}
+                </Td>
+                <DataCell className="text-text-muted">
+                  {statOf(r.id)?.last_matched_at
+                    ? formatAge(statOf(r.id)!.last_matched_at!)
+                    : "Never"}
+                </DataCell>
+                <DataCell className="text-right">+{r.weight}</DataCell>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+        {q.isError ? <ErrorState error={q.error} className="m-4" /> : null}
+        {q.isSuccess && rules.length === 0 ? (
+          <Empty title="No rules of your own yet">
+            The preset rules and built-in signals already check every event. Add
+            a rule for what only your institution knows; start it in monitoring
+            to see what it would catch.
+          </Empty>
+        ) : null}
+      </Panel>
+    </>
   );
 }
 
@@ -295,6 +336,7 @@ export function RuleDetail({ id }: { id: string }) {
       <Tabs defaultValue="rule">
         <TabList aria-label="Rule" className="mb-4">
           <Tab value="rule">Rule</Tab>
+          <Tab value="activity">Activity</Tab>
           <Tab value="history">History</Tab>
         </TabList>
         <TabPanel value="rule">
@@ -319,6 +361,9 @@ export function RuleDetail({ id }: { id: string }) {
               </PanelBody>
             </Panel>
           )}
+        </TabPanel>
+        <TabPanel value="activity">
+          <RuleActivity ruleId={r.id} />
         </TabPanel>
         <TabPanel value="history">
           <RuleVersions rule={r} fields={fields} />
