@@ -12,9 +12,15 @@ import (
 var ErrInvalid = errors.New("invalid rule pack")
 
 var ( //nolint:gochecknoglobals // compiled once, never mutated
-	idPattern   = regexp.MustCompile(`^(REG|ATO|VEL|MUL|BEH|CNP|LEN|SEC|INS|SIM|CRY|PON|GOV)-[0-9]{2}$`)
-	namePattern = regexp.MustCompile(`^[a-z][a-z0-9_]{0,40}$`)
+	idPattern = regexp.MustCompile(`^(REG|ATO|VEL|MUL|BEH|CNP|LEN|SEC|INS|SIM|CRY|PON|GOV)-[0-9]{2}$`)
+	// countryIDPattern is a country library's rule ID (ADR-0007): GH-REG-01, RW-TM-24.
+	countryIDPattern = regexp.MustCompile(`^([A-Z]{2})-(REG|TM|SEC|GOV)-[0-9]{2}$`)
+	namePattern      = regexp.MustCompile(`^[a-z][a-z0-9_]{0,40}$`)
+	currencyCode     = regexp.MustCompile(`^[A-Z]{3}$`)
 )
+
+// IsRuleID reports whether id is a pack rule ID of either form.
+func IsRuleID(id string) bool { return idPattern.MatchString(id) || countryIDPattern.MatchString(id) }
 
 // kindFor is the kind a rule ID's prefix implies.
 func kindFor(prefix string) Kind {
@@ -27,6 +33,14 @@ func kindFor(prefix string) Kind {
 		return KindSignal
 	}
 }
+
+// statusFor is the status each kind has.
+func statusFor(k Kind) Status {
+	return map[Kind]Status{KindControl: StatusRegulatory, KindSignal: StatusRecommended, KindGovernance: StatusGovernance}[k]
+}
+
+// lineageKinds are how a country rule relates to an earlier pack's rules.
+var lineageKinds = []string{"param", "analogue", "cross_reference", "stricter", "new_local"} //nolint:gochecknoglobals // fixed vocabulary
 
 func oneOf(v string, values ...string) bool { return slices.Contains(values, v) }
 
@@ -44,6 +58,15 @@ func Validate(p *Pack) error {
 	}
 	if p.ID == "" || p.Version == "" || p.Jurisdiction == "" || p.Name == "" {
 		fail("pack: id, version, jurisdiction and name are required")
+	}
+	switch _, legacy := DefaultLocale(p.Jurisdiction); {
+	case p.Currency == "" && p.Timezone == "" && legacy:
+	case !currencyCode.MatchString(p.Currency) || p.Timezone == "":
+		fail("pack: currency (ISO 4217) and timezone are required")
+	default:
+		if _, err := time.LoadLocation(p.Timezone); err != nil {
+			fail("pack: unknown timezone %q", p.Timezone)
+		}
 	}
 	ids := func(n int, id func(int) string, what string) map[string]bool {
 		m := map[string]bool{}
@@ -71,11 +94,32 @@ func Validate(p *Pack) error {
 				fail("clocks.%s: unknown source %s", c.ID, s)
 			}
 		}
-		if c.Hours <= 0 || c.Duty == "" || c.Requirement == "" {
-			fail("clocks.%s: hours, duty and requirement are required", c.ID)
+		if c.Duty == "" || c.Requirement == "" {
+			fail("clocks.%s: duty and requirement are required", c.ID)
+		}
+		switch k := c.ClockKindOf(); {
+		case !oneOf(string(k), string(ClockLegal), string(ClockPolicy), string(ClockPlaceholder), string(ClockNotFound)):
+			fail("clocks.%s: unknown kind %q", c.ID, k)
+		case k == ClockNotFound && c.Hours != nil:
+			fail("clocks.%s: a clock that was not found has no hours (it is never shown as zero)", c.ID)
+		case k != ClockNotFound && (c.Hours == nil || *c.Hours < 0):
+			fail("clocks.%s: hours are required (0 means immediately)", c.ID)
+		}
+	}
+	for _, pen := range p.Penalties {
+		if pen.Provision == "" || pen.Penalty == "" {
+			fail("penalties: provision and penalty are required")
+		}
+		for _, s := range pen.Sources {
+			if !sources[s] {
+				fail("penalties: unknown source %s", s)
+			}
 		}
 	}
 	for _, g := range p.Gaps {
+		if !oneOf(g.Kind, "", "conflict", "unverified") {
+			fail("gaps.%s: kind must be conflict or unverified", g.ID)
+		}
 		for _, r := range g.Rules {
 			if !ruleIDs[r] {
 				fail("gaps.%s: unknown rule %s", g.ID, r)
@@ -93,7 +137,7 @@ func Validate(p *Pack) error {
 		}
 	}
 	for i := range p.Rules {
-		v := ruleValidator{r: &p.Rules[i], fail: fail, used: map[string]bool{}}
+		v := ruleValidator{r: &p.Rules[i], fail: fail, used: map[string]bool{}, pack: p}
 		v.validate(groups, sources, licences, capabilities)
 	}
 	return errors.Join(errs...)
@@ -101,9 +145,73 @@ func Validate(p *Pack) error {
 
 type ruleValidator struct {
 	r     *Rule
+	pack  *Pack
 	fail  func(format string, args ...any)
 	used  map[string]bool
 	nodes int
+}
+
+// identity checks a rule's ID, kind and status, and the library tags country rules carry.
+// It returns false when the ID is unusable.
+func (v *ruleValidator) identity() bool {
+	r := v.r
+	if m := countryIDPattern.FindStringSubmatch(r.ID); m != nil {
+		if m[1] != v.pack.Jurisdiction {
+			v.errf("a %s rule cannot be in the %s pack", m[1], v.pack.Jurisdiction)
+		}
+		allowed := []Kind{kindFor(m[2])}
+		if m[2] == "SEC" {
+			// Country cybersecurity rules are scoring rules or legal clocks and controls.
+			allowed = []Kind{KindSignal, KindControl}
+		}
+		if !slices.Contains(allowed, r.Kind) || r.Status != statusFor(r.Kind) {
+			v.errf("kind and status must be one of %v with its status", allowed)
+		}
+		v.tags()
+		return true
+	}
+	if !idPattern.MatchString(r.ID) {
+		v.errf("id must look like REG-01 or %s-REG-01", v.pack.Jurisdiction)
+		return false
+	}
+	if wantKind := kindFor(r.ID[:3]); r.Kind != wantKind || r.Status != statusFor(wantKind) {
+		v.errf("kind and status must be %s and %s", wantKind, statusFor(wantKind))
+	}
+	if r.InheritedFrom == "" && (r.Provenance != "" || r.Lineage != nil || r.OffReason != "") {
+		v.errf("only country rules carry provenance, lineage and an off reason")
+	}
+	return true
+}
+
+// tags checks a country rule's provenance, lineage and default state.
+func (v *ruleValidator) tags() {
+	r := v.r
+	if !oneOf(string(r.Provenance), string(ProvenanceRegulatory), string(ProvenanceIndustry), string(ProvenanceDesign)) {
+		v.errf("provenance must be regulatory, industry_practice or my_design")
+	}
+	// lineage.of may be empty: "Param of Nigeria's recommended SLAs" names no single rule.
+	if r.Lineage == nil || !oneOf(r.Lineage.Kind, lineageKinds...) {
+		v.errf("lineage.kind must be one of %v", lineageKinds)
+	}
+	if r.Lineage != nil {
+		for _, id := range r.Lineage.Of {
+			if !IsRuleID(id) {
+				v.errf("lineage.of: %q is not a rule ID", id)
+			}
+		}
+	}
+	if r.Template != nil && (r.Lineage == nil || r.Lineage.Kind != "param" || !slices.Contains(r.Lineage.Of, r.Template.Rule)) {
+		v.errf("a templated rule is a param of its template")
+	}
+	switch {
+	case r.Defaults.Enabled && r.OffReason != "":
+		v.errf("a rule that is on by default has no off reason")
+	case !r.Defaults.Enabled && !oneOf(string(r.OffReason), string(OffThresholdToConfirm), string(OffVerifyFirst)):
+		v.errf("a rule that is off by default says why: threshold_to_be_confirmed or verify_first")
+	}
+	if r.Text.Basis == "" {
+		v.errf("the library's tag, lineage, default and basis column is required in %s", TextFile)
+	}
 }
 
 func (v *ruleValidator) errf(format string, args ...any) {
@@ -112,15 +220,8 @@ func (v *ruleValidator) errf(format string, args ...any) {
 
 func (v *ruleValidator) validate(groups, sources, licences, capabilities map[string]bool) {
 	r := v.r
-	if !idPattern.MatchString(r.ID) {
-		v.errf("id must look like REG-01")
+	if !v.identity() {
 		return
-	}
-	prefix := r.ID[:3]
-	wantKind := kindFor(prefix)
-	wantStatus := map[Kind]Status{KindControl: StatusRegulatory, KindSignal: StatusRecommended, KindGovernance: StatusGovernance}[wantKind]
-	if r.Kind != wantKind || r.Status != wantStatus {
-		v.errf("kind and status must be %s and %s", wantKind, wantStatus)
 	}
 	if !groups[r.Group] {
 		v.errf("unknown group %q", r.Group)
@@ -137,7 +238,8 @@ func (v *ruleValidator) validate(groups, sources, licences, capabilities map[str
 		v.errf("at least one legal or evidence source is required")
 	}
 	for _, s := range r.Sources {
-		if !sources[s] {
+		// An inherited rule cites its own pack's sources, checked when that pack was loaded.
+		if !sources[s] && r.InheritedFrom == "" {
 			v.errf("unknown source %q", s)
 		}
 	}
@@ -213,8 +315,10 @@ func (v *ruleValidator) parameters() {
 		lo, hi := p.Min, p.Max
 		switch p.Type {
 		case ParamMoney:
-			if p.Currency != "NGN" && p.Currency != "USD" {
-				v.errf("%s: currency must be NGN or USD", path)
+			// Amounts are in the jurisdiction's currency or US dollars; an inherited or templated
+			// rule must restate every amount in the local currency.
+			if local := v.pack.Locale().Currency; p.Currency != local && p.Currency != "USD" {
+				v.errf("%s: currency must be %s or USD", path, local)
 			}
 		case ParamPoints:
 			if lo < 0 || hi > 100 {
@@ -270,8 +374,8 @@ func (v *ruleValidator) paramOfType(name, path string, t ParamType) {
 
 func (v *ruleValidator) governance() {
 	r := v.r
-	if r.Governance == nil || !oneOf(r.Governance.Type, "policy", "job", "control", "workflow", "sla") {
-		v.errf("governance.type must be policy, job, control, workflow or sla")
+	if r.Governance == nil || !oneOf(r.Governance.Type, "policy", "job", "control", "workflow", "sla", "calendar", "display") {
+		v.errf("governance.type must be policy, job, control, workflow, sla, calendar or display")
 	}
 	if r.Trigger != nil || r.Condition != nil || len(r.Branches) > 0 || r.Outcome.Decision != "" || r.Outcome.Weight != "" {
 		v.errf("governance presets have no trigger, condition, decision or weight")
@@ -322,27 +426,23 @@ func (v *ruleValidator) evaluated() {
 		switch r.Kind {
 		case KindSignal:
 			v.paramOfType(b.Weight, path+".weight", ParamPoints)
-		case KindControl:
-			v.paramOfType(b.Fee, path+".fee", ParamPercent)
-		}
-	}
-	tasksOnly := len(o.Tasks) > 0
-	for i, t := range o.Tasks {
-		path := fmt.Sprintf("outcome.tasks[%d]", i)
-		if _, ok := Tasks[t.Type]; !ok {
-			v.errf("%s: unknown task %q", path, t.Type)
-		}
-		if t.Due != "" {
-			v.paramOfType(t.Due, path+".due", ParamDuration)
-		}
-		if t.On != "" {
-			if _, ok := Events[t.On]; !ok {
-				v.errf("%s: unknown event %q", path, t.On)
+			if b.Decision != "" || len(b.Tasks) > 0 {
+				v.errf("%s: only a control's branches set a decision or tasks", path)
 			}
-		} else {
-			tasksOnly = false
+		case KindControl:
+			switch {
+			case b.Fee != "":
+				v.paramOfType(b.Fee, path+".fee", ParamPercent)
+			case b.Decision == "" && len(b.Tasks) == 0:
+				v.errf("%s: a control's branch sets a fee, a decision or tasks", path)
+			}
+			if b.Decision != "" && (!Decisions[b.Decision] || b.Decision == "fee" || b.Decision == "hold") {
+				v.errf("%s: unknown decision %q (fees and holds are set on the outcome)", path, b.Decision)
+			}
+			v.tasks(b.Tasks, path+".tasks")
 		}
 	}
+	tasksOnly := v.tasks(o.Tasks, "outcome.tasks")
 	if r.Condition == nil && len(r.Branches) == 0 && !tasksOnly {
 		v.errf("a condition or branches are required (unless every task has its own trigger)")
 	}
@@ -365,9 +465,32 @@ func (v *ruleValidator) evaluated() {
 	}
 }
 
+// tasks checks a task list and reports whether every task has its own trigger.
+func (v *ruleValidator) tasks(list []Task, path string) bool {
+	own := len(list) > 0
+	for i, t := range list {
+		path := fmt.Sprintf("%s[%d]", path, i)
+		if _, ok := Tasks[t.Type]; !ok {
+			v.errf("%s: unknown task %q", path, t.Type)
+		}
+		if t.Due != "" {
+			v.paramOfType(t.Due, path+".due", ParamDuration)
+		}
+		if t.On != "" {
+			if _, ok := Events[t.On]; !ok {
+				v.errf("%s: unknown event %q", path, t.On)
+			}
+		} else {
+			own = false
+		}
+	}
+	return own
+}
+
 func (v *ruleValidator) control() {
 	o := v.r.Outcome
-	if o.Decision == "" && len(o.Tasks) == 0 {
+	branched := slices.ContainsFunc(v.r.Branches, func(b Branch) bool { return b.Decision != "" || len(b.Tasks) > 0 })
+	if o.Decision == "" && len(o.Tasks) == 0 && !branched {
 		v.errf("a control sets a decision or creates a task")
 	}
 	if o.Decision != "" && !Decisions[o.Decision] {

@@ -1,0 +1,1335 @@
+{
+  "rules": [
+    {
+      "id": "RW-SEC-01",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "applies_to": [
+        "bank",
+        "mfi",
+        "insurer",
+        "emi",
+        "psp"
+      ],
+      "requires": [
+        "bnr_regulated"
+      ],
+      "sources": [
+        "RS17"
+      ],
+      "effective": {
+        "text": "BNR Regulation 50/2022 on cyber security in regulated institutions (2 June 2022), Art 10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Per a secondary summary of Regulation 50/2022; the security review event should carry the dates of the last test and assessment.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "security_programme"
+      ],
+      "trigger": {
+        "events": [
+          "security_review_due",
+          "pentest_completed"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "security_review_due"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "security.pentest_age"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "pentest_every"
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "run.pentest"
+            }
+          ],
+          "label": "Penetration test due"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "security_review_due"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "security.vulnerability_assessment_age"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "assessment_every"
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "run.vulnerability_assessment"
+            }
+          ],
+          "label": "Vulnerability assessment due"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "pentest_completed"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "pentest.tester_certified"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              }
+            ]
+          },
+          "decision": "flag",
+          "tasks": [
+            {
+              "type": "send.test_summary",
+              "due": "summary_due",
+              "to": [
+                "BNR"
+              ]
+            }
+          ],
+          "label": "Test by an uncertified tester"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "event.kind"
+            },
+            "op": "in",
+            "right": {
+              "literal": [
+                "pentest_completed"
+              ]
+            }
+          },
+          "tasks": [
+            {
+              "type": "send.test_summary",
+              "due": "summary_due",
+              "to": [
+                "BNR"
+              ]
+            }
+          ],
+          "label": "Test completed"
+        }
+      ],
+      "outcome": {
+        "reason": "bnr_testing_cadence"
+      },
+      "parameters": [
+        {
+          "name": "pentest_every",
+          "label": "Longest time between penetration tests",
+          "type": "duration",
+          "default": 31536000,
+          "min": 2592000,
+          "max": 31536000
+        },
+        {
+          "name": "assessment_every",
+          "label": "Longest time between vulnerability assessments",
+          "type": "duration",
+          "default": 15724800,
+          "min": 2592000,
+          "max": 15724800
+        },
+        {
+          "name": "summary_due",
+          "label": "Time to send the executive summary to the central bank",
+          "type": "duration",
+          "default": 1296000,
+          "min": 86400,
+          "max": 1296000
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-02",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-03"
+        ]
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "requires": [
+        "bnr_regulated"
+      ],
+      "sources": [
+        "RS17"
+      ],
+      "effective": {
+        "text": "BNR Regulation 50/2022 on cyber security in regulated institutions (2 June 2022), Art 16"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "session"
+      ],
+      "trigger": {
+        "events": [
+          "remote_access_login"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "session.mfa_passed"
+        },
+        "op": "eq",
+        "right": {
+          "literal": false
+        }
+      },
+      "outcome": {
+        "decision": "block_session",
+        "reason": "mfa_required_remote_access",
+        "unless": {
+          "left": {
+            "fact": "session.compensating_control_approved"
+          },
+          "op": "eq",
+          "right": {
+            "literal": true
+          }
+        }
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-SEC-03",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BNR"
+      ],
+      "requires": [
+        "bnr_regulated"
+      ],
+      "sources": [
+        "RS17",
+        "RS18"
+      ],
+      "effective": {
+        "text": "BNR Regulation 50/2022 on cyber security in regulated institutions (2 June 2022), Art 21; Directive 4230/2024-00037 (17 January 2024)"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "The hour count and the severity test were not found; obtain them from your BNR supervisor and enter them before switching this on.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "incident_detected"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "incident.severity"
+        },
+        "op": "in",
+        "right": {
+          "literal": [
+            "critical",
+            "major"
+          ]
+        }
+      },
+      "outcome": {
+        "reason": "bnr_incident_report",
+        "tasks": [
+          {
+            "type": "report.BNR",
+            "due": "report_due",
+            "to": [
+              "BNR"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "report_due",
+          "label": "Time to report to the central bank (to be set)",
+          "type": "duration",
+          "default": null,
+          "min": 3600,
+          "max": 2592000
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-04",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param"
+      },
+      "regulators": [
+        "NCSA"
+      ],
+      "sources": [
+        "RS14"
+      ],
+      "effective": {
+        "text": "Law 058/2021 on the protection of personal data and privacy; in force 15 October 2021; Arts 43 and 45 (per DLA Piper)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Article numbers from one secondary source. Hogan Lovells gives 48 hours for telling the people affected; DLA Piper gives no hour count.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "breach_confirmed"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "breach.personal_data"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "fact": "breach.high_risk"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "report.NCSA",
+              "due": "notice_due",
+              "to": [
+                "NCSA"
+              ]
+            },
+            {
+              "type": "notify.data_subjects",
+              "due": "subjects_due"
+            }
+          ],
+          "label": "High risk to the people affected"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "breach.personal_data"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          "tasks": [
+            {
+              "type": "report.NCSA",
+              "due": "notice_due",
+              "to": [
+                "NCSA"
+              ]
+            }
+          ],
+          "label": "Personal-data breach"
+        }
+      ],
+      "outcome": {
+        "reason": "ncsa_breach_notice"
+      },
+      "parameters": [
+        {
+          "name": "notice_due",
+          "label": "Time to notify the National Cyber Security Authority",
+          "type": "duration",
+          "default": 172800,
+          "min": 3600,
+          "max": 172800
+        },
+        {
+          "name": "subjects_due",
+          "label": "Time to tell the people affected when the risk is high",
+          "type": "duration",
+          "default": 172800,
+          "min": 3600,
+          "max": 172800
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-05",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "RURA"
+      ],
+      "requires": [
+        "rura_licensed"
+      ],
+      "sources": [
+        "RS20"
+      ],
+      "effective": {
+        "text": "RURA Telecom Network Security Regulations (2016); in force; Art 28"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "\"Immediately\" has no hour count in the regulation, so the deadline is the moment of detection.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "incident_detected"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "left": {
+              "fact": "incident.severity"
+            },
+            "op": "in",
+            "right": {
+              "literal": [
+                "critical",
+                "major"
+              ]
+            }
+          },
+          "tasks": [
+            {
+              "type": "report.RURA",
+              "due": "immediate_due",
+              "to": [
+                "RURA"
+              ]
+            }
+          ],
+          "label": "Critical or major incident"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "incident.severity"
+            },
+            "op": "eq",
+            "right": {
+              "literal": "moderate"
+            }
+          },
+          "tasks": [
+            {
+              "type": "report.RURA",
+              "due": "monthly_due",
+              "to": [
+                "RURA"
+              ]
+            }
+          ],
+          "label": "Moderate incident"
+        }
+      ],
+      "outcome": {
+        "reason": "rura_incident_report"
+      },
+      "parameters": [
+        {
+          "name": "immediate_due",
+          "label": "Deadline for critical and major incidents (immediately)",
+          "type": "duration",
+          "default": 0,
+          "min": 0,
+          "max": 0
+        },
+        {
+          "name": "monthly_due",
+          "label": "Deadline for moderate incidents (monthly)",
+          "type": "duration",
+          "default": 2592000,
+          "min": 86400,
+          "max": 2678400
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-06",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "RURA"
+      ],
+      "requires": [
+        "rura_licensed"
+      ],
+      "sources": [
+        "RS20"
+      ],
+      "effective": {
+        "text": "RURA Telecom Network Security Regulations (2016); in force; Arts 20-24 and 26"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "security_programme"
+      ],
+      "trigger": {
+        "events": [
+          "security_review_due",
+          "audit_finding_opened",
+          "security_audit_completed"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "left": {
+              "fact": "event.kind"
+            },
+            "op": "in",
+            "right": {
+              "literal": [
+                "audit_finding_opened"
+              ]
+            }
+          },
+          "tasks": [
+            {
+              "type": "remediate",
+              "due": "remediate_within"
+            }
+          ],
+          "label": "Audit finding"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "event.kind"
+            },
+            "op": "in",
+            "right": {
+              "literal": [
+                "security_audit_completed"
+              ]
+            }
+          },
+          "tasks": [
+            {
+              "type": "send.audit_report",
+              "due": "report_within",
+              "to": [
+                "RURA"
+              ]
+            }
+          ],
+          "label": "Audit completed"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "security_review_due"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "security.pentest_age"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "pentest_every"
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "run.pentest"
+            }
+          ],
+          "label": "Penetration test due"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "security_review_due"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "security.vulnerability_assessment_age"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "assessment_every"
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "run.vulnerability_assessment"
+            }
+          ],
+          "label": "Vulnerability assessment due"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "security_review_due"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "security.internal_audit_age"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "audit_every"
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "run.internal_audit"
+            }
+          ],
+          "label": "Internal audit due"
+        }
+      ],
+      "outcome": {
+        "reason": "rura_security_cadence"
+      },
+      "parameters": [
+        {
+          "name": "pentest_every",
+          "label": "Longest time between penetration tests",
+          "type": "duration",
+          "default": 31536000,
+          "min": 2592000,
+          "max": 31536000
+        },
+        {
+          "name": "assessment_every",
+          "label": "Longest time between vulnerability assessments",
+          "type": "duration",
+          "default": 15724800,
+          "min": 2592000,
+          "max": 15724800
+        },
+        {
+          "name": "audit_every",
+          "label": "Longest time between internal audits",
+          "type": "duration",
+          "default": 15724800,
+          "min": 2592000,
+          "max": 15724800
+        },
+        {
+          "name": "remediate_within",
+          "label": "Time to fix a deficiency",
+          "type": "duration",
+          "default": 7776000,
+          "min": 86400,
+          "max": 7776000
+        },
+        {
+          "name": "report_within",
+          "label": "Time to file the audit report",
+          "type": "duration",
+          "default": 2592000,
+          "min": 86400,
+          "max": 2592000
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-07",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "NCSA"
+      ],
+      "sources": [
+        "RS14"
+      ],
+      "effective": {
+        "text": "Law 058/2021 on the protection of personal data and privacy; in force 15 October 2021; Arts 48-50 (per DLA Piper)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Article numbers from one secondary source. Personal data is stored in Rwanda by default.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "data_governance"
+      ],
+      "trigger": {
+        "events": [
+          "data_transfer"
+        ],
+        "scope": {
+          "all": [
+            {
+              "left": {
+                "fact": "data.personal"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            },
+            {
+              "left": {
+                "fact": "data.destination_foreign"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            }
+          ]
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "data.ncsa_certificate_authorises"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              },
+              {
+                "left": {
+                  "fact": "data.ncsa_transfer_authorised"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              },
+              {
+                "left": {
+                  "fact": "data.consent_recorded"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              }
+            ]
+          },
+          {
+            "left": {
+              "fact": "data.contract_written"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "flag",
+        "reason": "data_localisation",
+        "hints": [
+          "hold_and_review"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-SEC-08",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "requires": [
+        "bnr_regulated"
+      ],
+      "sources": [
+        "RS17"
+      ],
+      "effective": {
+        "text": "BNR Regulation 50/2022 on cyber security in regulated institutions (2 June 2022), Art 19"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "data_governance"
+      ],
+      "trigger": {
+        "events": [
+          "config_scan"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "datastore.encrypted_at_rest"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "link.tls_enforced"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "flag",
+        "reason": "encryption_gap",
+        "hints": [
+          "alert"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-SEC-09",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "requires": [
+        "bnr_regulated"
+      ],
+      "sources": [
+        "RS17",
+        "RS19"
+      ],
+      "effective": {
+        "text": "BNR Regulation 50/2022 on cyber security in regulated institutions (2 June 2022), Art 14; BNR Regulation 74/2023, Art 44"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "vendor_register"
+      ],
+      "trigger": {
+        "events": [
+          "vendor_onboarded",
+          "vendor_review"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "vendor.due_diligence_done"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "vendor.assessment_age"
+            },
+            "op": "gt",
+            "right": {
+              "param": "assess_every"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "flag",
+        "reason": "vendor_assessment",
+        "tasks": [
+          {
+            "type": "assess_vendor"
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "assess_every",
+          "label": "Longest time between vendor assessments",
+          "type": "duration",
+          "default": 31536000,
+          "min": 2592000,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-10",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-01"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-SEC-11",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-04"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-04"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-SEC-12",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-08"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-08"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-SEC-13",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-10"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-10"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-SEC-14",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-12"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-12"
+      },
+      "regulators": [
+        "BNR",
+        "NCSA"
+      ],
+      "sources": [
+        "NG",
+        "RS14"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-SEC-15",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "NCSA"
+      ],
+      "sources": [
+        "RS15"
+      ],
+      "effective": {
+        "text": "Law 60/2018 on cybercrimes, Arts 5-6 (per summary); in force"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "\"Immediately\" has no hour count, so the deadline is the moment of detection. Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "incident_detected"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "incident.kind"
+        },
+        "op": "eq",
+        "right": {
+          "literal": "illegal_computer_use"
+        }
+      },
+      "outcome": {
+        "reason": "illegal_computer_use",
+        "tasks": [
+          {
+            "type": "report.NCSA",
+            "due": "report_due",
+            "to": [
+              "NCSA"
+            ]
+          },
+          {
+            "type": "preserve_evidence"
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "report_due",
+          "label": "Deadline to report (immediately)",
+          "type": "duration",
+          "default": 0,
+          "min": 0,
+          "max": 0
+        }
+      ]
+    },
+    {
+      "id": "RW-SEC-16",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "verify_first",
+      "regulators": [
+        "RURA"
+      ],
+      "applies_to": [
+        "telco"
+      ],
+      "sources": [
+        "RS21"
+      ],
+      "effective": {
+        "text": "RURA draft regulation on SIM card registration (January 2023); adoption unknown"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "A draft regulation whose adoption is unknown; its RWF 10 million swap fine is also unconfirmed.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "incident_detected"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "incident.kind"
+        },
+        "op": "eq",
+        "right": {
+          "literal": "illegal_sim_swap"
+        }
+      },
+      "outcome": {
+        "reason": "illegal_sim_swap_report",
+        "tasks": [
+          {
+            "type": "report.RURA",
+            "due": "report_due",
+            "to": [
+              "RURA"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "report_due",
+          "label": "Time to report an illegal SIM swap (draft)",
+          "type": "duration",
+          "default": 172800,
+          "min": 3600,
+          "max": 172800
+        }
+      ]
+    }
+  ]
+}

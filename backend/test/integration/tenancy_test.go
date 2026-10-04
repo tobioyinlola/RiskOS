@@ -241,7 +241,7 @@ type tenantFixture struct {
 // 00028), for tests of the risk engine without a rule pack.
 func withoutCompliance(t *testing.T, tenantID uuid.UUID) {
 	t.Helper()
-	_, err := shared.owner.Exec(t.Context(), "DELETE FROM tenant_compliance WHERE tenant_id = $1", tenantID)
+	_, err := shared.owner.Exec(t.Context(), "DELETE FROM jurisdiction_activations WHERE tenant_id = $1", tenantID)
 	require.NoError(t, err)
 }
 

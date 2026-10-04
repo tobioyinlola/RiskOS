@@ -38,6 +38,8 @@ type (
 	Control = domain.Control
 	// NotEvaluated is a rule pack rule an event triggered that could not be evaluated.
 	NotEvaluated = domain.NotEvaluated
+	// JurisdictionResolution is which country's pack judged an event.
+	JurisdictionResolution = domain.JurisdictionResolution
 	// TestResult is the outcome of testing a rule against an event.
 	TestResult = service.TestResult
 )

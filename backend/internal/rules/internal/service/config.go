@@ -42,7 +42,7 @@ func modeRank(m string) int { return slices.Index([]string{ModeOff, ModeShadow, 
 // defaultMode is how a rule starts for profile c: off when not enabled by default, and a risk
 // signal off when the profile starts signals off (an automatic profile: a compliance person
 // activates the signals they want).
-func defaultMode(def *pack.Rule, c *store.Compliance) string {
+func defaultMode(def *pack.Rule, c *store.Activation) string {
 	if !def.Defaults.Enabled || (def.Kind == pack.KindSignal && c != nil && c.SignalDefault == SignalsOff) {
 		return ModeOff
 	}
@@ -70,7 +70,7 @@ type RuleConfig struct {
 	Pending *store.RuleChange
 }
 
-func configOf(def *pack.Rule, v *store.RuleVersion, c *store.Compliance) RuleConfig {
+func configOf(def *pack.Rule, v *store.RuleVersion, c *store.Activation) RuleConfig {
 	if v == nil {
 		return RuleConfig{RuleID: def.ID, Mode: defaultMode(def, c), Settings: map[string]float64{}}
 	}
@@ -165,9 +165,16 @@ func person(ctx context.Context, p authz.Permission) (tenancy.Scope, error) {
 	return scope, nil
 }
 
-// rule loads the tenant's pack and one of its rules, with the rule's configuration.
+// rule loads one of the tenant's rules, with its pack and configuration: in the jurisdiction
+// the rule ID names (GH-REG-01), else in the fallback activation's pack.
 func (s *Service) rule(ctx context.Context, scope tenancy.Scope, ruleID string) (library, *pack.Rule, RuleConfig, error) {
-	lib, err := s.load(ctx, scope)
+	return s.ruleIn(ctx, scope, JurisdictionOf(ruleID), ruleID)
+}
+
+// ruleIn loads one of the tenant's rules in a jurisdiction ("" is the fallback activation's),
+// with its pack and configuration.
+func (s *Service) ruleIn(ctx context.Context, scope tenancy.Scope, jurisdiction, ruleID string) (library, *pack.Rule, RuleConfig, error) {
+	lib, err := s.load(ctx, scope, jurisdiction)
 	if err != nil {
 		return library{}, nil, RuleConfig{}, err
 	}
@@ -185,7 +192,7 @@ func (s *Service) rule(ctx context.Context, scope tenancy.Scope, ruleID string) 
 		v = &c
 	}
 	cfg := configOf(def, v, lib.profile)
-	pending, err := s.store.Changes(ctx, "pending", ruleID)
+	pending, err := s.store.Changes(ctx, "pending", lib.pack.ID, ruleID)
 	if err != nil {
 		return library{}, nil, RuleConfig{}, err
 	}
@@ -330,7 +337,7 @@ func (s *Service) Changes(ctx context.Context, status string) ([]store.RuleChang
 	var out []store.RuleChange
 	err := s.runner.Run(ctx, func(ctx context.Context) error {
 		var err error
-		out, err = s.store.Changes(ctx, status, "")
+		out, err = s.store.Changes(ctx, status, "", "")
 		return err
 	})
 	return out, err
@@ -353,7 +360,11 @@ func (s *Service) Approve(ctx context.Context, id uuid.UUID, note string, now ti
 		if c.ProposedBy == scope.Principal.ID {
 			return ErrOwnChange
 		}
-		_, _, cur, err := s.rule(ctx, scope, c.RuleID)
+		jurisdiction, err := s.jurisdictionOfPack(ctx, c.PackID)
+		if err != nil {
+			return err
+		}
+		_, _, cur, err := s.ruleIn(ctx, scope, jurisdiction, c.RuleID)
 		if err != nil {
 			return err
 		}
@@ -410,6 +421,20 @@ func (s *Service) Reject(ctx context.Context, id uuid.UUID, note string, now tim
 		})
 	})
 	return out, err
+}
+
+// jurisdictionOfPack returns the jurisdiction whose pack a change was made in.
+func (s *Service) jurisdictionOfPack(ctx context.Context, packID string) (string, error) {
+	list, err := s.store.Jurisdictions(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, j := range list {
+		if j.PackID == packID {
+			return j.Code, nil
+		}
+	}
+	return "", fmt.Errorf("%w: pack %s", ErrNotFound, packID)
 }
 
 func (s *Service) pending(ctx context.Context, id uuid.UUID) (store.RuleChange, error) {

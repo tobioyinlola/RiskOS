@@ -29,21 +29,42 @@ SELECT rule_id, definition, wording
 FROM pack_rules WHERE pack_id = @pack_id AND pack_version = @pack_version
 ORDER BY rule_id;
 
--- Compliance profiles. Row-level security limits them to the scope's tenant; every query also
--- names the tenant explicitly.
+-- Jurisdictions (reference data, ADR-0007).
 
--- name: GetCompliance :one
-SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default
-FROM tenant_compliance WHERE tenant_id = @tenant_id;
+-- name: ListJurisdictions :many
+SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions ORDER BY code;
 
--- name: UpsertCompliance :one
-INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by)
-VALUES (@tenant_id, @pack_id, @pack_version, @licence_type, @capabilities, @updated_at, @updated_by)
-ON CONFLICT (tenant_id) DO UPDATE SET
-  pack_id = EXCLUDED.pack_id, pack_version = EXCLUDED.pack_version,
-  licence_type = EXCLUDED.licence_type, capabilities = EXCLUDED.capabilities,
-  updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
-RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default;
+-- name: GetJurisdiction :one
+SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions WHERE code = @code;
+
+-- Jurisdiction activations (a tenant's compliance profile per country and booking entity).
+-- Row-level security limits them to the scope's tenant; every query also names the tenant.
+
+-- name: ListActivations :many
+SELECT id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+       capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+       updated_at, updated_by
+FROM jurisdiction_activations WHERE tenant_id = @tenant_id
+ORDER BY fallback DESC, jurisdiction, booking_entity;
+
+-- name: UpdateFallbackActivation :one
+-- The compliance profile (PUT /compliance/profile) is the fallback activation.
+UPDATE jurisdiction_activations
+SET jurisdiction = @jurisdiction, pack_id = @pack_id, pack_version = @pack_version, licence_type = @licence_type,
+    capabilities = @capabilities, updated_at = @updated_at, updated_by = @updated_by
+WHERE tenant_id = @tenant_id AND fallback
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by;
+
+-- name: InsertFallbackActivation :one
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
+  licence_type, capabilities, signal_default, activated_at, activated_by, updated_at, updated_by)
+VALUES (@id, @tenant_id, @jurisdiction, 'default', 'live', true, @pack_id, @pack_version,
+  @licence_type, @capabilities, 'pack', @updated_at::timestamptz, @updated_by::text, @updated_at::timestamptz, @updated_by::text)
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by;
 
 -- Rule configuration (per environment). Every query names the tenant and environment; row-level
 -- security limits them to the scope's.
@@ -81,6 +102,7 @@ SELECT id, pack_id, rule_id, base_version, mode, settings, reason, restored_from
 FROM pack_rule_changes
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id
   AND (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
+  AND (sqlc.narg(pack_id)::text IS NULL OR pack_id = sqlc.narg(pack_id)::text)
   AND (sqlc.narg(rule_id)::text IS NULL OR rule_id = sqlc.narg(rule_id)::text)
 ORDER BY proposed_at DESC
 LIMIT 200;
@@ -179,17 +201,20 @@ FOR UPDATE OF t;
 SELECT s.tenant_id::uuid AS tenant_id, s.environment_id::uuid AS environment_id FROM compliance_account_scopes() s;
 
 -- name: EnsureComplianceProfiles :execrows
--- Gives every workspace without a compliance profile the automatic one (migration 00028); run by
--- the pack loader as the owner, so workspaces created before any pack was loaded get one too.
-INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities,
-                               updated_at, updated_by, signal_default)
-SELECT t.id, p.id, p.version, 'other', '{}', now(), 'system:default', 'off'
+-- Gives every workspace without an activation the automatic one (migrations 00028 and 00029):
+-- Nigeria, as the stated fallback. Run by the pack loader as the owner, so workspaces created
+-- before any pack was loaded get one too.
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, pack_id, pack_version, licence_type, capabilities,
+                                      booking_entity, status, fallback, updated_at, updated_by, signal_default,
+                                      activated_at, activated_by)
+SELECT gen_random_uuid(), t.id, p.jurisdiction, p.id, p.version, 'other', '{}', 'default', 'live', true,
+       now(), 'system:default', 'off', now(), 'system:default'
 FROM tenants t
 CROSS JOIN LATERAL (
-  SELECT id, version FROM rule_packs WHERE jurisdiction = 'NG'
+  SELECT id, version, jurisdiction FROM rule_packs WHERE jurisdiction = 'NG'
   ORDER BY string_to_array(version, '.')::int[] DESC LIMIT 1
 ) p
-WHERE NOT EXISTS (SELECT 1 FROM tenant_compliance c WHERE c.tenant_id = t.id);
+WHERE NOT EXISTS (SELECT 1 FROM jurisdiction_activations c WHERE c.tenant_id = t.id);
 
 -- name: LatestPacks :many
 -- The latest version of every jurisdiction's pack.

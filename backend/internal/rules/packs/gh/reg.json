@@ -1,0 +1,1645 @@
+{
+  "rules": [
+    {
+      "id": "GH-REG-01",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "emi",
+        "bank",
+        "psp"
+      ],
+      "sources": [
+        "GS8",
+        "GS10"
+      ],
+      "effective": {
+        "text": "Bank of Ghana mobile-money limits in force from 1 March 2024",
+        "date": "2024-03-01"
+      },
+      "verification": "conflicting",
+      "caveat": "Limits from 1 March 2024 as reported by the press; a 2026 blog gives lower figures and is treated as unreliable (C12). Counted over the last 24 hours, not the calendar day in Accra, until calendar windows arrive. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile",
+        "wallet_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "wallet_cash_out",
+          "pos_purchase"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "mobile_money_wallet"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "minimum"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transaction_any",
+                    "window": "day",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "debit"
+                      }
+                    }
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "daily_minimum"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "medium"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transaction_any",
+                    "window": "day",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "debit"
+                      }
+                    }
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "daily_medium"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "enhanced"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transaction_any",
+                    "window": "day",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "debit"
+                      }
+                    }
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "daily_enhanced"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "wallet_daily_limit",
+        "evidence": [
+          "txn.amount",
+          "wallet.kyc_tier"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "daily_minimum",
+          "label": "Most a Minimum-tier wallet can move in a day",
+          "type": "money",
+          "default": 300000,
+          "min": 0,
+          "max": 300000,
+          "currency": "GHS"
+        },
+        {
+          "name": "daily_medium",
+          "label": "Most a Medium-tier wallet can move in a day",
+          "type": "money",
+          "default": 1500000,
+          "min": 0,
+          "max": 1500000,
+          "currency": "GHS"
+        },
+        {
+          "name": "daily_enhanced",
+          "label": "Most an Enhanced-tier wallet can move in a day",
+          "type": "money",
+          "default": 2500000,
+          "min": 0,
+          "max": 2500000,
+          "currency": "GHS"
+        },
+        {
+          "name": "day",
+          "label": "The day the limit counts over",
+          "type": "duration",
+          "default": 86400,
+          "min": 86400,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-02",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "emi",
+        "bank",
+        "psp"
+      ],
+      "sources": [
+        "GS8"
+      ],
+      "effective": {
+        "text": "Bank of Ghana mobile-money limits in force from 1 March 2024",
+        "date": "2024-03-01"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Balance caps from 1 March 2024 as reported by the press. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile",
+        "wallet_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_inbound",
+          "funding",
+          "cash_deposit"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "mobile_money_wallet"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "minimum"
+                }
+              },
+              {
+                "left": {
+                  "fact": "wallet.balance_after"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "balance_minimum"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "medium"
+                }
+              },
+              {
+                "left": {
+                  "fact": "wallet.balance_after"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "balance_medium"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "enhanced"
+                }
+              },
+              {
+                "left": {
+                  "fact": "wallet.balance_after"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "balance_enhanced"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "wallet_balance_cap",
+        "evidence": [
+          "wallet.balance_after",
+          "wallet.kyc_tier"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "balance_minimum",
+          "label": "Largest balance of a Minimum-tier wallet",
+          "type": "money",
+          "default": 500000,
+          "min": 0,
+          "max": 500000,
+          "currency": "GHS"
+        },
+        {
+          "name": "balance_medium",
+          "label": "Largest balance of a Medium-tier wallet",
+          "type": "money",
+          "default": 4000000,
+          "min": 0,
+          "max": 4000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "balance_enhanced",
+          "label": "Largest balance of an Enhanced-tier wallet",
+          "type": "money",
+          "default": 7500000,
+          "min": 0,
+          "max": 7500000,
+          "currency": "GHS"
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-03",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "emi",
+        "bank",
+        "psp"
+      ],
+      "sources": [
+        "GS8"
+      ],
+      "effective": {
+        "text": "Bank of Ghana mobile-money limits in force from 1 March 2024",
+        "date": "2024-03-01"
+      },
+      "verification": "conflicting",
+      "caveat": "Only the Minimum-tier monthly limit (GHS 10,000) was confirmed. The Medium and Enhanced monthly limits are reported both as unchanged and as unrestricted (C12), so they are blank until your institution enters them; until then the rule reports those wallets as not evaluated. Counted over the last 30 days, not the calendar month, until calendar windows arrive.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile",
+        "wallet_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "wallet_cash_out",
+          "pos_purchase"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "mobile_money_wallet"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "minimum"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transaction_any",
+                    "window": "month",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "debit"
+                      }
+                    }
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "monthly_minimum"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "medium"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transaction_any",
+                    "window": "month",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "debit"
+                      }
+                    }
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "monthly_medium"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "enhanced"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transaction_any",
+                    "window": "month",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "debit"
+                      }
+                    }
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "monthly_enhanced"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "wallet_monthly_limit",
+        "evidence": [
+          "txn.amount",
+          "wallet.kyc_tier"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "monthly_minimum",
+          "label": "Most a Minimum-tier wallet can move in a month",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "monthly_medium",
+          "label": "Most a Medium-tier wallet can move in a month (not confirmed: set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "monthly_enhanced",
+          "label": "Most an Enhanced-tier wallet can move in a month (not confirmed: set by your institution)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "month",
+          "label": "The month the limit counts over",
+          "type": "duration",
+          "default": 2592000,
+          "min": 2592000,
+          "max": 2678400
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-04",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-17"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "BoG"
+      ],
+      "applies_to": [
+        "bank",
+        "securities",
+        "sdi",
+        "forex_bureau"
+      ],
+      "sources": [
+        "GS1",
+        "GS2",
+        "GS3",
+        "GS9"
+      ],
+      "effective": {
+        "text": "Act 1044 ss.40-42; FIC report types; BoG guideline (December 2022); forex bureaux guideline (September 2025)"
+      },
+      "verification": "conflicting",
+      "caveat": "Uses the FIC and Bank of Ghana figures (GHS 50,000; GHS 20,000 for specialised deposit-taking institutions and forex bureaux). A vendor claims GHS 10,000 single and GHS 30,000 cumulative; that claim is not used (C4). \"At or above\" is assumed, and the Gazette notice setting the thresholds was not found.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "activation"
+      ],
+      "trigger": {
+        "events": [
+          "cash_deposit",
+          "cash_withdrawal",
+          "cash_payment"
+        ],
+        "scope": {
+          "left": {
+            "fact": "txn.domestic"
+          },
+          "op": "eq",
+          "right": {
+            "literal": true
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "institution.licence_type"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "bank",
+                    "securities"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gte",
+                "right": {
+                  "param": "ctr_bank"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "institution.licence_type"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "sdi",
+                    "forex_bureau"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gte",
+                "right": {
+                  "param": "ctr_sdi"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "reason": "currency_transaction_report",
+        "tasks": [
+          {
+            "type": "report.CTR",
+            "due": "ctr_due",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "txn.amount",
+          "institution.licence_type"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ctr_bank",
+          "label": "Cash reported from, banks and securities firms",
+          "type": "money",
+          "default": 5000000,
+          "min": 0,
+          "max": 5000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "ctr_sdi",
+          "label": "Cash reported from, specialised deposit-taking institutions and forex bureaux",
+          "type": "money",
+          "default": 2000000,
+          "min": 0,
+          "max": 2000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "ctr_due",
+          "label": "Time to file after the transaction",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-05",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-10"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "BoG"
+      ],
+      "applies_to": [
+        "bank",
+        "sdi",
+        "emi"
+      ],
+      "requires": [
+        "ectr_reporter"
+      ],
+      "sources": [
+        "GS1",
+        "GS2",
+        "GS3"
+      ],
+      "effective": {
+        "text": "Act 1044 ss.40-42; BoG guideline s.2.9.2 (24-hour clock)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The threshold is US$1,000, not US$10,000. The US dollar equivalent uses the exchange rate your institution configures; until it does, this rule is not evaluated. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_international"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "txn.amount_usd"
+        },
+        "op": "gte",
+        "right": {
+          "param": "ectr_threshold"
+        }
+      },
+      "outcome": {
+        "reason": "electronic_transfer_report",
+        "tasks": [
+          {
+            "type": "report.ECTR",
+            "due": "ectr_due",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "txn.amount_usd"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ectr_threshold",
+          "label": "Cross-border transfers reported from (US dollar equivalent)",
+          "type": "money",
+          "default": 100000,
+          "min": 0,
+          "max": 100000,
+          "currency": "USD"
+        },
+        {
+          "name": "ectr_due",
+          "label": "Time to report after the transfer",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-06",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-14"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS2",
+        "GS3"
+      ],
+      "effective": {
+        "text": "Act 1044 s.38; BoG guideline s.2.8.2"
+      },
+      "verification": "conflicting",
+      "caveat": "The Act starts the 24 hours when suspicion is formed; the Bank of Ghana guideline starts them at confirmation (C14). The clock starts at the earliest recorded suspicion. No 72-hour screening stage was found for Ghana.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "trigger": {
+        "events": [
+          "suspicion_recorded"
+        ]
+      },
+      "outcome": {
+        "reason": "str_clock",
+        "tasks": [
+          {
+            "type": "report.STR",
+            "on": "suspicion_recorded",
+            "due": "str_due",
+            "to": [
+              "FIC"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "str_due",
+          "label": "Time to file after suspicion is first recorded",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-07",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-12",
+          "REG-18"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "BoG",
+        "law"
+      ],
+      "sources": [
+        "GS2",
+        "GS4"
+      ],
+      "effective": {
+        "text": "Act 1044 s.49(2)(a)(ii); BoG guideline ss.2.7.1 and 2.4.5"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Needs a PEP list provider. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "pep_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out",
+          "customer_onboarded",
+          "customer_review"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "customer.is_pep"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "customer.has_pep_owner"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "pep",
+        "tasks": [
+          {
+            "type": "edd"
+          },
+          {
+            "type": "source_of_funds"
+          },
+          {
+            "type": "source_of_wealth"
+          },
+          {
+            "type": "senior_approval"
+          },
+          {
+            "type": "report.PEP",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "customer.is_pep",
+          "customer.has_pep_owner"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "GH-REG-08",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-11"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS7",
+        "GS3"
+      ],
+      "effective": {
+        "text": "Executive Instrument 2 (UN Security Council resolutions); Act 1044 s.56"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "E.I. 2 says freeze without prior notice but no hour count was retrieved; the 24-hour freeze deadline is a design placeholder. Needs a sanctions list provider with fuzzy and transliteration-aware matching.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "sanctions_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out",
+          "customer_onboarded",
+          "list_updated"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "screening.sanctions_score"
+            },
+            "op": "gte",
+            "right": {
+              "param": "match_threshold"
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "screening.sanctions_confirmed"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "param": "auto_block_strong_match"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "sanctions_match",
+        "tasks": [
+          {
+            "type": "freeze_account",
+            "due": "freeze_within"
+          },
+          {
+            "type": "case.open"
+          },
+          {
+            "type": "report.sanctions",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "screening.sanctions_score"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "match_threshold",
+          "label": "Similarity score that counts as a match",
+          "type": "score",
+          "default": 90,
+          "min": 70,
+          "max": 100
+        },
+        {
+          "name": "auto_block_strong_match",
+          "label": "Block a strong match before a person confirms it",
+          "type": "flag",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        },
+        {
+          "name": "freeze_within",
+          "label": "Time to freeze after a match (design placeholder)",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-09",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-06",
+          "REG-16"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS9",
+        "GS24"
+      ],
+      "effective": {
+        "text": "BoG forex bureaux AML guideline, effective September 2025; Act 987 s.35"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Mandatory for forex bureaux. Whether other licence guidelines make the Ghana Card the only accepted ID was not confirmed, so other institutions switch it on with the setting below.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "identity",
+        "activation"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "customer_onboarded",
+          "customer_review"
+        ],
+        "scope": {
+          "any": [
+            {
+              "left": {
+                "fact": "institution.licence_type"
+              },
+              "op": "eq",
+              "right": {
+                "literal": "forex_bureau"
+              }
+            },
+            {
+              "left": {
+                "param": "require_ghana_card"
+              },
+              "op": "eq",
+              "right": {
+                "literal": 1
+              }
+            }
+          ]
+        }
+      },
+      "condition": {
+        "left": {
+          "fact": "identity.ghana_card_verified"
+        },
+        "op": "eq",
+        "right": {
+          "literal": false
+        }
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "ghana_card_not_verified",
+        "evidence": [
+          "identity.ghana_card_verified"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "require_ghana_card",
+          "label": "Require a verified Ghana Card (always on for forex bureaux)",
+          "type": "flag",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-10",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS4",
+        "GS3"
+      ],
+      "effective": {
+        "text": "Anti-Money Laundering Act 2020 (Act 1044); in force, no amendment found"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Act 1044 s.48(1)(a) per summary. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "identity",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "customer_review",
+          "daily_job"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "account_opened"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "left": {
+                      "fact": "kyc.identity_verified"
+                    },
+                    "op": "eq",
+                    "right": {
+                      "literal": false
+                    }
+                  },
+                  {
+                    "left": {
+                      "fact": "customer.name_missing"
+                    },
+                    "op": "eq",
+                    "right": {
+                      "literal": true
+                    }
+                  },
+                  {
+                    "left": {
+                      "fact": "account.nominal_holder_without_owner"
+                    },
+                    "op": "eq",
+                    "right": {
+                      "literal": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "decision": "block",
+          "tasks": [
+            {
+              "type": "case.open"
+            }
+          ],
+          "label": "Opening an account"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "customer_review",
+                    "daily_job"
+                  ]
+                }
+              },
+              {
+                "any": [
+                  {
+                    "left": {
+                      "fact": "kyc.identity_verified"
+                    },
+                    "op": "eq",
+                    "right": {
+                      "literal": false
+                    }
+                  },
+                  {
+                    "left": {
+                      "fact": "customer.name_missing"
+                    },
+                    "op": "eq",
+                    "right": {
+                      "literal": true
+                    }
+                  },
+                  {
+                    "left": {
+                      "fact": "account.nominal_holder_without_owner"
+                    },
+                    "op": "eq",
+                    "right": {
+                      "literal": true
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          "decision": "restrict",
+          "tasks": [
+            {
+              "type": "case.open"
+            }
+          ],
+          "label": "Existing account"
+        }
+      ],
+      "outcome": {
+        "reason": "anonymous_or_fictitious_account",
+        "evidence": [
+          "kyc.identity_verified",
+          "customer.name_missing",
+          "account.nominal_holder_without_owner"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "GH-REG-11",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue"
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS3",
+        "GS7"
+      ],
+      "effective": {
+        "text": "Act 1044 ss.45 and 56 (per summary)"
+      },
+      "verification": "conflicting",
+      "caveat": "The FIC may suspend a transaction for up to 7 working days. RiskOS counts the hold in calendar time until working-day clocks arrive, so the default covers 7 working days across a weekend; check the order's own expiry. The court application period is 7 working days in the Act summary and 48 hours in the E.I. 2 summary (C13).",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "regulator_orders"
+      ],
+      "trigger": {
+        "events": [
+          "fic_order_received"
+        ],
+        "scope": {
+          "left": {
+            "fact": "order.source"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "FIC"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "fact": "order.type"
+        },
+        "op": "in",
+        "right": {
+          "literal": [
+            "suspension",
+            "freeze"
+          ]
+        }
+      },
+      "outcome": {
+        "decision": "hold",
+        "hold": "hold_max",
+        "reason": "fic_order",
+        "tasks": [
+          {
+            "type": "case.open"
+          }
+        ],
+        "visibility": "compliance_only",
+        "evidence": [
+          "order.type"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "hold_max",
+          "label": "Longest hold under an FIC suspension (7 working days, in calendar time)",
+          "type": "duration",
+          "default": 950400,
+          "min": 604800,
+          "max": 1209600
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-12",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "forex_bureau"
+      ],
+      "sources": [
+        "GS9"
+      ],
+      "effective": {
+        "text": "BoG forex bureaux AML guideline, effective September 2025"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The US dollar amount uses the exchange rate your institution configures; until it does, this rule is not evaluated. Cash above GHS 20,000 also triggers GH-REG-04.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "forex_buy",
+          "forex_sell"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "txn.amount_usd"
+        },
+        "op": "gte",
+        "right": {
+          "param": "edd_threshold"
+        }
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "forex_high_value",
+        "tasks": [
+          {
+            "type": "edd"
+          },
+          {
+            "type": "biometric_verification"
+          }
+        ],
+        "evidence": [
+          "txn.amount_usd"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "edd_threshold",
+          "label": "Forex deals needing enhanced checks and biometrics, from (US dollars)",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000,
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "GH-REG-13",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "cross_reference",
+        "of": [
+          "CRY-13"
+        ]
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BoG",
+        "SEC"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "GS12",
+        "GS13",
+        "GS14",
+        "GS17"
+      ],
+      "effective": {
+        "text": "Virtual Asset Service Providers Act 2025 (Act 1154): passed December 2025; commencement unresolved"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "Ghana's Travel Rule threshold and data fields are not yet published (C9). Enter the threshold and the longest hold before switching this on.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "crypto_transfer"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "txn.amount_usd"
+            },
+            "op": "gte",
+            "right": {
+              "param": "travel_rule_min"
+            }
+          },
+          {
+            "left": {
+              "fact": "crypto.travel_rule_complete"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "hold",
+        "hold": "hold_max",
+        "reason": "travel_rule_data_missing",
+        "evidence": [
+          "crypto.travel_rule_complete"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "travel_rule_min",
+          "label": "Transfers needing sender and receiver details, from (threshold to be confirmed)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000,
+          "currency": "USD"
+        },
+        {
+          "name": "hold_max",
+          "label": "Longest hold while details are collected (to be set)",
+          "type": "duration",
+          "default": null,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    }
+  ]
+}

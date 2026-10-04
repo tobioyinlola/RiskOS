@@ -1,5 +1,10 @@
 package pack
 
+import (
+	"maps"
+	"slices"
+)
+
 // The vocabulary rule definitions may use. Anything not listed here is rejected when a pack is
 // loaded, so a definition can only refer to facts the engine knows how to supply and say which
 // provider supplies each one (a rule whose provider is not connected is "not evaluated").
@@ -56,6 +61,18 @@ var Inputs = map[string]string{ //nolint:gochecknoglobals // fixed vocabulary
 	"staff_directory":      "Staff directory (accounts linked to employees, serviced customers)",
 	"peer_groups":          "Peer-group statistics",
 	"workflow":             "Alerts, cases and reports in RiskOS",
+	// Country packs (ADR-0007).
+	"activation":         "Your institution's country activation (its licence type)",
+	"wallet_profile":     "Wallet profile from your e-money system (KYC tier, balance)",
+	"counterparty_tags":  "Counterparty tags and licence registers (gold buyers, crypto exchanges, licensed providers)",
+	"lender_list":        "Bank of Ghana list of unlicensed digital credit providers",
+	"fatf_list":          "FATF list of jurisdictions under increased monitoring",
+	"agent_network":      "Agent network data (float, cash-in and cash-out by agent)",
+	"incident_register":  "Incidents, breaches and vulnerabilities your teams record",
+	"vendor_register":    "Vendor register (security providers, outsourcing, licences, assessments)",
+	"data_governance":    "Data transfer, storage and record-keeping records (consent, safeguards, authorisations)",
+	"regulator_orders":   "Orders and designations received from authorities",
+	"security_programme": "Security programme records (penetration tests, assessments, audits)",
 }
 
 // Events are the event kinds a rule can be triggered by or aggregate over.
@@ -109,6 +126,38 @@ var Events = map[string]string{ //nolint:gochecknoglobals // fixed vocabulary
 	"suspicion_confirmed":    "Suspicion confirmed by an analyst",
 	"report_submit":          "Report submitted",
 	"daily_job":              "Daily check",
+	// Country packs (ADR-0007).
+	"forex_buy":                "Foreign currency bought",
+	"forex_sell":               "Foreign currency sold",
+	"forex_any":                "Any foreign currency deal",
+	"cash_any":                 "Any cash deposit, withdrawal or payment",
+	"wallet_cash_out":          "Wallet cash-out at an agent",
+	"sim_registered":           "SIM registered",
+	"sim_replaced":             "SIM replaced",
+	"sim_change":               "Any SIM registration or replacement",
+	"otp_used":                 "One-time password used",
+	"designation_received":     "Sanctions designation received",
+	"fic_order_received":       "Order received from the financial intelligence centre",
+	"incident_detected":        "Incident detected",
+	"vulnerability_confirmed":  "Vulnerability confirmed",
+	"breach_confirmed":         "Personal-data breach confirmed",
+	"outsourcing_planned":      "Outsourcing planned",
+	"outsourcing_signed":       "Outsourcing agreement signed",
+	"vendor_onboarded":         "Vendor onboarded",
+	"vendor_review":            "Periodic vendor review",
+	"remote_access_login":      "Remote access to internal networks",
+	"data_transfer":            "Personal data transferred or stored",
+	"record_delete_requested":  "Record deletion requested",
+	"audit_log_check":          "Audit log completeness check",
+	"eod_reconciliation":       "End-of-day cash reconciliation",
+	"agent_daily":              "Daily agent review",
+	"cdr_daily":                "Daily call-record review",
+	"config_scan":              "Security configuration scan",
+	"pentest_completed":        "Penetration test completed",
+	"security_audit_completed": "Security audit completed",
+	"audit_finding_opened":     "Audit finding opened",
+	"security_review_due":      "Security programme review",
+	"suspicion_recorded":       "Suspicion first recorded",
 }
 
 // Entities are what a window can be kept for ("BY").
@@ -116,6 +165,8 @@ var Entities = map[string]bool{ //nolint:gochecknoglobals // fixed vocabulary
 	"account": true, "customer": true, "user": true, "device": true, "ip": true, "network": true,
 	"card": true, "bvn": true, "phone": true, "address": true, "beneficiary": true, "inflow": true,
 	"loan": true, "merchant": true, "api_key": true,
+	// Country packs: a national ID (Ghana Card, NIDA) and a mobile-money agent.
+	"national_id": true, "agent": true,
 }
 
 // AggFns are the aggregations, with the field type each needs ("" for none) and result type.
@@ -160,6 +211,28 @@ var Tasks = map[string]string{ //nolint:gochecknoglobals // fixed vocabulary
 	"senior_approval":                 "Senior management approval",
 	"source_of_funds":                 "Source of funds",
 	"source_of_wealth":                "Source of wealth",
+	// Country packs (ADR-0007).
+	"report.ECTR":                  "Electronic currency transaction report",
+	"report.PEP":                   "PEP transaction report",
+	"report.cross_border_cash":     "Undeclared cross-border cash report",
+	"report.BoG":                   "Report to the Bank of Ghana",
+	"report.BNR":                   "Report to the National Bank of Rwanda",
+	"report.CSA":                   "Report to the Cyber Security Authority",
+	"report.DPC":                   "Breach notice to the Data Protection Commission",
+	"report.NCSA":                  "Report to the National Cyber Security Authority",
+	"report.RURA":                  "Report to the Rwanda Utilities Regulatory Authority",
+	"notify.data_subjects":         "Tell the people affected",
+	"notify.outsourcing":           "Written notice before outsourcing",
+	"file.outsourcing_sla":         "File the signed service agreement",
+	"biometric_verification":       "Biometric verification",
+	"preserve_evidence":            "Preserve logs and evidence",
+	"run.pentest":                  "Run the penetration test",
+	"run.vulnerability_assessment": "Run the vulnerability assessment",
+	"run.internal_audit":           "Run the internal security audit",
+	"send.test_summary":            "Send the test's executive summary",
+	"send.audit_report":            "Send the audit report",
+	"remediate":                    "Fix the finding",
+	"assess_vendor":                "Assess the vendor",
 }
 
 // Hints are responses suggested to the customer's systems.
@@ -172,7 +245,13 @@ var Hints = map[string]bool{ //nolint:gochecknoglobals // fixed vocabulary
 // Regulators a rule can cite.
 var Regulators = map[string]bool{ //nolint:gochecknoglobals // fixed vocabulary
 	"CBN": true, "NFIU": true, "NCC": true, "SEC": true, "FCCPC": true, "NIBSS": true, "law": true,
+	// Ghana and Rwanda (ADR-0007).
+	"FIC": true, "BoG": true, "CSA": true, "DPC": true, "NCA": true,
+	"BNR": true, "CMA": true, "NCSA": true, "RURA": true,
 }
+
+// eventKinds lists every event kind, sorted: the values of event.kind, the event's own kind.
+func eventKinds() []string { return slices.Sorted(maps.Keys(Events)) }
 
 func enum(input string, values ...string) FactInfo {
 	return FactInfo{Type: FactEnum, Input: input, Values: values}
@@ -190,8 +269,8 @@ var Facts = map[string]FactInfo{ //nolint:gochecknoglobals // fixed vocabulary
 	"txn.local_hour":             fact(FactHour, "events"),
 	"txn.first_to_beneficiary":   fact(FactBool, "history"),
 	"txn.to_prior_sender":        fact(FactBool, "history"),
-	"event.channel":              enum("events", "mobile_app", "web", "digital", "branch", "agent", "atm", "pos", "api"),
-	"profile.field":              enum("events", "password", "phone", "email", "address", "name"),
+	"event.channel":              enum("events", "mobile_app", "web", "digital", "branch", "agent", "atm", "pos", "api", "ussd"),
+	"profile.field":              enum("events", "password", "pin", "phone", "email", "address", "name"),
 	"auth.factor":                enum("events", "password", "otp", "pin", "passkey", "biometric"),
 	"auth.type":                  enum("events", "api_key", "session"),
 	"mfa.channel":                enum("events", "push", "otp", "sms", "email"),
@@ -285,6 +364,99 @@ var Facts = map[string]FactInfo{ //nolint:gochecknoglobals // fixed vocabulary
 	"report.has_predicate_offence": fact(FactBool, "workflow"),
 	"report.has_indicator":         fact(FactBool, "workflow"),
 	"report.category":              enum("workflow", "terrorism_financing", "kidnapping_ransom", "corruption", "fraud", "drug_trafficking", "general", "other"),
+	// Country packs (ADR-0007). The institution and the transaction.
+	"institution.licence_type": enum("activation", "bank", "sdi", "forex_bureau", "securities", "mfb", "mfi", "emi", "psp",
+		"mmo", "mto", "digital_lender", "vasp", "telco", "insurer", "finance_company", "fintech", "other"),
+	"txn.direction":                 enum("events", "credit", "debit"),
+	"event.kind":                    {Type: FactEnum, Input: "events", Values: eventKinds()},
+	"txn.from_new_sender":           fact(FactBool, "history"),
+	"txn.rail":                      enum("events", "ekash", "ghipss_interop", "mobile_money", "card", "bank", "other"),
+	"txn.fee":                       fact(FactMoney, "events"),
+	"txn.cash_source":               enum("events", "cross_border", "domestic"),
+	"txn.auth_method":               enum("events", "pin", "password", "biometric", "otp", "none"),
+	"txn.shareholder_loan":          fact(FactBool, "events"),
+	"txn.property_purpose":          fact(FactBool, "events"),
+	"txn.amount_to_declared_income": fact(FactRatio, "customer_profile"),
+	"declaration.reference_present": fact(FactBool, "events"),
+	"crypto.travel_rule_complete":   fact(FactBool, "events"),
+	"otp.device_mismatch":           fact(FactBool, "events"),
+	"eod.cash_variance":             fact(FactMoney, "events"),
+	"customer.id":                   fact(FactID, "events"),
+	"agent.id":                      fact(FactID, "events"),
+	// Customers, accounts and wallets.
+	"account.type":                         enum("customer_profile", "mobile_money_wallet", "e_money_account", "bank_account", "other"),
+	"customer.segment":                     enum("customer_profile", "individual", "sme", "corporate"),
+	"customer.name_missing":                fact(FactBool, "customer_profile"),
+	"customer.emoney_accounts":             fact(FactCount, "customer_profile"),
+	"customer.bnr_authorisation":           fact(FactBool, "customer_profile"),
+	"account.nominal_holder_without_owner": fact(FactBool, "customer_profile"),
+	"account.relatives_heavy_activity":     fact(FactBool, "customer_profile"),
+	"account.inflow_to_peer_p95":           fact(FactRatio, "peer_groups"),
+	"beneficial_owner.identified":          fact(FactBool, "customer_profile"),
+	"beneficial_owner.documents_complete":  fact(FactBool, "customer_profile"),
+	"company.shell_indicators":             fact(FactCount, "customer_profile"),
+	"funding.cash_share_30d":               fact(FactRatio, "customer_profile"),
+	"merchant.accepts_virtual_assets":      fact(FactBool, "customer_profile"),
+	"merchant.va_authorised":               fact(FactBool, "customer_profile"),
+	"exception.authorised_by_bank":         fact(FactBool, "customer_profile"),
+	"wallet.kyc_tier":                      enum("wallet_profile", "minimum", "medium", "enhanced"),
+	"wallet.balance_after":                 fact(FactMoney, "wallet_profile"),
+	// Identity and telco.
+	"identity.ghana_card_verified": fact(FactBool, "identity"),
+	"identity.nida_verified":       fact(FactBool, "identity"),
+	"identity.sim_nida_verified":   fact(FactBool, "identity"),
+	"kyc.identity_verified":        fact(FactBool, "identity"),
+	"phone.foreign":                fact(FactBool, "telco"),
+	"telco.sims_per_device":        fact(FactCount, "telco"),
+	"telco.simbox_route_pattern":   fact(FactBool, "telco"),
+	// Counterparties and lists.
+	"counterparty.tag": enum("counterparty_tags", "gold_buyer", "gold_aggregator", "forex_bureau", "vasp", "p2p_crypto",
+		"crypto_linked", "unlicensed_vasp", "unlicensed_lender", "real_estate", "business", "other"),
+	"counterparty.business":                  fact(FactBool, "counterparty_tags"),
+	"counterparty.is_vasp":                   fact(FactBool, "counterparty_tags"),
+	"counterparty.vasp_licensed":             fact(FactBool, "counterparty_tags"),
+	"counterparty.on_unlicensed_lender_list": fact(FactBool, "lender_list"),
+	"counterparty.fatf_monitored":            fact(FactBool, "fatf_list"),
+	"screening.designation_match":            fact(FactBool, "sanctions_list"),
+	"order.source":                           enum("regulator_orders", "FIC", "court", "other"),
+	"order.type":                             enum("regulator_orders", "suspension", "freeze", "other"),
+	// Staff and agents.
+	"staff.role":                     enum("staff_directory", "teller", "relationship_officer", "direct_sales_agent", "other"),
+	"staff.dormant_account_debits":   fact(FactCount, "staff_directory"),
+	"staff.overrides_above_peer_p95": fact(FactBool, "peer_groups"),
+	"agent.float_topup_to_peer_p95":  fact(FactRatio, "agent_network"),
+	"agent.cycle_to_float":           fact(FactRatio, "agent_network"),
+	"agent.new_wallet_share":         fact(FactRatio, "agent_network"),
+	// Incidents, vendors, sessions and data.
+	"incident.kind": enum("incident_register", "security_incident", "vulnerability", "fraud", "service_interruption",
+		"data_loss", "illegal_computer_use", "illegal_sim_swap"),
+	"incident.severity":                     enum("incident_register", "critical", "major", "significant", "moderate", "minor"),
+	"breach.personal_data":                  fact(FactBool, "incident_register"),
+	"breach.unauthorised_access":            fact(FactBool, "incident_register"),
+	"breach.high_risk":                      fact(FactBool, "incident_register"),
+	"vendor.service":                        enum("vendor_register", "cybersecurity", "other"),
+	"vendor.csa_licence_valid":              fact(FactBool, "vendor_register"),
+	"vendor.due_diligence_done":             fact(FactBool, "vendor_register"),
+	"vendor.assessment_age":                 fact(FactDuration, "vendor_register"),
+	"session.mfa_passed":                    fact(FactBool, "session"),
+	"session.compensating_control_approved": fact(FactBool, "session"),
+	"data.personal":                         fact(FactBool, "data_governance"),
+	"data.destination_foreign":              fact(FactBool, "data_governance"),
+	"data.consent_recorded":                 fact(FactBool, "data_governance"),
+	"data.safeguards_recorded":              fact(FactBool, "data_governance"),
+	"data.bog_approval":                     fact(FactBool, "data_governance"),
+	"data.ncsa_certificate_authorises":      fact(FactBool, "data_governance"),
+	"data.ncsa_transfer_authorised":         fact(FactBool, "data_governance"),
+	"data.contract_written":                 fact(FactBool, "data_governance"),
+	"datastore.encrypted_at_rest":           fact(FactBool, "data_governance"),
+	"link.tls_enforced":                     fact(FactBool, "data_governance"),
+	"record.type":                           enum("data_governance", "audit_log", "customer_file", "transaction", "report", "other"),
+	"record.age":                            fact(FactDuration, "data_governance"),
+	"audit_log.coverage":                    fact(FactRatio, "data_governance"),
+	"security.pentest_age":                  fact(FactDuration, "security_programme"),
+	"security.vulnerability_assessment_age": fact(FactDuration, "security_programme"),
+	"security.internal_audit_age":           fact(FactDuration, "security_programme"),
+	"pentest.tester_certified":              fact(FactBool, "security_programme"),
 }
 
 // paramFits reports which parameter types can stand where a fact of type t is compared.

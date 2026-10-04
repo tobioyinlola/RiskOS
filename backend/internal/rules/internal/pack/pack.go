@@ -47,12 +47,43 @@ const (
 	ModeShadow Mode = "shadow"
 )
 
+// Provenance is where a rule comes from, as the library tags it (ADR-0007).
+type Provenance string
+
+// Provenance tags.
+const (
+	// ProvenanceRegulatory follows a cited law, regulation or directive.
+	ProvenanceRegulatory Provenance = "regulatory"
+	// ProvenanceIndustry is a published typology or practice with no mandated number.
+	ProvenanceIndustry Provenance = "industry_practice"
+	// ProvenanceDesign is the library author's proposal: numbers are starting values, not law.
+	ProvenanceDesign Provenance = "my_design"
+)
+
+// OffReason is why a rule ships switched off.
+type OffReason string
+
+// Reasons a rule is off by default.
+const (
+	// OffThresholdToConfirm: a number the rule needs was not found; it has a placeholder.
+	OffThresholdToConfirm OffReason = "threshold_to_be_confirmed"
+	// OffVerifyFirst: the legal basis may no longer apply and must be checked first.
+	OffVerifyFirst OffReason = "verify_first"
+)
+
 // Pack is a jurisdiction pack: its metadata and its rules.
 type Pack struct {
-	ID           string    `json:"id"`
-	Jurisdiction string    `json:"jurisdiction"`
-	Name         string    `json:"name"`
-	Version      string    `json:"version"`
+	ID           string `json:"id"`
+	Jurisdiction string `json:"jurisdiction"`
+	Name         string `json:"name"`
+	Version      string `json:"version"`
+	// Currency and Timezone are the jurisdiction's (GHS, Africa/Accra): money settings are in
+	// Currency or US dollars, and windows and hours are kept in Timezone. Packs that predate
+	// them (ng) take them from DefaultLocale.
+	Currency string `json:"currency,omitempty"`
+	Timezone string `json:"timezone,omitempty"`
+	// Library names the library document the pack's wording is copied from.
+	Library      string    `json:"library,omitempty"`
 	Groups       []Group   `json:"groups"`
 	Sources      []Source  `json:"sources"`
 	Clocks       []Clock   `json:"clocks"`
@@ -60,9 +91,70 @@ type Pack struct {
 	Glossary     []Term    `json:"glossary"`
 	LicenceTypes []Licence `json:"licence_types"`
 	Capabilities []Licence `json:"capabilities"`
-	Rules        []Rule    `json:"-"`
+	// Penalties is the penalty exposure register the library lists, for display only.
+	Penalties []Penalty `json:"penalties,omitempty"`
+	// Inherits lists the rules of other packs that apply in this jurisdiction under their own
+	// IDs, with settings changed for the country (ADR-0007). The loader adds them to Rules.
+	Inherits []Inherit `json:"inherits,omitempty"`
+	Rules    []Rule    `json:"-"`
 	// Checksum is the SHA-256 of the pack's files: a version's content never changes.
 	Checksum string `json:"-"`
+}
+
+// Locale is a jurisdiction's currency and time zone.
+type Locale struct {
+	Currency, Timezone string
+}
+
+// DefaultLocale is the locale of packs that predate the currency and timezone fields. Only
+// Nigeria's first pack versions omit them.
+func DefaultLocale(jurisdiction string) (Locale, bool) {
+	if jurisdiction == "NG" {
+		return Locale{Currency: "NGN", Timezone: "Africa/Lagos"}, true
+	}
+	return Locale{}, false
+}
+
+// Locale returns the pack's currency and time zone.
+func (p *Pack) Locale() Locale {
+	if p.Currency != "" {
+		return Locale{Currency: p.Currency, Timezone: p.Timezone}
+	}
+	l, _ := DefaultLocale(p.Jurisdiction)
+	return l
+}
+
+// Inherit is a rule of another pack that applies here unchanged in logic.
+type Inherit struct {
+	Pack string `json:"pack"`
+	Rule string `json:"rule"`
+	// AppliesTo replaces the parent's licence types with this pack's (empty: every institution).
+	AppliesTo []string `json:"applies_to,omitempty"`
+	// Overrides changes settings for the country: money settings must be restated in this
+	// pack's currency.
+	Overrides map[string]Override `json:"overrides,omitempty"`
+	// Note says what changes for the country, in plain words.
+	Note string `json:"note,omitempty"`
+}
+
+// Override changes one setting of a templated or inherited rule.
+type Override struct {
+	Label    string   `json:"label,omitempty"`
+	Currency string   `json:"currency,omitempty"`
+	Default  *float64 `json:"default,omitempty"`
+	Min      *float64 `json:"min,omitempty"`
+	Max      *float64 `json:"max,omitempty"`
+}
+
+// Penalty is one line of the penalty exposure register.
+type Penalty struct {
+	Provision string `json:"provision"`
+	Penalty   string `json:"penalty"`
+	// Estimate is the amount in the local currency where the library computes one; it is an
+	// inference when Inference is set (Ghana penalty units at GHS 12).
+	Estimate  string   `json:"estimate,omitempty"`
+	Inference bool     `json:"inference,omitempty"`
+	Sources   []string `json:"sources"`
 }
 
 // Group is a family of rules as the library lists them.
@@ -90,7 +182,22 @@ type Licence struct {
 	Label string `json:"label"`
 }
 
-// Clock is a legal deadline that becomes a product timer (section 8).
+// ClockKind says what a clock's duration rests on.
+type ClockKind string
+
+// Clock kinds.
+const (
+	// ClockLegal is a deadline a law or regulator sets.
+	ClockLegal ClockKind = "legal"
+	// ClockPolicy is the institution's own target, inside or in place of a legal clock.
+	ClockPolicy ClockKind = "internal_policy"
+	// ClockPlaceholder is a design default standing in for a legal deadline not yet found.
+	ClockPlaceholder ClockKind = "design_placeholder"
+	// ClockNotFound is a deadline the law sets but no readable source states: it has no hours.
+	ClockNotFound ClockKind = "not_found"
+)
+
+// Clock is a deadline that becomes a product timer (section 8; ADR-0007 section 6).
 type Clock struct {
 	ID          string   `json:"id"`
 	Duration    string   `json:"duration"`
@@ -99,7 +206,20 @@ type Clock struct {
 	Requirement string   `json:"requirement"`
 	Sources     []string `json:"sources"`
 	Rules       []string `json:"rules"`
-	Hours       int      `json:"hours"`
+	// Hours is nil for a clock that was not found: shown as "not found", never as zero.
+	Hours *int `json:"hours"`
+	// Kind is legal unless stated (packs before ADR-0007 list legal clocks only).
+	Kind ClockKind `json:"kind,omitempty"`
+	// Authority is the body the clock runs against (FIC, BoG, NCSA).
+	Authority string `json:"authority,omitempty"`
+}
+
+// ClockKindOf returns the clock's kind, legal when unstated.
+func (c *Clock) ClockKindOf() ClockKind {
+	if c.Kind == "" {
+		return ClockLegal
+	}
+	return c.Kind
 }
 
 // Gap is an open question from section 9 that a person must settle.
@@ -109,6 +229,11 @@ type Gap struct {
 	Detail  string   `json:"detail"`
 	Rules   []string `json:"rules"`
 	Sources []string `json:"sources"`
+	// Kind is "conflict" (two sources disagree) or "unverified" (not found or not confirmed);
+	// empty for packs before ADR-0007.
+	Kind string `json:"kind,omitempty"`
+	// Treatment is how the library handles it until a person settles it.
+	Treatment string `json:"treatment,omitempty"`
 }
 
 // Term is a glossary entry.
@@ -130,6 +255,8 @@ type Text struct {
 	Points string `json:"points,omitempty"`
 	// EngineeringLogic is the rule's section 7B block, for display to engineers only.
 	EngineeringLogic string `json:"engineering_logic"`
+	// Basis is the library's "Tag, lineage, default, basis" column, verbatim (ADR-0007 packs).
+	Basis string `json:"basis,omitempty"`
 }
 
 // Rule is one machine rule definition.
@@ -157,8 +284,35 @@ type Rule struct {
 	Outcome    Outcome     `json:"outcome"`
 	Governance *Governance `json:"governance,omitempty"`
 	Parameters []Parameter `json:"parameters"`
+	// Provenance, Lineage and OffReason are the library's tags (ADR-0007): required for rules
+	// with a country prefix (GH-TM-01), absent for earlier packs.
+	Provenance Provenance `json:"provenance,omitempty"`
+	Lineage    *Lineage   `json:"lineage,omitempty"`
+	OffReason  OffReason  `json:"off_reason,omitempty"`
+	// Template is the parent rule whose logic a "Param of X" rule reuses. The loader copies the
+	// parent's inputs, trigger, condition, branches, outcome, governance and parameters, then
+	// applies Overrides; the rule file states only what differs.
+	Template  *Ref                `json:"template,omitempty"`
+	Overrides map[string]Override `json:"overrides,omitempty"`
+	// InheritedFrom is the pack an inherited rule comes from; it keeps the parent's ID.
+	InheritedFrom string `json:"inherited_from,omitempty"`
 	// Text is filled from the pack's text file, never written in the rule files.
 	Text Text `json:"-"`
+}
+
+// Ref names a rule of a pack.
+type Ref struct {
+	Pack string `json:"pack"`
+	Rule string `json:"rule"`
+}
+
+// Lineage is how a rule relates to another pack's rules.
+type Lineage struct {
+	// Kind is param (country-parameterised version), analogue, cross_reference, stricter or
+	// new_local.
+	Kind string `json:"kind"`
+	// Of lists the related rules (ATO-01, REG-12 and REG-18).
+	Of []string `json:"of,omitempty"`
 }
 
 // Effective is when the rule's legal basis took effect. Date is set only when the library
@@ -181,13 +335,18 @@ type Trigger struct {
 	Scope *Cond `json:"scope,omitempty"`
 }
 
-// Branch is one of several weighted variants of a signal; the highest matching branch counts.
+// Branch is one of several variants of a rule. For a signal the matching branch with the most
+// points counts; for a control the first matching branch does.
 type Branch struct {
 	Condition Cond `json:"condition"`
 	// Weight (signals) or Fee (controls) is the parameter this branch uses.
 	Weight string `json:"weight,omitempty"`
 	Fee    string `json:"fee,omitempty"`
-	Label  string `json:"label"`
+	// Decision and Tasks, for a control, replace the outcome's when this branch matches: RURA
+	// wants critical incidents now and moderate ones monthly (ADR-0007).
+	Decision string `json:"decision,omitempty"`
+	Tasks    []Task `json:"tasks,omitempty"`
+	Label    string `json:"label"`
 }
 
 // Outcome is what happens when the rule applies.
@@ -239,7 +398,8 @@ type ParamType string
 
 // Parameter types.
 const (
-	// ParamMoney is an amount in minor units of Currency (kobo for NGN, cents for USD).
+	// ParamMoney is an amount in minor units of Currency (kobo for NGN, pesewas for GHS,
+	// whole francs for RWF, cents for USD).
 	ParamMoney ParamType = "money"
 	// ParamDuration is a duration in seconds.
 	ParamDuration ParamType = "duration"
@@ -253,7 +413,7 @@ const (
 	ParamPercent ParamType = "percent"
 	// ParamSpeed is a speed in km/h.
 	ParamSpeed ParamType = "speed"
-	// ParamHour is an hour of the day, 0 to 24, in Africa/Lagos time.
+	// ParamHour is an hour of the day, 0 to 24, in the jurisdiction's time zone.
 	ParamHour ParamType = "hour"
 	// ParamScore is a similarity score, 0 to 100.
 	ParamScore ParamType = "score"

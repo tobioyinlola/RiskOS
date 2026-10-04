@@ -38,7 +38,7 @@ func TestEveryTenantTableIsIsolated(t *testing.T) {
 		assert.True(t, rls && policies > 0, "%s holds tenant data without row-level security and a policy", name)
 	}
 	require.NoError(t, rows.Err())
-	for _, name := range []string{"compliance_tasks", "compliance_accounts", "pack_rule_versions", "pack_rule_changes", "compliance_fx_rates", "tenant_compliance"} {
+	for _, name := range []string{"compliance_tasks", "compliance_accounts", "pack_rule_versions", "pack_rule_changes", "compliance_fx_rates", "jurisdiction_activations"} {
 		assert.True(t, seen[name], "%s is checked", name)
 	}
 

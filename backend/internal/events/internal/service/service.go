@@ -163,7 +163,7 @@ func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n
 		if c.Mode != "live" || !slices.ContainsFunc(c.Tasks, rules.TrackedTask) {
 			continue
 		}
-		controls = append(controls, rules.TaskControl{Rule: c.Rule, Tasks: c.Tasks})
+		controls = append(controls, rules.TaskControl{Rule: c.Rule, Tasks: c.Tasks, Branch: c.Branch, Jurisdiction: jurisdictionOf(res)})
 	}
 	var hasBVN *bool
 	if n.Compliance != nil && n.Actor.AccountID != "" {
@@ -304,6 +304,11 @@ func toOutcome(r risk.Result) domain.Outcome {
 	for _, n := range r.NotEvaluated {
 		out.NotEvaluated = append(out.NotEvaluated, domain.NotEvaluated{Rule: n.Rule, Missing: n.Missing})
 	}
+	if j := r.Jurisdiction; j != nil {
+		out.Jurisdiction = &domain.Jurisdiction{
+			Jurisdiction: j.Jurisdiction, Pack: j.Pack, ResolvedBy: j.ResolvedBy, BookingEntity: j.BookingEntity,
+		}
+	}
 	return out
 }
 
@@ -351,4 +356,12 @@ func (s *Service) Analytics(ctx context.Context, w domain.Window) (Analytics, er
 		return err
 	})
 	return out, err
+}
+
+// jurisdictionOf is the country whose pack judged an evaluation ("" when none did).
+func jurisdictionOf(r risk.Result) string {
+	if r.Jurisdiction == nil {
+		return ""
+	}
+	return r.Jurisdiction.Jurisdiction
 }

@@ -91,7 +91,7 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	record, read := p.Windows(out.Kinds)
 	// Filters are checked on what is known before the round trip (the event, the customer's
 	// facts and behaviour history); none uses the activity history.
-	pre := withUSD(features.PackFacts(e, v, features.Activity{}), p)
+	pre := packFacts(e, v, features.Activity{}, p)
 	ops := map[string]*features.WindowOp{}
 	var order []string
 	op := func(ref rulepack.Window) *features.WindowOp {
@@ -139,7 +139,7 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	}
 	we := features.WindowEvent{
 		ID: eventKey, At: e.OccurredAt, UserID: e.Actor.UserID, AccountID: e.Actor.AccountID,
-		Hour: e.OccurredAt.In(features.Lagos).Hour(), ExportRows: e.ExportRows(), Geo: e.Context.Geo,
+		Hour: e.OccurredAt.In(p.Location).Hour(), ExportRows: e.ExportRows(), Geo: e.Context.Geo,
 	}
 	if t := e.Transaction; t != nil {
 		we.Amount, we.Currency = t.Amount, t.Currency
@@ -156,7 +156,7 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 	if v.Warming {
 		activity = features.Activity{}
 	}
-	out.Facts = withUSD(features.PackFacts(e, v, activity), p)
+	out.Facts = packFacts(e, v, activity, p)
 	out.Seen = map[string]map[string]any{}
 	for _, o := range p.Evaluate(rulepack.Env{Kinds: out.Kinds, Facts: out.Facts, Aggs: aggs}) {
 		switch o.Status {
@@ -202,6 +202,16 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 		out.Controls = append(out.Controls, c)
 	}
 	return out
+}
+
+// packFacts are the facts the pack's rules see: the event's, in the pack's time zone, with the
+// activation's licence type and the amount in US dollars.
+func packFacts(e features.Event, v features.Values, a features.Activity, p *rulepack.TenantPack) rulepack.Facts {
+	f := features.PackFacts(e, v, a, p.Location)
+	if p.LicenceType != "" {
+		f["institution.licence_type"] = p.LicenceType
+	}
+	return withUSD(f, p)
 }
 
 // withUSD adds the event's amount in US dollars from the institution's rates, unless the event

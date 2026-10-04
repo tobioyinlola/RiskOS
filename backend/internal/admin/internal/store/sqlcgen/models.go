@@ -291,6 +291,37 @@ type GoogleLogin struct {
 	ExpiresAt   time.Time
 }
 
+type Jurisdiction struct {
+	Code       string
+	Name       string
+	Currency   string
+	MinorUnit  int16
+	Timezone   string
+	Regulators []string
+	PackID     string
+}
+
+type JurisdictionActivation struct {
+	TenantID      uuid.UUID
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	SignalDefault string
+	ID            uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+}
+
 type PackRule struct {
 	PackID      string
 	PackVersion string
@@ -529,17 +560,6 @@ type Tenant struct {
 	CreatedAt         time.Time
 	ProductionEnabled bool
 	Origin            string
-}
-
-type TenantCompliance struct {
-	TenantID      uuid.UUID
-	PackID        string
-	PackVersion   string
-	LicenceType   string
-	Capabilities  []string
-	UpdatedAt     time.Time
-	UpdatedBy     string
-	SignalDefault string
 }
 
 type TenantOnboarding struct {

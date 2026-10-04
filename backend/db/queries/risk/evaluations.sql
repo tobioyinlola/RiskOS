@@ -16,7 +16,9 @@ INSERT INTO evaluations (
 -- name: GetEvaluation :one
 -- created_at is derived from the id, so this reads exactly one partition.
 SELECT id, created_at, event_id, engine_version, risk_score, risk_level, decision, signals, degraded_signals, request_id,
-       controls, not_evaluated
+       controls, not_evaluated,
+       -- The jurisdiction that judged the event is kept with the features (ADR-0007).
+       COALESCE(features->'jurisdiction', 'null'::jsonb)::jsonb AS jurisdiction
 FROM evaluations
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at = @created_at AND id = @id;
 

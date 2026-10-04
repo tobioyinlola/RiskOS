@@ -4169,6 +4169,147 @@
     }
    }
   },
+  "/api/v1/compliance/jurisdictions": {
+   "get": {
+    "operationId": "listComplianceJurisdictions",
+    "tags": [
+     "compliance"
+    ],
+    "summary": "The countries RiskOS has a rule pack for",
+    "description": "Requires `compliance:read`. Every jurisdiction with its currency, time zone, regulators and\npack, and whether the workspace has activated it (ADR-0007).\n",
+    "responses": {
+     "200": {
+      "description": "The jurisdictions.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "data"
+         ],
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/Jurisdiction"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
+  "/api/v1/compliance/activations": {
+   "get": {
+    "operationId": "listComplianceActivations",
+    "tags": [
+     "compliance"
+    ],
+    "summary": "The workspace's country activations",
+    "description": "Requires `compliance:read`. One activation per country and booking entity: the pack it is on,\nthe institution type, its status (draft, shadow, live or suspended) and whether it is the\nfallback that judges events naming no booking entity (ADR-0007).\n",
+    "responses": {
+     "200": {
+      "description": "The activations, the fallback first.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "data"
+         ],
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/JurisdictionActivation"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
+  "/api/v1/compliance/active-rules": {
+   "get": {
+    "operationId": "listActiveComplianceRules",
+    "tags": [
+     "compliance"
+    ],
+    "summary": "Every pack rule running for the workspace",
+    "description": "Requires `compliance:read`. Every rule of every activated country that applies to the\nactivation and runs in this environment (live or shadow), with the events that trigger it and\nthe facts and references to send for it to be evaluated. A rule whose `unset_settings` is not\nempty, or whose facts are not sent, is reported as not evaluated in decisions. Your own rules\nare at `/api/v1/rules`.\n",
+    "parameters": [
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "description": "Only rules of this country.",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "The active rules, by country and ID.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "data"
+         ],
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/ActiveComplianceRule"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
   "/api/v1/compliance/pack": {
    "get": {
     "operationId": "getCompliancePack",
@@ -4336,7 +4477,17 @@
       "required": true,
       "schema": {
        "type": "string",
-       "pattern": "^[A-Z]{3}-[0-9]{2}$"
+       "pattern": "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
+      }
+     },
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "description": "The country whose pack the rule is in. Without it, the jurisdiction a country rule ID names\n(GH-REG-01 is Ghana's), else the workspace's fallback pack.\n",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
       }
      }
     ],
@@ -4381,7 +4532,7 @@
       "required": true,
       "schema": {
        "type": "string",
-       "pattern": "^[A-Z]{3}-[0-9]{2}$"
+       "pattern": "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
       }
      }
     ],
@@ -4424,7 +4575,7 @@
       "required": true,
       "schema": {
        "type": "string",
-       "pattern": "^[A-Z]{3}-[0-9]{2}$"
+       "pattern": "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
       }
      }
     ],
@@ -4495,7 +4646,7 @@
       "required": true,
       "schema": {
        "type": "string",
-       "pattern": "^[A-Z]{3}-[0-9]{2}$"
+       "pattern": "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
       }
      }
     ],
@@ -4540,7 +4691,7 @@
       "required": true,
       "schema": {
        "type": "string",
-       "pattern": "^[A-Z]{3}-[0-9]{2}$"
+       "pattern": "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
       }
      }
     ],
@@ -4627,7 +4778,7 @@
       "required": true,
       "schema": {
        "type": "string",
-       "pattern": "^[A-Z]{3}-[0-9]{2}$"
+       "pattern": "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
       }
      }
     ],
@@ -7419,6 +7570,49 @@
       "type": "integer",
       "description": "The rule's configuration version in this environment; 0 means the library's defaults."
      },
+     "jurisdiction": {
+      "type": "string",
+      "description": "The country of the pack the rule is in."
+     },
+     "provenance": {
+      "type": "string",
+      "enum": [
+       "regulatory",
+       "industry_practice",
+       "my_design"
+      ],
+      "description": "Where the rule comes from (country libraries): a cited law (regulatory), a published typology\nwith no mandated number (industry_practice), or the library author's design, whose numbers are\nstarting values, not regulation (my_design).\n"
+     },
+     "lineage": {
+      "$ref": "#/components/schemas/ComplianceLineage"
+     },
+     "off_reason": {
+      "type": "string",
+      "enum": [
+       "threshold_to_be_confirmed",
+       "verify_first"
+      ],
+      "description": "Why the rule ships switched off."
+     },
+     "inherited_from": {
+      "type": "string",
+      "description": "The pack an inherited rule comes from (`ng`); it keeps its ID and logic, with settings restated for the country."
+     },
+     "template": {
+      "type": "string",
+      "description": "The rule whose logic a parameterised rule reuses (ATO-01)."
+     },
+     "changes": {
+      "type": "array",
+      "description": "The settings an inherited or parameterised rule changes from its parent.",
+      "items": {
+       "type": "string"
+      }
+     },
+     "basis": {
+      "type": "string",
+      "description": "The library's \"Tag, lineage, default, basis\" column, verbatim."
+     },
      "engineering_logic": {
       "type": "string",
       "description": "The library's section 7B logic. Only for `compliance:engineering`."
@@ -7427,6 +7621,228 @@
       "type": "object",
       "additionalProperties": true,
       "description": "The machine definition the engine interprets. Only for `compliance:engineering`."
+     }
+    }
+   },
+   "Jurisdiction": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "code",
+     "name",
+     "currency",
+     "minor_unit",
+     "timezone",
+     "regulators",
+     "pack",
+     "activated"
+    ],
+    "properties": {
+     "code": {
+      "type": "string",
+      "example": "GH"
+     },
+     "name": {
+      "type": "string"
+     },
+     "currency": {
+      "type": "string",
+      "description": "Amounts in this country's rules are in minor units of this currency."
+     },
+     "minor_unit": {
+      "type": "integer",
+      "description": "Digits after the decimal point (2 for pesewas, 0 for Rwandan francs)."
+     },
+     "timezone": {
+      "type": "string",
+      "example": "Africa/Accra"
+     },
+     "regulators": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "pack": {
+      "type": "string",
+      "description": "The pack ID (gh)."
+     },
+     "activated": {
+      "type": "boolean"
+     }
+    }
+   },
+   "JurisdictionActivation": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "id",
+     "jurisdiction",
+     "booking_entity",
+     "status",
+     "fallback",
+     "pack",
+     "licence_type",
+     "capabilities",
+     "updated_at"
+    ],
+    "properties": {
+     "id": {
+      "type": "string"
+     },
+     "jurisdiction": {
+      "type": "string"
+     },
+     "booking_entity": {
+      "type": "string",
+      "description": "The licensed entity events name in `compliance.booking_entity`."
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "draft",
+       "shadow",
+       "live",
+       "suspended"
+      ],
+      "description": "Shadow runs every rule in shadow; draft and suspended run none."
+     },
+     "fallback": {
+      "type": "boolean",
+      "description": "Judges events that name no booking entity (or one not activated)."
+     },
+     "pack": {
+      "type": "string",
+      "description": "The pack version (gh@2026.10.1)."
+     },
+     "licence_type": {
+      "type": "string"
+     },
+     "capabilities": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
+     },
+     "effective_from": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "activated_at": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "updated_at": {
+      "type": "string",
+      "format": "date-time"
+     }
+    }
+   },
+   "ActiveComplianceRule": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "rule",
+     "name",
+     "kind",
+     "jurisdiction",
+     "pack",
+     "booking_entity",
+     "mode",
+     "events",
+     "facts",
+     "refs",
+     "unset_settings"
+    ],
+    "properties": {
+     "rule": {
+      "type": "string",
+      "example": "GH-REG-04"
+     },
+     "name": {
+      "type": "string"
+     },
+     "kind": {
+      "$ref": "#/components/schemas/ComplianceRuleKind"
+     },
+     "jurisdiction": {
+      "type": "string"
+     },
+     "pack": {
+      "type": "string"
+     },
+     "booking_entity": {
+      "type": "string"
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "live",
+       "shadow"
+      ]
+     },
+     "provenance": {
+      "type": "string",
+      "enum": [
+       "regulatory",
+       "industry_practice",
+       "my_design"
+      ]
+     },
+     "events": {
+      "type": "array",
+      "description": "The `compliance.kind` values that trigger the rule.",
+      "items": {
+       "type": "string"
+      }
+     },
+     "facts": {
+      "type": "array",
+      "description": "The `compliance.facts` the rule reads (facts RiskOS computes are not listed).",
+      "items": {
+       "type": "string"
+      }
+     },
+     "refs": {
+      "type": "array",
+      "description": "The `compliance.refs` its time windows are kept for.",
+      "items": {
+       "type": "string"
+      }
+     },
+     "unset_settings": {
+      "type": "array",
+      "description": "Settings with no value yet; until they are set the rule is not evaluated.",
+      "items": {
+       "type": "string"
+      }
+     }
+    }
+   },
+   "ComplianceLineage": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "kind",
+     "of"
+    ],
+    "properties": {
+     "kind": {
+      "type": "string",
+      "enum": [
+       "param",
+       "analogue",
+       "cross_reference",
+       "stricter",
+       "new_local"
+      ],
+      "description": "How the rule relates to the first library's rules (\"Param of ATO-01\", \"New local\")."
+     },
+     "of": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      }
     }
    },
@@ -7467,7 +7883,11 @@
      },
      "current": {
       "type": "boolean",
-      "description": "The pack the workspace's profile uses."
+      "description": "The pack the workspace's fallback activation uses."
+     },
+     "activated": {
+      "type": "boolean",
+      "description": "The workspace has an activation in this jurisdiction."
      }
     }
    },
@@ -7646,6 +8066,7 @@
      "applies_to",
      "requirement",
      "hours",
+     "kind",
      "sources",
      "rules"
     ],
@@ -7667,7 +8088,15 @@
      },
      "hours": {
       "type": "integer",
-      "description": "The deadline in hours."
+      "nullable": true,
+      "description": "The deadline in hours; 0 means immediately. Null when the law sets a deadline no readable\nsource states (`kind` not_found): shown as \"not found\", never as zero.\n"
+     },
+     "kind": {
+      "$ref": "#/components/schemas/ComplianceClockKind"
+     },
+     "authority": {
+      "type": "string",
+      "description": "The body the clock runs against (FIC, BoG, NCSA), when the library names one."
      },
      "sources": {
       "type": "array",
@@ -7698,6 +8127,16 @@
      }
     }
    },
+   "ComplianceClockKind": {
+    "type": "string",
+    "enum": [
+     "legal",
+     "internal_policy",
+     "design_placeholder",
+     "not_found"
+    ],
+    "description": "What a clock rests on: a deadline a law or regulator sets (legal), the institution's own\ntarget (internal_policy), a design default standing in for a deadline not yet found\n(design_placeholder), or a legal deadline no readable source states (not_found).\n"
+   },
    "ComplianceGap": {
     "type": "object",
     "additionalProperties": false,
@@ -7717,6 +8156,18 @@
      },
      "detail": {
       "type": "string"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "conflict",
+       "unverified"
+      ],
+      "description": "Two sources disagree (conflict), or a fact was not found or not confirmed (unverified)."
+     },
+     "treatment": {
+      "type": "string",
+      "description": "How the library handles it until a person settles it."
      },
      "rules": {
       "type": "array",
@@ -9898,6 +10349,16 @@
      },
      "refs": {
       "$ref": "#/components/schemas/ComplianceRefs"
+     },
+     "booking_entity": {
+      "type": "string",
+      "pattern": "^[A-Za-z0-9._:-]{1,64}$",
+      "description": "The licensed entity that holds the customer relationship, as activated in the workspace\n(ADR-0007). Its jurisdiction's pack judges the event; without it, the workspace's fallback\nactivation does, and with no fallback the event is reported as jurisdiction unresolved.\n"
+     },
+     "data_subject_country": {
+      "type": "string",
+      "pattern": "^[A-Z]{2}$",
+      "description": "The country of the person whose data the event concerns, for data-protection rules only."
      }
     }
    },
@@ -9937,6 +10398,12 @@
       "$ref": "#/components/schemas/Reference"
      },
      "funding_source": {
+      "$ref": "#/components/schemas/Reference"
+     },
+     "national_id": {
+      "$ref": "#/components/schemas/Reference"
+     },
+     "agent": {
       "$ref": "#/components/schemas/Reference"
      }
     }
@@ -9987,7 +10454,34 @@
      "staff_action",
      "fraud_report",
      "merchant_daily",
-     "terminal_activity"
+     "terminal_activity",
+     "forex_buy",
+     "forex_sell",
+     "wallet_cash_out",
+     "sim_registered",
+     "sim_replaced",
+     "otp_used",
+     "designation_received",
+     "fic_order_received",
+     "incident_detected",
+     "vulnerability_confirmed",
+     "breach_confirmed",
+     "outsourcing_planned",
+     "outsourcing_signed",
+     "vendor_onboarded",
+     "vendor_review",
+     "remote_access_login",
+     "data_transfer",
+     "record_delete_requested",
+     "audit_log_check",
+     "eod_reconciliation",
+     "agent_daily",
+     "cdr_daily",
+     "config_scan",
+     "pentest_completed",
+     "security_audit_completed",
+     "audit_finding_opened",
+     "security_review_due"
     ]
    },
    "LoginEvent": {
@@ -10691,6 +11185,9 @@
      "not_evaluated"
     ],
     "properties": {
+     "jurisdiction": {
+      "$ref": "#/components/schemas/JurisdictionResolution"
+     },
      "request_id": {
       "type": "string",
       "description": "The request that produced this decision (for replays, the original request)."
@@ -10751,6 +11248,36 @@
       "items": {
        "$ref": "#/components/schemas/NotEvaluatedRule"
       }
+     }
+    }
+   },
+   "JurisdictionResolution": {
+    "type": "object",
+    "additionalProperties": false,
+    "description": "Which country's pack judged the event and why (ADR-0007): the booking entity the event named,\nthe workspace's stated fallback, or none (`unresolved`: no pack judged it; `inactive`: the\nbooking entity's activation is in draft or suspended). Absent for workspaces with no activation.\n",
+    "required": [
+     "resolved_by"
+    ],
+    "properties": {
+     "jurisdiction": {
+      "type": "string",
+      "description": "The governing country; absent when unresolved or inactive."
+     },
+     "pack": {
+      "type": "string",
+      "description": "The pack version that judged the event (gh@2026.10.1)."
+     },
+     "resolved_by": {
+      "type": "string",
+      "enum": [
+       "booking_entity",
+       "fallback",
+       "unresolved",
+       "inactive"
+      ]
+     },
+     "booking_entity": {
+      "type": "string"
      }
     }
    },

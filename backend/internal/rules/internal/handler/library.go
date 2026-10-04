@@ -5,11 +5,14 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/service"
 )
@@ -130,6 +133,25 @@ func ruleToAPI(v *service.RuleView) (apigen.ComplianceRule, error) {
 		},
 		Parameters: params, Applicable: v.Applicable,
 		Mode: apigen.PackRuleMode(v.Config.Mode), ConfigVersion: v.Config.Version,
+		Jurisdiction: optional(v.Jurisdiction), InheritedFrom: optional(v.InheritedFrom), Basis: optional(v.Text.Basis),
+	}
+	if v.Provenance != "" {
+		p := apigen.ComplianceRuleProvenance(v.Provenance)
+		out.Provenance = &p
+	}
+	if v.OffReason != "" {
+		r := apigen.ComplianceRuleOffReason(v.OffReason)
+		out.OffReason = &r
+	}
+	if v.Lineage != nil {
+		out.Lineage = &apigen.ComplianceLineage{Kind: apigen.ComplianceLineageKind(v.Lineage.Kind), Of: list(v.Lineage.Of)}
+	}
+	if v.Template != nil {
+		out.Template = &v.Template.Rule
+	}
+	if len(v.Overrides) > 0 {
+		changes := slices.Sorted(maps.Keys(v.Overrides))
+		out.Changes = &changes
 	}
 	if v.Engineering {
 		raw, err := json.Marshal(v.Rule)
@@ -176,7 +198,11 @@ func (h *Handlers) ListComplianceRules(ctx context.Context, req apigen.ListCompl
 
 // GetComplianceRule implements GET /api/v1/compliance/rules/{rule_id}.
 func (h *Handlers) GetComplianceRule(ctx context.Context, req apigen.GetComplianceRuleRequestObject) (apigen.GetComplianceRuleResponseObject, error) {
-	r, err := h.svc.Rule(ctx, req.RuleId)
+	jurisdiction := ""
+	if req.Params.Jurisdiction != nil {
+		jurisdiction = *req.Params.Jurisdiction
+	}
+	r, err := h.svc.Rule(ctx, jurisdiction, req.RuleId)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -197,7 +223,8 @@ func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListCompli
 	for i, c := range p.Clocks {
 		data[i] = apigen.ComplianceClock{
 			Id: c.ID, Duration: c.Duration, Duty: c.Duty, AppliesTo: c.AppliesTo, Requirement: c.Requirement,
-			Hours: c.Hours, Sources: list(c.Sources), Rules: list(c.Rules),
+			Hours: c.Hours, Kind: apigen.ComplianceClockKind(c.ClockKindOf()), Authority: optional(c.Authority),
+			Sources: list(c.Sources), Rules: list(c.Rules),
 		}
 	}
 	return apigen.ListComplianceClocks200JSONResponse{Data: data}, nil
@@ -211,7 +238,14 @@ func (h *Handlers) ListComplianceGaps(ctx context.Context, _ apigen.ListComplian
 	}
 	data := make([]apigen.ComplianceGap, len(p.Gaps))
 	for i, g := range p.Gaps {
-		data[i] = apigen.ComplianceGap{Id: g.ID, Title: g.Title, Detail: g.Detail, Rules: list(g.Rules), Sources: list(g.Sources)}
+		data[i] = apigen.ComplianceGap{
+			Id: g.ID, Title: g.Title, Detail: g.Detail, Treatment: optional(g.Treatment),
+			Rules: list(g.Rules), Sources: list(g.Sources),
+		}
+		if g.Kind != "" {
+			k := apigen.ComplianceGapKind(g.Kind)
+			data[i].Kind = &k
+		}
 	}
 	return apigen.ListComplianceGaps200JSONResponse{Data: data}, nil
 }
@@ -269,9 +303,69 @@ func (h *Handlers) ListCompliancePacks(ctx context.Context, _ apigen.ListComplia
 	data := make([]apigen.CompliancePackSummary, len(packs))
 	for i, p := range packs {
 		data[i] = apigen.CompliancePackSummary{
-			Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, Current: p.Current,
+			Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, Current: p.Current, Activated: &p.Activated,
 			Controls: p.Counts[pack.KindControl], Signals: p.Counts[pack.KindSignal], Governance: p.Counts[pack.KindGovernance],
 		}
 	}
 	return apigen.ListCompliancePacks200JSONResponse{Data: data}, nil
+}
+
+// ListComplianceJurisdictions implements GET /api/v1/compliance/jurisdictions.
+func (h *Handlers) ListComplianceJurisdictions(ctx context.Context, _ apigen.ListComplianceJurisdictionsRequestObject) (apigen.ListComplianceJurisdictionsResponseObject, error) {
+	js, err := h.svc.Jurisdictions(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.Jurisdiction, len(js))
+	for i, j := range js {
+		data[i] = apigen.Jurisdiction{
+			Code: j.Code, Name: j.Name, Currency: j.Currency, MinorUnit: int(j.MinorUnit), Timezone: j.Timezone,
+			Regulators: list(j.Regulators), Pack: j.PackID, Activated: j.Activated,
+		}
+	}
+	return apigen.ListComplianceJurisdictions200JSONResponse{Data: data}, nil
+}
+
+// ListComplianceActivations implements GET /api/v1/compliance/activations.
+func (h *Handlers) ListComplianceActivations(ctx context.Context, _ apigen.ListComplianceActivationsRequestObject) (apigen.ListComplianceActivationsResponseObject, error) {
+	acts, err := h.svc.Activations(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.JurisdictionActivation, len(acts))
+	for i, a := range acts {
+		data[i] = apigen.JurisdictionActivation{
+			Id: ids.Format(ids.PrefixActivation, a.ID), Jurisdiction: a.Jurisdiction, BookingEntity: a.BookingEntity,
+			Status: apigen.JurisdictionActivationStatus(a.Status), Fallback: a.Fallback, Pack: a.PackID + "@" + a.PackVersion,
+			LicenceType: a.LicenceType, Capabilities: list(a.Capabilities), EffectiveFrom: a.EffectiveFrom,
+			ActivatedAt: a.ActivatedAt, UpdatedAt: a.UpdatedAt,
+		}
+	}
+	return apigen.ListComplianceActivations200JSONResponse{Data: data}, nil
+}
+
+// ListActiveComplianceRules implements GET /api/v1/compliance/active-rules.
+func (h *Handlers) ListActiveComplianceRules(ctx context.Context, req apigen.ListActiveComplianceRulesRequestObject) (apigen.ListActiveComplianceRulesResponseObject, error) {
+	jurisdiction := ""
+	if req.Params.Jurisdiction != nil {
+		jurisdiction = *req.Params.Jurisdiction
+	}
+	rules, err := h.svc.ActiveRules(ctx, jurisdiction)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.ActiveComplianceRule, len(rules))
+	for i, r := range rules {
+		data[i] = apigen.ActiveComplianceRule{
+			Rule: r.Rule.ID, Name: r.Rule.Text.Name, Kind: apigen.ComplianceRuleKind(r.Rule.Kind),
+			Jurisdiction: r.Jurisdiction, Pack: r.Pack, BookingEntity: r.BookingEntity,
+			Mode: apigen.ActiveComplianceRuleMode(r.Mode), Events: list(r.Rule.Trigger.Events),
+			Facts: list(r.Facts), Refs: list(r.Refs), UnsetSettings: list(r.UnsetSettings),
+		}
+		if r.Rule.Provenance != "" {
+			p := apigen.ActiveComplianceRuleProvenance(r.Rule.Provenance)
+			data[i].Provenance = &p
+		}
+	}
+	return apigen.ListActiveComplianceRules200JSONResponse{Data: data}, nil
 }

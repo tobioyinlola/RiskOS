@@ -1,0 +1,450 @@
+{
+  "RW-GOV-01": {
+    "name": "Record keeping (10 years)",
+    "description": "Customer and transaction records are kept at least 10 years from the end of the business relationship. An older source says 5 years under the repealed 2023 law; the stricter figure is the default.",
+    "action": "Deny deletion before the period ends",
+    "engineering_logic": "RULE RW-GOV-01 | type=control\nWHEN  record.delete_requested\nIF    record.age \u003c tenant.cfg.rw_retention_years after relationship_end      # default 10y; 5y reading under Law 028/2023\nTHEN  deny_delete  reason=retention",
+    "basis": "[Regulatory]. Param of GOV-08. Default: On. Basis: RS2 (Art 21 per FUR); RS6 (5y conflict)"
+  },
+  "RW-GOV-02": {
+    "name": "No tipping off",
+    "description": "Nothing about an STR or suspicion flag appears in customer-facing screens, API responses, webhooks or exports. Reporters are protected from liability.",
+    "action": "Strip fields and log",
+    "engineering_logic": "RULE RW-GOV-02 | type=control\nWHEN  api.response OR webhook.send OR export.generate\nIF    payload CONTAINS (str.exists OR str.status OR flag.visibility = compliance_only)\nAND   recipient.role NOT IN (compliance_officer, mlro)\nTHEN  strip_fields  AND  log=audit",
+    "basis": "[Regulatory]. Param of GOV-09. Default: On. Basis: RS3 (Art 34 per map)"
+  },
+  "RW-GOV-03": {
+    "name": "Approved reporting to the FIC",
+    "description": "Reports are prepared by the system and approved by a compliance officer before submission. FIC provides sector templates; no goAML use was found for Rwanda, so the channel is a tenant setting.",
+    "action": "Hold for approval",
+    "engineering_logic": "RULE RW-GOV-03 | type=workflow\nWHEN  report.draft_ready (STR, CTR, declaration)\nIF    report.approved_by IN roles(compliance_officer)\nTHEN  allow_submit  via=tenant.cfg.fic_channel          # goAML not confirmed\nELSE  hold_for_approval",
+    "basis": "[Regulatory]. Param of GOV-06. Default: On. Basis: RS6 (no goAML evidence); FIC site"
+  },
+  "RW-GOV-04": {
+    "name": "Targeted financial sanctions workflow",
+    "description": "A designation starts a 24-hour freeze workflow with named owners, evidence and a log. Missing it costs RWF 1 million to RWF 10 million.",
+    "action": "Case with 24-hour timer",
+    "engineering_logic": "RULE RW-GOV-04 | type=workflow\nWHEN  designation.received\nTHEN  case=open  owner=mlro  timer=24h  steps=(screen, freeze, report_FIC, confirm)\nIF    NOW \u003e designation.received_at + 24h AND case.freeze_done = false THEN escalate=board  reason=tfs_deadline_breach",
+    "basis": "[Regulatory]. Param of GOV-05. Default: On. Basis: RS2, RS3"
+  },
+  "RW-GOV-05": {
+    "name": "Data protection registration, officer and impact assessment",
+    "description": "Register as controller or processor with the National Cyber Security Authority before processing; appoint a data protection officer where required; run impact assessments for high-risk processing; and list international transfers in the certificate.",
+    "action": "Readiness check",
+    "engineering_logic": "RULE RW-GOV-05 | type=job | schedule=daily\nIF    tenant.ncsa_certificate IS NULL OR tenant.ncsa_certificate.expired = true  THEN readiness=fail reason=ncsa_registration\nIF    tenant.dpo IS NULL AND tenant.cfg.rw_dpo_required = true                   THEN readiness=fail reason=dpo_missing\nIF    processing.high_risk = true AND dpia.completed = false                     THEN readiness=fail reason=dpia_missing\nIF    transfer.international.exists AND NOT ncsa_certificate.lists_transfer      THEN readiness=fail reason=transfer_not_listed",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS14 (Arts 29, 31, 40 per DLA Piper)"
+  },
+  "RW-GOV-06": {
+    "name": "Central bank cyber governance",
+    "description": "Board and senior management own cyber security; an IT board committee and a qualified IT security head exist; a written incident response plan is tested; staff training includes phishing simulations; a data retention and disposal policy exists.",
+    "action": "Readiness check",
+    "engineering_logic": "RULE RW-GOV-06 | type=policy\nSCOPE tenant.bnr_regulated = true\nIF    ANY OF ( board.cyber_owner IS NULL , it_security_head IS NULL , incident_response_plan.tested_last_12mo = false ,\n               training.phishing_simulation_last_12mo = false , retention_disposal_policy IS NULL )\nTHEN  readiness=fail  reason=bnr_cyber_governance",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS17 (Arts 4, 5, 7, 17, 18, 20); RS18"
+  },
+  "RW-GOV-07": {
+    "name": "Virtual-asset provider licence record",
+    "description": "A virtual-asset tenant records its Capital Market Authority licence. Capital, deadlines and article numbers are not yet published, so the check ships off.",
+    "action": "Readiness check when enabled",
+    "engineering_logic": "RULE RW-GOV-07 | type=policy\nWHEN  tenant.activate\nSCOPE tenant.type = vasp AND tenant.cfg.rw_vasp_check_enabled = true\nIF    tenant.cma_licence IS NULL\nTHEN  deny_activate  reason=missing_cma_licence      # disabled-by-default: implementing regulations pending",
+    "basis": "[Regulatory]. New local. Default: Off (threshold to be confirmed). Basis: RS13"
+  },
+  "RW-GOV-08": {
+    "name": "Sector risk ratings from the 2024 risk assessment",
+    "description": "Customers and counterparties carry a sector risk tag from the national risk assessment: real estate and bailiffs Medium-High; banks, e-money and forex bureaux Medium; remittance and virtual assets Medium-Low; lawyers and accountants Low. Tenants adjust them.",
+    "action": "Risk tag feeds scoring",
+    "engineering_logic": "RULE RW-GOV-08 | type=policy\nWHEN  customer.onboarded OR customer.periodic_review\nTHEN  customer.sector_risk = tenant.cfg.rw_sector_risk[customer.sector]\n      # default: real_estate MH, bailiffs MH, banking M, e_money M, forex M, remittance ML, vasp ML, legal_accounting L",
+    "basis": "[Industry practice]. New local. Default: On. Basis: RS25 (NRA 2024, Zigram summary)"
+  },
+  "RW-GOV-09": {
+    "name": "Internal service levels",
+    "description": "Triage a high-risk alert within 4 hours and reach an STR decision within 12 hours, so a 24-hour STR clock, whatever the final deadline, is never at risk.",
+    "action": "Escalate on breach",
+    "engineering_logic": "RULE RW-GOV-09 | type=sla\nWHEN  alert.created\nIF    alert.risk = high AND NOW - alert.created \u003e 4h AND alert.triaged = false   THEN escalate\nIF    alert.suspicion_recorded AND NOW - alert.suspicion_start_ts \u003e 12h AND alert.str_decision IS NULL   THEN escalate",
+    "basis": "[My design]. Param of Nigeria recommended SLAs. Default: On. Basis: My design"
+  },
+  "RW-GOV-10": {
+    "name": "Retention conflicts between laws",
+    "description": "When the 10-year AML retention duty conflicts with a data-protection deletion request or the disposal policy, the longer legal duty wins and the reason is logged.",
+    "action": "Deny and log",
+    "engineering_logic": "RULE RW-GOV-10 | type=control\nWHEN  deletion.requested\nIF    record.under_legal_hold = true OR record.age \u003c tenant.cfg.rw_retention_years after relationship_end\nTHEN  deny_delete  log=reason  notify=dpo      # design choice: confirm with Rwandan counsel",
+    "basis": "[My design]. New local. Default: On. Basis: RS2, RS14, RS17 (Art 17)"
+  },
+  "RW-REG-01": {
+    "name": "Cross-border cash declaration above US$10,000",
+    "description": "Cash or bearer instruments above US$10,000 (or equivalent) brought into or out of Rwanda must be declared. A deposit of foreign cash above that amount with no declaration reference is flagged.",
+    "action": "Hard: flag, open case, report to the FIC",
+    "engineering_logic": "RULE RW-REG-01 | control=hard | action=flag\nWHEN  txn.type IN (cash.deposit, forex.buy, remittance.cash_in)\nSCOPE txn.cash_source = cross_border\nIF    txn.amount_usd_equiv \u003e tenant.cfg.rw_declaration_threshold       # default USD 10_000; the regulation says amounts not exceeding USD 10_000 need no declaration\nAND   declaration.reference IS NULL\nTHEN  flag=undeclared_cross_border_cash  case=open  task=report.FIC  reason=cross_border_cash\n      # declarations reach the FIC within 2 days (Art 9); customs holds cash up to 2 hours (Art 7); those duties sit with the authority, not the tenant",
+    "basis": "[Regulatory]. Analogue of REG-10 (physical cash, not wires). Default: On. Basis: RS5 (Reg 002/FIC/2021 Art 4, Art 9); verify still in force after Law 001/2025"
+  },
+  "RW-REG-02": {
+    "name": "Freeze within 24 hours",
+    "description": "A person or entity subject to targeted financial sanctions has funds in the institution. 'Immediately' means within 24 hours at the latest, so the freeze clock starts when the designation is received.",
+    "action": "Hard: freeze and report; 24-hour deadline",
+    "engineering_logic": "RULE RW-REG-02 | control=hard | action=freeze\nWHEN  designation.received OR list.updated\nIF    ANY(customer, beneficial_owner, counterparty) MATCHES designation\nTHEN  freeze=account  deadline=designation.received_at + 24h  task=report.FIC  case=open\n      reason=tfs_freeze  gov=RW-GOV-04",
+    "basis": "[Regulatory]. Param of REG-11 (Rwanda defines the freeze clock). Default: On. Basis: RS3 (Art 2(b), Art 4); aggregator text"
+  },
+  "RW-REG-03": {
+    "name": "Sanctions and TFS screening",
+    "description": "A name, ID or account matches UN or Rwandan targeted-sanctions lists, including spelling variants. Missing the duty carries a fine of RWF 1,000,000 to RWF 10,000,000.",
+    "action": "Hard: block and open a freeze case",
+    "engineering_logic": "RULE RW-REG-03 | control=hard | action=block\nWHEN  txn.created OR customer.onboarded OR list.updated\nIF    screen(party.name, party.id, party.account) MATCHES lists(un_consolidated, rw_designations, tenant_lists)\n        USING fuzzy + transliteration  score \u003e= tenant.cfg.match_threshold\nAND   match.reviewed = confirmed OR tenant.cfg.auto_block_on_strong_match = true\nTHEN  decision=block  case=open  trigger=RW-REG-02  reason=tfs_match",
+    "basis": "[Regulatory]. Param of REG-11. Default: On. Basis: RS2 (FIC Reg 001/FIC/2025 Arts 26-27)"
+  },
+  "RW-REG-04": {
+    "name": "Suspicious transaction report (STR)",
+    "description": "A person forms a suspicion that funds are linked to crime. The report goes to the FIC, without telling the customer. The numeric deadline in Law 001/2025 Art 32 was not found, so the clock is a tenant setting with a design default.",
+    "action": "Report to the FIC; deadline is a placeholder",
+    "engineering_logic": "RULE RW-REG-04 | control=hard | action=report\nWHEN  alert.suspicion_recorded OR alert.suspicion_confirmed\nTHEN  task=report.STR  due=tenant.cfg.rw_str_due        # PLACEHOLDER 24h from suspicion [My design]; statutory deadline not found: threshold to be confirmed\n      to=FIC  gov=RW-GOV-02, RW-GOV-03\n      # the duty is live; only the hour count is unconfirmed",
+    "basis": "[Regulatory]. Param of REG-14 (deadline placeholder). Default: On. Basis: RS3 (Art 32, Art 34 per map); RS6"
+  },
+  "RW-REG-05": {
+    "name": "Cash and wire transaction report",
+    "description": "Law 028/2023 Art 31 required reports of cash transactions and wire transfers; no amount was found in Law 001/2025 or FIC regulations. The rule ships off with a placeholder.",
+    "action": "Report when enabled",
+    "engineering_logic": "RULE RW-REG-05 | control=hard | action=report\nWHEN  txn.type IN (cash.deposit, cash.withdrawal, cash.payment, transfer.wire)\nSCOPE tenant.cfg.rw_ctr_enabled = true\nIF    txn.amount \u003e= tenant.cfg.rw_ctr_threshold       # PLACEHOLDER RWF 10_000_000 (from the brief, not found in any source); threshold to be confirmed; disabled-by-default\nTHEN  task=report.CTR  due=tenant.cfg.rw_ctr_due  to=FIC",
+    "basis": "[Regulatory]. Analogue of REG-17 (amount not found). Default: Off (threshold to be confirmed). Basis: RS4 (predecessor Art 31); RS3"
+  },
+  "RW-REG-06": {
+    "name": "Politically exposed person (PEP)",
+    "description": "The customer or an owner behind a company is a PEP. Senior management approves, source of wealth is verified, and monitoring is enhanced.",
+    "action": "Hard: enhanced due diligence and senior approval",
+    "engineering_logic": "RULE RW-REG-06 | control=hard | action=edd\nWHEN  customer.onboarded OR customer.periodic_review OR txn.created\nIF    customer.is_pep = true OR ANY(beneficial_owner.is_pep = true)\nTHEN  decision=review  require=edd,source_of_funds,source_of_wealth,senior_approval  reason=pep",
+    "basis": "[Regulatory]. Param of REG-12. Default: On. Basis: RS2 (R.12 now Compliant); RS3 (Art 22 per map)"
+  },
+  "RW-REG-07": {
+    "name": "eKash transaction cap and fee ceiling",
+    "description": "A person-to-person transfer on the national eKash rail is above RWF 10 million, or the fee charged is above RWF 20. Institutions may set lower limits.",
+    "action": "Hard: decline the transfer; block the over-limit fee",
+    "engineering_logic": "RULE RW-REG-07 | control=hard | action=decline\nWHEN  txn.type = p2p.interoperable\nSCOPE tenant.type IN (bank, emi, psp) AND txn.created_at \u003e= 2026-07-14\nIF    txn.amount \u003e MIN(tenant.cfg.rw_ekash_cap, tenant.cfg.own_limit)      # default RWF 10_000_000\nTHEN  decision=decline  reason=ekash_cap\nIF    txn.fee \u003e tenant.cfg.rw_ekash_fee_max                               # default RWF 20\nTHEN  block_fee  reason=ekash_fee_ceiling\n      # Directive text not seen; aggregator source only: verify before enabling for production",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS12 (Directive 45/2026, secondary news)"
+  },
+  "RW-REG-08": {
+    "name": "Daily cash withdrawal ceiling (RWF 5 million)",
+    "description": "A customer withdraws more than RWF 5 million in cash in a day through any payment instrument. Banks should pay by crossed cheque or credit transfer instead, and report exceptions to the central bank weekly. The 2009 directive may no longer apply.",
+    "action": "Hard when enabled: decline cash; log exceptions",
+    "engineering_logic": "RULE RW-REG-08 | control=hard | action=decline\nWHEN  txn.type = cash.withdrawal\nSCOPE tenant.type = bank AND tenant.cfg.rw_cash_ceiling_enabled = true\nWINDOW 1d BY customer.id\nIF    SUM(txn.amount) + txn.amount \u003e tenant.cfg.rw_cash_ceiling       # default RWF 5_000_000; verify; disabled-by-default\nUNLESS exception.authorised_by_bank = true\nTHEN  decision=decline  route=credit_transfer\n      IF exception.authorised_by_bank = true THEN add_to=weekly_bnr_exception_report",
+    "basis": "[Regulatory]. Analogue of REG-07 and REG-09. Default: Off (verify first). Basis: RS9 (Directive 02/2009; verify currency)"
+  },
+  "RW-REG-09": {
+    "name": "Maximum three e-money accounts per customer",
+    "description": "A customer opens a fourth e-money account without central bank authorisation. Whether the cap is per issuer or across issuers is not confirmed.",
+    "action": "Hard: decline the fourth account",
+    "engineering_logic": "RULE RW-REG-09 | control=hard | action=decline\nWHEN  wallet.open\nSCOPE tenant.type = emi\nIF    COUNT(wallet WHERE customer.nida_id = this AND issuer = tenant.id) \u003e= tenant.cfg.rw_max_emoney_accounts      # default 3\nAND   customer.bnr_authorisation IS NULL\nTHEN  decision=decline  reason=max_emoney_accounts       # scope per issuer is my reading of Art 9",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS11 (Reg 54/2022 Art 9)"
+  },
+  "RW-REG-10": {
+    "name": "National ID verification, no anonymous accounts",
+    "description": "An e-money account or wallet is opened without checking the national ID against the national database.",
+    "action": "Hard: block opening",
+    "engineering_logic": "RULE RW-REG-10 | control=hard | action=block\nWHEN  account.open OR wallet.open OR kyc.refresh\nIF    identity.nida_verified != true OR customer.name IS NULL\nTHEN  decision=block  reason=nida_verification_missing",
+    "basis": "[Regulatory]. Analogue of REG-06 (NIDA instead of BVN or NIN). Default: On. Basis: RS11 (Reg 54/2022 Art 9)"
+  },
+  "RW-REG-11": {
+    "name": "Authentication before e-money transactions",
+    "description": "An e-money transaction is accepted without a PIN, password or other authentication step.",
+    "action": "Hard: decline",
+    "engineering_logic": "RULE RW-REG-11 | control=hard | action=decline\nWHEN  txn.created\nSCOPE tenant.type = emi AND txn.channel IN (mobile, ussd, web)\nIF    txn.auth_method IS NULL\nTHEN  decision=decline  reason=no_customer_authentication",
+    "basis": "[Regulatory]. Analogue of REG-03. Default: On. Basis: RS11 (Reg 54/2022 Art 10); BNR PDF"
+  },
+  "RW-REG-12": {
+    "name": "Beneficial owner identified for companies",
+    "description": "A company customer is opened or reviewed without its beneficial owners being identified and verified. The ownership percentage that counts is not found, so the tenant sets it.",
+    "action": "Hard: block or review",
+    "engineering_logic": "RULE RW-REG-12 | control=hard | action=review\nWHEN  customer.onboarded OR customer.periodic_review\nSCOPE customer.type = legal_person\nIF    beneficial_owner.identified = false OR beneficial_owner.documents_complete = false\n      # ownership share that defines a beneficial owner: tenant.cfg.rw_bo_pct, default NULL (not found): threshold to be confirmed\nTHEN  decision=review  restrict=new_products  reason=beneficial_owner_missing",
+    "basis": "[Regulatory]. New local (Nigeria has KYB under GOV-01). Default: On. Basis: RS4 (Art 33 predecessor); RS32 (FIC Guidelines 001/2023)"
+  },
+  "RW-REG-13": {
+    "name": "Virtual-asset licensing gate",
+    "description": "Virtual-asset business must go through a provider licensed by the Capital Market Authority. Virtual assets are not legal tender, and direct use as payment is barred unless the central bank allows it.",
+    "action": "Hold and review",
+    "engineering_logic": "RULE RW-REG-13 | control=hard | action=review\nWHEN  txn.created\nIF    ( counterparty.type = virtual_asset_provider AND counterparty.cma_licensed != true )\n   OR ( merchant.accepts_virtual_assets_as_payment = true AND merchant.bnr_authorisation IS NULL )\nTHEN  decision=review  hold=true  reason=unlicensed_virtual_asset_activity  link=CRY-03\n      # licence register must be loaded by the tenant; article numbers of Law 023/2026 not found",
+    "basis": "[Regulatory]. New local (cross-reference CRY rules). Default: On. Basis: RS13 (Law 023/2026)"
+  },
+  "RW-REG-14": {
+    "name": "Virtual-asset Travel Rule data",
+    "description": "A virtual-asset transfer above the Travel Rule limit lacks sender or receiver details. Law 023/2026 refers to the rule, but no threshold was found, so the rule ships off.",
+    "action": "Hard when enabled: hold",
+    "engineering_logic": "RULE RW-REG-14 | control=hard | action=hold\nWHEN  crypto.transfer\nSCOPE tenant.type = vasp AND tenant.cfg.rw_travel_rule_enabled = true\nIF    txn.amount_usd_equiv \u003e= tenant.cfg.rw_travel_rule_min          # PLACEHOLDER NULL: threshold to be confirmed; disabled-by-default\nAND   ANY OF ( originator.data_complete = false , beneficiary.data_complete = false )\nTHEN  decision=hold  link=CRY-13",
+    "basis": "[Industry practice]. Cross-reference CRY-13 (threshold not found). Default: Off (threshold to be confirmed). Basis: RS13"
+  },
+  "RW-SEC-01": {
+    "name": "Penetration-test and vulnerability cadence",
+    "description": "Run an annual penetration test and vulnerability assessments twice a year, using certified testers, and send the executive summary to the central bank within 15 days after the test.",
+    "action": "Calendar tasks with deadline",
+    "engineering_logic": "RULE RW-SEC-01 | control=clock | action=task\nSCOPE tenant.type IN (bank, mfi, insurer, emi, psp) AND tenant.bnr_regulated = true\nWHEN  pentest.last_done \u003e 12mo           THEN task=run.pentest\nWHEN  vuln_assessment.last_done \u003e 6mo    THEN task=run.vulnerability_assessment\nWHEN  pentest.completed\nIF    tester.certification NOT IN (CISSP, CISM, CISA, CEH, OSCP, LPT, equivalent) THEN flag=uncertified_tester\nTHEN  task=send.BNR_executive_summary  due=15d_after_test",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS17 (Reg 50/2022 Art 10)"
+  },
+  "RW-SEC-02": {
+    "name": "Multi-factor authentication for remote access",
+    "description": "Anyone reaching internal networks from outside must use multi-factor authentication, unless the IT security head approves an equivalent control in writing.",
+    "action": "Hard: block remote session",
+    "engineering_logic": "RULE RW-SEC-02 | control=hard | action=block\nWHEN  remote.access.login\nSCOPE tenant.bnr_regulated = true\nIF    session.mfa_passed = false\nUNLESS compensating_control.approved_in_writing_by = it_security_head\nTHEN  decision=block  reason=mfa_required_remote_access",
+    "basis": "[Regulatory]. Analogue of REG-03. Default: On. Basis: RS17 (Art 16)"
+  },
+  "RW-SEC-03": {
+    "name": "Cyber incident report to the central bank",
+    "description": "A cyber incident must be reported to the central bank (Reg 50/2022 Art 21; Directive 4230/2024-00037). The hour count and severity test were not found, so the clock is a placeholder and the rule ships off.",
+    "action": "Report; clock is a placeholder",
+    "engineering_logic": "RULE RW-SEC-03 | control=clock | action=report\nWHEN  incident.detected\nSCOPE tenant.bnr_regulated = true\nIF    incident.severity IN tenant.cfg.rw_bnr_reportable_levels      # PLACEHOLDER: severity test not found\nTHEN  task=report.BNR  due=tenant.cfg.rw_bnr_incident_clock         # PLACEHOLDER NULL: threshold to be confirmed; disabled-by-default; obtain from BNR supervisor",
+    "basis": "[Regulatory]. Param of Nigeria 24h CBN clock (value not found). Default: Off (threshold to be confirmed). Basis: RS17, RS18; hour count not found"
+  },
+  "RW-SEC-04": {
+    "name": "Personal-data breach notice within 48 hours",
+    "description": "A personal-data breach must reach the National Cyber Security Authority within 48 hours of awareness, and affected people are told when the risk is high.",
+    "action": "Legal clock: 48 hours",
+    "engineering_logic": "RULE RW-SEC-04 | control=clock | action=report\nWHEN  breach.confirmed\nIF    breach.personal_data = true\nTHEN  task=notify.NCSA  due=48h_from_awareness\nIF    breach.high_risk = true\nTHEN  task=notify.data_subjects  due=tenant.cfg.rw_subject_notice      # default 48h (Hogan Lovells); DLA Piper gives no hour count",
+    "basis": "[Regulatory]. Param of Nigeria 72h NDPC clock (48h in Rwanda). Default: On. Basis: RS14 (Art 43, Art 45 per DLA Piper); ConsentStack"
+  },
+  "RW-SEC-05": {
+    "name": "Telecom incident reporting to RURA",
+    "description": "Critical and major incidents on telecom networks are reported to RURA immediately; moderate incidents are reported monthly. Mobile-money networks run on licensed telecom networks.",
+    "action": "Legal clock: immediate or monthly",
+    "engineering_logic": "RULE RW-SEC-05 | control=clock | action=report\nWHEN  incident.detected\nSCOPE tenant.type = telco OR tenant.rura_licensed = true\nIF    incident.class IN (critical, major)  THEN task=report.RURA  due=immediate     # no hour count in the regulation\nIF    incident.class = moderate            THEN task=report.RURA  due=monthly",
+    "basis": "[Regulatory]. New local (telecom tenants). Default: On. Basis: RS20 (Art 28)"
+  },
+  "RW-SEC-06": {
+    "name": "Telecom security audit and testing cadence",
+    "description": "Telecom licensees test annually, assess vulnerabilities twice a year, audit internally twice a year, fix deficiencies within 3 months and file reports within 30 days.",
+    "action": "Calendar tasks",
+    "engineering_logic": "RULE RW-SEC-06 | control=clock | action=task\nSCOPE tenant.type = telco OR tenant.rura_licensed = true\nWHEN  pentest.last_done \u003e 12mo         THEN task=run.pentest\nWHEN  vuln_assessment.last_done \u003e 6mo  THEN task=run.vulnerability_assessment\nWHEN  internal_audit.last_done \u003e 6mo   THEN task=run.internal_audit\nWHEN  audit.finding_opened             THEN task=remediate  due=3mo\nWHEN  audit.completed                  THEN task=send.report_to_RURA  due=30d",
+    "basis": "[Regulatory]. New local (telecom tenants). Default: On. Basis: RS20 (Arts 20-24, 26)"
+  },
+  "RW-SEC-07": {
+    "name": "Data localisation and cross-border transfer authorisation",
+    "description": "Personal data is stored outside Rwanda, or sent abroad, without the registration certificate or authorisation the data protection law requires, or without a written contract.",
+    "action": "Flag and hold the transfer job",
+    "engineering_logic": "RULE RW-SEC-07 | control=hard | action=flag\nWHEN  data.transfer OR storage.region_changed\nSCOPE data.class = personal AND destination.country != RW\nIF    NOT ( ncsa.certificate.authorises_external_storage = true OR ncsa.transfer_authorisation.valid = true OR subject_consent.recorded = true )\nOR    contract.written = false\nTHEN  flag=localisation_or_transfer  hold=transfer_job  reason=data_localisation",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS14 (Arts 48-50 per DLA Piper)"
+  },
+  "RW-SEC-08": {
+    "name": "Encryption in transit and at rest",
+    "description": "Customer data stores or links are found unencrypted.",
+    "action": "Alert",
+    "engineering_logic": "RULE RW-SEC-08 | control=hard | action=alert\nWHEN  config.scan\nSCOPE tenant.bnr_regulated = true\nIF    ANY OF ( datastore.encrypted_at_rest = false , link.tls_enforced = false )\nTHEN  alert=encryption_gap  severity=high",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS17 (Art 19)"
+  },
+  "RW-SEC-09": {
+    "name": "Third-party and outsourcing assessments",
+    "description": "A service provider has no recorded due diligence, minimum security practices or periodic assessment.",
+    "action": "Task and readiness check",
+    "engineering_logic": "RULE RW-SEC-09 | control=policy | action=task\nWHEN  vendor.onboard OR vendor.annual_review\nSCOPE tenant.bnr_regulated = true\nIF    vendor.due_diligence.done = false OR vendor.last_assessment \u003e tenant.cfg.rw_vendor_cycle      # default 12mo\nTHEN  task=assess_vendor  readiness=fail",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS17 (Art 14); RS19 (Reg 74/2023 Art 44)"
+  },
+  "RW-SEC-10": {
+    "name": "Stolen-password testing (credential stuffing)",
+    "description": "Ten or more failed logins from one network address across five or more accounts in 5 minutes.",
+    "points": "30 points",
+    "engineering_logic": "RULE RW-SEC-10 | weight=30\nWHEN  auth.failure\nWINDOW 5m BY ip\nIF    COUNT(auth.failure) \u003e= 10 AND COUNT(DISTINCT account.id) \u003e= 5\nTHEN  signal=RW-SEC-10  action_hint=rate_limit_ip",
+    "basis": "[Industry practice]. Param of SEC-01. Default: On. Basis: Nigeria library"
+  },
+  "RW-SEC-11": {
+    "name": "Approval-prompt flooding",
+    "description": "Five or more push or OTP prompts to one user in 10 minutes.",
+    "points": "25 points",
+    "engineering_logic": "RULE RW-SEC-11 | weight=25\nWHEN  mfa.prompt_sent\nWINDOW 10m BY account.id\nIF    COUNT(mfa.prompt_sent WHERE type IN (push, otp)) \u003e= 5\nTHEN  signal=RW-SEC-11  action_hint=pause_prompts",
+    "basis": "[Industry practice]. Param of SEC-04. Default: On. Basis: Nigeria library"
+  },
+  "RW-SEC-12": {
+    "name": "API key misuse",
+    "description": "A key is used from a new network or country, at five times its normal rate, or with many failed requests.",
+    "points": "30 points",
+    "engineering_logic": "RULE RW-SEC-12 | weight=30\nWHEN  api.request\nSCOPE auth.type = api_key\nIF    ANY OF ( request.network NOT IN key.known_networks , request.country NOT IN key.known_countries ,\n               RATE(request OVER 5m) \u003e 5 * key.baseline_rate , RATIO(status IN (400, 404) OVER 10m) \u003e tenant.cfg.probe_ratio )\nTHEN  signal=RW-SEC-12  action_hint=throttle_key",
+    "basis": "[Industry practice]. Param of SEC-08. Default: On. Basis: Nigeria library"
+  },
+  "RW-SEC-13": {
+    "name": "Rights raised, then data exported",
+    "description": "A user's role is upgraded and they export data within the hour.",
+    "points": "30 points",
+    "engineering_logic": "RULE RW-SEC-13 | weight=30\nWHEN  data.export\nWINDOW 1h BY user.id\nIF    EXISTS(user.role_changed)\nTHEN  signal=RW-SEC-13",
+    "basis": "[Industry practice]. Param of SEC-10. Default: On. Basis: Nigeria library"
+  },
+  "RW-SEC-14": {
+    "name": "Unusually large export",
+    "description": "An export far above the user's or institution's normal size; a possible personal-data breach that starts the 48-hour clock in RW-SEC-04 once confirmed.",
+    "points": "25 points",
+    "engineering_logic": "RULE RW-SEC-14 | weight=25\nWHEN  data.export\nIF    export.rows \u003e 5 * BASELINE(export.rows BY user.id OVER 30d)\n   OR export.rows \u003e 5 * BASELINE(export.rows BY tenant.id OVER 30d)\nTHEN  signal=RW-SEC-14  link=RW-SEC-04",
+    "basis": "[Industry practice]. Param of SEC-12. Default: On. Basis: Nigeria library; RS14"
+  },
+  "RW-SEC-15": {
+    "name": "Evidence preservation after illegal computer use",
+    "description": "A service provider that sees illegal use of a computer system reports it to the cybersecurity authority immediately and preserves the evidence.",
+    "action": "Task: report and preserve",
+    "engineering_logic": "RULE RW-SEC-15 | control=clock | action=report\nWHEN  incident.classified = illegal_computer_use\nTHEN  task=report.NCSA  due=immediate  preserve=logs,evidence  retention=case_closed_plus(tenant.cfg.evidence_hold)",
+    "basis": "[Regulatory]. New local. Default: On. Basis: RS15 (Law 60/2018 Arts 5-6, per summary)"
+  },
+  "RW-SEC-16": {
+    "name": "Illegal SIM-swap incident report (draft rule)",
+    "description": "A telecom operator finds an illegal SIM swap and must report it within 48 hours under a draft RURA regulation. The draft's RWF 10 million swap fine is also unconfirmed.",
+    "action": "Report when enabled",
+    "engineering_logic": "RULE RW-SEC-16 | control=clock | action=report\nWHEN  incident.classified = illegal_sim_swap\nSCOPE tenant.type = telco AND tenant.cfg.rw_sim_draft_enabled = true\nTHEN  task=report.RURA  due=48h      # draft only: disabled-by-default until a final regulation is confirmed",
+    "basis": "[Regulatory]. New local (telecom tenants). Default: Off (verify first). Basis: RS21 (draft, January 2023)"
+  },
+  "RW-TM-01": {
+    "name": "New account, big volume",
+    "description": "An account or wallet under 7 days old moves far more than normal. Survey data put 7.7% of fraud at account creation versus 1.6% at login and 0.5% at transactions.",
+    "points": "20 points",
+    "engineering_logic": "RULE RW-TM-01 | weight=20\nWHEN  txn.created\nSCOPE account.age \u003c 7d\nIF    SUM(txn.amount OVER account.age) \u003e 10 * kyc_tier.norm(account.kyc_tier)\nTHEN  signal=RW-TM-01  evidence=(volume, tier_norm)",
+    "basis": "[Industry practice]. Param of MUL-04 (limits are issuer-defined, so tier norm is a tenant value). Default: On. Basis: RS23"
+  },
+  "RW-TM-02": {
+    "name": "SIM replacement, then transaction",
+    "description": "A SIM replacement or re-registration, then a login, one-time password or transaction within a configurable number of hours. No legal cooling-off period was found.",
+    "points": "25 points, step-up",
+    "engineering_logic": "RULE RW-TM-02 | weight=25 | action=step_up\nWHEN  txn.type IN (transfer.outbound, wallet.send, wallet.cash_out) OR otp.requested\nIF    ANY OF ( telco.sim_swap_flag = true , EXISTS(sim.replaced OVER tenant.cfg.rw_sim_swap_window) )     # default 72h; not a legal clock\nAND   txn.amount \u003e tenant.cfg.floor                    # suggested RWF 200_000 (analyst judgement)\nTHEN  signal=RW-TM-02  evidence=(swap_time, channel)",
+    "basis": "[Industry practice]. Param of ATO-03 (window is a tenant value). Default: On. Basis: RS21, RS23"
+  },
+  "RW-TM-03": {
+    "name": "Repeated SIM changes on one national ID",
+    "description": "The same national ID shows two or more SIM registrations or replacements in 30 days. A draft RURA rule caps SIMs at three per operator for Rwandan ID holders; the cap is unconfirmed.",
+    "points": "15 points",
+    "engineering_logic": "RULE RW-TM-03 | weight=15\nWHEN  sim.registered OR sim.replaced\nWINDOW 30d BY nida_id\nIF    COUNT(sim.registered OR sim.replaced) \u003e= 2\nOR    COUNT(DISTINCT msisdn WHERE operator = same) \u003e tenant.cfg.rw_sims_per_mno     # default 3 (draft only); disabled-by-default part\nTHEN  signal=RW-TM-03",
+    "basis": "[Industry practice]. Param of SIM-02 (draft cap on SIMs per ID). Default: On. Basis: RS21 (draft)"
+  },
+  "RW-TM-04": {
+    "name": "SIM not verified or foreign-linked, large load",
+    "description": "A large value is loaded onto a SIM or wallet whose SIM is not verified against the national ID, or is linked to a foreign number. The March 2026 Equity Bank Rwanda case used such SIMs.",
+    "points": "20 points, review",
+    "engineering_logic": "RULE RW-TM-04 | weight=20 | action=review\nWHEN  txn.type IN (wallet.credit, transfer.inbound)\nIF    ANY OF ( identity.sim_nida_verified = false , msisdn.country != RW )\nAND   txn.amount \u003e tenant.cfg.high_value             # suggested RWF 1_000_000\nTHEN  signal=RW-TM-04",
+    "basis": "[Industry practice]. Param of SIM-01 (national ID instead of NIN). Default: On. Basis: RS24, RS21"
+  },
+  "RW-TM-05": {
+    "name": "New device, new payee, then transfer",
+    "description": "Within 30 minutes: a new device is linked, a new payee is added, and money is sent above the minimum.",
+    "points": "30 points, review",
+    "engineering_logic": "RULE RW-TM-05 | weight=30 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 30m BY account.id\nIF    EXISTS(device.bound WHERE device.is_new = true)\nAND   EXISTS(beneficiary.added WHERE beneficiary.is_new = true)\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=RW-TM-05  evidence=(device.id, beneficiary.id, times)",
+    "basis": "[Industry practice]. Param of ATO-01. Default: On. Basis: RS23 (account takeover 24% of losses)"
+  },
+  "RW-TM-06": {
+    "name": "Credentials changed, then transfer",
+    "description": "Password, PIN, phone or email changed in the last 24 hours, then money is sent above the minimum.",
+    "points": "25 points, step-up",
+    "engineering_logic": "RULE RW-TM-06 | weight=25 | action=step_up\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nIF    ANY OF ( EXISTS(profile.password_changed OVER 24h) , EXISTS(profile.pin_changed OVER 24h) ,\n               EXISTS(profile.phone_changed OVER 24h) , EXISTS(profile.email_changed OVER 24h) )\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=RW-TM-06",
+    "basis": "[Industry practice]. Param of ATO-02. Default: On. Basis: RS23"
+  },
+  "RW-TM-07": {
+    "name": "Money passing straight through (mule)",
+    "description": "80% or more of money received leaves within 60 minutes. Mule scams were the largest loss category (29%) in the survey sample.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-07 | weight=25 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 60m BY account.id\nIF    SUM(txn.amount WHERE direction=out) \u003e= 0.80 * SUM(txn.amount WHERE direction=in)\nAND   SUM(txn.amount WHERE direction=in) \u003e tenant.cfg.floor\nTHEN  signal=RW-TM-07  evidence=(in_sum, out_sum, ratio)",
+    "basis": "[Industry practice]. Param of MUL-01. Default: On. Basis: RS23, RS25"
+  },
+  "RW-TM-08": {
+    "name": "Many senders into one account",
+    "description": "Ten or more different senders pay one account in 24 hours.",
+    "points": "20 points",
+    "engineering_logic": "RULE RW-TM-08 | weight=20\nWHEN  txn.type = transfer.inbound\nWINDOW 24h BY account.id\nIF    COUNT(DISTINCT sender.id) \u003e= 10\nTHEN  signal=RW-TM-08",
+    "basis": "[Industry practice]. Param of MUL-02. Default: On. Basis: RS23"
+  },
+  "RW-TM-09": {
+    "name": "One payment split many ways",
+    "description": "One incoming payment is split among five or more recipients within 60 minutes.",
+    "points": "20 points",
+    "engineering_logic": "RULE RW-TM-09 | weight=20\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 60m BY source_inflow.id\nIF    COUNT(DISTINCT beneficiary.id) \u003e= 5\nTHEN  signal=RW-TM-09",
+    "basis": "[Industry practice]. Param of MUL-03. Default: On. Basis: RS23"
+  },
+  "RW-TM-10": {
+    "name": "Dormant account wakes up",
+    "description": "No activity for 90 days or more, then a large payment in or out. The 2024 risk assessment lists dormant-account reactivation as an indicator.",
+    "points": "20 points",
+    "engineering_logic": "RULE RW-TM-10 | weight=20\nWHEN  txn.created\nIF    account.days_since_last_activity \u003e= 90\nAND   txn.amount \u003e tenant.cfg.large_after_dormancy     # suggested RWF 1_000_000\nTHEN  signal=RW-TM-10",
+    "basis": "[Industry practice]. Param of MUL-05. Default: On. Basis: RS25 (NRA indicator)"
+  },
+  "RW-TM-11": {
+    "name": "Shared national ID, phone or device across accounts",
+    "description": "One device is used on three or more accounts, or one national ID, phone number or address appears on several accounts or applications.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-11 | weight=25 | action=review\nWHEN  account.created OR application.submitted OR txn.created\nIF    ANY OF ( COUNT(DISTINCT account.id BY device.id) \u003e= 3 ,\n               COUNT(DISTINCT account.id BY nida_id WHERE issuer = tenant.id) \u003e tenant.cfg.rw_max_emoney_accounts ,\n               COUNT(DISTINCT account.id BY phone) \u003e= 2 , COUNT(DISTINCT account.id BY address) \u003e= 2 )\nTHEN  signal=RW-TM-11  evidence=(shared_identifier, linked_accounts)",
+    "basis": "[Industry practice]. Param of MUL-06 (national ID added). Default: On. Basis: RS23, RS24"
+  },
+  "RW-TM-12": {
+    "name": "Splitting to stay under ceilings",
+    "description": "Three or more transactions in 24 hours each between 90% and 99.9% of a known limit: the RWF 5 million cash ceiling, the RWF 10 million eKash cap, or the institution's own limit. The 2024 risk assessment lists structured withdrawals.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-12 | weight=25 | action=review\nWHEN  txn.created\nWINDOW 24h BY account.id\nIF    COUNT(txn WHERE txn.amount BETWEEN 0.90*L AND 0.999*L) \u003e= 3\n      WHERE L IN ( tenant.cfg.rw_cash_ceiling , tenant.cfg.rw_ekash_cap , tenant.cfg.own_limit )\nTHEN  signal=RW-TM-12  evidence=(limit_hit, amounts)",
+    "basis": "[Industry practice]. Param of VEL-04. Default: On. Basis: RS25, RS12, RS9"
+  },
+  "RW-TM-13": {
+    "name": "Large first payment to a new payee",
+    "description": "A first large payment to a new payee, or cumulative payments of RWF 1 million to new payees in 24 hours. The median survey loss was RWF 869,249; the band is analyst judgement.",
+    "points": "20 points",
+    "engineering_logic": "RULE RW-TM-13 | weight=20\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 24h BY account.id\nIF    SUM(txn.amount WHERE beneficiary.is_new = true) \u003e= tenant.cfg.rw_new_payee_cum      # default RWF 1_000_000 (suggested band RWF 500_000 to 1_000_000)\nTHEN  signal=RW-TM-13",
+    "basis": "[My design]. New local. Default: On. Basis: RS23 (median loss); band is my design"
+  },
+  "RW-TM-14": {
+    "name": "Sudden spike against the customer's own pattern",
+    "description": "Money sent in 24 hours is more than three times the usual daily amount, or a single amount is far above the customer's history.",
+    "points": "20 to 24 points",
+    "engineering_logic": "RULE RW-TM-14 | weight=20\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 24h BY account.id\nIF    SUM(txn.amount) \u003e 3 * AVG(daily_outbound OVER 30d)\nAND   SUM(txn.amount) \u003e tenant.cfg.floor\nTHEN  signal=RW-TM-14\nIF    txn.amount \u003e AVG(txn.amount OVER 90d) + 3 * STDDEV(txn.amount OVER 90d) AND customer.history_days \u003e= 30\nTHEN  signal=RW-TM-14 weight=24",
+    "basis": "[Industry practice]. Param of VEL-02 and BEH-01. Default: On. Basis: Nigeria library"
+  },
+  "RW-TM-15": {
+    "name": "Impossible travel or foreign location",
+    "description": "A country the customer does not normally use (10 points), or two events too far apart to travel between in the time (20 points).",
+    "points": "10 or 20 points",
+    "engineering_logic": "RULE RW-TM-15 | weight=10 or 20\nWHEN  session.login OR txn.created\nIF    geo.country NOT IN profile.usual_countries THEN signal=RW-TM-15 weight=10\nIF    distance(geo, previous.geo) / time_between \u003e 900 km/h THEN signal=RW-TM-15 weight=20",
+    "basis": "[Industry practice]. Param of BEH-02. Default: On. Basis: Nigeria library"
+  },
+  "RW-TM-16": {
+    "name": "Agent cash-out clustering and float manipulation",
+    "description": "Several customers cash out at one agent in a short span, or an agent's float moves in ways its customers do not explain. The Equity Bank Rwanda case (about USD 3.4m) exploited float mechanisms. All numbers are placeholders.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-16 | weight=25 | action=review\nWHEN  agent.daily_job OR txn.type = wallet.cash_out\nSCOPE agent.active = true\nWINDOW 60m BY agent.id\nIF    COUNT(DISTINCT customer.id WHERE txn.type = wallet.cash_out) \u003e= tenant.cfg.rw_agent_cluster_min\nOR    agent.float_topup_24h \u003e tenant.cfg.float_peer_mult * peer_group.p95(float_topup_24h)\n      # PLACEHOLDER values: threshold to be confirmed; disabled-by-default\nTHEN  signal=RW-TM-16  visibility=compliance_only",
+    "basis": "[My design]. New local. Default: Off (threshold to be confirmed). Basis: RS24 (single case); no float threshold found"
+  },
+  "RW-TM-17": {
+    "name": "Remittance in, then many small cash-outs",
+    "description": "An international remittance arrives and is withdrawn in many small cash-outs at several agents. A national risk assessment case paid agents RWF 20,000 per withdrawal.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-17 | weight=25 | action=review\nWHEN  txn.type = wallet.cash_out\nWINDOW 72h BY account.id\nIF    EXISTS(inflow WHERE inflow.type = remittance.international.in AND inflow.amount \u003e= tenant.cfg.floor)\nAND   COUNT(DISTINCT agent.id) \u003e= 3\nAND   SUM(txn.amount) \u003e= 0.70 * inflow.amount\nTHEN  signal=RW-TM-17",
+    "basis": "[Industry practice]. New local. Default: On. Basis: RS25 (NRA case)"
+  },
+  "RW-TM-18": {
+    "name": "Real-estate payments",
+    "description": "A large payment to a property seller or developer is funded by cash, many small deposits or a recently opened account whose income does not explain it. Real estate is rated Medium-High, the highest sector, in the 2024 risk assessment.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-18 | weight=25 | action=review\nWHEN  txn.type IN (transfer.outbound, cheque.issue)\nSCOPE counterparty.sector = real_estate OR memo MATCHES (plot, land, house, property, developer)\nIF    txn.amount \u003e= tenant.cfg.rw_realestate_floor                 # PLACEHOLDER NULL: threshold to be confirmed; disabled-by-default\nAND   ANY OF ( funding.cash_share_30d \u003e= 0.50 , account.age \u003c 90d , txn.amount \u003e 5 * customer.declared_monthly_income )\nTHEN  signal=RW-TM-18  require=source_of_funds",
+    "basis": "[Industry practice]. New local. Default: Off (threshold to be confirmed). Basis: RS25 (NRA); thresholds not found"
+  },
+  "RW-TM-19": {
+    "name": "Shell company pattern",
+    "description": "A company with no visible business activity, a shared address or director, thin ownership detail and fast pass-through of funds. A crypto scam case moved USD 3.4m through 48 shell companies.",
+    "points": "30 points, review",
+    "engineering_logic": "RULE RW-TM-19 | weight=30 | action=review\nWHEN  txn.created\nSCOPE customer.type = legal_person\nIF    COUNT(shell_indicators WHERE ind IN (no_employees, shared_address, shared_director, no_website, beneficial_owner_unclear, high_pass_through)) \u003e= 3\nTHEN  signal=RW-TM-19  evidence=(indicators)",
+    "basis": "[Industry practice]. New local. Default: On. Basis: RS25 (NRA, KT Press)"
+  },
+  "RW-TM-20": {
+    "name": "Insider embezzlement",
+    "description": "Staff-linked accounts move far more than peers, manual overrides run high, or staff touch a customer's details just before money leaves. Embezzlement is 39% of proceeds in the 2024 risk assessment.",
+    "points": "20 to 30 points, review (compliance only)",
+    "engineering_logic": "RULE RW-TM-20 | weight=20 or 30 | action=review\nWHEN  txn.created\nSCOPE account.linked_to_employee = true OR staff_action.exists\nIF    SUM(txn.amount OVER 30d) \u003e peer_group.p95(SUM OVER 30d)                       THEN signal=RW-TM-20 weight=20\nIF    EXISTS(staff_action WHERE type IN (view_contact, change_contact, change_limits) OVER 24h) AND txn.type = transfer.outbound\n                                                                                    THEN signal=RW-TM-20 weight=30\n      visibility=compliance_only",
+    "basis": "[Industry practice]. Param of INS-01 and INS-02. Default: On. Basis: RS25"
+  },
+  "RW-TM-21": {
+    "name": "Pyramid and Ponzi-style pooling",
+    "description": "Twenty or more unrelated senders pay one account in 7 days and 30% or more of payouts go to earlier payers. The central bank has warned about pyramid schemes and scam coins since 2019.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-21 | weight=25 | action=review\nWHEN  txn.type = transfer.inbound\nWINDOW 7d BY account.id\nIF    COUNT(DISTINCT sender.id WHERE unrelated = true) \u003e= 20\nAND   SUM(outflow WHERE recipient IN prior_senders) \u003e= 0.30 * SUM(outflow)\nTHEN  signal=RW-TM-21",
+    "basis": "[Industry practice]. Param of PON-01. Default: On. Basis: RS29"
+  },
+  "RW-TM-22": {
+    "name": "Crypto exposure under Law 023/2026",
+    "description": "Many small credits followed by payments to exchanges or unlicensed virtual-asset counterparties. Cross-reference CRY-01, CRY-03 and CRY-08 for the on-chain rules.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-22 | weight=25 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 7d BY account.id\nIF    COUNT(DISTINCT sender.id) \u003e= 10\nAND   SUM(txn.amount WHERE counterparty.tag IN (vasp, p2p_crypto, unlicensed_vasp)) \u003e= 0.70 * SUM(txn.amount WHERE direction=in)\nTHEN  signal=RW-TM-22  link=CRY-01,CRY-03,CRY-08",
+    "basis": "[My design]. New local (cross-reference CRY-01, CRY-03, CRY-08). Default: On. Basis: RS13, RS25"
+  },
+  "RW-TM-23": {
+    "name": "Foreign cash split to stay under the declaration line",
+    "description": "Two or more foreign-cash deposits in 7 days, each between 90% and 99.9% of US$10,000.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE RW-TM-23 | weight=25 | action=review\nWHEN  txn.type IN (cash.deposit, forex.buy)\nSCOPE txn.cash_source = cross_border\nWINDOW 7d BY customer.id\nIF    COUNT(txn WHERE txn.amount_usd_equiv BETWEEN 0.90*tenant.cfg.rw_declaration_threshold AND 0.999*tenant.cfg.rw_declaration_threshold) \u003e= 2\nTHEN  signal=RW-TM-23",
+    "basis": "[My design]. New local (derived from the declaration limit). Default: On. Basis: RS5; derivation is my design"
+  },
+  "RW-TM-24": {
+    "name": "SIM-box and bulk SIM pattern (telecom tenants)",
+    "description": "A device or account uses 30 or more SIMs, or shows international call patterns that bypass legitimate routes. A 2017 SIM-box case cost RWF 1 billion.",
+    "points": "20 points, review",
+    "engineering_logic": "RULE RW-TM-24 | weight=20 | action=review\nWHEN  cdr.daily_job\nSCOPE tenant.type = telco\nIF    COUNT(DISTINCT sim.id BY device.imei OR gateway.id) \u003e= tenant.cfg.rw_simbox_sims        # default 30\nOR    international_inbound_terminating_as_local_ratio \u003e tenant.cfg.simbox_ratio\nTHEN  signal=RW-TM-24",
+    "basis": "[Industry practice]. New local (telecom tenants only). Default: On. Basis: RS28"
+  }
+}

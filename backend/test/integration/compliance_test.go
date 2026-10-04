@@ -113,7 +113,9 @@ func TestComplianceLibrary(t *testing.T) {
 		clocks := decode[apigen.ComplianceClockList](t, s.call(t, http.MethodGet, "/api/v1/compliance/clocks", a.testKey, nil)).Data
 		assert.NotEmpty(t, clocks)
 		for _, c := range clocks {
-			assert.Positive(t, c.Hours, c.Id)
+			require.NotNil(t, c.Hours, c.Id)
+			assert.Positive(t, *c.Hours, c.Id)
+			assert.Equal(t, apigen.ComplianceClockKind("legal"), c.Kind, c.Id)
 		}
 		assert.NotEmpty(t, decode[apigen.ComplianceGapList](t, s.call(t, http.MethodGet, "/api/v1/compliance/gaps", a.testKey, nil)).Data)
 		assert.NotEmpty(t, decode[apigen.ComplianceTermList](t, s.call(t, http.MethodGet, "/api/v1/compliance/glossary", a.testKey, nil)).Data)
@@ -173,7 +175,7 @@ func TestComplianceProfile(t *testing.T) {
 		for name, body := range map[string]map[string]any{
 			"unknown licence":    {"jurisdiction": "NG", "licence_type": "casino", "capabilities": []string{}},
 			"unknown capability": {"jurisdiction": "NG", "licence_type": "bank", "capabilities": []string{"teleport"}},
-			"no pack":            {"jurisdiction": "GH", "licence_type": "bank", "capabilities": []string{}},
+			"no pack":            {"jurisdiction": "KE", "licence_type": "bank", "capabilities": []string{}},
 			"bad jurisdiction":   {"jurisdiction": "Nigeria", "licence_type": "bank", "capabilities": []string{}},
 		} {
 			r := admin.b.do(t, http.MethodPut, "/api/v1/compliance/profile", body)

@@ -97,6 +97,10 @@ func (s *Service) UseWorkflow(a AlertSource, c CaseSource) { s.alerts, s.cases =
 type TaskControl struct {
 	Rule  string   `json:"rule"`
 	Tasks []string `json:"tasks"`
+	// Branch is the variant of the control that applied: its tasks may have their own deadlines.
+	Branch string `json:"branch,omitempty"`
+	// Jurisdiction is the country whose pack judged the event ("" for the fallback).
+	Jurisdiction string `json:"jurisdiction,omitempty"`
 }
 
 // TasksInput is what a decision requires of the institution.
@@ -113,9 +117,14 @@ type TasksInput struct {
 	Controls   []TaskControl
 }
 
-// taskDue resolves a task's deadline from its rule's setting in this environment.
-func taskDue(def *pack.Rule, cfg RuleConfig, kind string, from time.Time) *time.Time {
-	for _, t := range def.Outcome.Tasks {
+// taskDue resolves a task's deadline from its rule's setting in this environment: the task of
+// the branch that applied, if it has its own tasks, else the outcome's.
+func taskDue(def *pack.Rule, cfg RuleConfig, kind, branch string, from time.Time) *time.Time {
+	list := def.Outcome.Tasks
+	if i := slices.IndexFunc(def.Branches, func(b pack.Branch) bool { return b.Label == branch }); i >= 0 && len(def.Branches[i].Tasks) > 0 {
+		list = def.Branches[i].Tasks
+	}
+	for _, t := range list {
 		if t.Type != kind || t.Due == "" {
 			continue
 		}
@@ -164,7 +173,7 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 			}
 		}
 		for _, c := range in.Controls {
-			_, def, cfg, err := s.rule(ctx, scope, c.Rule)
+			_, def, cfg, err := s.ruleIn(ctx, scope, c.Jurisdiction, c.Rule)
 			if errors.Is(err, ErrNotFound) {
 				continue
 			}
@@ -177,7 +186,7 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 				}
 				t := store.Task{
 					ID: ids.NewV7(), Kind: kind, RuleID: c.Rule, EvaluationID: &in.EvaluationID, EventID: &in.EventID,
-					Sensitive: kind == kindSTR, Status: TaskOpen, DueAt: taskDue(def, cfg, kind, in.OccurredAt),
+					Sensitive: kind == kindSTR, Status: TaskOpen, DueAt: taskDue(def, cfg, kind, c.Branch, in.OccurredAt),
 					Report: map[string]any{}, CreatedAt: now, CreatedBy: systemTaskAuthor,
 				}
 				if in.SubjectRef != "" {
@@ -227,7 +236,7 @@ func (s *Service) ConfirmSuspicion(ctx context.Context, caseID uuid.UUID, note s
 		}
 		t := store.Task{
 			ID: ids.NewV7(), Kind: kindSTR, RuleID: ruleSTR, CaseID: &caseID, Sensitive: true, Status: TaskOpen,
-			DueAt: taskDue(def, cfg, kindSTR, now), Report: map[string]any{}, CreatedAt: now,
+			DueAt: taskDue(def, cfg, kindSTR, "", now), Report: map[string]any{}, CreatedAt: now,
 			CreatedBy: scope.Principal.ID,
 		}
 		if n := strings.TrimSpace(note); n != "" {
@@ -472,7 +481,7 @@ func (s *Service) dailyBatch(ctx context.Context, scope tenancy.Scope, now time.
 	for _, a := range accounts {
 		t := store.Task{
 			ID: ids.NewV7(), Kind: kindCloseAccount, RuleID: ruleNoBVN, SubjectRef: a.SubjectRef, AccountRef: &a.Ref,
-			Status: TaskOpen, DueAt: taskDue(def, cfg, kindCloseAccount, a.FirstSeenAt), Report: map[string]any{},
+			Status: TaskOpen, DueAt: taskDue(def, cfg, kindCloseAccount, "", a.FirstSeenAt), Report: map[string]any{},
 			CreatedAt: now, CreatedBy: systemTaskAuthor,
 		}
 		created, err := s.store.InsertTask(ctx, t)

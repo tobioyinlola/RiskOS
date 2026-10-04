@@ -37,10 +37,10 @@ type FeatureStore interface {
 	RecordAmount(ctx context.Context, e features.Event) error
 }
 
-// PackSource gives the tenant's rule pack compiled for evaluation (nil without a compliance
-// profile). The rules module implements it.
+// PackSource gives the tenant's activations compiled for evaluation (nil without any). The rules
+// module implements it.
 type PackSource interface {
-	TenantPack(ctx context.Context) (*rulepack.TenantPack, error)
+	TenantPacks(ctx context.Context) (*rulepack.TenantPacks, error)
 	// Candidates compiles one rule for a backtest (see rules.Module.Candidates).
 	Candidates(ctx context.Context, ruleID string, settings map[string]float64) (candidate, current *rulepack.TenantPack, err error)
 }
@@ -74,6 +74,8 @@ type storedFeatures struct {
 	Facts map[string]any  `json:"facts"`
 	// Pack is what the tenant's rule pack saw, when it has one.
 	Pack *storedPack `json:"pack,omitempty"`
+	// Jurisdiction is which country's pack judged the event (ADR-0007).
+	Jurisdiction *domain.JurisdictionResolution `json:"jurisdiction,omitempty"`
 }
 
 // storedPack records a rule pack evaluation: the pack version, the event's kinds, the facts the
@@ -106,8 +108,21 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		}
 		out := s.engine.Evaluate(ctx, ev, write, cfg.settings, cfg.rules)
 		var pk engine.PackOutput
-		if cfg.pack != nil {
-			pk = s.engine.EvaluatePack(ctx, ev, out.Values, cfg.pack, write, in.EventKey)
+		var jurisdiction *domain.JurisdictionResolution
+		var governing *rulepack.TenantPack
+		if cfg.packs != nil {
+			// One governing pack per event, resolved explicitly, never guessed (ADR-0007).
+			entity := ""
+			if ev.Compliance != nil {
+				entity = ev.Compliance.BookingEntity
+			}
+			r := cfg.packs.Resolve(entity)
+			jurisdiction = &domain.JurisdictionResolution{ResolvedBy: r.By, BookingEntity: r.BookingEntity}
+			governing = r.Pack
+		}
+		if governing != nil {
+			jurisdiction.Jurisdiction, jurisdiction.Pack = governing.Jurisdiction, governing.Ref
+			pk = s.engine.EvaluatePack(ctx, ev, out.Values, governing, write, in.EventKey)
 			out.Signals = append(out.Signals, pk.Signals...)
 			out.Shadow = append(out.Shadow, pk.Shadow...)
 			out.RuleVersions = append(out.RuleVersions, "pack:"+pk.Ref)
@@ -138,7 +153,7 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		res = domain.Result{
 			ID: id, CreatedAt: ids.Time(id), EventID: in.EventID, EngineVersion: engine.Version,
 			Score: score, Level: level, Decision: policy.Decision,
-			Controls: pk.Controls, NotEvaluated: pk.NotEvaluated, Restricted: pk.Restricted,
+			Controls: pk.Controls, NotEvaluated: pk.NotEvaluated, Restricted: pk.Restricted, Jurisdiction: jurisdiction,
 			Signals: nonNil(out.Signals), DegradedSignals: nonNilStrings(out.Degraded), RequestID: in.RequestID,
 			WarmingSignals: nonNilStrings(out.Warming),
 			PolicyReasons:  nonNilStrings(policy.Reasons), ShadowSignals: nonNil(out.Shadow),
@@ -156,8 +171,8 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 				s.logger.WarnContext(ctx, "amount baseline not updated", slog.Any("error", err))
 			}
 		}
-		record := storedFeatures{Facts: out.Facts}
-		if cfg.pack != nil {
+		record := storedFeatures{Facts: out.Facts, Jurisdiction: jurisdiction}
+		if governing != nil {
 			record.Pack = &storedPack{Ref: pk.Ref, Kinds: pk.Kinds, Facts: pk.Facts, Seen: pk.Seen, Replay: &pk.Replay}
 		}
 		if !write {
@@ -243,7 +258,7 @@ func (s *Service) load(ctx context.Context) (config, error) {
 	}
 	cfg := config{settings: settings, rules: compiled, deny: deny}
 	if s.packs != nil {
-		if cfg.pack, err = s.packs.TenantPack(ctx); err != nil {
+		if cfg.packs, err = s.packs.TenantPacks(ctx); err != nil {
 			return config{}, err
 		}
 	}

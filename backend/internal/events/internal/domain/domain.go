@@ -232,6 +232,16 @@ type Outcome struct {
 	// Controls and NotEvaluated are the rule pack's results (absent from older outcomes).
 	Controls     []Control      `json:"controls,omitempty"`
 	NotEvaluated []NotEvaluated `json:"not_evaluated,omitempty"`
+	// Jurisdiction is which country's pack judged the event (absent from older outcomes).
+	Jurisdiction *Jurisdiction `json:"jurisdiction,omitempty"`
+}
+
+// Jurisdiction mirrors the risk module's jurisdiction resolution in the stored outcome.
+type Jurisdiction struct {
+	Jurisdiction  string `json:"jurisdiction,omitempty"`
+	Pack          string `json:"pack,omitempty"`
+	ResolvedBy    string `json:"resolved_by"`
+	BookingEntity string `json:"booking_entity,omitempty"`
 }
 
 // Control mirrors the risk module's rule pack control in the stored outcome.

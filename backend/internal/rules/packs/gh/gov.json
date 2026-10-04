@@ -1,0 +1,587 @@
+{
+  "rules": [
+    {
+      "id": "GH-GOV-01",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-08"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "GOV-08"
+      },
+      "overrides": {
+        "retain_for": {
+          "default": 157680000,
+          "min": 157680000,
+          "label": "Shortest time records are kept (5 years)"
+        }
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS3",
+        "GS24"
+      ],
+      "effective": {
+        "text": "Anti-Money Laundering Act 2020 (Act 1044); in force, no amendment found; Act 987 for payment-platform audit logs"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Act 1044 s.32 per summary; audit logs are kept 6 years under GH-SEC-11.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      }
+    },
+    {
+      "id": "GH-GOV-02",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-09"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "GOV-09"
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS3"
+      ],
+      "effective": {
+        "text": "Anti-Money Laundering Act 2020 (Act 1044); in force, no amendment found; tipping off is an offence under s.38(4)"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      }
+    },
+    {
+      "id": "GH-GOV-03",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-06"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "GOV-06"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GS11"
+      ],
+      "effective": {
+        "text": "Act 1044 reporting duties; the goAML channel is a vendor claim, unconfirmed"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The reporting channel (goAML or another) is not confirmed for Ghana, so it is a setting of your institution.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      }
+    },
+    {
+      "id": "GH-GOV-04",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS2"
+      ],
+      "effective": {
+        "text": "Bank of Ghana AML/CFT&P Guideline, December 2022; in force from issue"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "periodic_review"
+      },
+      "governance": {
+        "type": "job",
+        "schedule": "daily",
+        "uses": [
+          "review_every"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "review_every",
+          "label": "Longest time between reviews of an existing customer",
+          "type": "duration",
+          "default": 63072000,
+          "min": 2592000,
+          "max": 63072000
+        }
+      ]
+    },
+    {
+      "id": "GH-GOV-05",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS2"
+      ],
+      "effective": {
+        "text": "Bank of Ghana AML/CFT&P Guideline, December 2022; in force from issue"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "testing_and_training"
+      },
+      "governance": {
+        "type": "job",
+        "schedule": "daily",
+        "uses": [
+          "test_every",
+          "trainings_per_year"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "test_every",
+          "label": "Longest time between tests of the AML system",
+          "type": "duration",
+          "default": 31536000,
+          "min": 2592000,
+          "max": 31536000
+        },
+        {
+          "name": "trainings_per_year",
+          "label": "Staff training sessions a year, at least",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 12
+        }
+      ]
+    },
+    {
+      "id": "GH-GOV-06",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-05"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GS7"
+      ],
+      "effective": {
+        "text": "Executive Instrument 2 (per summary)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Quarterly reports and drills come from a summary of E.I. 2; confirm the recipient and format.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "sanctions_list",
+        "pep_list",
+        "adverse_media"
+      ],
+      "outcome": {
+        "reason": "continuous_screening"
+      },
+      "governance": {
+        "type": "control",
+        "uses": [
+          "drill_every"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "drill_every",
+          "label": "Time between sanctions reports and drills",
+          "type": "duration",
+          "default": 7776000,
+          "min": 2592000,
+          "max": 7776000
+        }
+      ]
+    },
+    {
+      "id": "GH-GOV-07",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "forex_bureau"
+      ],
+      "sources": [
+        "GS9"
+      ],
+      "effective": {
+        "text": "BoG forex bureaux AML guideline, effective September 2025"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "forex_bureau_calendar"
+      },
+      "governance": {
+        "type": "calendar",
+        "schedule": "annual audit by 30 April; training submission by 31 December",
+        "uses": [
+          "remediate_within"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "remediate_within",
+          "label": "Time to fix an audit finding",
+          "type": "duration",
+          "default": 3888000,
+          "min": 86400,
+          "max": 3888000
+        }
+      ]
+    },
+    {
+      "id": "GH-GOV-08",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "DPC"
+      ],
+      "sources": [
+        "GS26"
+      ],
+      "effective": {
+        "text": "Data Protection Act 2012 (Act 843); in force"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "dpc_registration"
+      },
+      "governance": {
+        "type": "job",
+        "schedule": "daily",
+        "uses": [
+          "renew_every"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "renew_every",
+          "label": "Time between registration renewals",
+          "type": "duration",
+          "default": 63072000,
+          "min": 31536000,
+          "max": 63072000
+        }
+      ]
+    },
+    {
+      "id": "GH-GOV-09",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "CSA"
+      ],
+      "requires": [
+        "cii_designated"
+      ],
+      "sources": [
+        "GS19"
+      ],
+      "effective": {
+        "text": "Cybersecurity Act 2020 (Act 1038), per secondary summary"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "From a secondary summary of Act 1038; the audit cadence was not stated.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "cii_governance"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GH-GOV-10",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-10"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "digital_lender"
+      ],
+      "sources": [
+        "GS32"
+      ],
+      "effective": {
+        "text": "BoG Directive for Digital Credit Service Providers, September 2025"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "missing_bog_digital_credit_licence"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GH-GOV-11",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BoG",
+        "SEC"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "GS12",
+        "GS13",
+        "GS15"
+      ],
+      "effective": {
+        "text": "Virtual Asset Service Providers Act 2025 (Act 1154); operational licensing expected by 2027"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "Licensing is not yet live (C9); meanwhile virtual-asset providers are treated as accountable institutions under Act 1044.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "missing_act1154_status"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "GH-GOV-12",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "param"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GRLIB"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "internal_service_levels"
+      },
+      "governance": {
+        "type": "sla",
+        "uses": [
+          "triage_within",
+          "decide_within"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "triage_within",
+          "label": "Time to triage a high-risk alert",
+          "type": "duration",
+          "default": 14400,
+          "min": 3600,
+          "max": 86400
+        },
+        {
+          "name": "decide_within",
+          "label": "Time to decide whether to file an STR",
+          "type": "duration",
+          "default": 43200,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "GH-GOV-13",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "law"
+      ],
+      "sources": [
+        "GS3",
+        "GS5",
+        "GS6",
+        "GS24"
+      ],
+      "effective": {
+        "text": "Fines (Penalty Units) Act 2000 (Act 572); penalty-unit value from a GRA page with no effective date"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "One penalty unit is GHS 12 per a Ghana Revenue Authority page whose effective date is unverified; cedi estimates are an inference.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "penalty_exposure"
+      },
+      "governance": {
+        "type": "display",
+        "uses": [
+          "penalty_unit_value"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "penalty_unit_value",
+          "label": "Value of one penalty unit (inference: GHS 12)",
+          "type": "money",
+          "default": 1200,
+          "min": 100,
+          "max": 100000,
+          "currency": "GHS"
+        }
+      ]
+    }
+  ]
+}

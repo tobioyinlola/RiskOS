@@ -2,9 +2,10 @@ package service
 
 import (
 	"context"
-	"errors"
 	"fmt"
+	"maps"
 	"slices"
+	"time"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
@@ -13,12 +14,17 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/store"
 )
 
-// TenantPack is the rules of a tenant's pack that apply to its profile and are switched on,
-// compiled with their settings, ready to evaluate (ADR-0006).
+// TenantPack is the rules of one of a tenant's activations that apply to it and are switched on,
+// compiled with their settings, ready to evaluate (ADR-0006, ADR-0007).
 type TenantPack struct {
 	// Ref is "<pack>@<version>", recorded with every evaluation.
-	Ref   string
-	rules []tenantRule
+	Ref string
+	// Jurisdiction is the pack's country; Location its time zone (windows, hours of the day).
+	Jurisdiction string
+	Location     *time.Location
+	// LicenceType is the activation's institution type (the institution.licence_type fact).
+	LicenceType string
+	rules       []tenantRule
 	// rates are the institution's exchange rates: US dollars per one unit of a currency.
 	rates map[string]float64
 }
@@ -32,62 +38,152 @@ type tenantRule struct {
 	mode pack.Mode
 }
 
-// TenantPack returns the tenant's compiled pack, or nil when the tenant has no compliance
-// profile (without one, RiskOS cannot know which rules apply). It must run inside the caller's
-// transaction; authorization is the caller's (the risk engine evaluating an event).
-func (s *Service) TenantPack(ctx context.Context) (*TenantPack, error) {
+// How an event's governing jurisdiction was found (ADR-0007).
+const (
+	// ResolvedBookingEntity: the event named a booking entity the tenant has activated.
+	ResolvedBookingEntity = "booking_entity"
+	// ResolvedFallback: the event named none (or one the tenant has not activated) and the
+	// tenant's stated fallback activation applies.
+	ResolvedFallback = "fallback"
+	// ResolvedNone: no jurisdiction could be resolved, so no pack judged the event.
+	ResolvedNone = "unresolved"
+	// ResolvedInactive: the event's booking entity is activated but in draft or suspended; no
+	// other country's pack is used in its place.
+	ResolvedInactive = "inactive"
+)
+
+// Resolution is which pack governs an event and why.
+type Resolution struct {
+	Pack *TenantPack
+	// By is one of the Resolved constants.
+	By            string
+	BookingEntity string
+}
+
+// TenantPacks are a tenant's active activations compiled for evaluation.
+type TenantPacks struct {
+	byEntity map[string]*TenantPack
+	// inactive are booking entities activated in draft or suspended.
+	inactive map[string]bool
+	fallback *TenantPack
+}
+
+// Resolve returns the pack that governs an event naming bookingEntity ("" when it names none).
+// It never guesses: an entity the tenant has not activated, or no entity, falls back only to the
+// tenant's stated fallback activation, and an entity in draft or suspended is not evaluated.
+func (t *TenantPacks) Resolve(bookingEntity string) Resolution {
+	if p, ok := t.byEntity[bookingEntity]; ok && bookingEntity != "" {
+		return Resolution{Pack: p, By: ResolvedBookingEntity, BookingEntity: bookingEntity}
+	}
+	if t.inactive[bookingEntity] && bookingEntity != "" {
+		return Resolution{By: ResolvedInactive, BookingEntity: bookingEntity}
+	}
+	if t.fallback != nil {
+		return Resolution{Pack: t.fallback, By: ResolvedFallback, BookingEntity: bookingEntity}
+	}
+	return Resolution{By: ResolvedNone, BookingEntity: bookingEntity}
+}
+
+// Packs returns every compiled pack, the fallback first.
+func (t *TenantPacks) Packs() []*TenantPack {
+	var out []*TenantPack
+	if t.fallback != nil {
+		out = append(out, t.fallback)
+	}
+	for _, e := range slices.Sorted(maps.Keys(t.byEntity)) {
+		if p := t.byEntity[e]; p != t.fallback {
+			out = append(out, p)
+		}
+	}
+	return out
+}
+
+// TenantPacks returns the tenant's compiled packs: one per activation in shadow or live (an
+// activation in shadow runs every rule in shadow). nil when the tenant has no activation. It
+// must run inside the caller's transaction; authorization is the caller's (the risk engine
+// evaluating an event).
+func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 	scope, err := tenancy.FromContext(ctx)
 	if err != nil {
 		return nil, err
 	}
-	var out *TenantPack
+	var out *TenantPacks
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		c, err := s.store.Compliance(ctx, scope.TenantID)
-		if errors.Is(err, store.ErrNotFound) {
-			return nil
-		}
-		if err != nil {
-			return err
-		}
-		rec, err := s.store.Pack(ctx, c.PackID, c.PackVersion)
-		if err != nil {
-			return err
-		}
-		p, err := s.decoded(ctx, rec)
-		if err != nil {
-			return err
-		}
-		configured, err := s.store.CurrentVersions(ctx, p.ID)
-		if err != nil {
+		acts, err := s.store.Activations(ctx, scope.TenantID)
+		if err != nil || len(acts) == 0 {
 			return err
 		}
 		rates, err := s.store.FXRates(ctx)
 		if err != nil {
 			return err
 		}
-		out = &TenantPack{Ref: p.ID + "@" + p.Version, rates: map[string]float64{}}
+		usd := map[string]float64{}
 		for _, r := range rates {
-			out.rates[r.Currency] = r.USDPerUnit
+			usd[r.Currency] = r.USDPerUnit
 		}
-		for i := range p.Rules {
-			def := &p.Rules[i]
-			applies := applies(def, &c)
-			if def.Kind == pack.KindGovernance || def.Trigger == nil || applies == nil || !*applies {
+		out = &TenantPacks{byEntity: map[string]*TenantPack{}, inactive: map[string]bool{}}
+		for i := range acts {
+			a := &acts[i]
+			if a.Status != "live" && a.Status != "shadow" {
+				out.inactive[a.BookingEntity] = true
 				continue
 			}
-			// The environment's configuration, or the library's defaults.
-			mode, settings := defaultMode(def, &c), map[string]float64(nil)
-			if v, ok := configured[def.ID]; ok {
-				mode, settings = v.Mode, v.Settings
+			p, err := s.compile(ctx, a, usd)
+			if err != nil {
+				return err
 			}
-			if mode == ModeOff {
-				continue
+			out.byEntity[a.BookingEntity] = p
+			if a.Fallback {
+				out.fallback = p
 			}
-			out.rules = append(out.rules, tenantRule{r: interp.Compile(def, settings), mode: pack.Mode(mode)})
 		}
 		return nil
 	})
 	return out, err
+}
+
+// compile compiles one activation's pack with the environment's configuration.
+func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[string]float64) (*TenantPack, error) {
+	rec, err := s.store.Pack(ctx, a.PackID, a.PackVersion)
+	if err != nil {
+		return nil, err
+	}
+	p, err := s.decoded(ctx, rec)
+	if err != nil {
+		return nil, err
+	}
+	configured, err := s.store.CurrentVersions(ctx, p.ID)
+	if err != nil {
+		return nil, err
+	}
+	loc, err := time.LoadLocation(p.Locale().Timezone)
+	if err != nil {
+		return nil, fmt.Errorf("pack %s: %w", p.ID, err)
+	}
+	out := &TenantPack{
+		Ref: p.ID + "@" + p.Version, Jurisdiction: p.Jurisdiction, Location: loc, LicenceType: a.LicenceType, rates: usd,
+	}
+	for i := range p.Rules {
+		def := &p.Rules[i]
+		applies := applies(def, a)
+		if def.Kind == pack.KindGovernance || def.Trigger == nil || applies == nil || !*applies {
+			continue
+		}
+		// The environment's configuration, or the library's defaults.
+		mode, settings := defaultMode(def, a), map[string]float64(nil)
+		if v, ok := configured[def.ID]; ok {
+			mode, settings = v.Mode, v.Settings
+		}
+		if mode == ModeOff {
+			continue
+		}
+		if a.Status == "shadow" {
+			// A country in shadow is watched, never enforced.
+			mode = ModeShadow
+		}
+		out.rules = append(out.rules, tenantRule{r: interp.Compile(def, settings), mode: pack.Mode(mode)})
+	}
+	return out, nil
 }
 
 // Windows returns the windows an event of these kinds is recorded in (every window of the pack
@@ -135,7 +231,14 @@ func (p *TenantPack) Evaluate(env interp.Env) []Outcome {
 			Decision: def.Outcome.Decision, MinDecision: def.Outcome.MinDecision, Reason: def.Outcome.Reason,
 			Severity: def.Outcome.Severity, Restricted: def.Outcome.Visibility == "compliance_only",
 		}
-		for _, task := range def.Outcome.Tasks {
+		tasks := def.Outcome.Tasks
+		// A control's matching branch may set its own decision and tasks (ADR-0007).
+		if i := slices.IndexFunc(def.Branches, func(b pack.Branch) bool { return b.Label == o.Branch }); i >= 0 && def.Kind == pack.KindControl {
+			if b := def.Branches[i]; b.Decision != "" || len(b.Tasks) > 0 {
+				o.Decision, tasks = b.Decision, b.Tasks
+			}
+		}
+		for _, task := range tasks {
 			// A task tied to another event (REG-14's escalation) is not this event's.
 			if task.On == "" || slices.Contains(env.Kinds, task.On) {
 				o.Tasks = append(o.Tasks, task.Type)

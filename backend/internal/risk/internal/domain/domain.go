@@ -169,12 +169,23 @@ type Result struct {
 	// live or in shadow; NotEvaluated the pack rules it triggered whose data was unavailable.
 	Controls     []Control
 	NotEvaluated []NotEvaluated
+	// Jurisdiction is which country's pack judged the event (ADR-0007); nil without activations.
+	Jurisdiction *JurisdictionResolution
 	// Restricted are compliance-only signals as they fired (GOV-09). Stored, never returned
 	// with the evaluation: only compliance roles read them, through the compliance API.
 	Restricted []Signal
 	// RaiseAlert is set when the decision reaches the environment's alert threshold. Not stored:
 	// the caller acts on it in the same transaction (dry runs never raise alerts).
 	RaiseAlert bool
+}
+
+// JurisdictionResolution is which country's pack judged an event and why (ADR-0007).
+type JurisdictionResolution struct {
+	Jurisdiction string `json:"jurisdiction,omitempty"`
+	Pack         string `json:"pack,omitempty"`
+	// ResolvedBy is booking_entity, fallback, unresolved or inactive.
+	ResolvedBy    string `json:"resolved_by"`
+	BookingEntity string `json:"booking_entity,omitempty"`
 }
 
 // Control is a regulatory control of the workspace's rule pack that applied to an event.

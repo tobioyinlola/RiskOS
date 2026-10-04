@@ -56,7 +56,7 @@ func TestRulePackEngine(t *testing.T) {
 	a := s.createTenant(t, "Pack engine")
 	// Risk signals at the pack's defaults (monitoring), as for profiles set up before automatic
 	// profiles started them off: these tests read what the signals record.
-	_, err := shared.owner.Exec(t.Context(), "UPDATE tenant_compliance SET signal_default = 'pack' WHERE tenant_id = $1", a.id)
+	_, err := shared.owner.Exec(t.Context(), "UPDATE jurisdiction_activations SET signal_default = 'pack' WHERE tenant_id = $1", a.id)
 	require.NoError(t, err)
 	key := a.testKey
 	decide := func(e map[string]any) apigen.RiskDecision {

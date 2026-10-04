@@ -65,6 +65,7 @@ const (
 	PrefixSupportAccess   = "sac"
 	PrefixPackChange      = "pch"
 	PrefixComplianceTask  = "ctk"
+	PrefixActivation      = "jac"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

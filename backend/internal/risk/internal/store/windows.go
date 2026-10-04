@@ -288,7 +288,7 @@ return out
 `
 
 // profileScript keeps first activity per user (KEYS[1]), last activity per account (KEYS[2]), the
-// largest amount per user and currency, and the hours of the day (ARGV[6], Lagos time) the user
+// largest amount per user and currency, and the hours of the day (ARGV[6], the governing jurisdiction's time) the user
 // was active in as a 24-bit mask, all by event time. Returns the user's first activity, the
 // account's previous activity, the previous largest amount, the previous hour mask and the
 // previous location and its time ("" when unknown).

@@ -16,16 +16,19 @@ func TestKinds(t *testing.T) {
 		"a debit":              {pack.KindInput{Type: "transaction", Direction: "debit"}, []string{"transfer_outbound", "transaction_any", "activity_any"}},
 		"a credit":             {pack.KindInput{Type: "transaction", Direction: "credit"}, []string{"transfer_inbound", "transaction_any", "activity_any"}},
 		"a card payment":       {pack.KindInput{Type: "transaction", Direction: "debit", Channel: "card"}, []string{"card_authorization", "transaction_any", "activity_any"}},
-		"a named cash payment": {pack.KindInput{Type: "transaction", Kind: "cash_withdrawal"}, []string{"cash_withdrawal", "transaction_any", "activity_any"}},
+		"a named cash payment": {pack.KindInput{Type: "transaction", Kind: "cash_withdrawal"}, []string{"cash_withdrawal", "cash_any", "transaction_any", "activity_any"}},
 		"a successful login":   {pack.KindInput{Type: "login", Outcome: "success"}, []string{"login", "auth_success", "activity_any"}},
 		"a failed login":       {pack.KindInput{Type: "login", Outcome: "failure"}, []string{"auth_failure", "activity_any"}},
 		"a device change":      {pack.KindInput{Type: "device_change"}, []string{"device_bound", "activity_any"}},
 		"an export":            {pack.KindInput{Type: "activity", Kind: "data_export"}, []string{"data_export", "activity_any"}},
 		"an unnamed activity":  {pack.KindInput{Type: "activity"}, nil},
+		"a forex deal":         {pack.KindInput{Type: "transaction", Kind: "forex_sell"}, []string{"forex_sell", "forex_any", "transaction_any", "activity_any"}},
+		"a SIM replacement":    {pack.KindInput{Type: "activity", Kind: "sim_replaced"}, []string{"sim_replaced", "sim_change", "activity_any"}},
 	} {
 		assert.Equal(t, tc.want, pack.Kinds(tc.in), name)
 	}
-	// Customers can name every kind a rule triggers on, except RiskOS's own workflow events.
+	// Customers can name every kind a rule triggers on, except RiskOS's own workflow events and
+	// the group kinds an event also counts as.
 	named := map[string]bool{}
 	for _, t := range []string{"transaction", "login", "device_change", "beneficiary_added", "session_change", "profile_change", "activity"} {
 		for _, k := range pack.KindsFor(t) {
@@ -34,7 +37,8 @@ func TestKinds(t *testing.T) {
 	}
 	for k := range pack.Events {
 		switch k {
-		case "transaction_any", "activity_any", "alert_screening_due", "suspicion_confirmed", "report_submit", "daily_job":
+		case "transaction_any", "activity_any", "alert_screening_due", "suspicion_confirmed", "report_submit", "daily_job",
+			"suspicion_recorded", "forex_any", "sim_change", "cash_any":
 			assert.False(t, named[k], k)
 		default:
 			assert.True(t, named[k], "%s cannot be sent", k)

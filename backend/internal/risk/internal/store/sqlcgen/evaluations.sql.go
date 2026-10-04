@@ -33,7 +33,9 @@ func (q *Queries) CountEvaluationsSince(ctx context.Context, arg CountEvaluation
 
 const getEvaluation = `-- name: GetEvaluation :one
 SELECT id, created_at, event_id, engine_version, risk_score, risk_level, decision, signals, degraded_signals, request_id,
-       controls, not_evaluated
+       controls, not_evaluated,
+       -- The jurisdiction that judged the event is kept with the features (ADR-0007).
+       COALESCE(features->'jurisdiction', 'null'::jsonb)::jsonb AS jurisdiction
 FROM evaluations
 WHERE tenant_id = $1 AND environment_id = $2 AND created_at = $3 AND id = $4
 `
@@ -58,6 +60,7 @@ type GetEvaluationRow struct {
 	RequestID       string
 	Controls        []byte
 	NotEvaluated    []byte
+	Jurisdiction    []byte
 }
 
 // created_at is derived from the id, so this reads exactly one partition.
@@ -82,6 +85,7 @@ func (q *Queries) GetEvaluation(ctx context.Context, arg GetEvaluationParams) (G
 		&i.RequestID,
 		&i.Controls,
 		&i.NotEvaluated,
+		&i.Jurisdiction,
 	)
 	return i, err
 }

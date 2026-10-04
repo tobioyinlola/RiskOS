@@ -204,19 +204,22 @@ func (q *Queries) DeleteFXRate(ctx context.Context, arg DeleteFXRateParams) (int
 }
 
 const ensureComplianceProfiles = `-- name: EnsureComplianceProfiles :execrows
-INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities,
-                               updated_at, updated_by, signal_default)
-SELECT t.id, p.id, p.version, 'other', '{}', now(), 'system:default', 'off'
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, pack_id, pack_version, licence_type, capabilities,
+                                      booking_entity, status, fallback, updated_at, updated_by, signal_default,
+                                      activated_at, activated_by)
+SELECT gen_random_uuid(), t.id, p.jurisdiction, p.id, p.version, 'other', '{}', 'default', 'live', true,
+       now(), 'system:default', 'off', now(), 'system:default'
 FROM tenants t
 CROSS JOIN LATERAL (
-  SELECT id, version FROM rule_packs WHERE jurisdiction = 'NG'
+  SELECT id, version, jurisdiction FROM rule_packs WHERE jurisdiction = 'NG'
   ORDER BY string_to_array(version, '.')::int[] DESC LIMIT 1
 ) p
-WHERE NOT EXISTS (SELECT 1 FROM tenant_compliance c WHERE c.tenant_id = t.id)
+WHERE NOT EXISTS (SELECT 1 FROM jurisdiction_activations c WHERE c.tenant_id = t.id)
 `
 
-// Gives every workspace without a compliance profile the automatic one (migration 00028); run by
-// the pack loader as the owner, so workspaces created before any pack was loaded get one too.
+// Gives every workspace without an activation the automatic one (migrations 00028 and 00029):
+// Nigeria, as the stated fallback. Run by the pack loader as the owner, so workspaces created
+// before any pack was loaded get one too.
 func (q *Queries) EnsureComplianceProfiles(ctx context.Context) (int64, error) {
 	result, err := q.db.Exec(ctx, ensureComplianceProfiles)
 	if err != nil {
@@ -264,26 +267,21 @@ func (q *Queries) FXRates(ctx context.Context, tenantID uuid.UUID) ([]FXRatesRow
 	return items, nil
 }
 
-const getCompliance = `-- name: GetCompliance :one
-
-SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default
-FROM tenant_compliance WHERE tenant_id = $1
+const getJurisdiction = `-- name: GetJurisdiction :one
+SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions WHERE code = $1
 `
 
-// Compliance profiles. Row-level security limits them to the scope's tenant; every query also
-// names the tenant explicitly.
-func (q *Queries) GetCompliance(ctx context.Context, tenantID uuid.UUID) (TenantCompliance, error) {
-	row := q.db.QueryRow(ctx, getCompliance, tenantID)
-	var i TenantCompliance
+func (q *Queries) GetJurisdiction(ctx context.Context, code string) (Jurisdiction, error) {
+	row := q.db.QueryRow(ctx, getJurisdiction, code)
+	var i Jurisdiction
 	err := row.Scan(
-		&i.TenantID,
+		&i.Code,
+		&i.Name,
+		&i.Currency,
+		&i.MinorUnit,
+		&i.Timezone,
+		&i.Regulators,
 		&i.PackID,
-		&i.PackVersion,
-		&i.LicenceType,
-		&i.Capabilities,
-		&i.UpdatedAt,
-		&i.UpdatedBy,
-		&i.SignalDefault,
 	)
 	return i, err
 }
@@ -407,6 +405,85 @@ func (q *Queries) GetTask(ctx context.Context, arg GetTaskParams) (ComplianceTas
 		&i.CloseNote,
 		&i.FilingRef,
 		&i.AccountRef,
+	)
+	return i, err
+}
+
+const insertFallbackActivation = `-- name: InsertFallbackActivation :one
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
+  licence_type, capabilities, signal_default, activated_at, activated_by, updated_at, updated_by)
+VALUES ($1, $2, $3, 'default', 'live', true, $4, $5,
+  $6, $7, 'pack', $8::timestamptz, $9::text, $8::timestamptz, $9::text)
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by
+`
+
+type InsertFallbackActivationParams struct {
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	Jurisdiction string
+	PackID       string
+	PackVersion  string
+	LicenceType  string
+	Capabilities []string
+	UpdatedAt    time.Time
+	UpdatedBy    string
+}
+
+type InsertFallbackActivationRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+}
+
+func (q *Queries) InsertFallbackActivation(ctx context.Context, arg InsertFallbackActivationParams) (InsertFallbackActivationRow, error) {
+	row := q.db.QueryRow(ctx, insertFallbackActivation,
+		arg.ID,
+		arg.TenantID,
+		arg.Jurisdiction,
+		arg.PackID,
+		arg.PackVersion,
+		arg.LicenceType,
+		arg.Capabilities,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+	)
+	var i InsertFallbackActivationRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Jurisdiction,
+		&i.BookingEntity,
+		&i.Status,
+		&i.Fallback,
+		&i.PackID,
+		&i.PackVersion,
+		&i.LicenceType,
+		&i.Capabilities,
+		&i.SignalDefault,
+		&i.EffectiveFrom,
+		&i.ActivatedAt,
+		&i.ActivatedBy,
+		&i.Rationale,
+		&i.ApprovedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
 	)
 	return i, err
 }
@@ -650,6 +727,111 @@ func (q *Queries) LatestPacks(ctx context.Context) ([]RulePack, error) {
 	return items, nil
 }
 
+const listActivations = `-- name: ListActivations :many
+
+SELECT id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+       capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+       updated_at, updated_by
+FROM jurisdiction_activations WHERE tenant_id = $1
+ORDER BY fallback DESC, jurisdiction, booking_entity
+`
+
+type ListActivationsRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+}
+
+// Jurisdiction activations (a tenant's compliance profile per country and booking entity).
+// Row-level security limits them to the scope's tenant; every query also names the tenant.
+func (q *Queries) ListActivations(ctx context.Context, tenantID uuid.UUID) ([]ListActivationsRow, error) {
+	rows, err := q.db.Query(ctx, listActivations, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActivationsRow
+	for rows.Next() {
+		var i ListActivationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Jurisdiction,
+			&i.BookingEntity,
+			&i.Status,
+			&i.Fallback,
+			&i.PackID,
+			&i.PackVersion,
+			&i.LicenceType,
+			&i.Capabilities,
+			&i.SignalDefault,
+			&i.EffectiveFrom,
+			&i.ActivatedAt,
+			&i.ActivatedBy,
+			&i.Rationale,
+			&i.ApprovedBy,
+			&i.UpdatedAt,
+			&i.UpdatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listJurisdictions = `-- name: ListJurisdictions :many
+
+SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions ORDER BY code
+`
+
+// Jurisdictions (reference data, ADR-0007).
+func (q *Queries) ListJurisdictions(ctx context.Context) ([]Jurisdiction, error) {
+	rows, err := q.db.Query(ctx, listJurisdictions)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []Jurisdiction
+	for rows.Next() {
+		var i Jurisdiction
+		if err := rows.Scan(
+			&i.Code,
+			&i.Name,
+			&i.Currency,
+			&i.MinorUnit,
+			&i.Timezone,
+			&i.Regulators,
+			&i.PackID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPackRules = `-- name: ListPackRules :many
 SELECT rule_id, definition, wording
 FROM pack_rules WHERE pack_id = $1 AND pack_version = $2
@@ -693,7 +875,8 @@ SELECT id, pack_id, rule_id, base_version, mode, settings, reason, restored_from
 FROM pack_rule_changes
 WHERE tenant_id = $1 AND environment_id = $2
   AND ($3::text IS NULL OR status = $3::text)
-  AND ($4::text IS NULL OR rule_id = $4::text)
+  AND ($4::text IS NULL OR pack_id = $4::text)
+  AND ($5::text IS NULL OR rule_id = $5::text)
 ORDER BY proposed_at DESC
 LIMIT 200
 `
@@ -702,6 +885,7 @@ type ListRuleChangesParams struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID
 	Status        *string
+	PackID        *string
 	RuleID        *string
 }
 
@@ -728,6 +912,7 @@ func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams
 		arg.TenantID,
 		arg.EnvironmentID,
 		arg.Status,
+		arg.PackID,
 		arg.RuleID,
 	)
 	if err != nil {
@@ -1016,6 +1201,84 @@ func (q *Queries) TaskCaseIDs(ctx context.Context, arg TaskCaseIDsParams) ([]uui
 	return items, nil
 }
 
+const updateFallbackActivation = `-- name: UpdateFallbackActivation :one
+UPDATE jurisdiction_activations
+SET jurisdiction = $1, pack_id = $2, pack_version = $3, licence_type = $4,
+    capabilities = $5, updated_at = $6, updated_by = $7
+WHERE tenant_id = $8 AND fallback
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by
+`
+
+type UpdateFallbackActivationParams struct {
+	Jurisdiction string
+	PackID       string
+	PackVersion  string
+	LicenceType  string
+	Capabilities []string
+	UpdatedAt    time.Time
+	UpdatedBy    string
+	TenantID     uuid.UUID
+}
+
+type UpdateFallbackActivationRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+}
+
+// The compliance profile (PUT /compliance/profile) is the fallback activation.
+func (q *Queries) UpdateFallbackActivation(ctx context.Context, arg UpdateFallbackActivationParams) (UpdateFallbackActivationRow, error) {
+	row := q.db.QueryRow(ctx, updateFallbackActivation,
+		arg.Jurisdiction,
+		arg.PackID,
+		arg.PackVersion,
+		arg.LicenceType,
+		arg.Capabilities,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+		arg.TenantID,
+	)
+	var i UpdateFallbackActivationRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Jurisdiction,
+		&i.BookingEntity,
+		&i.Status,
+		&i.Fallback,
+		&i.PackID,
+		&i.PackVersion,
+		&i.LicenceType,
+		&i.Capabilities,
+		&i.SignalDefault,
+		&i.EffectiveFrom,
+		&i.ActivatedAt,
+		&i.ActivatedBy,
+		&i.Rationale,
+		&i.ApprovedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+	)
+	return i, err
+}
+
 const updateTask = `-- name: UpdateTask :exec
 UPDATE compliance_tasks
 SET status = $1, report = $2, updated_at = $3, approved_by = $4, approved_at = $5,
@@ -1054,50 +1317,6 @@ func (q *Queries) UpdateTask(ctx context.Context, arg UpdateTaskParams) error {
 		arg.ID,
 	)
 	return err
-}
-
-const upsertCompliance = `-- name: UpsertCompliance :one
-INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-ON CONFLICT (tenant_id) DO UPDATE SET
-  pack_id = EXCLUDED.pack_id, pack_version = EXCLUDED.pack_version,
-  licence_type = EXCLUDED.licence_type, capabilities = EXCLUDED.capabilities,
-  updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
-RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default
-`
-
-type UpsertComplianceParams struct {
-	TenantID     uuid.UUID
-	PackID       string
-	PackVersion  string
-	LicenceType  string
-	Capabilities []string
-	UpdatedAt    time.Time
-	UpdatedBy    string
-}
-
-func (q *Queries) UpsertCompliance(ctx context.Context, arg UpsertComplianceParams) (TenantCompliance, error) {
-	row := q.db.QueryRow(ctx, upsertCompliance,
-		arg.TenantID,
-		arg.PackID,
-		arg.PackVersion,
-		arg.LicenceType,
-		arg.Capabilities,
-		arg.UpdatedAt,
-		arg.UpdatedBy,
-	)
-	var i TenantCompliance
-	err := row.Scan(
-		&i.TenantID,
-		&i.PackID,
-		&i.PackVersion,
-		&i.LicenceType,
-		&i.Capabilities,
-		&i.UpdatedAt,
-		&i.UpdatedBy,
-		&i.SignalDefault,
-	)
-	return i, err
 }
 
 const upsertComplianceAccount = `-- name: UpsertComplianceAccount :exec

@@ -1,0 +1,1019 @@
+{
+  "rules": [
+    {
+      "id": "GH-SEC-01",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-01"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-SEC-02",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-04"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS35"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "mfa_prompt",
+          "otp_used"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "mfa_prompt",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "mfa.channel"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "push",
+                      "otp"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "prompts"
+            }
+          },
+          {
+            "left": {
+              "fact": "otp.device_mismatch"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "mfa_fatigue_or_otp_interception",
+        "hints": [
+          "pause_prompts",
+          "alert"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "prompts",
+          "label": "Prompts to one user that count",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 600,
+          "min": 60,
+          "max": 3600
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-03",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-08"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-08"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-SEC-04",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-10"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-10"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS26"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-SEC-05",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-12"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-12"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS26"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-SEC-06",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SEC-09"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "SEC-09"
+      },
+      "overrides": {
+        "high_value": {
+          "currency": "GHS",
+          "default": 500000,
+          "min": 0,
+          "max": 10000000000,
+          "label": "High-value payment (suggested GHS 5,000 retail; GHS 50,000 for bank transfers)"
+        }
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-SEC-07",
+      "group": "cybersecurity",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "INS-02"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28",
+        "GS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "staff_directory"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "exists",
+            "event": "staff_action",
+            "window": "window",
+            "by": "customer",
+            "where": {
+              "left": {
+                "fact": "staff.action"
+              },
+              "op": "in",
+              "right": {
+                "literal": [
+                  "view_contact",
+                  "change_contact",
+                  "change_limits"
+                ]
+              }
+            }
+          }
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "staff_access_then_takeover",
+        "min_decision": "review",
+        "visibility": "compliance_only",
+        "evidence": [
+          "staff.id",
+          "staff.action"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-08",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param"
+      },
+      "regulators": [
+        "CSA"
+      ],
+      "requires": [
+        "cii_designated"
+      ],
+      "sources": [
+        "GS18",
+        "GS19"
+      ],
+      "effective": {
+        "text": "Cybersecurity Act 2020 (Act 1038); CSA directive for critical information infrastructure"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "From secondary summaries of the CSA directive. Whether the clocks cover every financial institution or only designated critical information infrastructure owners is unconfirmed; switch on the designation if it applies to you.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "incident_detected",
+          "vulnerability_confirmed"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "incident_detected"
+                }
+              },
+              {
+                "left": {
+                  "fact": "incident.severity"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "critical",
+                    "major",
+                    "significant"
+                  ]
+                }
+              }
+            ]
+          },
+          "tasks": [
+            {
+              "type": "report.CSA",
+              "due": "incident_due",
+              "to": [
+                "CSA"
+              ]
+            }
+          ],
+          "label": "Significant incident"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "event.kind"
+            },
+            "op": "eq",
+            "right": {
+              "literal": "vulnerability_confirmed"
+            }
+          },
+          "tasks": [
+            {
+              "type": "report.CSA",
+              "due": "vulnerability_due",
+              "to": [
+                "CSA"
+              ]
+            }
+          ],
+          "label": "Vulnerability"
+        }
+      ],
+      "outcome": {
+        "reason": "csa_clocks",
+        "evidence": [
+          "incident.severity"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "incident_due",
+          "label": "Time to report a significant incident",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        },
+        {
+          "name": "vulnerability_due",
+          "label": "Time to disclose a vulnerability",
+          "type": "duration",
+          "default": 259200,
+          "min": 3600,
+          "max": 259200
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-09",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "emi",
+        "psp"
+      ],
+      "sources": [
+        "GS24",
+        "GS25"
+      ],
+      "effective": {
+        "text": "Payment Systems and Services Act 2019 (Act 987); in force"
+      },
+      "verification": "conflicting",
+      "caveat": "Act 987 s.42(5) sets 10 days as the outer limit. The Bank of Ghana's revised cyber directive (30 March 2026) may set a faster clock but its text was not found (C5); that clock shows as not found.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "incident_detected"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "incident.kind"
+        },
+        "op": "in",
+        "right": {
+          "literal": [
+            "fraud",
+            "security_incident",
+            "service_interruption",
+            "data_loss"
+          ]
+        }
+      },
+      "outcome": {
+        "reason": "bog_incident_report",
+        "tasks": [
+          {
+            "type": "report.BoG",
+            "due": "report_due",
+            "to": [
+              "BoG"
+            ]
+          }
+        ],
+        "evidence": [
+          "incident.kind"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "report_due",
+          "label": "Time to report to the Bank of Ghana",
+          "type": "duration",
+          "default": 864000,
+          "min": 3600,
+          "max": 864000
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-10",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "emi",
+        "psp"
+      ],
+      "sources": [
+        "GS24"
+      ],
+      "effective": {
+        "text": "Payment Systems and Services Act 2019 (Act 987); in force"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Act 987 s.38 per summary. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events"
+      ],
+      "trigger": {
+        "events": [
+          "outsourcing_planned",
+          "outsourcing_signed"
+        ]
+      },
+      "outcome": {
+        "reason": "outsourcing_notice",
+        "tasks": [
+          {
+            "type": "notify.outsourcing",
+            "on": "outsourcing_planned",
+            "to": [
+              "BoG"
+            ]
+          },
+          {
+            "type": "file.outsourcing_sla",
+            "on": "outsourcing_signed",
+            "due": "sla_due",
+            "to": [
+              "BoG"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "sla_due",
+          "label": "Time to file the signed service agreement",
+          "type": "duration",
+          "default": 864000,
+          "min": 86400,
+          "max": 864000
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-11",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "stricter",
+        "of": [
+          "GOV-08"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "emi",
+        "psp"
+      ],
+      "sources": [
+        "GS24"
+      ],
+      "effective": {
+        "text": "Payment Systems and Services Act 2019 (Act 987); in force"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Act 987 ss.20 and 34 per summary. Retention is enforced centrally by the audit module; this rule refuses early deletion requests and flags gaps.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "data_governance"
+      ],
+      "trigger": {
+        "events": [
+          "record_delete_requested",
+          "audit_log_check"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "record.type"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "audit_log"
+                }
+              },
+              {
+                "left": {
+                  "fact": "record.age"
+                },
+                "op": "lt",
+                "right": {
+                  "param": "retain_logs"
+                }
+              }
+            ]
+          },
+          "decision": "block",
+          "label": "Audit log deleted early"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "audit_log.coverage"
+            },
+            "op": "lt",
+            "right": {
+              "param": "min_coverage"
+            }
+          },
+          "decision": "flag",
+          "label": "Gap in the audit log"
+        }
+      ],
+      "outcome": {
+        "reason": "audit_log_retention",
+        "hints": [
+          "alert"
+        ],
+        "evidence": [
+          "record.type",
+          "record.age",
+          "audit_log.coverage"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "retain_logs",
+          "label": "Shortest time audit logs are kept",
+          "type": "duration",
+          "default": 189216000,
+          "min": 189216000,
+          "max": 630720000
+        },
+        {
+          "name": "min_coverage",
+          "label": "Share of user actions that must be logged",
+          "type": "ratio",
+          "default": 1,
+          "min": 0.9,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-12",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param"
+      },
+      "regulators": [
+        "DPC"
+      ],
+      "sources": [
+        "GS26"
+      ],
+      "effective": {
+        "text": "Data Protection Act 2012 (Act 843); in force"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The Act says \"as soon as reasonably practicable\" with no hour count. The 72-hour clock is internal policy, not law.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "incident_register"
+      ],
+      "trigger": {
+        "events": [
+          "breach_confirmed"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "breach.personal_data"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "breach.unauthorised_access"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "reason": "dpc_breach_notice",
+        "tasks": [
+          {
+            "type": "report.DPC",
+            "due": "notice_due",
+            "to": [
+              "DPC"
+            ]
+          },
+          {
+            "type": "notify.data_subjects",
+            "due": "notice_due"
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "notice_due",
+          "label": "Internal deadline to notify the Data Protection Commission (policy, not law)",
+          "type": "duration",
+          "default": 259200,
+          "min": 3600,
+          "max": 259200
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-13",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "DPC",
+        "BoG"
+      ],
+      "sources": [
+        "GS26",
+        "GS25"
+      ],
+      "effective": {
+        "text": "Data Protection Act 2012 (Act 843); BoG cyber directive (2026), vendor-reported"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Consent and safeguards come from the Act (Templars summary). A Bank of Ghana approval for transfers under the 2026 directive was reported only by a vendor; that part stays off unless you switch it on.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "data_governance"
+      ],
+      "trigger": {
+        "events": [
+          "data_transfer"
+        ],
+        "scope": {
+          "all": [
+            {
+              "left": {
+                "fact": "data.personal"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            },
+            {
+              "left": {
+                "fact": "data.destination_foreign"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            }
+          ]
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "data.consent_recorded"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "data.safeguards_recorded"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "param": "require_bog_approval"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": 1
+                }
+              },
+              {
+                "left": {
+                  "fact": "data.bog_approval"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "flag",
+        "reason": "cross_border_transfer",
+        "hints": [
+          "hold_and_review"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "require_bog_approval",
+          "label": "Require Bank of Ghana approval for transfers (vendor-reported, unconfirmed)",
+          "type": "flag",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-SEC-14",
+      "group": "cybersecurity",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "CSA"
+      ],
+      "sources": [
+        "GS20"
+      ],
+      "effective": {
+        "text": "Cybersecurity Act 2020 (Act 1038) s.49(1); licensing enforced from 31 January 2026",
+        "date": "2026-01-31"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "From press reports of the CSA's enforcement notice (C20 uses the 2026 date).",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "vendor_register"
+      ],
+      "trigger": {
+        "events": [
+          "vendor_onboarded",
+          "vendor_review"
+        ],
+        "scope": {
+          "left": {
+            "fact": "vendor.service"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "cybersecurity"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "fact": "vendor.csa_licence_valid"
+        },
+        "op": "eq",
+        "right": {
+          "literal": false
+        }
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "unlicensed_cybersecurity_provider",
+        "evidence": [
+          "vendor.csa_licence_valid"
+        ]
+      },
+      "parameters": []
+    }
+  ]
+}

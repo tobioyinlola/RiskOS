@@ -4,6 +4,7 @@ package integration
 
 import (
 	"net/http"
+	"strings"
 	"testing"
 	"time"
 
@@ -84,20 +85,40 @@ func TestRuleInsights(t *testing.T) {
 		list := decode[struct {
 			Data []apigen.CompliancePackSummary `json:"data"`
 		}](t, r)
-		require.NotEmpty(t, list.Data)
-		ng := list.Data[0]
-		assert.Equal(t, "NG", ng.Jurisdiction)
+		byCode := map[string]apigen.CompliancePackSummary{}
+		for _, p := range list.Data {
+			byCode[p.Jurisdiction] = p
+		}
+		require.Len(t, byCode, 3, "Nigeria, Ghana and Rwanda (ADR-0007)")
+		ng := byCode["NG"]
 		assert.True(t, ng.Current, "the workspace's own pack")
 		assert.Equal(t, 19, ng.Controls)
 		assert.Equal(t, 52, ng.Signals)
 		assert.Equal(t, 12, ng.Governance)
+		assert.False(t, byCode["GH"].Current)
+		require.NotNil(t, byCode["GH"].Activated)
+		assert.False(t, *byCode["GH"].Activated, "browsing is not activating")
 
 		r = s.call(t, http.MethodGet, "/api/v1/compliance/rules?jurisdiction=NG", b.testKey, nil)
 		require.Equal(t, http.StatusOK, r.status, r.String())
 		assert.Len(t, decode[apigen.ComplianceRuleList](t, r).Data, 83)
 		r = s.call(t, http.MethodGet, "/api/v1/compliance/rules?jurisdiction=GH", b.testKey, nil)
-		assert.Equal(t, http.StatusNotFound, r.status, "no Ghana pack is loaded: %s", r.String())
-		r = s.call(t, http.MethodGet, "/api/v1/compliance/pack?jurisdiction=GH", b.testKey, nil)
+		require.Equal(t, http.StatusOK, r.status, r.String())
+		gh := decode[apigen.ComplianceRuleList](t, r).Data
+		own := 0
+		for _, rule := range gh {
+			assert.Nil(t, rule.Applicable, "%s: browsing without an activation says nothing about applicability", rule.Id)
+			if strings.HasPrefix(rule.Id, "GH-") {
+				own++
+				assert.NotNil(t, rule.Provenance, rule.Id)
+			} else {
+				assert.Equal(t, "ng", *rule.InheritedFrom, rule.Id)
+			}
+		}
+		assert.Equal(t, 68, own, "the Ghana library's rules")
+		r = s.call(t, http.MethodGet, "/api/v1/compliance/rules?jurisdiction=KE", b.testKey, nil)
+		assert.Equal(t, http.StatusNotFound, r.status, "no Kenya pack is loaded: %s", r.String())
+		r = s.call(t, http.MethodGet, "/api/v1/compliance/pack?jurisdiction=KE", b.testKey, nil)
 		assert.Equal(t, http.StatusNotFound, r.status, r.String())
 	})
 }
