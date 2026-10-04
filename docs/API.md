@@ -83,6 +83,23 @@ state only what the code and these documents establish; change them with the beh
 | POST | `/api/v1/webhooks/{webhook_id}/deliveries/{delivery_id}/redeliver` | Retry a failed delivery; audited (`webhooks:write`) |
 | POST | `/api/v1/rules/{rule_id}/test` | Test the rule, or a draft condition, against an event; stores nothing (`rules:read`) |
 
+### Several jurisdictions (ADR-0007)
+
+| Method | Path | Purpose |
+|---|---|---|
+| GET | `/api/v1/compliance/jurisdictions` | The countries with a rule pack: currency, time zone, regulators, and whether the workspace activated each (`compliance:read`) |
+| GET | `/api/v1/compliance/activations` | The workspace's activations per country and booking entity, the fallback first (`compliance:read`) |
+| GET | `/api/v1/compliance/active-rules` | Every pack rule running in the environment, with the events, facts and refs to send and the settings still unset; `?jurisdiction=` (`compliance:read`) |
+
+Contract changes, all additive except one: events take `compliance.booking_entity`,
+`compliance.data_subject_country`, refs `national_id` and `agent`, and new kinds; decisions carry
+`jurisdiction` (country, pack and how it was resolved); pack rule IDs may be country IDs
+(`GH-REG-04`) on every `/compliance/rules/{rule_id}` path, and a single rule takes
+`?jurisdiction=`; rules carry `provenance`, `lineage`, `off_reason`, `inherited_from`,
+`template`, `changes` and `basis`; packs carry `activated`. **Breaking:** a clock's `hours` may be
+null (a legal deadline no readable source states, `kind` not_found) and is 0 for "immediately";
+clients that read it as a number must handle both.
+
 ## Conventions (in force)
 
 - Every error uses the error contract `{"error":{"code","message","request_id"}}` (spec §7).
@@ -97,7 +114,7 @@ state only what the code and these documents establish; change them with the beh
   `Retry-After`; nothing was stored) or `TIMEOUT`.
 - Every request is validated against this contract before it reaches a handler; unknown fields
   are rejected.
-- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`, `rch_`); an ID of the wrong
+- IDs are type-prefixed (`ten_`, `env_`, `key_`, `aud_`, `evt_`, `evl_`, `rul_`, `alr_`, `cas_`, `cnt_`, `act_`, `whk_`, `whd_`, `wev_`, `rch_`, `jac_`); an ID of the wrong
   type is not found.
 - Lists: `?limit=` (1-100, default 50) and `?cursor=` (the previous page's `next_cursor`);
   newest first.

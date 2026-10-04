@@ -265,6 +265,24 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
   `compliance:write`, audited), rounded to the cent with the currency's own minor units. Without
   either, the rule is not evaluated.
 
+### Several jurisdictions
+
+A workspace has one activation per country and booking entity
+([ADR-0007](adr/ADR-0007-multi-jurisdiction.md)). Each event is judged by exactly one pack:
+
+1. the activation of the booking entity the event names (`compliance.booking_entity`);
+2. else the workspace's fallback activation (Nigeria for every workspace until changed);
+3. else none: `jurisdiction.resolved_by` is `unresolved`, and no pack is guessed. An entity whose
+   activation is in draft or suspended is `inactive`, and no other country's pack stands in.
+
+An activation in `shadow` runs every rule in shadow. The governing pack's time zone sets hours of
+the day (`txn.local_hour`, usual hours), and its licence type is the `institution.licence_type`
+fact. The decision, the stored evaluation and the evaluation's features record the jurisdiction,
+pack version and how it was resolved. Ghana and Rwanda reuse Nigerian rules in two ways: a
+"Param of X" rule names X as its template and states only its own settings, and inherited rules
+keep their Nigerian ID with amounts restated in the local currency. Rule configuration and
+pending changes are kept per pack, so ATO-04 in Ghana is configured apart from ATO-04 in Nigeria.
+
 ### Configuration
 
 **Every workspace has a profile.** A workspace gets the automatic profile when it is created

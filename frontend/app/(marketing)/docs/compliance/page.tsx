@@ -95,11 +95,108 @@ export default function Page() {
           <C>…/glossary</C> the terms.
         </li>
         <li>
-          Nigeria (<C>NG</C>) is the pack available today. Other jurisdictions
-          are added as their packs are researched and sourced; nothing is
-          presented as law until it is.
+          Nigeria (<C>NG</C>), Ghana (<C>GH</C>) and Rwanda (<C>RW</C>) have
+          packs. <C>GET /api/v1/compliance/jurisdictions</C> lists them with
+          their currency, time zone and regulators, and whether your workspace
+          has activated each. Ghana and Rwanda reuse some Nigerian rules under
+          their Nigerian IDs, with amounts restated in cedis or francs; their
+          own rules have country IDs such as <C>GH-REG-04</C>.
+        </li>
+        <li>
+          Every rule says where it comes from: a cited law (<C>regulatory</C>),
+          a published typology with no mandated number (<C>industry_practice</C>
+          ) or the library author&apos;s design, whose numbers are starting
+          values, not regulation (<C>my_design</C>). Rules whose legal number
+          was not found ship off, with <C>off_reason</C> saying why.
         </li>
       </UL>
+
+      <H2>Several countries</H2>
+      <P>
+        A workspace can operate in several countries. Each country it operates
+        in is an <em>activation</em>: a jurisdiction, a booking entity (the
+        licensed entity that holds the customer relationship), its licence type
+        and a status. <C>GET /api/v1/compliance/activations</C> lists them.
+      </P>
+      <UL>
+        <li>
+          <strong>Name the booking entity on each event.</strong> Send{" "}
+          <C>compliance.booking_entity</C>: the event is judged by that
+          entity&apos;s country pack only, in that country&apos;s time zone and
+          currency.
+        </li>
+        <li>
+          <strong>The fallback.</strong> An event that names no booking entity
+          (or one you have not activated) is judged by your fallback activation,
+          shown first in the list. Every workspace starts with Nigeria as its
+          fallback. With no fallback, the event is reported as <C>unresolved</C>{" "}
+          and no pack judges it: RiskOS never guesses a country.
+        </li>
+        <li>
+          <strong>The decision says which country judged it</strong>, in{" "}
+          <C>jurisdiction</C>: the country, the pack version and how it was
+          found (<C>booking_entity</C>, <C>fallback</C>, <C>unresolved</C>, or{" "}
+          <C>inactive</C> for an activation in draft or suspended).
+        </li>
+      </UL>
+      <Code
+        label="A Ghana-booked cash deposit"
+        code={`POST /api/v1/events
+{
+  "event_id": "dep_0193",
+  "type": "transaction",
+  "occurred_at": "2026-10-04T09:12:00Z",
+  "actor": { "user_id": "cus_77", "account_id": "acc_77" },
+  "data": { "transaction_id": "t_0193", "amount": 5000000, "currency": "GHS",
+            "direction": "credit", "channel": "branch" },
+  "compliance": {
+    "kind": "cash_deposit",
+    "booking_entity": "gh-bank",
+    "facts": { "txn.domestic": true }
+  }
+}
+
+→ "jurisdiction": { "jurisdiction": "GH", "pack": "gh@2026.10.1",
+                    "resolved_by": "booking_entity", "booking_entity": "gh-bank" },
+  "controls": [{ "rule": "GH-REG-04", "tasks": ["report.CTR"], ... }]`}
+      />
+
+      <H2>Every active rule, for your integration</H2>
+      <P>
+        <C>GET /api/v1/compliance/active-rules</C> lists every pack rule running
+        for your workspace in this environment, across every activated country
+        (add <C>?jurisdiction=GH</C> for one), with what your systems must send
+        for it to be evaluated:
+      </P>
+      <Fields
+        label="Active rule fields"
+        head={["Field", "Meaning"]}
+        rows={[
+          [
+            "rule, name, kind",
+            "The rule and what it is: a control, a risk signal.",
+          ],
+          ["jurisdiction, pack, booking_entity", "The activation it runs for."],
+          ["mode", "live (acts on decisions) or shadow (recorded only)."],
+          ["events", "The compliance.kind values that trigger it."],
+          [
+            "facts",
+            "The compliance.facts it reads; send them, or the rule is not evaluated.",
+          ],
+          [
+            "refs",
+            "The compliance.refs its time windows are kept for (national_id, agent…).",
+          ],
+          [
+            "unset_settings",
+            "Settings your compliance team must set before it can be evaluated.",
+          ],
+        ]}
+      />
+      <P>
+        Your own rules are at <C>GET /api/v1/rules</C>. Both kinds run on every
+        event, and both appear in the decision.
+      </P>
 
       <H2>Kinds of pack rule</H2>
       <Fields
