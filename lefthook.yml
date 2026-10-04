@@ -1,5 +1,6 @@
-# Git hooks. Install once with `make hooks`. The same checks run in CI, so hooks are a fast
-# local preview, not the enforcement point.
+# Git hooks. Install once with `make hooks`. Pushes to staging start no CI workflow, so the
+# pre-push hook is the gate for staging: `make verify` must pass before anything is pushed.
+# CI and CodeQL run on pull requests to main.
 pre-commit:
   parallel: true
   commands:
@@ -29,6 +30,8 @@ pre-push:
     no-direct-push-to-main:
       use_stdin: true
       run: ./scripts/check-push-target.sh
+    verify:
+      run: make verify
 
 commit-msg:
   commands:

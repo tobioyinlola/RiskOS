@@ -9,7 +9,8 @@ Branches:
 
 - **`main`** is the reviewed, releasable line. It changes **only** through a pull request from
   `staging` on GitHub. The pre-push hook rejects direct pushes to `main`.
-- **`staging`** is where work lands and CI runs. Dependabot also targets `staging`.
+- **`staging`** is where work lands. Pushing to it starts no CI workflow: the pre-push hook runs
+  `make verify` instead, and CI and CodeQL run on pull requests to `main`. Dependabot also targets `staging`.
 - Larger changes may use short-lived branches (`feat/<topic>`, `fix/<topic>`) merged into
   `staging` first.
 
@@ -20,7 +21,8 @@ Steps:
 3. Keep commits small and logical, using [Conventional Commits](https://www.conventionalcommits.org):
    `feat(events): validate event timestamps`. The `commit-msg` hook checks this.
 4. Run `make check` (what CI runs) before pushing. At minimum, run `make lint test-race`.
-5. `git push origin staging` and wait for CI to pass on `staging`.
+5. `git push origin staging`. The pre-push hook runs `make verify` (generated code, both lints,
+   secrets, unit tests with the race detector, frontend tests) and refuses the push if it fails.
 6. On GitHub, open a pull request **staging → main** and complete the **security checklist** in
    the template.
 

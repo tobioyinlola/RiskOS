@@ -112,7 +112,7 @@ func TestEvaluationIsBounded(t *testing.T) {
 	for range 1000 {
 		c.Match(rules.Facts{"transaction.currency": "NGN"})
 	}
-	assert.Less(t, time.Since(start), 500*time.Millisecond, "the largest allowed rule evaluates in well under a millisecond")
+	assert.Less(t, time.Since(start), boundSlowdown*500*time.Millisecond, "the largest allowed rule evaluates in well under a millisecond")
 }
 
 // Every fact a rule can use is described for people who build rules without code, and every

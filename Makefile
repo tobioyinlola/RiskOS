@@ -104,6 +104,7 @@ lint: lint-backend lint-frontend ## Lint backend and frontend
 .PHONY: lint-backend
 lint-backend:
 	$(BACKEND) golangci-lint run ./...
+	$(BACKEND) golangci-lint run --build-tags=integration ./...
 
 .PHONY: lint-frontend
 lint-frontend:
@@ -182,6 +183,10 @@ restore-drill: .env ## Back up, restore into a fresh server and prove the copy (
 	./scripts/restore-drill.sh
 
 ##@ CI
+
+.PHONY: verify
+verify: generate-check lint secrets test-race test-frontend ## The pre-push gate: what CI checks, minus Docker-based suites
+	@echo "verify: ok. Before a phase or a pull request to main, also run make test-integration test-e2e."
 
 .PHONY: check
 check: generate-check lint vuln secrets test-race test-integration test-frontend test-e2e docker-build ## Everything CI runs

@@ -5,9 +5,12 @@
 name: codeql
 
 on:
+  # Pull requests to main only: staging is checked locally before every push (`make verify`
+  # in the pre-push hook), so a push to staging starts no workflow. Run it by hand from the
+  # Actions tab when needed.
   pull_request:
-  push:
-    branches: [main, staging]
+    branches: [main]
+  workflow_dispatch:
   schedule:
     - cron: "41 4 * * 2" # Tuesdays 04:41 UTC, for newly published queries
 
