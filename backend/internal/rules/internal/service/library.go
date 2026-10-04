@@ -71,6 +71,13 @@ func LoadPacks(ctx context.Context, pool store.Pool, packs []fs.FS, logger *slog
 		logger.InfoContext(ctx, "rule pack", slog.String("pack", p.ID), slog.String("version", p.Version),
 			slog.Int("rules", len(p.Rules)), slog.Bool("loaded", inserted), slog.String("checksum", p.Checksum))
 	}
+	created, err := store.EnsureProfiles(ctx, pool)
+	if err != nil {
+		return err
+	}
+	if created > 0 {
+		logger.InfoContext(ctx, "compliance profiles created", slog.Int64("workspaces", created))
+	}
 	return nil
 }
 
@@ -114,6 +121,9 @@ type Profile struct {
 	PackVersion  string
 	UpdatedAt    time.Time
 	UpdatedBy    string
+	// Confirmed is false for the automatic profile nobody has saved yet: its institution type
+	// ("other") is a placeholder.
+	Confirmed bool
 }
 
 // RuleView is a rule as the caller may see it.
@@ -258,7 +268,7 @@ func (lib *library) view(r *pack.Rule, engineering bool) RuleView {
 	if c, ok := lib.configured[r.ID]; ok {
 		cfg = &c
 	}
-	v := RuleView{Rule: *r, Applicable: applies(r, lib.profile), Engineering: engineering, Config: configOf(r, cfg)}
+	v := RuleView{Rule: *r, Applicable: applies(r, lib.profile), Engineering: engineering, Config: configOf(r, cfg, lib.profile)}
 	if !engineering {
 		v.Text.EngineeringLogic = ""
 	}
@@ -320,6 +330,7 @@ func profileView(c store.Compliance, jurisdiction string) Profile {
 	return Profile{
 		Jurisdiction: jurisdiction, LicenceType: c.LicenceType, Capabilities: c.Capabilities,
 		PackID: c.PackID, PackVersion: c.PackVersion, UpdatedAt: c.UpdatedAt, UpdatedBy: c.UpdatedBy,
+		Confirmed: c.UpdatedBy != SystemProfileAuthor,
 	}
 }
 

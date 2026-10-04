@@ -159,6 +159,19 @@ type Compliance struct {
 	Capabilities []string
 	UpdatedAt    time.Time
 	UpdatedBy    string
+	// SignalDefault is how risk signals start without a configuration: "pack" (the pack's
+	// defaults) or "off".
+	SignalDefault string
+}
+
+// EnsureProfiles gives every workspace without a compliance profile the automatic one, on pool
+// connected as the schema owner, and returns how many it created.
+func EnsureProfiles(ctx context.Context, pool Pool) (int64, error) {
+	n, err := sqlcgen.New(pool).EnsureComplianceProfiles(ctx)
+	if err != nil {
+		return 0, fmt.Errorf("ensure compliance profiles: %w", err)
+	}
+	return n, nil
 }
 
 // Compliance returns tenantID's compliance profile.
@@ -183,7 +196,10 @@ func (Store) SaveCompliance(ctx context.Context, c Compliance) (Compliance, erro
 	if err != nil {
 		return Compliance{}, err
 	}
-	r, err := q.UpsertCompliance(ctx, sqlcgen.UpsertComplianceParams(c))
+	r, err := q.UpsertCompliance(ctx, sqlcgen.UpsertComplianceParams{
+		TenantID: c.TenantID, PackID: c.PackID, PackVersion: c.PackVersion, LicenceType: c.LicenceType,
+		Capabilities: c.Capabilities, UpdatedAt: c.UpdatedAt, UpdatedBy: c.UpdatedBy,
+	})
 	if err != nil {
 		return Compliance{}, fmt.Errorf("save compliance profile: %w", err)
 	}

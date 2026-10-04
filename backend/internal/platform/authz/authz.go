@@ -150,7 +150,7 @@ func RolePermissions(r Role) []Permission {
 		return []Permission{EventsRead, RulesRead, AlertsRead, AlertsWrite, CasesRead, CasesWrite, ComplianceRead}
 	case RoleComplianceOfficer:
 		return []Permission{
-			EventsRead, RulesRead, RulesApprove, AlertsRead, AlertsWrite, CasesRead, CasesWrite, AuditLogsRead,
+			EventsRead, RulesRead, RulesWrite, RulesApprove, AlertsRead, AlertsWrite, CasesRead, CasesWrite, AuditLogsRead,
 			TeamRead, ComplianceRead, ComplianceWrite, ComplianceConfigure, ComplianceSensitive,
 		}
 	case RoleAuditor:

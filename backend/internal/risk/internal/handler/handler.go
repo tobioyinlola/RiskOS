@@ -55,12 +55,28 @@ func (h *Handlers) GetRiskCatalog(ctx context.Context, _ apigen.GetRiskCatalogRe
 		names = append(names, n)
 	}
 	slices.Sort(names)
-	for _, n := range names {
-		out.Fields = append(out.Fields, struct {
-			Name      string                       `json:"name"`
-			Operators []string                     `json:"operators"`
-			Type      apigen.RiskCatalogFieldsType `json:"type"`
-		}{n, rules.Operators(fields[n]), apigen.RiskCatalogFieldsType(fields[n].String())})
+	info := rules.Info()
+	out.Fields = slices.Grow(out.Fields, len(names))[:len(names)]
+	for i, n := range names {
+		fi, f := info[n], &out.Fields[i]
+		f.Name, f.Operators, f.Type = n, rules.Operators(fields[n]), apigen.RiskCatalogFieldsType(fields[n].String())
+		f.Label, f.Group, f.Events = fi.Label, fi.Group, append([]string{}, fi.Events...)
+		if fi.Unit != "" {
+			f.Unit = new(apigen.RiskCatalogFieldsUnit(fi.Unit))
+		}
+		if fi.Kind != "" {
+			f.Kind = new(apigen.RiskCatalogFieldsKind(fi.Kind))
+		}
+		if len(fi.Values) > 0 {
+			values := make([]struct {
+				Label string `json:"label"`
+				Value string `json:"value"`
+			}, len(fi.Values))
+			for j, c := range fi.Values {
+				values[j].Label, values[j].Value = c.Label, c.Value
+			}
+			f.Values = &values
+		}
 	}
 	return out, nil
 }

@@ -4842,12 +4842,18 @@ components:
     ComplianceProfile:
       type: object
       additionalProperties: false
-      required: [jurisdiction, licence_type, capabilities, pack_id, pack_version, updated_at, updated_by]
+      required: [jurisdiction, licence_type, capabilities, pack_id, pack_version, updated_at, updated_by, confirmed]
       properties:
         jurisdiction:
           type: string
         licence_type:
           type: string
+        confirmed:
+          type: boolean
+          description: |
+            False for the profile every workspace gets automatically until a person saves it: its
+            licence type ("other") is a placeholder. Automatic profiles start the regulatory
+            controls at their defaults and every risk signal off.
         capabilities:
           type: array
           items:
@@ -7355,7 +7361,7 @@ components:
           items:
             type: object
             additionalProperties: false
-            required: [name, type, operators]
+            required: [name, type, operators, label, group, events]
             properties:
               name:
                 type: string
@@ -7364,5 +7370,38 @@ components:
                 enum: [number, string, boolean]
               operators:
                 type: array
+                items:
+                  type: string
+              label:
+                type: string
+                description: What the fact is, in plain words.
+              group:
+                type: string
+                description: Event, Transaction, Login, Customer history or Recent activity.
+              unit:
+                type: string
+                enum: [money, count, ratio]
+                description: |
+                  How a number reads: money (minor units of the event's currency), count, or ratio
+                  (1.5 = one and a half times).
+              kind:
+                type: string
+                enum: [country, currency]
+                description: A free-text string that is an ISO country or currency code.
+              values:
+                type: array
+                description: The only values a string field takes, with their labels.
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [value, label]
+                  properties:
+                    value:
+                      type: string
+                    label:
+                      type: string
+              events:
+                type: array
+                description: The event types that carry the fact; empty means every event.
                 items:
                   type: string

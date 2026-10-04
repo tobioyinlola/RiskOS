@@ -114,3 +114,22 @@ func TestEvaluationIsBounded(t *testing.T) {
 	}
 	assert.Less(t, time.Since(start), 500*time.Millisecond, "the largest allowed rule evaluates in well under a millisecond")
 }
+
+// Every fact a rule can use is described for people who build rules without code, and every
+// listed value is one the event contract allows.
+func TestEveryFieldIsDescribed(t *testing.T) {
+	fields, info := rules.Fields(), rules.Info()
+	require.Len(t, info, len(fields))
+	for name, typ := range fields {
+		fi, ok := info[name]
+		require.True(t, ok, "%s has no description", name)
+		assert.NotEmpty(t, fi.Label, name)
+		assert.NotEmpty(t, fi.Group, name)
+		if typ != rules.Number {
+			assert.Empty(t, fi.Unit, "%s: only numbers have units", name)
+		}
+		if len(fi.Values) > 0 || fi.Kind != "" {
+			assert.Equal(t, rules.String, typ, "%s: values and kinds are for strings", name)
+		}
+	}
+}

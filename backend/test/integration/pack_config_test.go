@@ -50,7 +50,7 @@ func TestPackRuleConfiguration(t *testing.T) {
 
 	t.Run("test environment: applied at once, versioned and audited", func(t *testing.T) {
 		before := ruleOf(t, admin.b.do(t, http.MethodGet, "/api/v1/compliance/rules/ATO-01", nil))
-		assert.Equal(t, apigen.PackRuleMode("shadow"), before.Mode)
+		assert.Equal(t, apigen.PackRuleMode("off"), before.Mode, "a risk signal starts off until activated")
 		assert.Zero(t, before.ConfigVersion)
 		assert.Nil(t, paramValue(before, "floor"), "the floor is the institution's to set")
 

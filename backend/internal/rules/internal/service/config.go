@@ -39,13 +39,21 @@ const (
 // modeRank orders modes by how much a rule acts: off, shadow, live.
 func modeRank(m string) int { return slices.Index([]string{ModeOff, ModeShadow, ModeLive}, m) }
 
-// defaultMode is how the library starts a rule: off when not enabled by default.
-func defaultMode(def *pack.Rule) string {
-	if !def.Defaults.Enabled {
+// defaultMode is how a rule starts for profile c: off when not enabled by default, and a risk
+// signal off when the profile starts signals off (an automatic profile: a compliance person
+// activates the signals they want).
+func defaultMode(def *pack.Rule, c *store.Compliance) string {
+	if !def.Defaults.Enabled || (def.Kind == pack.KindSignal && c != nil && c.SignalDefault == SignalsOff) {
 		return ModeOff
 	}
 	return string(def.Defaults.Mode)
 }
+
+// SignalsOff is the profile setting that starts every risk signal off.
+const SignalsOff = "off"
+
+// SystemProfileAuthor marks a compliance profile created automatically with its workspace.
+const SystemProfileAuthor = "system:default"
 
 // RuleConfig is a rule's configuration in the caller's environment.
 type RuleConfig struct {
@@ -62,9 +70,9 @@ type RuleConfig struct {
 	Pending *store.RuleChange
 }
 
-func configOf(def *pack.Rule, v *store.RuleVersion) RuleConfig {
+func configOf(def *pack.Rule, v *store.RuleVersion, c *store.Compliance) RuleConfig {
 	if v == nil {
-		return RuleConfig{RuleID: def.ID, Mode: defaultMode(def), Settings: map[string]float64{}}
+		return RuleConfig{RuleID: def.ID, Mode: defaultMode(def, c), Settings: map[string]float64{}}
 	}
 	return RuleConfig{
 		RuleID: def.ID, Version: v.Version, Mode: v.Mode, Settings: v.Settings, Reason: v.Reason,
@@ -176,7 +184,7 @@ func (s *Service) rule(ctx context.Context, scope tenancy.Scope, ruleID string) 
 	if c, ok := cur[ruleID]; ok {
 		v = &c
 	}
-	cfg := configOf(def, v)
+	cfg := configOf(def, v, lib.profile)
 	pending, err := s.store.Changes(ctx, "pending", ruleID)
 	if err != nil {
 		return library{}, nil, RuleConfig{}, err
@@ -268,7 +276,7 @@ func (s *Service) Configure(ctx context.Context, ruleID string, in ConfigInput, 
 			}
 			return err
 		}
-		cfg := configOf(def, &v)
+		cfg := configOf(def, &v, nil)
 		out.Applied = &cfg
 		meta["version"] = v.Version
 		return s.recordRule(ctx, "pack_rule.configured", ruleID, meta)

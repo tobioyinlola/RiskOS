@@ -228,6 +228,7 @@ func profileToAPI(p service.Profile) apigen.ComplianceProfile {
 	return apigen.ComplianceProfile{
 		Jurisdiction: p.Jurisdiction, LicenceType: p.LicenceType, Capabilities: list(p.Capabilities),
 		PackId: p.PackID, PackVersion: p.PackVersion, UpdatedAt: p.UpdatedAt, UpdatedBy: p.UpdatedBy,
+		Confirmed: p.Confirmed,
 	}
 }
 

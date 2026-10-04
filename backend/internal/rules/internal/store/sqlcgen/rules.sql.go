@@ -203,6 +203,28 @@ func (q *Queries) DeleteFXRate(ctx context.Context, arg DeleteFXRateParams) (int
 	return result.RowsAffected(), nil
 }
 
+const ensureComplianceProfiles = `-- name: EnsureComplianceProfiles :execrows
+INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities,
+                               updated_at, updated_by, signal_default)
+SELECT t.id, p.id, p.version, 'other', '{}', now(), 'system:default', 'off'
+FROM tenants t
+CROSS JOIN LATERAL (
+  SELECT id, version FROM rule_packs WHERE jurisdiction = 'NG'
+  ORDER BY string_to_array(version, '.')::int[] DESC LIMIT 1
+) p
+WHERE NOT EXISTS (SELECT 1 FROM tenant_compliance c WHERE c.tenant_id = t.id)
+`
+
+// Gives every workspace without a compliance profile the automatic one (migration 00028); run by
+// the pack loader as the owner, so workspaces created before any pack was loaded get one too.
+func (q *Queries) EnsureComplianceProfiles(ctx context.Context) (int64, error) {
+	result, err := q.db.Exec(ctx, ensureComplianceProfiles)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const fXRates = `-- name: FXRates :many
 
 SELECT currency, usd_per_unit::float8 AS usd_per_unit, updated_at, updated_by
@@ -244,7 +266,7 @@ func (q *Queries) FXRates(ctx context.Context, tenantID uuid.UUID) ([]FXRatesRow
 
 const getCompliance = `-- name: GetCompliance :one
 
-SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by
+SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default
 FROM tenant_compliance WHERE tenant_id = $1
 `
 
@@ -261,6 +283,7 @@ func (q *Queries) GetCompliance(ctx context.Context, tenantID uuid.UUID) (Tenant
 		&i.Capabilities,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.SignalDefault,
 	)
 	return i, err
 }
@@ -1005,7 +1028,7 @@ ON CONFLICT (tenant_id) DO UPDATE SET
   pack_id = EXCLUDED.pack_id, pack_version = EXCLUDED.pack_version,
   licence_type = EXCLUDED.licence_type, capabilities = EXCLUDED.capabilities,
   updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
-RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by
+RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default
 `
 
 type UpsertComplianceParams struct {
@@ -1037,6 +1060,7 @@ func (q *Queries) UpsertCompliance(ctx context.Context, arg UpsertCompliancePara
 		&i.Capabilities,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.SignalDefault,
 	)
 	return i, err
 }

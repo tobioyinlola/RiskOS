@@ -532,13 +532,14 @@ type Tenant struct {
 }
 
 type TenantCompliance struct {
-	TenantID     uuid.UUID
-	PackID       string
-	PackVersion  string
-	LicenceType  string
-	Capabilities []string
-	UpdatedAt    time.Time
-	UpdatedBy    string
+	TenantID      uuid.UUID
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	SignalDefault string
 }
 
 type TenantOnboarding struct {

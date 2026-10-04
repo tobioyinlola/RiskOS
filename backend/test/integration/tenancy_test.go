@@ -237,6 +237,14 @@ type tenantFixture struct {
 	testKey string
 }
 
+// withoutCompliance removes the compliance profile every tenant gets at creation (migration
+// 00028), for tests of the risk engine without a rule pack.
+func withoutCompliance(t *testing.T, tenantID uuid.UUID) {
+	t.Helper()
+	_, err := shared.owner.Exec(t.Context(), "DELETE FROM tenant_compliance WHERE tenant_id = $1", tenantID)
+	require.NoError(t, err)
+}
+
 // createTenant bootstraps a tenant the way riskosctl does.
 func (s stack) createTenant(t *testing.T, name string) tenantFixture {
 	t.Helper()

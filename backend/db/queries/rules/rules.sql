@@ -33,7 +33,7 @@ ORDER BY rule_id;
 -- names the tenant explicitly.
 
 -- name: GetCompliance :one
-SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by
+SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default
 FROM tenant_compliance WHERE tenant_id = @tenant_id;
 
 -- name: UpsertCompliance :one
@@ -43,7 +43,7 @@ ON CONFLICT (tenant_id) DO UPDATE SET
   pack_id = EXCLUDED.pack_id, pack_version = EXCLUDED.pack_version,
   licence_type = EXCLUDED.licence_type, capabilities = EXCLUDED.capabilities,
   updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
-RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by;
+RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by, signal_default;
 
 -- Rule configuration (per environment). Every query names the tenant and environment; row-level
 -- security limits them to the scope's.
@@ -177,3 +177,16 @@ FOR UPDATE OF t;
 -- name: AccountScopes :many
 -- Every environment with accounts in the register; called outside any tenant scope.
 SELECT s.tenant_id::uuid AS tenant_id, s.environment_id::uuid AS environment_id FROM compliance_account_scopes() s;
+
+-- name: EnsureComplianceProfiles :execrows
+-- Gives every workspace without a compliance profile the automatic one (migration 00028); run by
+-- the pack loader as the owner, so workspaces created before any pack was loaded get one too.
+INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities,
+                               updated_at, updated_by, signal_default)
+SELECT t.id, p.id, p.version, 'other', '{}', now(), 'system:default', 'off'
+FROM tenants t
+CROSS JOIN LATERAL (
+  SELECT id, version FROM rule_packs WHERE jurisdiction = 'NG'
+  ORDER BY string_to_array(version, '.')::int[] DESC LIMIT 1
+) p
+WHERE NOT EXISTS (SELECT 1 FROM tenant_compliance c WHERE c.tenant_id = t.id);

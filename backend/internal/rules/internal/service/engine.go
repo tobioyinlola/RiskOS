@@ -76,7 +76,7 @@ func (s *Service) TenantPack(ctx context.Context) (*TenantPack, error) {
 				continue
 			}
 			// The environment's configuration, or the library's defaults.
-			mode, settings := defaultMode(def), map[string]float64(nil)
+			mode, settings := defaultMode(def, &c), map[string]float64(nil)
 			if v, ok := configured[def.ID]; ok {
 				mode, settings = v.Mode, v.Settings
 			}
