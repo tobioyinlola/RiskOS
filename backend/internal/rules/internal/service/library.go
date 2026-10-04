@@ -151,6 +151,8 @@ func (v *RuleView) Value(p pack.Parameter) *float64 {
 type Filter struct {
 	Group, Kind, Regulator, Verification, Query string
 	Applicable                                  *bool
+	// Jurisdiction browses another jurisdiction's pack; empty means the workspace's own.
+	Jurisdiction string
 }
 
 // library is the tenant's pack and, if set, its profile.
@@ -244,10 +246,86 @@ func (s *Service) read(ctx context.Context) (library, error) {
 	return lib, err
 }
 
-// Pack returns the tenant's pack. Requires compliance:read.
-func (s *Service) Pack(ctx context.Context) (PackView, error) {
-	lib, err := s.read(ctx)
+// Pack returns the tenant's pack or, with a jurisdiction, that jurisdiction's latest pack to
+// browse. Requires compliance:read.
+func (s *Service) Pack(ctx context.Context, jurisdiction string) (PackView, error) {
+	lib, err := s.browse(ctx, jurisdiction)
 	return lib.pack, err
+}
+
+// browse is the tenant's library or, for another jurisdiction, that jurisdiction's latest pack
+// read-only: no profile (applicability is unknown) and the library's default modes.
+func (s *Service) browse(ctx context.Context, jurisdiction string) (library, error) {
+	lib, err := s.read(ctx)
+	if err != nil || jurisdiction == "" || lib.pack.Jurisdiction == jurisdiction {
+		return lib, err
+	}
+	var other library
+	err = s.runner.Run(ctx, func(ctx context.Context) error {
+		rec, err := s.store.LatestPack(ctx, jurisdiction)
+		if errors.Is(err, store.ErrNotFound) {
+			return fmt.Errorf("%w: no rule pack is loaded for %s", ErrNotFound, jurisdiction)
+		}
+		if err != nil {
+			return err
+		}
+		p, err := s.decoded(ctx, rec)
+		if err != nil {
+			return err
+		}
+		other = library{
+			pack:       PackView{Pack: p, LoadedAt: rec.LoadedAt, Latest: p.Version},
+			configured: map[string]store.RuleVersion{},
+		}
+		return nil
+	})
+	return other, err
+}
+
+// PackSummary is the latest version of one jurisdiction's pack.
+type PackSummary struct {
+	ID, Jurisdiction, Name, Version string
+	Counts                          map[pack.Kind]int
+	// Current is the pack the workspace's profile uses.
+	Current bool
+}
+
+// Packs lists the latest pack of every loaded jurisdiction. Requires compliance:read.
+func (s *Service) Packs(ctx context.Context) ([]PackSummary, error) {
+	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
+		return nil, err
+	}
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return nil, err
+	}
+	var out []PackSummary
+	err = s.runner.Run(ctx, func(ctx context.Context) error {
+		profile, err := s.store.Compliance(ctx, scope.TenantID)
+		if err != nil && !errors.Is(err, store.ErrNotFound) {
+			return err
+		}
+		recs, err := s.store.LatestPacks(ctx)
+		if err != nil {
+			return err
+		}
+		for _, rec := range recs {
+			p, err := s.decoded(ctx, rec)
+			if err != nil {
+				return err
+			}
+			sum := PackSummary{
+				ID: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version,
+				Counts: map[pack.Kind]int{}, Current: profile.PackID == p.ID,
+			}
+			for _, r := range p.Rules {
+				sum.Counts[r.Kind]++
+			}
+			out = append(out, sum)
+		}
+		return nil
+	})
+	return out, err
 }
 
 // applies reports whether r applies to profile c: its licence type is listed (or the rule
@@ -294,7 +372,7 @@ func (f Filter) match(v *RuleView) bool {
 // Rules returns the pack's rules that match f, ordered by ID, without engineering logic.
 // Requires compliance:read.
 func (s *Service) Rules(ctx context.Context, f Filter) ([]RuleView, error) {
-	lib, err := s.read(ctx)
+	lib, err := s.browse(ctx, f.Jurisdiction)
 	if err != nil {
 		return nil, err
 	}

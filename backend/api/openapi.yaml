@@ -688,6 +688,81 @@ paths:
         default:
           $ref: "#/components/responses/DefaultError"
 
+  /api/v1/rules/stats:
+    get:
+      operationId: getRuleStats
+      tags: [rules]
+      summary: How often each of the workspace's rules matched
+      description: |
+        Requires `rules:read`. For every rule of the environment, how many evaluations it matched
+        (active and monitoring alike) over the last `days` days, the last match and a count per UTC
+        day, beside the number of evaluations in the period. Dry runs are not counted.
+      parameters:
+        - name: days
+          in: query
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 30
+            default: 7
+      responses:
+        "200":
+          description: The statistics.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RuleStats"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/rules/test-recent:
+    post:
+      operationId: testRuleOnRecentEvents
+      tags: [rules]
+      summary: Try a condition on recent events
+      description: |
+        Requires `rules:read`. Runs a condition, saved or not, against the facts of the
+        environment's most recent evaluations (at most 5,000, within `days` days) and says how
+        many it would have matched, with up to 25 of them, newest first. Nothing is stored and no
+        score changes. The facts are those recorded at the time; behaviour that has changed since
+        is not recomputed.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [condition]
+              properties:
+                condition:
+                  $ref: "#/components/schemas/RuleCondition"
+                days:
+                  type: integer
+                  minimum: 1
+                  maximum: 30
+                  default: 7
+      responses:
+        "200":
+          description: What the condition would have matched.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RecentRuleTest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/rules/{rule_id}:
     get:
       operationId: getRule
@@ -2719,6 +2794,34 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/packs:
+    get:
+      operationId: listCompliancePacks
+      tags: [compliance]
+      summary: The jurisdictions with a rule pack
+      description: |
+        Requires `compliance:read`. The latest version of every loaded jurisdiction pack, with its
+        rule counts, and which one the workspace's profile uses.
+      responses:
+        "200":
+          description: The packs.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CompliancePackSummary"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/pack:
     get:
       operationId: getCompliancePack
@@ -2726,7 +2829,18 @@ paths:
       summary: The workspace's rule pack
       description: |
         Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
-        recently loaded pack when no profile is set.
+        recently loaded pack when no profile is set; with `jurisdiction`, another jurisdiction's
+        latest pack, to browse.
+      parameters:
+        - name: jurisdiction
+          in: query
+          required: false
+          description: |
+            Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+            the library's default modes. Without it, the workspace's own pack.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       responses:
         "200":
           description: The workspace's rule pack.
@@ -2791,6 +2905,15 @@ paths:
           description: Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile.
           schema:
             type: boolean
+        - name: jurisdiction
+          in: query
+          required: false
+          description: |
+            Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+            the library's default modes. Without it, the workspace's own pack.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       responses:
         "200":
           description: The pack's rules.
@@ -4747,6 +4870,117 @@ components:
           type: object
           additionalProperties: true
           description: The machine definition the engine interprets. Only for `compliance:engineering`.
+    CompliancePackSummary:
+      type: object
+      additionalProperties: false
+      required: [id, jurisdiction, name, version, controls, signals, governance, current]
+      properties:
+        id:
+          type: string
+        jurisdiction:
+          type: string
+        name:
+          type: string
+        version:
+          type: string
+        controls:
+          type: integer
+        signals:
+          type: integer
+        governance:
+          type: integer
+        current:
+          type: boolean
+          description: The pack the workspace's profile uses.
+    RuleStats:
+      type: object
+      additionalProperties: false
+      required: [since, days, evaluations, rules]
+      properties:
+        since:
+          type: string
+          format: date-time
+          description: Start of the first UTC day counted.
+        days:
+          type: integer
+        evaluations:
+          type: integer
+          format: int64
+          description: Evaluations (not dry runs) in the period.
+        rules:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [rule_id, matches, last_matched_at, daily]
+            properties:
+              rule_id:
+                type: string
+              matches:
+                type: integer
+                format: int64
+              last_matched_at:
+                type: string
+                format: date-time
+                nullable: true
+              daily:
+                type: array
+                description: Matches per UTC day, oldest first, one entry per day of the period.
+                items:
+                  type: object
+                  additionalProperties: false
+                  required: [day, matches]
+                  properties:
+                    day:
+                      type: string
+                      format: date
+                    matches:
+                      type: integer
+                      format: int64
+    RecentRuleTest:
+      type: object
+      additionalProperties: false
+      required: [since, checked, matched, truncated, sample]
+      properties:
+        since:
+          type: string
+          format: date-time
+        checked:
+          type: integer
+          description: Evaluations checked.
+        matched:
+          type: integer
+        truncated:
+          type: boolean
+          description: More evaluations in the period than were checked (the newest 5,000 were).
+        sample:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [evaluation_id, event_id, at, event_type, amount, currency, decision, risk_score]
+            properties:
+              evaluation_id:
+                type: string
+              event_id:
+                type: string
+              at:
+                type: string
+                format: date-time
+              event_type:
+                type: string
+              amount:
+                type: integer
+                format: int64
+                nullable: true
+                description: Minor units of currency, for transactions.
+              currency:
+                type: string
+                nullable: true
+              decision:
+                type: string
+              risk_score:
+                type: integer
     ComplianceRuleList:
       type: object
       additionalProperties: false

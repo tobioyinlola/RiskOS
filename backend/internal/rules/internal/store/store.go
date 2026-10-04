@@ -133,6 +133,26 @@ func (Store) LatestPack(ctx context.Context, jurisdiction string) (PackRecord, e
 	return packRecord(r), nil
 }
 
+// LatestPacks returns the latest version of every jurisdiction's pack, by jurisdiction.
+func (Store) LatestPacks(ctx context.Context) ([]PackRecord, error) {
+	q, err := queries(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.LatestPacks(ctx)
+	if err != nil {
+		return nil, fmt.Errorf("latest packs: %w", err)
+	}
+	out := make([]PackRecord, len(rows))
+	for i, r := range rows {
+		out[i] = PackRecord{
+			ID: r.ID, Version: r.Version, Jurisdiction: r.Jurisdiction, Name: r.Name, Checksum: r.Checksum,
+			Meta: r.Meta, LoadedAt: r.LoadedAt,
+		}
+	}
+	return out, nil
+}
+
 // PackRules returns a pack version's rules, ordered by ID.
 func (Store) PackRules(ctx context.Context, id, version string) ([]RuleRecord, error) {
 	q, err := queries(ctx)

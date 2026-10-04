@@ -61,8 +61,12 @@ func optional(s string) *string {
 }
 
 // GetCompliancePack implements GET /api/v1/compliance/pack.
-func (h *Handlers) GetCompliancePack(ctx context.Context, _ apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+func (h *Handlers) GetCompliancePack(ctx context.Context, req apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error) {
+	jurisdiction := ""
+	if req.Params.Jurisdiction != nil {
+		jurisdiction = *req.Params.Jurisdiction
+	}
+	p, err := h.svc.Pack(ctx, jurisdiction)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -151,6 +155,7 @@ func (h *Handlers) ListComplianceRules(ctx context.Context, req apigen.ListCompl
 	}{
 		{&f.Group, req.Params.Group}, {&f.Regulator, req.Params.Regulator}, {&f.Query, req.Params.Q},
 		{&f.Kind, (*string)(req.Params.Kind)}, {&f.Verification, (*string)(req.Params.Verification)},
+		{&f.Jurisdiction, req.Params.Jurisdiction},
 	} {
 		if p.src != nil {
 			*p.dst = *p.src
@@ -184,7 +189,7 @@ func (h *Handlers) GetComplianceRule(ctx context.Context, req apigen.GetComplian
 
 // ListComplianceClocks implements GET /api/v1/compliance/clocks.
 func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListComplianceClocksRequestObject) (apigen.ListComplianceClocksResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+	p, err := h.svc.Pack(ctx, "")
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -200,7 +205,7 @@ func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListCompli
 
 // ListComplianceGaps implements GET /api/v1/compliance/gaps.
 func (h *Handlers) ListComplianceGaps(ctx context.Context, _ apigen.ListComplianceGapsRequestObject) (apigen.ListComplianceGapsResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+	p, err := h.svc.Pack(ctx, "")
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -213,7 +218,7 @@ func (h *Handlers) ListComplianceGaps(ctx context.Context, _ apigen.ListComplian
 
 // ListComplianceGlossary implements GET /api/v1/compliance/glossary.
 func (h *Handlers) ListComplianceGlossary(ctx context.Context, _ apigen.ListComplianceGlossaryRequestObject) (apigen.ListComplianceGlossaryResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+	p, err := h.svc.Pack(ctx, "")
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -253,4 +258,20 @@ func (h *Handlers) PutComplianceProfile(ctx context.Context, req apigen.PutCompl
 		return nil, mapError(err)
 	}
 	return apigen.PutComplianceProfile200JSONResponse(profileToAPI(p)), nil
+}
+
+// ListCompliancePacks implements GET /api/v1/compliance/packs.
+func (h *Handlers) ListCompliancePacks(ctx context.Context, _ apigen.ListCompliancePacksRequestObject) (apigen.ListCompliancePacksResponseObject, error) {
+	packs, err := h.svc.Packs(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.CompliancePackSummary, len(packs))
+	for i, p := range packs {
+		data[i] = apigen.CompliancePackSummary{
+			Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, Current: p.Current,
+			Controls: p.Counts[pack.KindControl], Signals: p.Counts[pack.KindSignal], Governance: p.Counts[pack.KindGovernance],
+		}
+	}
+	return apigen.ListCompliancePacks200JSONResponse{Data: data}, nil
 }

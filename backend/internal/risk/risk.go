@@ -67,6 +67,8 @@ type RuleHandlers interface {
 	GetRiskSettings(ctx context.Context, req apigen.GetRiskSettingsRequestObject) (apigen.GetRiskSettingsResponseObject, error)
 	PutRiskSettings(ctx context.Context, req apigen.PutRiskSettingsRequestObject) (apigen.PutRiskSettingsResponseObject, error)
 	ListRules(ctx context.Context, req apigen.ListRulesRequestObject) (apigen.ListRulesResponseObject, error)
+	GetRuleStats(ctx context.Context, req apigen.GetRuleStatsRequestObject) (apigen.GetRuleStatsResponseObject, error)
+	TestRuleOnRecentEvents(ctx context.Context, req apigen.TestRuleOnRecentEventsRequestObject) (apigen.TestRuleOnRecentEventsResponseObject, error)
 	CreateRule(ctx context.Context, req apigen.CreateRuleRequestObject) (apigen.CreateRuleResponseObject, error)
 	GetRule(ctx context.Context, req apigen.GetRuleRequestObject) (apigen.GetRuleResponseObject, error)
 	UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestObject) (apigen.UpdateRuleResponseObject, error)

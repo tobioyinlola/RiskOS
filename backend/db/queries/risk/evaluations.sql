@@ -48,3 +48,32 @@ WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at
   AND NOT dry_run AND restricted_signals <> '[]'::jsonb
 ORDER BY created_at DESC
 LIMIT 200;
+
+-- name: RuleMatchesByDay :many
+-- Matches of the given signal codes (active and monitoring) per UTC day since a time.
+SELECT s.code::text AS code,
+       date_trunc('day', e.created_at AT TIME ZONE 'UTC')::date AS day,
+       count(*)::bigint AS matches,
+       max(e.created_at)::timestamptz AS last_at
+FROM evaluations e
+CROSS JOIN LATERAL (
+  SELECT x->>'code' AS code FROM jsonb_array_elements(e.signals) x
+  UNION ALL
+  SELECT x->>'code' AS code FROM jsonb_array_elements(e.shadow_signals) x
+) s
+WHERE e.tenant_id = @tenant_id AND e.environment_id = @environment_id
+  AND e.created_at >= @since AND NOT e.dry_run
+  AND s.code = ANY(@codes::text[])
+GROUP BY s.code, date_trunc('day', e.created_at AT TIME ZONE 'UTC')::date;
+
+-- name: CountEvaluationsSince :one
+SELECT count(*)::bigint FROM evaluations
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since AND NOT dry_run;
+
+-- name: RecentFacts :many
+-- The newest evaluations' recorded facts, for trying a rule condition on them.
+SELECT id, event_id, created_at, (features->'facts')::jsonb AS facts, decision, risk_score
+FROM evaluations
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since AND NOT dry_run
+ORDER BY created_at DESC
+LIMIT @max_rows;

@@ -190,3 +190,9 @@ CROSS JOIN LATERAL (
   ORDER BY string_to_array(version, '.')::int[] DESC LIMIT 1
 ) p
 WHERE NOT EXISTS (SELECT 1 FROM tenant_compliance c WHERE c.tenant_id = t.id);
+
+-- name: LatestPacks :many
+-- The latest version of every jurisdiction's pack.
+SELECT DISTINCT ON (jurisdiction) id, version, jurisdiction, name, checksum, meta, loaded_at
+FROM rule_packs
+ORDER BY jurisdiction, string_to_array(version, '.')::int[] DESC;

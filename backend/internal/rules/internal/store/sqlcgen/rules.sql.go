@@ -615,6 +615,41 @@ func (q *Queries) LatestPack(ctx context.Context, jurisdiction *string) (RulePac
 	return i, err
 }
 
+const latestPacks = `-- name: LatestPacks :many
+SELECT DISTINCT ON (jurisdiction) id, version, jurisdiction, name, checksum, meta, loaded_at
+FROM rule_packs
+ORDER BY jurisdiction, string_to_array(version, '.')::int[] DESC
+`
+
+// The latest version of every jurisdiction's pack.
+func (q *Queries) LatestPacks(ctx context.Context) ([]RulePack, error) {
+	rows, err := q.db.Query(ctx, latestPacks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RulePack
+	for rows.Next() {
+		var i RulePack
+		if err := rows.Scan(
+			&i.ID,
+			&i.Version,
+			&i.Jurisdiction,
+			&i.Name,
+			&i.Checksum,
+			&i.Meta,
+			&i.LoadedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listPackRules = `-- name: ListPackRules :many
 SELECT rule_id, definition, wording
 FROM pack_rules WHERE pack_id = $1 AND pack_version = $2
