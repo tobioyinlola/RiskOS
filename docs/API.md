@@ -89,6 +89,8 @@ state only what the code and these documents establish; change them with the beh
 |---|---|---|
 | GET | `/api/v1/compliance/jurisdictions` | The countries with a rule pack: currency, time zone, regulators, and whether the workspace activated each (`compliance:read`) |
 | GET | `/api/v1/compliance/activations` | The workspace's activations per country and booking entity, the fallback first (`compliance:read`) |
+| GET | `/api/v1/compliance/clock-matrix` | The library's comparison of the countries' legal clocks and thresholds, verbatim (`compliance:read`) |
+| GET | `/api/v1/compliance/export` | A country's rule library (`?jurisdiction=`, or every country) as `format=csv` or `pdf`, with settings in use, provenance, caveats and sources; audited (`compliance:read`) |
 | GET | `/api/v1/compliance/active-rules` | Every pack rule running in the environment, with the events, facts and refs to send and the settings still unset; `?jurisdiction=` (`compliance:read`) |
 
 Contract changes, all additive except one: events take `compliance.booking_entity`,
@@ -96,7 +98,8 @@ Contract changes, all additive except one: events take `compliance.booking_entit
 `jurisdiction` (country, pack and how it was resolved); pack rule IDs may be country IDs
 (`GH-REG-04`) on every `/compliance/rules/{rule_id}` path, and a single rule takes
 `?jurisdiction=`; rules carry `provenance`, `lineage`, `off_reason`, `inherited_from`,
-`template`, `changes` and `basis`; packs carry `activated`. **Breaking:** a clock's `hours` may be
+`template`, `changes` and `basis`; packs carry `activated`, `currency`, `timezone` and
+`penalties`; clocks, gaps and the glossary take `?jurisdiction=`. **Breaking:** a clock's `hours` may be
 null (a legal deadline no readable source states, `kind` not_found) and is 0 for "immediately";
 clients that read it as a number must handle both.
 

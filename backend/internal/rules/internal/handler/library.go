@@ -1,6 +1,7 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -91,7 +92,16 @@ func (h *Handlers) GetCompliancePack(ctx context.Context, req apigen.GetComplian
 		}
 		sources[i] = apigen.ComplianceSource{Id: s.ID, Title: s.Title, Links: links}
 	}
+	penalties := make([]apigen.CompliancePenalty, len(p.Penalties))
+	for i, pen := range p.Penalties {
+		penalties[i] = apigen.CompliancePenalty{
+			Provision: pen.Provision, Penalty: pen.Penalty, Estimate: optional(pen.Estimate), Inference: pen.Inference,
+			Sources: list(pen.Sources),
+		}
+	}
+	locale := p.Locale()
 	return apigen.GetCompliancePack200JSONResponse{
+		Currency: optional(locale.Currency), Timezone: optional(locale.Timezone), Penalties: &penalties,
 		Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, LatestVersion: p.Latest, Checksum: p.Checksum,
 		LoadedAt: p.LoadedAt, Groups: groups, LicenceTypes: options(p.LicenceTypes),
 		Capabilities: options(p.Capabilities), Sources: sources,
@@ -213,9 +223,17 @@ func (h *Handlers) GetComplianceRule(ctx context.Context, req apigen.GetComplian
 	return apigen.GetComplianceRule200JSONResponse(out), nil
 }
 
+// jurisdictionOf reads an optional jurisdiction parameter.
+func jurisdictionOf(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // ListComplianceClocks implements GET /api/v1/compliance/clocks.
-func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListComplianceClocksRequestObject) (apigen.ListComplianceClocksResponseObject, error) {
-	p, err := h.svc.Pack(ctx, "")
+func (h *Handlers) ListComplianceClocks(ctx context.Context, req apigen.ListComplianceClocksRequestObject) (apigen.ListComplianceClocksResponseObject, error) {
+	p, err := h.svc.Pack(ctx, jurisdictionOf(req.Params.Jurisdiction))
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -231,8 +249,8 @@ func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListCompli
 }
 
 // ListComplianceGaps implements GET /api/v1/compliance/gaps.
-func (h *Handlers) ListComplianceGaps(ctx context.Context, _ apigen.ListComplianceGapsRequestObject) (apigen.ListComplianceGapsResponseObject, error) {
-	p, err := h.svc.Pack(ctx, "")
+func (h *Handlers) ListComplianceGaps(ctx context.Context, req apigen.ListComplianceGapsRequestObject) (apigen.ListComplianceGapsResponseObject, error) {
+	p, err := h.svc.Pack(ctx, jurisdictionOf(req.Params.Jurisdiction))
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -251,8 +269,8 @@ func (h *Handlers) ListComplianceGaps(ctx context.Context, _ apigen.ListComplian
 }
 
 // ListComplianceGlossary implements GET /api/v1/compliance/glossary.
-func (h *Handlers) ListComplianceGlossary(ctx context.Context, _ apigen.ListComplianceGlossaryRequestObject) (apigen.ListComplianceGlossaryResponseObject, error) {
-	p, err := h.svc.Pack(ctx, "")
+func (h *Handlers) ListComplianceGlossary(ctx context.Context, req apigen.ListComplianceGlossaryRequestObject) (apigen.ListComplianceGlossaryResponseObject, error) {
+	p, err := h.svc.Pack(ctx, jurisdictionOf(req.Params.Jurisdiction))
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -368,4 +386,37 @@ func (h *Handlers) ListActiveComplianceRules(ctx context.Context, req apigen.Lis
 		}
 	}
 	return apigen.ListActiveComplianceRules200JSONResponse{Data: data}, nil
+}
+
+// GetComplianceClockMatrix implements GET /api/v1/compliance/clock-matrix.
+func (h *Handlers) GetComplianceClockMatrix(ctx context.Context, _ apigen.GetComplianceClockMatrixRequestObject) (apigen.GetComplianceClockMatrixResponseObject, error) {
+	rows, err := h.svc.ClockMatrix(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.ClockMatrixRow, len(rows))
+	for i, r := range rows {
+		data[i] = apigen.ClockMatrixRow{
+			Item: r.Item, Nigeria: r.Nigeria, Ghana: r.Ghana, Rwanda: r.Rwanda, WorkingDefault: r.WorkingDefault,
+		}
+	}
+	return apigen.GetComplianceClockMatrix200JSONResponse{Data: data}, nil
+}
+
+// ExportComplianceLibrary implements GET /api/v1/compliance/export.
+func (h *Handlers) ExportComplianceLibrary(ctx context.Context, req apigen.ExportComplianceLibraryRequestObject) (apigen.ExportComplianceLibraryResponseObject, error) {
+	format := string(req.Params.Format)
+	data, name, err := h.svc.Export(ctx, jurisdictionOf(req.Params.Jurisdiction), format, h.clock.Now())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	headers := apigen.ExportComplianceLibrary200ResponseHeaders{ContentDisposition: new(`attachment; filename="` + name + `"`)}
+	if format == service.ExportPDF {
+		return apigen.ExportComplianceLibrary200ApplicationpdfResponse{
+			Body: bytes.NewReader(data), ContentLength: int64(len(data)), Headers: headers,
+		}, nil
+	}
+	return apigen.ExportComplianceLibrary200TextcsvResponse{
+		Body: bytes.NewReader(data), ContentLength: int64(len(data)), Headers: headers,
+	}, nil
 }

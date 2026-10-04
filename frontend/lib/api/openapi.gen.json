@@ -5698,6 +5698,18 @@
     ],
     "summary": "The pack's legal deadlines",
     "description": "Requires `compliance:read`. The reporting and response deadlines the pack's workflows time.\n",
+    "parameters": [
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "description": "The country whose pack to read; without it, the workspace's fallback pack.",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "The pack's legal deadlines.",
@@ -5705,6 +5717,120 @@
        "application/json": {
         "schema": {
          "$ref": "#/components/schemas/ComplianceClockList"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
+  "/api/v1/compliance/clock-matrix": {
+   "get": {
+    "operationId": "getComplianceClockMatrix",
+    "tags": [
+     "compliance"
+    ],
+    "summary": "Legal clocks and thresholds side by side",
+    "description": "Requires `compliance:read`. The library's comparison of Nigeria, Ghana and Rwanda, with the\nworking default for a multi-country workspace, verbatim (ADR-0007). \"Not found\" means no\nreadable source gave a number.\n",
+    "responses": {
+     "200": {
+      "description": "The rows.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "object",
+         "additionalProperties": false,
+         "required": [
+          "data"
+         ],
+         "properties": {
+          "data": {
+           "type": "array",
+           "items": {
+            "$ref": "#/components/schemas/ClockMatrixRow"
+           }
+          }
+         }
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
+  "/api/v1/compliance/export": {
+   "get": {
+    "operationId": "exportComplianceLibrary",
+    "tags": [
+     "compliance"
+    ],
+    "summary": "Export a country's rule library",
+    "description": "Requires `compliance:read`. Every rule of a country's pack (or of every pack) in plain English,\nwith its provenance, the settings in use in this environment, caveats and sources, as CSV or\nPDF, built on the server. Audited.\n",
+    "parameters": [
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "description": "The country; without it, every country with a pack.",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
+      }
+     },
+     {
+      "name": "format",
+      "in": "query",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "enum": [
+        "csv",
+        "pdf"
+       ]
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "The library.",
+      "headers": {
+       "Content-Disposition": {
+        "schema": {
+         "type": "string"
+        }
+       }
+      },
+      "content": {
+       "text/csv": {
+        "schema": {
+         "type": "string"
+        }
+       },
+       "application/pdf": {
+        "schema": {
+         "type": "string",
+         "format": "binary"
         }
        }
       }
@@ -5732,6 +5858,18 @@
     ],
     "summary": "The pack's open questions",
     "description": "Requires `compliance:read`. Open legal questions a person must settle (conflicting or unconfirmed sources).\n",
+    "parameters": [
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "description": "The country whose pack to read; without it, the workspace's fallback pack.",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "The pack's open questions.",
@@ -5766,6 +5904,18 @@
     ],
     "summary": "The pack's glossary",
     "description": "Requires `compliance:read`. Plain-English meanings of the terms the rules use.\n",
+    "parameters": [
+     {
+      "name": "jurisdiction",
+      "in": "query",
+      "required": false,
+      "description": "The country whose pack to read; without it, the workspace's fallback pack.",
+      "schema": {
+       "type": "string",
+       "pattern": "^[A-Z]{2}$"
+      }
+     }
+    ],
     "responses": {
      "200": {
       "description": "The pack's glossary.",
@@ -7316,6 +7466,81 @@
      },
      "counts": {
       "$ref": "#/components/schemas/ComplianceCounts"
+     },
+     "currency": {
+      "type": "string",
+      "description": "Amounts in the pack's settings are in minor units of this currency (or US dollars)."
+     },
+     "timezone": {
+      "type": "string",
+      "description": "The time zone the pack's windows and hours of the day are kept in."
+     },
+     "penalties": {
+      "type": "array",
+      "description": "The library's penalty exposure register, for display. Estimates marked as inference are not law.",
+      "items": {
+       "$ref": "#/components/schemas/CompliancePenalty"
+      }
+     }
+    }
+   },
+   "ClockMatrixRow": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "item",
+     "nigeria",
+     "ghana",
+     "rwanda",
+     "working_default"
+    ],
+    "properties": {
+     "item": {
+      "type": "string"
+     },
+     "nigeria": {
+      "type": "string"
+     },
+     "ghana": {
+      "type": "string"
+     },
+     "rwanda": {
+      "type": "string"
+     },
+     "working_default": {
+      "type": "string"
+     }
+    }
+   },
+   "CompliancePenalty": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "provision",
+     "penalty",
+     "inference",
+     "sources"
+    ],
+    "properties": {
+     "provision": {
+      "type": "string"
+     },
+     "penalty": {
+      "type": "string"
+     },
+     "estimate": {
+      "type": "string",
+      "description": "The amount in the local currency, where the library computes one."
+     },
+     "inference": {
+      "type": "boolean",
+      "description": "The estimate is the library's inference (Ghana penalty units at GHS 12), not a stated amount."
+     },
+     "sources": {
+      "type": "array",
+      "items": {
+       "type": "string"
+      }
      }
     }
    },

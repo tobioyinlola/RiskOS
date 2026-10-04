@@ -1,0 +1,100 @@
+[
+  {
+    "item": "STR clock",
+    "nigeria": "Screen alerts within 72 hours; file within 24 hours of confirmed suspicion (REG-14); older summaries say 24 hours from the transaction",
+    "ghana": "24 hours from forming suspicion (Act 1044 s.38); BoG guideline says from confirmation (GH-REG-06)",
+    "rwanda": "Duty in Art 32; numeric deadline not found (RW-REG-04)",
+    "working_default": "Start a 24-hour clock at the earliest recorded suspicion in all three countries; label Rwanda \"design default\" until the Gazette text is read; internal SLA of 4 hours triage and 12 hours decision"
+  },
+  {
+    "item": "Cash transaction report",
+    "nigeria": "Domestic cash of NGN 5m (individual) or NGN 10m (corporate) via goAML (REG-17)",
+    "ghana": "GHS 50,000 banks and securities; GHS 20,000 specialised deposit-taking and forex bureaux (GH-REG-04)",
+    "rwanda": "Not found; RW-REG-05 off with a placeholder",
+    "working_default": "Per-country thresholds; keep Rwanda off until confirmed"
+  },
+  {
+    "item": "Cross-border report",
+    "nigeria": "US$10,000 or more, within 1 day (REG-10)",
+    "ghana": "US$1,000 or more, within 24 hours of the transfer (GH-REG-05)",
+    "rwanda": "Cash declaration above US$10,000 (RW-REG-01); no wire-report threshold found",
+    "working_default": "Evaluate by origin and destination country; use Ghana's lower US$1,000 only for Ghana-booked transfers"
+  },
+  {
+    "item": "Record retention",
+    "nigeria": "5 years; some summaries say 7 (GOV-08)",
+    "ghana": "5 years; 6 years for payment-platform audit logs (GH-GOV-01, GH-SEC-11)",
+    "rwanda": "10 years after the relationship ends; 5 years under the old law (RW-GOV-01)",
+    "working_default": "Per-country minimums; keep the longest applicable period for shared records and log the reason when data-protection deletion is denied (RW-GOV-10)"
+  },
+  {
+    "item": "Personal-data breach notice",
+    "nigeria": "72 hours to the NDPC",
+    "ghana": "\"As soon as reasonably practicable\" to the DPC; no hour count (GH-SEC-12)",
+    "rwanda": "48 hours to NCSA (RW-SEC-04)",
+    "working_default": "48 hours internal clock where Rwandan data subjects are affected; 72 hours otherwise, labelled policy for Ghana"
+  },
+  {
+    "item": "Cyber incident to financial regulator or agency",
+    "nigeria": "24 hours to CBN; 72 hours to national or sector CERT",
+    "ghana": "CSA 24 hours (designated CII only); BoG within 10 days under Act 987; BoG CISD 2026 clock not found (GH-SEC-08, GH-SEC-09)",
+    "rwanda": "BNR Art 21 hour count not found (RW-SEC-03); RURA immediate for critical or major telecom incidents; NCSA no coded deadline",
+    "working_default": "Open every incident with all applicable clocks; run the shortest known clock (24 hours) for banks and payment institutions; leave unknown clocks null"
+  },
+  {
+    "item": "Freeze and holds",
+    "nigeria": "\"Immediate\" with no hour count; NFIU or EFCC stop order up to 72 hours",
+    "ghana": "Without prior notice; FIC suspension up to 7 working days; court application within 7 working days (E.I. 2 summary says 48 hours) (GH-REG-08, GH-REG-11)",
+    "rwanda": "Within 24 hours (Art 2(b), Art 4) (RW-REG-02); 3 working days under the old law",
+    "working_default": "24-hour freeze SLA everywhere; stop orders and suspensions carry automatic expiry dates"
+  },
+  {
+    "item": "Wallet limits",
+    "nigeria": "Tier limits conflict, none hard-coded; new-device cap NGN 20,000 for 24 hours (REG-01)",
+    "ghana": "Daily GHS 3,000, 15,000, 25,000; balance GHS 5,000, 40,000, 75,000; monthly GHS 10,000 (Minimum) (GH-REG-01 to 03); no new-device cap found",
+    "rwanda": "Issuer-defined (Art 36); eKash RWF 10 million per transaction and RWF 20 fee (RW-REG-07)",
+    "working_default": "Per-issuer configuration; seed Ghana from the BoG figures and Rwanda from the issuer's own limits"
+  },
+  {
+    "item": "Cash payment or withdrawal ceiling",
+    "nigeria": "NGN 5m individual, NGN 10m corporate payment ceiling (REG-07); weekly NGN 1.5m withdrawal charge (REG-08)",
+    "ghana": "None found beyond CTR",
+    "rwanda": "RWF 5 million per day (2009 directive; verify) (RW-REG-08)",
+    "working_default": "Off for Rwanda until verified"
+  },
+  {
+    "item": "Sanctions and TFS",
+    "nigeria": "REG-11 block, freeze and report",
+    "ghana": "UN lists and Ghana designations; freeze without prior notice; quarterly reports and drills (GH-REG-08, GH-GOV-06)",
+    "rwanda": "Freeze within 24 hours; fine RWF 1 to 10 million (RW-REG-02, RW-GOV-04)",
+    "working_default": "One screening engine, per-country list sets and clocks"
+  },
+  {
+    "item": "PEPs",
+    "nigeria": "REG-12, REG-18",
+    "ghana": "Senior approval; source of wealth; transactions reported to FIC; 2-year review (GH-REG-07)",
+    "rwanda": "Senior approval and source of wealth (RW-REG-06)",
+    "working_default": "EDD in all three; keep per-country report outputs"
+  },
+  {
+    "item": "Penetration testing and vulnerability work",
+    "nigeria": "Annual self-assessment; quarterly board reports with test results",
+    "ghana": "CISD 2026 cadence not found",
+    "rwanda": "Annual pentest, vulnerability assessment twice a year, summary to BNR in 15 days (RW-SEC-01)",
+    "working_default": "Annual pentest and twice-yearly assessments everywhere"
+  },
+  {
+    "item": "Outsourcing and data location",
+    "nigeria": "Third-party audit rights and standards",
+    "ghana": "Notice before outsourcing; SLA within 10 days (GH-SEC-10); transfer needs consent and safeguards (GH-SEC-13)",
+    "rwanda": "Provider assessments (Art 14); personal data stored in Rwanda by default (RW-SEC-07)",
+    "working_default": "Treat Rwanda data localisation as a hard default; flag Ghana transfers for consent and safeguards"
+  },
+  {
+    "item": "Penalty basis",
+    "nigeria": "Naira amounts",
+    "ghana": "Penalty units at GHS 12 (inference)",
+    "rwanda": "RWF amounts",
+    "working_default": "Show the unit and the currency estimate per country"
+  }
+]

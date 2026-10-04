@@ -44,6 +44,8 @@ var (
 // LibraryHandlers are the compliance library operations of the public API.
 type LibraryHandlers interface {
 	GetCompliancePack(ctx context.Context, req apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error)
+	GetComplianceClockMatrix(ctx context.Context, req apigen.GetComplianceClockMatrixRequestObject) (apigen.GetComplianceClockMatrixResponseObject, error)
+	ExportComplianceLibrary(ctx context.Context, req apigen.ExportComplianceLibraryRequestObject) (apigen.ExportComplianceLibraryResponseObject, error)
 	ListComplianceJurisdictions(ctx context.Context, req apigen.ListComplianceJurisdictionsRequestObject) (apigen.ListComplianceJurisdictionsResponseObject, error)
 	ListComplianceActivations(ctx context.Context, req apigen.ListComplianceActivationsRequestObject) (apigen.ListComplianceActivationsResponseObject, error)
 	ListActiveComplianceRules(ctx context.Context, req apigen.ListActiveComplianceRulesRequestObject) (apigen.ListActiveComplianceRulesResponseObject, error)

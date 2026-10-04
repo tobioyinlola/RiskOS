@@ -2157,6 +2157,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/clock-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Legal clocks and thresholds side by side
+         * @description Requires `compliance:read`. The library's comparison of Nigeria, Ghana and Rwanda, with the
+         *     working default for a multi-country workspace, verbatim (ADR-0007). "Not found" means no
+         *     readable source gave a number.
+         */
+        get: operations["getComplianceClockMatrix"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export a country's rule library
+         * @description Requires `compliance:read`. Every rule of a country's pack (or of every pack) in plain English,
+         *     with its provenance, the settings in use in this environment, caveats and sources, as CSV or
+         *     PDF, built on the server. Audited.
+         */
+        get: operations["exportComplianceLibrary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/gaps": {
         parameters: {
             query?: never;
@@ -2590,6 +2634,28 @@ export interface components {
             capabilities: components["schemas"]["ComplianceOption"][];
             sources: components["schemas"]["ComplianceSource"][];
             counts: components["schemas"]["ComplianceCounts"];
+            /** @description Amounts in the pack's settings are in minor units of this currency (or US dollars). */
+            currency?: string;
+            /** @description The time zone the pack's windows and hours of the day are kept in. */
+            timezone?: string;
+            /** @description The library's penalty exposure register, for display. Estimates marked as inference are not law. */
+            penalties?: components["schemas"]["CompliancePenalty"][];
+        };
+        ClockMatrixRow: {
+            item: string;
+            nigeria: string;
+            ghana: string;
+            rwanda: string;
+            working_default: string;
+        };
+        CompliancePenalty: {
+            provision: string;
+            penalty: string;
+            /** @description The amount in the local currency, where the library computes one. */
+            estimate?: string;
+            /** @description The estimate is the library's inference (Ghana penalty units at GHS 12), not a stated amount. */
+            inference: boolean;
+            sources: string[];
         };
         ComplianceParameter: {
             name: string;
@@ -7605,7 +7671,10 @@ export interface operations {
     };
     listComplianceClocks: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack to read; without it, the workspace's fallback pack. */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7627,9 +7696,67 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
-    listComplianceGaps: {
+    getComplianceClockMatrix: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ClockMatrixRow"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    exportComplianceLibrary: {
+        parameters: {
+            query: {
+                /** @description The country; without it, every country with a pack. */
+                jurisdiction?: string;
+                format: "csv" | "pdf";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The library. */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceGaps: {
+        parameters: {
+            query?: {
+                /** @description The country whose pack to read; without it, the workspace's fallback pack. */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7653,7 +7780,10 @@ export interface operations {
     };
     listComplianceGlossary: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack to read; without it, the workspace's fallback pack. */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
