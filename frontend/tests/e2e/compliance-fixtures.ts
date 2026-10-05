@@ -187,6 +187,7 @@ export const CLOCKS = [
       "Incident record with a countdown from detection and an export for the CBN",
     sources: ["S5"],
     rules: [],
+    kind: "legal",
   },
 ];
 
@@ -256,3 +257,274 @@ export function task(
     ...extra,
   };
 }
+
+/**
+ * A slice of the Rwanda pack (backend/internal/rules/packs/rw), wording from its text.json, for
+ * browsing another country. The full pack is checked against the library by the backend's tests.
+ */
+export const RW_PACK = {
+  id: "rw",
+  jurisdiction: "RW",
+  name: "Rwanda",
+  version: "2026.10.1",
+  latest_version: "2026.10.1",
+  checksum: "b".repeat(64),
+  loaded_at: NOW,
+  currency: "RWF",
+  timezone: "Africa/Kigali",
+  groups: [
+    { id: "mandatory_controls", label: "Mandatory controls", rules: 1 },
+    { id: "typology", label: "Typology and monitoring", rules: 1 },
+  ],
+  licence_types: [
+    { id: "bank", label: "Bank" },
+    { id: "emi", label: "E-money issuer" },
+  ],
+  capabilities: [
+    { id: "bnr_regulated", label: "Regulated by the National Bank of Rwanda" },
+  ],
+  sources: [
+    {
+      id: "RS3",
+      title: "Law No. 001/2025 (text)",
+      links: [
+        {
+          title: "RegAlert text of Law 001/2025",
+          url: "https://regalert.today/document/195f62e1-4ddf-4323-86ae-c8a19628da31/text",
+        },
+      ],
+    },
+    {
+      id: "RS6",
+      title: "FATF second-round mutual evaluation, July 2024",
+      links: [],
+    },
+    { id: "RS23", title: "Digital fraud in Rwanda", links: [] },
+  ],
+  counts: { controls: 25, signals: 54, governance: 9 },
+  penalties: [
+    {
+      provision:
+        "Targeted financial sanctions administrative fine (FIC Reg 001/FIC/2025 Arts 26-27)",
+      penalty: "RWF 1,000,000 to RWF 10,000,000",
+      inference: false,
+      sources: ["RS3"],
+    },
+  ],
+};
+
+const RW_REG_04 = {
+  id: "RW-REG-04",
+  name: "Suspicious transaction report (STR)",
+  description:
+    "A person forms a suspicion that funds are linked to crime. The report goes to the FIC, without telling the customer. The numeric deadline in Law 001/2025 Art 32 was not found, so the clock is a tenant setting with a design default.",
+  action: "Report to the FIC; deadline is a placeholder",
+  group: "mandatory_controls",
+  kind: "control",
+  status: "regulatory",
+  regulators: ["FIC", "law"],
+  applies_to: [],
+  requires: [],
+  sources: ["RS3", "RS6"],
+  effective: {
+    text: "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; reporting duty in Art 32, non-disclosure in Art 34 (per map)",
+  },
+  verification: "secondary_source_only",
+  caveat:
+    "The duty to report is in force; its deadline was not found in any readable source (C1). The 24-hour clock is a design placeholder, not a statutory number.",
+  defaults: { enabled: true, mode: "live" },
+  inputs: ["workflow"],
+  events: ["suspicion_recorded"],
+  outcome: { tasks: ["report.STR"] },
+  parameters: [
+    {
+      name: "str_due",
+      label:
+        "Time to file after suspicion is first recorded (design placeholder)",
+      type: "duration",
+      default: 86400,
+      min: 3600,
+      max: 259200,
+    },
+  ],
+  jurisdiction: "RW",
+  provenance: "regulatory",
+  lineage: { kind: "param", of: ["REG-14"] },
+  basis:
+    "[Regulatory]. Param of REG-14 (deadline placeholder). Default: On. Basis: RS3 (Art 32, Art 34 per map); RS6",
+};
+
+const RW_TM_05 = {
+  id: "RW-TM-05",
+  name: "New device, new payee, then transfer",
+  description:
+    "Within 30 minutes: a new device is linked, a new payee is added, and money is sent above the minimum.",
+  points: "30 points, review",
+  group: "typology",
+  kind: "signal",
+  status: "recommended",
+  regulators: ["BNR"],
+  applies_to: [],
+  requires: [],
+  sources: ["RS23"],
+  effective: {
+    text: "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026",
+  },
+  verification: "secondary_source_only",
+  defaults: { enabled: true, mode: "shadow" },
+  inputs: ["events", "history"],
+  events: ["transfer_outbound"],
+  outcome: { severity: "high", tasks: [] },
+  parameters: [
+    {
+      name: "floor",
+      label: "Smallest amount that counts (suggested RWF 200,000)",
+      type: "money",
+      currency: "RWF",
+      default: 200000,
+      min: 0,
+      max: 1000000000,
+    },
+  ],
+  jurisdiction: "RW",
+  provenance: "industry_practice",
+  lineage: { kind: "param", of: ["ATO-01"] },
+  template: "ATO-01",
+  changes: ["floor"],
+  basis:
+    "[Industry practice]. Param of ATO-01. Default: On. Basis: RS23 (account takeover 24% of losses)",
+};
+
+export const RW_RULES = [RW_REG_04, RW_TM_05];
+
+export const RW_CLOCKS = [
+  {
+    id: "str_filing",
+    duration: "24 hours (design placeholder)",
+    hours: 24,
+    kind: "design_placeholder",
+    authority: "FIC",
+    duty: "File a suspicious transaction report; Law 001/2025 Art 32 sets the duty but no deadline was found",
+    applies_to: "Reporting entities",
+    requirement:
+      "Timer from the earliest recorded suspicion, labelled a design default until the Gazette text is read",
+    sources: ["RS3", "RS6"],
+    rules: ["RW-REG-04"],
+  },
+  {
+    id: "bnr_incident",
+    duration: "Not found",
+    hours: null,
+    kind: "not_found",
+    authority: "BNR",
+    duty: "Report a cyber incident to the central bank (Regulation 50/2022 Art 21); the hour count was not found",
+    applies_to: "BNR-regulated institutions",
+    requirement:
+      "Shown as not found until a person enters the supervisor's clock",
+    sources: [],
+    rules: [],
+  },
+];
+
+export const RW_GAPS = [
+  {
+    id: "C1",
+    kind: "conflict",
+    title: "Rwanda STR numeric deadline",
+    detail:
+      "Not found in any readable source; 2024 MER states no statutory timeframe",
+    treatment:
+      'RW-REG-04 ships with a 24-hour design placeholder, labelled "threshold to be confirmed"',
+    rules: ["RW-REG-04"],
+    sources: ["RS3", "RS6"],
+  },
+];
+
+export const RW_GLOSSARY = [
+  {
+    term: "NIDA",
+    expansion: "National Identification Agency",
+    definition:
+      "The agency that issues Rwandan national IDs and verifies them.",
+  },
+];
+
+export const CLOCK_MATRIX = [
+  {
+    item: "STR clock",
+    nigeria:
+      "Screen alerts within 72 hours; file within 24 hours of confirmed suspicion (REG-14); older summaries say 24 hours from the transaction",
+    ghana:
+      "24 hours from forming suspicion (Act 1044 s.38); BoG guideline says from confirmation (GH-REG-06)",
+    rwanda: "Duty in Art 32; numeric deadline not found (RW-REG-04)",
+    working_default:
+      'Start a 24-hour clock at the earliest recorded suspicion in all three countries; label Rwanda "design default" until the Gazette text is read; internal SLA of 4 hours triage and 12 hours decision',
+  },
+];
+
+export const JURISDICTIONS = [
+  {
+    code: "NG",
+    name: "Nigeria",
+    currency: "NGN",
+    minor_unit: 2,
+    timezone: "Africa/Lagos",
+    regulators: ["CBN", "NFIU"],
+    pack: "ng",
+    activated: true,
+  },
+  {
+    code: "RW",
+    name: "Rwanda",
+    currency: "RWF",
+    minor_unit: 0,
+    timezone: "Africa/Kigali",
+    regulators: ["FIC", "BNR", "CMA", "NCSA", "RURA"],
+    pack: "rw",
+    activated: false,
+  },
+];
+
+export const ACTIVATIONS = [
+  {
+    id: "jac_ng",
+    jurisdiction: "NG",
+    booking_entity: "default",
+    status: "live",
+    fallback: true,
+    pack: "ng@2026.10.0",
+    licence_type: "bank",
+    capabilities: [],
+    updated_at: NOW,
+  },
+];
+
+/** The rules running for the workspace's activations (GET /compliance/active-rules). */
+export const ACTIVE_RULES = [
+  {
+    rule: "REG-01",
+    name: "New device transfer cap",
+    kind: "control",
+    jurisdiction: "NG",
+    pack: "ng@2026.10.0",
+    booking_entity: "default",
+    mode: "live",
+    events: ["transfer_outbound"],
+    facts: ["txn.amount"],
+    refs: [],
+    unset_settings: [],
+  },
+  {
+    rule: "RW-REG-05",
+    name: "Cash transaction report",
+    kind: "control",
+    jurisdiction: "RW",
+    pack: "rw@2026.10.2",
+    booking_entity: "rw-bank",
+    mode: "shadow",
+    events: ["cash_deposit"],
+    facts: ["txn.amount"],
+    refs: [],
+    unset_settings: ["ctr_due"],
+  },
+];

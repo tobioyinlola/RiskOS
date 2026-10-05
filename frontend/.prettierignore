@@ -7,3 +7,4 @@ pnpm-lock.yaml
 lib/api/schema.gen.ts
 lib/api/admin.gen.ts
 components/ui/
+lib/api/openapi.gen.json

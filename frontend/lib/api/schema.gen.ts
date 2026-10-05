@@ -364,6 +364,52 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/rules/stats": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How often each of the workspace's rules matched
+         * @description Requires `rules:read`. For every rule of the environment, how many evaluations it matched
+         *     (active and monitoring alike) over the last `days` days, the last match and a count per UTC
+         *     day, beside the number of evaluations in the period. Dry runs are not counted.
+         */
+        get: operations["getRuleStats"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/rules/test-recent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Try a condition on recent events
+         * @description Requires `rules:read`. Runs a condition, saved or not, against the facts of the
+         *     environment's most recent evaluations (at most 5,000, within `days` days) and says how
+         *     many it would have matched, with up to 25 of them, newest first. Nothing is stored and no
+         *     score changes. The facts are those recorded at the time; behaviour that has changed since
+         *     is not recomputed.
+         */
+        post: operations["testRuleOnRecentEvents"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/rules/{rule_id}": {
         parameters: {
             query?: never;
@@ -1496,6 +1542,271 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/packs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The jurisdictions with a rule pack
+         * @description Requires `compliance:read`. The latest version of every loaded jurisdiction pack, with its
+         *     rule counts, and which one the workspace's profile uses.
+         */
+        get: operations["listCompliancePacks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/jurisdictions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The countries RiskOS has a rule pack for
+         * @description Requires `compliance:read`. Every jurisdiction with its currency, time zone, regulators and
+         *     pack, and whether the workspace has activated it (ADR-0007).
+         */
+        get: operations["listComplianceJurisdictions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The workspace's country activations
+         * @description Requires `compliance:read`. One activation per country and booking entity: the pack it is on,
+         *     the institution type, its status (draft, shadow, live or suspended) and whether it is the
+         *     fallback that judges events naming no booking entity (ADR-0007).
+         */
+        get: operations["listComplianceActivations"];
+        put?: never;
+        /**
+         * Activate a country for a booking entity (as a draft)
+         * @description Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+         *     Creates a draft activation on the country's latest pack: a draft judges no event. Move it
+         *     to shadow, then live, with `POST /compliance/activations/{activation_id}/status`. Audited.
+         */
+        post: operations["createComplianceActivation"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activations/{activation_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        /**
+         * Change an activation's licence type, capabilities or business day start
+         * @description Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+         *     Applied at once, except on a live activation, where another person approves it. Audited.
+         */
+        patch: operations["updateComplianceActivation"];
+        trace?: never;
+    };
+    "/api/v1/compliance/activations/{activation_id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Move an activation to draft, shadow, live or suspended
+         * @description Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+         *     Going live needs a passing readiness check (409 lists what blocks it). Going live and
+         *     leaving live are proposed (202) and apply when another person with `rules:approve`
+         *     approves them; draft, shadow and suspended move at once otherwise. Audited.
+         */
+        post: operations["setComplianceActivationStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activations/{activation_id}/fallback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Make an activation the fallback
+         * @description Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+         *     The fallback judges events that name no booking entity. Changing it is proposed (202) and
+         *     applies when another person with `rules:approve` approves it. Audited.
+         */
+        post: operations["makeComplianceActivationFallback"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activations/{activation_id}/readiness": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What must be settled before an activation goes live
+         * @description Requires `compliance:read`. For the rules that apply to the activation and are not off in
+         *     this environment: settings the institution must enter, a missing exchange rate for a US
+         *     dollar threshold (blocking for controls) and open questions nobody has verified (warnings).
+         */
+        get: operations["getComplianceActivationReadiness"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activation-changes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Activation changes (history and pending approvals)
+         * @description Requires `compliance:read`. Newest first; at most 200.
+         */
+        get: operations["listComplianceActivationChanges"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activation-changes/{change_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve a pending activation change
+         * @description Requires `rules:approve` (people only) and, in the console, a recent second factor. Nobody
+         *     approves their own change; going live is checked for readiness again. Audited.
+         */
+        post: operations["approveComplianceActivationChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/activation-changes/{change_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Reject a pending activation change
+         * @description Requires `rules:approve` (people only). Nobody rejects their own change. Audited.
+         */
+        post: operations["rejectComplianceActivationChange"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/gaps/{gap_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Record that an open question was checked against the original text
+         * @description Requires `compliance:configure` (people only). Records who checked it, when, a note and an
+         *     optional link; the rules it names show the verification. It does not change any rule:
+         *     settings stay as configured. Once only. Audited.
+         */
+        post: operations["verifyComplianceGap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/active-rules": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Every pack rule running for the workspace
+         * @description Requires `compliance:read`. Every rule of every activated country that applies to the
+         *     activation and runs in this environment (live or shadow), with the events that trigger it and
+         *     the facts and references to send for it to be evaluated. A rule whose `unset_settings` is not
+         *     empty, or whose facts are not sent, is reported as not evaluated in decisions. Your own rules
+         *     are at `/api/v1/rules`.
+         */
+        get: operations["listActiveComplianceRules"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/pack": {
         parameters: {
             query?: never;
@@ -1506,7 +1817,8 @@ export interface paths {
         /**
          * The workspace's rule pack
          * @description Requires `compliance:read`. The pack version on the workspace's compliance profile, or the most
-         *     recently loaded pack when no profile is set.
+         *     recently loaded pack when no profile is set; with `jurisdiction`, another jurisdiction's
+         *     latest pack, to browse.
          */
         get: operations["getCompliancePack"];
         put?: never;
@@ -2022,6 +2334,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/clock-matrix": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Legal clocks and thresholds side by side
+         * @description Requires `compliance:read`. The library's comparison of Nigeria, Ghana and Rwanda, with the
+         *     working default for a multi-country workspace, verbatim (ADR-0007). "Not found" means no
+         *     readable source gave a number.
+         */
+        get: operations["getComplianceClockMatrix"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/export": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Export a country's rule library
+         * @description Requires `compliance:read`. Every rule of a country's pack (or of every pack) in plain English,
+         *     with its provenance, the settings in use in this environment, caveats and sources, as CSV or
+         *     PDF, built on the server. Audited.
+         */
+        get: operations["exportComplianceLibrary"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/gaps": {
         parameters: {
             query?: never;
@@ -2455,6 +2811,28 @@ export interface components {
             capabilities: components["schemas"]["ComplianceOption"][];
             sources: components["schemas"]["ComplianceSource"][];
             counts: components["schemas"]["ComplianceCounts"];
+            /** @description Amounts in the pack's settings are in minor units of this currency (or US dollars). */
+            currency?: string;
+            /** @description The time zone the pack's windows and hours of the day are kept in. */
+            timezone?: string;
+            /** @description The library's penalty exposure register, for display. Estimates marked as inference are not law. */
+            penalties?: components["schemas"]["CompliancePenalty"][];
+        };
+        ClockMatrixRow: {
+            item: string;
+            nigeria: string;
+            ghana: string;
+            rwanda: string;
+            working_default: string;
+        };
+        CompliancePenalty: {
+            provision: string;
+            penalty: string;
+            /** @description The amount in the local currency, where the library computes one. */
+            estimate?: string;
+            /** @description The estimate is the library's inference (Ghana penalty units at GHS 12), not a stated amount. */
+            inference: boolean;
+            sources: string[];
         };
         ComplianceParameter: {
             name: string;
@@ -2535,12 +2913,238 @@ export interface components {
             mode: components["schemas"]["PackRuleMode"];
             /** @description The rule's configuration version in this environment; 0 means the library's defaults. */
             config_version: number;
+            /** @description The workspace's checks, against the original text, of the open questions that name this rule. */
+            verifications?: components["schemas"]["GapVerification"][];
+            /** @description The country of the pack the rule is in. */
+            jurisdiction?: string;
+            /**
+             * @description Where the rule comes from (country libraries): a cited law (regulatory), a published typology
+             *     with no mandated number (industry_practice), or the library author's design, whose numbers are
+             *     starting values, not regulation (my_design).
+             * @enum {string}
+             */
+            provenance?: "regulatory" | "industry_practice" | "my_design";
+            lineage?: components["schemas"]["ComplianceLineage"];
+            /**
+             * @description Why the rule ships switched off.
+             * @enum {string}
+             */
+            off_reason?: "threshold_to_be_confirmed" | "verify_first";
+            /** @description The pack an inherited rule comes from (`ng`); it keeps its ID and logic, with settings restated for the country. */
+            inherited_from?: string;
+            /** @description The rule whose logic a parameterised rule reuses (ATO-01). */
+            template?: string;
+            /** @description The settings an inherited or parameterised rule changes from its parent. */
+            changes?: string[];
+            /** @description The library's "Tag, lineage, default, basis" column, verbatim. */
+            basis?: string;
             /** @description The library's section 7B logic. Only for `compliance:engineering`. */
             engineering_logic?: string;
             /** @description The machine definition the engine interprets. Only for `compliance:engineering`. */
             definition?: {
                 [key: string]: unknown;
             };
+        };
+        Jurisdiction: {
+            /** @example GH */
+            code: string;
+            name: string;
+            /** @description Amounts in this country's rules are in minor units of this currency. */
+            currency: string;
+            /** @description Digits after the decimal point (2 for pesewas, 0 for Rwandan francs). */
+            minor_unit: number;
+            /** @example Africa/Accra */
+            timezone: string;
+            regulators: string[];
+            /** @description The pack ID (gh). */
+            pack: string;
+            activated: boolean;
+        };
+        JurisdictionActivation: {
+            id: string;
+            jurisdiction: string;
+            /** @description The licensed entity events name in `compliance.booking_entity`. */
+            booking_entity: string;
+            /**
+             * @description Shadow runs every rule in shadow; draft and suspended run none.
+             * @enum {string}
+             */
+            status: "draft" | "shadow" | "live" | "suspended";
+            /** @description Judges events that name no booking entity (or one not activated). */
+            fallback: boolean;
+            /** @description The pack version (gh@2026.10.1). */
+            pack: string;
+            licence_type: string;
+            capabilities: string[];
+            /** Format: date-time */
+            effective_from?: string;
+            /** Format: date-time */
+            activated_at?: string;
+            /** @description Who proposed going live. */
+            activated_by?: string;
+            /** @description Who approved going live. */
+            approved_by?: string;
+            rationale?: string;
+            /** @description The hour (local time) the business day starts, for daily and monthly limits. */
+            day_starts_at?: number;
+            /** Format: date-time */
+            updated_at: string;
+        };
+        ActivationRequest: {
+            jurisdiction: string;
+            /** @description The licensed entity events will name in `compliance.booking_entity`. */
+            booking_entity: string;
+            licence_type: string;
+            capabilities?: string[];
+            /** @description The hour (local time) the business day starts, for daily and monthly limits. Midnight by default. */
+            day_starts_at?: number;
+            rationale: string;
+        };
+        ActivationUpdate: {
+            licence_type: string;
+            capabilities: string[];
+            day_starts_at: number;
+            rationale: string;
+        };
+        Rationale: {
+            rationale: string;
+        };
+        ActivationChange: {
+            /** @example jch_01j9x2k7m3q4r5s6t7v8w9x0yz */
+            id: string;
+            activation_id: string;
+            /** @enum {string} */
+            action: "create" | "update" | "status" | "fallback";
+            /** @enum {string} */
+            status_from?: "draft" | "shadow" | "live" | "suspended";
+            /** @enum {string} */
+            status_to?: "draft" | "shadow" | "live" | "suspended";
+            /** @description An update's new values (licence_type, capabilities, day_starts_at). */
+            details: {
+                [key: string]: unknown;
+            };
+            rationale: string;
+            /** @enum {string} */
+            state: "applied" | "pending" | "approved" | "rejected";
+            proposed_by: string;
+            /** Format: date-time */
+            proposed_at: string;
+            decided_by?: string;
+            /** Format: date-time */
+            decided_at?: string;
+            decision_note?: string;
+        };
+        ActivationReadiness: {
+            /** @description True when nothing blocks going live. */
+            ready: boolean;
+            items: {
+                blocking: boolean;
+                /** @enum {string} */
+                kind: "licence" | "setting" | "fx_rate" | "open_question";
+                rule?: string;
+                message: string;
+            }[];
+        };
+        GapVerification: {
+            gap: string;
+            verified_by: string;
+            /** Format: date-time */
+            verified_at: string;
+            note: string;
+            link?: string;
+        };
+        ActiveComplianceRule: {
+            /** @example GH-REG-04 */
+            rule: string;
+            name: string;
+            kind: components["schemas"]["ComplianceRuleKind"];
+            jurisdiction: string;
+            pack: string;
+            booking_entity: string;
+            /** @enum {string} */
+            mode: "live" | "shadow";
+            /** @enum {string} */
+            provenance?: "regulatory" | "industry_practice" | "my_design";
+            /** @description The `compliance.kind` values that trigger the rule. */
+            events: string[];
+            /** @description The `compliance.facts` the rule reads (facts RiskOS computes are not listed). */
+            facts: string[];
+            /** @description The `compliance.refs` its time windows are kept for. */
+            refs: string[];
+            /** @description Settings with no value yet; until they are set the rule is not evaluated. */
+            unset_settings: string[];
+        };
+        ComplianceLineage: {
+            /**
+             * @description How the rule relates to the first library's rules ("Param of ATO-01", "New local").
+             * @enum {string}
+             */
+            kind: "param" | "analogue" | "cross_reference" | "stricter" | "new_local";
+            of: string[];
+        };
+        CompliancePackSummary: {
+            id: string;
+            jurisdiction: string;
+            name: string;
+            version: string;
+            controls: number;
+            signals: number;
+            governance: number;
+            /** @description The pack the workspace's fallback activation uses. */
+            current: boolean;
+            /** @description The workspace has an activation in this jurisdiction. */
+            activated?: boolean;
+        };
+        RuleStats: {
+            /**
+             * Format: date-time
+             * @description Start of the first UTC day counted.
+             */
+            since: string;
+            days: number;
+            /**
+             * Format: int64
+             * @description Evaluations (not dry runs) in the period.
+             */
+            evaluations: number;
+            rules: {
+                rule_id: string;
+                /** Format: int64 */
+                matches: number;
+                /** Format: date-time */
+                last_matched_at: string | null;
+                /** @description Matches per UTC day, oldest first, one entry per day of the period. */
+                daily: {
+                    /** Format: date */
+                    day: string;
+                    /** Format: int64 */
+                    matches: number;
+                }[];
+            }[];
+        };
+        RecentRuleTest: {
+            /** Format: date-time */
+            since: string;
+            /** @description Evaluations checked. */
+            checked: number;
+            matched: number;
+            /** @description More evaluations in the period than were checked (the newest 5,000 were). */
+            truncated: boolean;
+            sample: {
+                evaluation_id: string;
+                event_id: string;
+                /** Format: date-time */
+                at: string;
+                event_type: string;
+                /**
+                 * Format: int64
+                 * @description Minor units of currency, for transactions.
+                 */
+                amount: number | null;
+                currency: string | null;
+                decision: string;
+                risk_score: number;
+            }[];
         };
         ComplianceRuleList: {
             data: components["schemas"]["ComplianceRule"][];
@@ -2551,18 +3155,39 @@ export interface components {
             duty: string;
             applies_to: string;
             requirement: string;
-            /** @description The deadline in hours. */
-            hours: number;
+            /**
+             * @description The deadline in hours; 0 means immediately. Null when the law sets a deadline no readable
+             *     source states (`kind` not_found): shown as "not found", never as zero.
+             */
+            hours: number | null;
+            kind: components["schemas"]["ComplianceClockKind"];
+            /** @description The body the clock runs against (FIC, BoG, NCSA), when the library names one. */
+            authority?: string;
             sources: string[];
             rules: string[];
         };
         ComplianceClockList: {
             data: components["schemas"]["ComplianceClock"][];
         };
+        /**
+         * @description What a clock rests on: a deadline a law or regulator sets (legal), the institution's own
+         *     target (internal_policy), a design default standing in for a deadline not yet found
+         *     (design_placeholder), or a legal deadline no readable source states (not_found).
+         * @enum {string}
+         */
+        ComplianceClockKind: "legal" | "internal_policy" | "design_placeholder" | "not_found";
         ComplianceGap: {
             id: string;
             title: string;
             detail: string;
+            /**
+             * @description Two sources disagree (conflict), or a fact was not found or not confirmed (unverified).
+             * @enum {string}
+             */
+            kind?: "conflict" | "unverified";
+            /** @description How the library handles it until a person settles it. */
+            treatment?: string;
+            verification?: components["schemas"]["GapVerification"];
             rules: string[];
             sources: string[];
         };
@@ -2580,6 +3205,12 @@ export interface components {
         ComplianceProfile: {
             jurisdiction: string;
             licence_type: string;
+            /**
+             * @description False for the profile every workspace gets automatically until a person saves it: its
+             *     licence type ("other") is a placeholder. Automatic profiles start the regulatory
+             *     controls at their defaults and every risk signal off.
+             */
+            confirmed: boolean;
             capabilities: string[];
             pack_id: string;
             pack_version: string;
@@ -3204,6 +3835,14 @@ export interface components {
                 [key: string]: unknown;
             };
             refs?: components["schemas"]["ComplianceRefs"];
+            /**
+             * @description The licensed entity that holds the customer relationship, as activated in the workspace
+             *     (ADR-0007). Its jurisdiction's pack judges the event; without it, the workspace's fallback
+             *     activation does, and with no fallback the event is reported as jurisdiction unresolved.
+             */
+            booking_entity?: string;
+            /** @description The country of the person whose data the event concerns, for data-protection rules only. */
+            data_subject_country?: string;
         };
         /**
          * @description Opaque references for the entities rules keep time windows for. Never the BVN, phone
@@ -3221,6 +3860,8 @@ export interface components {
             sender?: components["schemas"]["Reference"];
             reporter?: components["schemas"]["Reference"];
             funding_source?: components["schemas"]["Reference"];
+            national_id?: components["schemas"]["Reference"];
+            agent?: components["schemas"]["Reference"];
         };
         /**
          * @description What the event is, in the rule pack's terms. Money kinds go with `transaction` events,
@@ -3229,7 +3870,7 @@ export interface components {
          *     is `transfer_outbound`, a credit `transfer_inbound`, a failed login `auth_failure`...).
          * @enum {string}
          */
-        ComplianceEventKind: "transfer_outbound" | "transfer_inbound" | "transfer_international" | "cash_payment" | "cash_withdrawal" | "cash_deposit" | "atm_withdrawal" | "pos_purchase" | "card_authorization" | "crypto_purchase" | "crypto_withdrawal" | "crypto_transfer" | "fiat_inflow" | "funding" | "loan_disbursement" | "loan_repayment" | "login" | "auth_failure" | "auth_success" | "device_bound" | "device_reregistered" | "beneficiary_added" | "session_activity" | "profile_change" | "loan_application" | "mfa_prompt" | "sim_reregistered" | "account_opened" | "account_reactivated" | "customer_onboarded" | "customer_review" | "credit_requested" | "list_updated" | "telco_lookup" | "data_export" | "api_request" | "api_lookup" | "config_change" | "role_change" | "staff_action" | "fraud_report" | "merchant_daily" | "terminal_activity";
+        ComplianceEventKind: "transfer_outbound" | "transfer_inbound" | "transfer_international" | "cash_payment" | "cash_withdrawal" | "cash_deposit" | "atm_withdrawal" | "pos_purchase" | "card_authorization" | "crypto_purchase" | "crypto_withdrawal" | "crypto_transfer" | "fiat_inflow" | "funding" | "loan_disbursement" | "loan_repayment" | "login" | "auth_failure" | "auth_success" | "device_bound" | "device_reregistered" | "beneficiary_added" | "session_activity" | "profile_change" | "loan_application" | "mfa_prompt" | "sim_reregistered" | "account_opened" | "account_reactivated" | "customer_onboarded" | "customer_review" | "credit_requested" | "list_updated" | "telco_lookup" | "data_export" | "api_request" | "api_lookup" | "config_change" | "role_change" | "staff_action" | "fraud_report" | "merchant_daily" | "terminal_activity" | "forex_buy" | "forex_sell" | "wallet_cash_out" | "sim_registered" | "sim_replaced" | "otp_used" | "designation_received" | "fic_order_received" | "incident_detected" | "vulnerability_confirmed" | "breach_confirmed" | "outsourcing_planned" | "outsourcing_signed" | "vendor_onboarded" | "vendor_review" | "remote_access_login" | "data_transfer" | "record_delete_requested" | "audit_log_check" | "eod_reconciliation" | "agent_daily" | "cdr_daily" | "config_scan" | "pentest_completed" | "security_audit_completed" | "audit_finding_opened" | "security_review_due";
         /** @description A sign-in attempt. */
         LoginEvent: {
             event_id: components["schemas"]["EventKey"];
@@ -3482,6 +4123,7 @@ export interface components {
          *     RiskOS lost it (see docs/DISASTER_RECOVERY.md); it is empty otherwise.
          */
         RiskDecision: {
+            jurisdiction?: components["schemas"]["JurisdictionResolution"];
             /** @description The request that produced this decision (for replays, the original request). */
             request_id: string;
             /**
@@ -3511,6 +4153,20 @@ export interface components {
              *     listed facts in the event's `compliance` block, or set the listed settings.
              */
             not_evaluated: components["schemas"]["NotEvaluatedRule"][];
+        };
+        /**
+         * @description Which country's pack judged the event and why (ADR-0007): the booking entity the event named,
+         *     the workspace's stated fallback, or none (`unresolved`: no pack judged it; `inactive`: the
+         *     booking entity's activation is in draft or suspended). Absent for workspaces with no activation.
+         */
+        JurisdictionResolution: {
+            /** @description The governing country; absent when unresolved or inactive. */
+            jurisdiction?: string;
+            /** @description The pack version that judged the event (gh@2026.10.1). */
+            pack?: string;
+            /** @enum {string} */
+            resolved_by: "booking_entity" | "fallback" | "unresolved" | "inactive";
+            booking_entity?: string;
         };
         ControlResult: {
             /** @example REG-01 */
@@ -3928,6 +4584,28 @@ export interface components {
                 /** @enum {string} */
                 type: "number" | "string" | "boolean";
                 operators: string[];
+                /** @description What the fact is, in plain words. */
+                label: string;
+                /** @description Event, Transaction, Login, Customer history or Recent activity. */
+                group: string;
+                /**
+                 * @description How a number reads: money (minor units of the event's currency), count, or ratio
+                 *     (1.5 = one and a half times).
+                 * @enum {string}
+                 */
+                unit?: "money" | "count" | "ratio";
+                /**
+                 * @description A free-text string that is an ISO country or currency code.
+                 * @enum {string}
+                 */
+                kind?: "country" | "currency";
+                /** @description The only values a string field takes, with their labels. */
+                values?: {
+                    value: string;
+                    label: string;
+                }[];
+                /** @description The event types that carry the fact; empty means every event. */
+                events: string[];
             }[];
         };
     };
@@ -4597,6 +5275,64 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             409: components["responses"]["Conflict"];
             429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getRuleStats: {
+        parameters: {
+            query?: {
+                days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The statistics. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RuleStats"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    testRuleOnRecentEvents: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    condition: components["schemas"]["RuleCondition"];
+                    /** @default 7 */
+                    days?: number;
+                };
+            };
+        };
+        responses: {
+            /** @description What the condition would have matched. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["RecentRuleTest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
             default: components["responses"]["DefaultError"];
         };
     };
@@ -6333,9 +7069,433 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
-    getCompliancePack: {
+    listCompliancePacks: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The packs. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CompliancePackSummary"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceJurisdictions: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The jurisdictions. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Jurisdiction"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceActivations: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The activations, the fallback first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["JurisdictionActivation"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    createComplianceActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationRequest"];
+            };
+        };
+        responses: {
+            /** @description The draft activation. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JurisdictionActivation"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    updateComplianceActivation: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["ActivationUpdate"];
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JurisdictionActivation"];
+                };
+            };
+            /** @description Proposed; applies when another person with `rules:approve` approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    setComplianceActivationStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** @enum {string} */
+                    status: "draft" | "shadow" | "live" | "suspended";
+                    rationale: string;
+                };
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JurisdictionActivation"];
+                };
+            };
+            /** @description Proposed; applies when another person with `rules:approve` approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    makeComplianceActivationFallback: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Rationale"];
+            };
+        };
+        responses: {
+            /** @description Applied at once. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["JurisdictionActivation"];
+                };
+            };
+            /** @description Proposed; applies when another person with `rules:approve` approves it. */
+            202: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceActivationReadiness: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                activation_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The readiness check. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationReadiness"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceActivationChanges: {
+        parameters: {
+            query?: {
+                activation_id?: string;
+                state?: "applied" | "pending" | "approved" | "rejected";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The changes. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ActivationChange"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveComplianceActivationChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionNote"];
+            };
+        };
+        responses: {
+            /** @description The approved change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectComplianceActivationChange: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                change_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["DecisionNote"];
+            };
+        };
+        responses: {
+            /** @description The rejected change. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ActivationChange"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifyComplianceGap: {
+        parameters: {
+            query?: {
+                /** @description The country whose pack the question is in; without it, the fallback's. */
+                jurisdiction?: string;
+            };
+            header?: never;
+            path: {
+                gap_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    note: string;
+                    /** @description Where the original text is (http or https). */
+                    link?: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The verification. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["GapVerification"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listActiveComplianceRules: {
+        parameters: {
+            query?: {
+                /** @description Only rules of this country. */
+                jurisdiction?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The active rules, by country and ID. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ActiveComplianceRule"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getCompliancePack: {
+        parameters: {
+            query?: {
+                /**
+                 * @description Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+                 *     the library's default modes. Without it, the workspace's own pack.
+                 */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -6372,6 +7532,11 @@ export interface operations {
                 q?: string;
                 /** @description Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile. */
                 applicable?: boolean;
+                /**
+                 * @description Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+                 *     the library's default modes. Without it, the workspace's own pack.
+                 */
+                jurisdiction?: string;
             };
             header?: never;
             path?: never;
@@ -6397,7 +7562,13 @@ export interface operations {
     };
     getComplianceRule: {
         parameters: {
-            query?: never;
+            query?: {
+                /**
+                 * @description The country whose pack the rule is in. Without it, the jurisdiction a country rule ID names
+                 *     (GH-REG-01 is Ghana's), else the workspace's fallback pack.
+                 */
+                jurisdiction?: string;
+            };
             header?: never;
             path: {
                 rule_id: string;
@@ -6423,7 +7594,10 @@ export interface operations {
     };
     getPackRuleConfig: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's. */
+                jurisdiction?: string;
+            };
             header?: never;
             path: {
                 rule_id: string;
@@ -6449,7 +7623,10 @@ export interface operations {
     };
     putPackRuleConfig: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's. */
+                jurisdiction?: string;
+            };
             header?: never;
             path: {
                 rule_id: string;
@@ -6490,7 +7667,10 @@ export interface operations {
     };
     listPackRuleVersions: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's. */
+                jurisdiction?: string;
+            };
             header?: never;
             path: {
                 rule_id: string;
@@ -6516,7 +7696,10 @@ export interface operations {
     };
     rollbackPackRule: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's. */
+                jurisdiction?: string;
+            };
             header?: never;
             path: {
                 rule_id: string;
@@ -7065,7 +8248,10 @@ export interface operations {
     };
     listComplianceClocks: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack to read; without it, the workspace's fallback pack. */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7087,9 +8273,67 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
-    listComplianceGaps: {
+    getComplianceClockMatrix: {
         parameters: {
             query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The rows. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["ClockMatrixRow"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    exportComplianceLibrary: {
+        parameters: {
+            query: {
+                /** @description The country; without it, every country with a pack. */
+                jurisdiction?: string;
+                format: "csv" | "pdf";
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The library. */
+            200: {
+                headers: {
+                    "Content-Disposition"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "text/csv": string;
+                    "application/pdf": string;
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceGaps: {
+        parameters: {
+            query?: {
+                /** @description The country whose pack to read; without it, the workspace's fallback pack. */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;
@@ -7113,7 +8357,10 @@ export interface operations {
     };
     listComplianceGlossary: {
         parameters: {
-            query?: never;
+            query?: {
+                /** @description The country whose pack to read; without it, the workspace's fallback pack. */
+                jurisdiction?: string;
+            };
             header?: never;
             path?: never;
             cookie?: never;

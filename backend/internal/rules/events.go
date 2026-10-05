@@ -24,6 +24,11 @@ type EventContext struct {
 	Kind  string            `json:"kind,omitempty"`
 	Facts map[string]any    `json:"facts,omitempty"`
 	Refs  map[string]string `json:"refs,omitempty"`
+	// BookingEntity names the licensed entity that holds the customer relationship: its
+	// activation's jurisdiction governs the event (ADR-0007).
+	BookingEntity string `json:"booking_entity,omitempty"`
+	// DataSubjectCountry is the country of the person the data is about (data-protection rules).
+	DataSubjectCountry string `json:"data_subject_country,omitempty"`
 }
 
 // KindInput is what kind derivation reads from an event.

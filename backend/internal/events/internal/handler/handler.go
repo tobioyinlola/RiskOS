@@ -234,6 +234,12 @@ func complianceFromAPI(v any) *rules.EventContext {
 	if c.Kind != nil {
 		out.Kind = string(*c.Kind)
 	}
+	if c.BookingEntity != nil {
+		out.BookingEntity = *c.BookingEntity
+	}
+	if c.DataSubjectCountry != nil {
+		out.DataSubjectCountry = *c.DataSubjectCountry
+	}
 	if c.Facts != nil {
 		out.Facts = *c.Facts
 	}
@@ -242,7 +248,7 @@ func complianceFromAPI(v any) *rules.EventContext {
 		for k, ref := range map[string]*string{
 			"card": r.Card, "bvn": r.Bvn, "phone": r.Phone, "address": r.Address, "loan": r.Loan, "inflow": r.Inflow,
 			"merchant": r.Merchant, "api_key": r.ApiKey, "sender": r.Sender, "reporter": r.Reporter,
-			"funding_source": r.FundingSource,
+			"funding_source": r.FundingSource, "national_id": r.NationalId, "agent": r.Agent,
 		} {
 			if ref != nil {
 				out.Refs[k] = *ref
@@ -337,5 +343,19 @@ func toAPI(o domain.Outcome) apigen.RiskDecision {
 	if o.EventID != nil {
 		d.EventId = new(ids.Format(ids.PrefixEvent, *o.EventID))
 	}
+	if j := o.Jurisdiction; j != nil {
+		d.Jurisdiction = &apigen.JurisdictionResolution{
+			ResolvedBy: apigen.JurisdictionResolutionResolvedBy(j.ResolvedBy), Jurisdiction: optional(j.Jurisdiction),
+			Pack: optional(j.Pack), BookingEntity: optional(j.BookingEntity),
+		}
+	}
 	return d
+}
+
+// optional returns nil for an empty string, so optional fields are omitted.
+func optional(s string) *string {
+	if s == "" {
+		return nil
+	}
+	return &s
 }

@@ -38,6 +38,10 @@ type Backtest = Schemas["Backtest"];
 
 const INVALIDATE = ["compliance"];
 
+/** The country whose pack a rule is configured in (an inherited rule is in several). */
+const country = (rule: Rule) =>
+  rule.jurisdiction ? { jurisdiction: rule.jurisdiction } : {};
+
 /** "Floor: 100,000.00 NGN; Window: 1 day", for settings by name. */
 export function describeSettings(
   rule: Rule,
@@ -204,7 +208,7 @@ export function ConfigureDialog({
   const save = useAction(
     async () => {
       const res = await api().PUT("/api/v1/compliance/rules/{rule_id}/config", {
-        params: { path: { rule_id: rule.id } },
+        params: { path: { rule_id: rule.id }, query: country(rule) },
         body: { mode, settings: current as Record<string, number>, reason },
       });
       const body = unwrap(res);
@@ -401,7 +405,7 @@ export function ConfigHistory({
   onDone: (message: string) => void;
 }) {
   const { can } = useSession();
-  const q = useComplianceHistory(rule.id);
+  const q = useComplianceHistory(rule.id, rule.jurisdiction);
   const userName = useUserName();
   const [target, setTarget] = useState<number>();
   const [reason, setReason] = useState("");
@@ -410,7 +414,7 @@ export function ConfigHistory({
       const res = await api().POST(
         "/api/v1/compliance/rules/{rule_id}/rollback",
         {
-          params: { path: { rule_id: rule.id } },
+          params: { path: { rule_id: rule.id }, query: country(rule) },
           body: { version: target!, reason },
         },
       );

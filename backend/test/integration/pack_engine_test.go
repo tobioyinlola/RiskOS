@@ -54,6 +54,10 @@ func notEvaluated(d apigen.RiskDecision, rule string) []string {
 func TestRulePackEngine(t *testing.T) {
 	s := newStackWith(t, time.Second, generousLimits(), shared.rdb, withConsole(auth.ConsoleConfig{}, false))
 	a := s.createTenant(t, "Pack engine")
+	// Risk signals at the pack's defaults (monitoring), as for profiles set up before automatic
+	// profiles started them off: these tests read what the signals record.
+	_, err := shared.owner.Exec(t.Context(), "UPDATE jurisdiction_activations SET signal_default = 'pack' WHERE tenant_id = $1", a.id)
+	require.NoError(t, err)
 	key := a.testKey
 	decide := func(e map[string]any) apigen.RiskDecision {
 		t.Helper()
@@ -65,6 +69,7 @@ func TestRulePackEngine(t *testing.T) {
 
 	t.Run("without a compliance profile no pack runs", func(t *testing.T) {
 		none := s.createTenant(t, "No profile")
+		withoutCompliance(t, none.id)
 		r := s.ingest(t, none.testKey, money("np-1", "transfer_outbound", "acc_np", 5_000_000, "NGN", bound))
 		require.Equal(t, http.StatusOK, r.status, r.String())
 		d := decode[apigen.RiskDecision](t, r)
@@ -160,6 +165,7 @@ func TestRulePackEngine(t *testing.T) {
 
 	t.Run("another tenant's windows are its own", func(t *testing.T) {
 		b := s.createTenant(t, "Pack engine B")
+		withoutCompliance(t, b.id)
 		for i := range 3 {
 			r := s.ingest(t, b.testKey, money(fmt.Sprintf("b-%d", i), "atm_withdrawal", "acc_atm", 90_000*100, "NGN", nil))
 			require.Equal(t, http.StatusOK, r.status, r.String())

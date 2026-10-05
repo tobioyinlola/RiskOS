@@ -83,7 +83,7 @@ export function formatParameterValue(p: Parameter, v: number): string {
       return `${formatCount(v)} km/h`;
     case "hour":
       return Number.isInteger(v)
-        ? `${String(v).padStart(2, "0")}:00 Lagos time`
+        ? `${String(v).padStart(2, "0")}:00 local time`
         : `${v} h`;
     case "score":
       return `${v} / 100`;
@@ -239,4 +239,79 @@ export function formatDue(dueAt: string, now: Date = new Date()): string {
       ? `${hours}h ${mins}m`
       : `${mins}m`;
   return ms >= 0 ? `due in ${span}` : `overdue by ${span}`;
+}
+
+/** Where a country library's rule comes from (ADR-0007), with what that means for its numbers. */
+export const PROVENANCE: Record<
+  NonNullable<Rule["provenance"]>,
+  { label: string; tone: Tone; meaning: string }
+> = {
+  regulatory: {
+    label: "Regulatory",
+    tone: "danger",
+    meaning: "Follows a cited law, regulation or directive.",
+  },
+  industry_practice: {
+    label: "Industry practice",
+    tone: "info",
+    meaning:
+      "A published typology or practice. No law sets its numbers: they are starting values to tune.",
+  },
+  my_design: {
+    label: "Library design",
+    tone: "neutral",
+    meaning:
+      "The library author's proposal. Starting values, not regulation: calibrate them in monitoring first.",
+  },
+};
+
+/** Why a rule ships off. */
+export const OFF_REASON: Record<NonNullable<Rule["off_reason"]>, string> = {
+  threshold_to_be_confirmed: "Off until a threshold is confirmed",
+  verify_first: "Off until the legal basis is verified",
+};
+
+/** What a clock's duration rests on. */
+export const CLOCK_KIND: Record<
+  Schemas["ComplianceClockKind"],
+  { label: string; tone: Tone }
+> = {
+  legal: { label: "Legal clock", tone: "danger" },
+  internal_policy: { label: "Internal policy", tone: "info" },
+  design_placeholder: { label: "Design placeholder", tone: "warning" },
+  not_found: { label: "Not found", tone: "warning" },
+};
+
+const LINEAGE: Record<Schemas["ComplianceLineage"]["kind"], string> = {
+  param: "A country version of",
+  analogue: "An analogue of",
+  cross_reference: "Cross-references",
+  stricter: "Stricter than",
+  new_local: "New for this country",
+};
+
+/**
+ * How a rule relates to the Nigeria library, in words: inherited unchanged, a country version
+ * (with the settings it changes), or new.
+ */
+export function lineageText(r: Rule): string {
+  const changes = r.changes?.length
+    ? `, with its own ${r.changes.join(", ")}`
+    : "";
+  if (r.inherited_from)
+    return `Inherited from the Nigeria library's ${r.id}${changes}.`;
+  if (!r.lineage) return "";
+  const of = r.lineage.of.join(" and ");
+  if (r.lineage.kind === "new_local")
+    return of
+      ? `New for this country (related: ${of}).`
+      : "New for this country.";
+  return `${LINEAGE[r.lineage.kind]} ${of ? `Nigeria's ${of}` : "a Nigerian practice"}${changes}.`;
+}
+
+/** A country's flag as emoji, from its ISO 3166-1 alpha-2 code. */
+export function flag(code: string): string {
+  return [...code.toUpperCase()]
+    .map((c) => String.fromCodePoint(0x1f1e6 + c.charCodeAt(0) - 65))
+    .join("");
 }

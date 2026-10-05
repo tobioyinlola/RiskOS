@@ -74,8 +74,39 @@ local dry = (not write) and member ~= ''
 local _, dflag, dfield, _, damt, dc
 if dry then _, dflag, dfield, _, damt, dc = parse(member) end
 
+-- days_over counts the local days of the window whose total in the event's currency reached a
+-- threshold. fn is "days_over:<threshold>:<offset ms>", the offset moving UTC to the local day's
+-- start (ADR-0007).
+local function days_over(fn, win)
+  local threshold, offset = string.match(fn, '^days_over:(%-?%d+):(%-?%d+)$')
+  threshold, offset = tonumber(threshold), tonumber(offset)
+  local ms = redis.call('ZRANGEBYSCORE', K, now - win, now, 'WITHSCORES')
+  local totals = {}
+  local function add(flag, amt, c, t)
+    if flag == '1' and c == cur and amt ~= '' then
+      local d = math.floor((t + offset) / 86400000)
+      totals[d] = (totals[d] or 0) + tonumber(amt)
+    end
+  end
+  for i = 1, #ms, 2 do
+    local _, flag, _, _, amt, c = parse(ms[i])
+    if flag == '?' then return '?' end
+    add(flag, amt, c, tonumber(ms[i + 1]))
+  end
+  if dry then
+    if dflag == '?' then return '?' end
+    add(dflag, damt, dc, now)
+  end
+  local n = 0
+  for _, s in pairs(totals) do
+    if s >= threshold then n = n + 1 end
+  end
+  return n
+end
+
 -- scan computes fn over the whole window, member by member.
 local function scan(fn, win)
+  if string.sub(fn, 1, 10) == 'days_over:' then return days_over(fn, win) end
   local ms = redis.call('ZRANGEBYSCORE', K, now - win, now)
   if dry then ms[#ms + 1] = member end
   local unknown, count, sum = false, 0, 0
@@ -288,7 +319,7 @@ return out
 `
 
 // profileScript keeps first activity per user (KEYS[1]), last activity per account (KEYS[2]), the
-// largest amount per user and currency, and the hours of the day (ARGV[6], Lagos time) the user
+// largest amount per user and currency, and the hours of the day (ARGV[6], the governing jurisdiction's time) the user
 // was active in as a 24-bit mask, all by event time. Returns the user's first activity, the
 // account's previous activity, the previous largest amount, the previous hour mask and the
 // previous location and its time ("" when unknown).

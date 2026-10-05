@@ -38,6 +38,8 @@ type (
 	Control = domain.Control
 	// NotEvaluated is a rule pack rule an event triggered that could not be evaluated.
 	NotEvaluated = domain.NotEvaluated
+	// JurisdictionResolution is which country's pack judged an event.
+	JurisdictionResolution = domain.JurisdictionResolution
 	// TestResult is the outcome of testing a rule against an event.
 	TestResult = service.TestResult
 )
@@ -67,6 +69,8 @@ type RuleHandlers interface {
 	GetRiskSettings(ctx context.Context, req apigen.GetRiskSettingsRequestObject) (apigen.GetRiskSettingsResponseObject, error)
 	PutRiskSettings(ctx context.Context, req apigen.PutRiskSettingsRequestObject) (apigen.PutRiskSettingsResponseObject, error)
 	ListRules(ctx context.Context, req apigen.ListRulesRequestObject) (apigen.ListRulesResponseObject, error)
+	GetRuleStats(ctx context.Context, req apigen.GetRuleStatsRequestObject) (apigen.GetRuleStatsResponseObject, error)
+	TestRuleOnRecentEvents(ctx context.Context, req apigen.TestRuleOnRecentEventsRequestObject) (apigen.TestRuleOnRecentEventsResponseObject, error)
 	CreateRule(ctx context.Context, req apigen.CreateRuleRequestObject) (apigen.CreateRuleResponseObject, error)
 	GetRule(ctx context.Context, req apigen.GetRuleRequestObject) (apigen.GetRuleResponseObject, error)
 	UpdateRule(ctx context.Context, req apigen.UpdateRuleRequestObject) (apigen.UpdateRuleResponseObject, error)

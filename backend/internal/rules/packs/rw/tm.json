@@ -1,0 +1,2519 @@
+{
+  "rules": [
+    {
+      "id": "RW-TM-01",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-04"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-04"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-02",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "ATO-03"
+        ]
+      },
+      "regulators": [
+        "BNR",
+        "RURA"
+      ],
+      "sources": [
+        "RS21",
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "telco",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "wallet_cash_out",
+          "login",
+          "mfa_prompt"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "telco.sim_swap"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "exists",
+                    "event": "sim_replaced",
+                    "window": "window",
+                    "by": "account"
+                  }
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "exists",
+                    "event": "sim_reregistered",
+                    "window": "window",
+                    "by": "account"
+                  }
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "txn.amount"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "floor"
+                }
+              },
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "login",
+                    "mfa_prompt"
+                  ]
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "sim_swap",
+        "min_decision": "step_up",
+        "evidence": [
+          "swap_time",
+          "channel"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "How long after a SIM change (not a legal clock)",
+          "type": "duration",
+          "default": 259200,
+          "min": 3600,
+          "max": 2592000
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transaction that counts (suggested RWF 200,000)",
+          "type": "money",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-03",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SIM-02"
+        ]
+      },
+      "regulators": [
+        "RURA"
+      ],
+      "sources": [
+        "RS21"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The draft RURA cap of three SIMs per operator for Rwandan ID holders is unconfirmed and not applied.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "sim_registered",
+          "sim_replaced"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "sim_change",
+            "window": "window",
+            "by": "national_id"
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "changes"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "repeated_sim_changes"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "changes",
+          "label": "SIM registrations or replacements on one national ID that count",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 20
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-04",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "SIM-01"
+        ]
+      },
+      "regulators": [
+        "RURA",
+        "BNR"
+      ],
+      "sources": [
+        "RS24",
+        "RS21"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "identity",
+        "telco"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_inbound",
+          "funding"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "identity.sim_nida_verified"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              },
+              {
+                "left": {
+                  "fact": "phone.foreign"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "high_value"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "unverified_or_foreign_sim_load",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "high_value",
+          "label": "Large load that counts (suggested RWF 1,000,000)",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-05",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "ATO-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "ATO-01"
+      },
+      "overrides": {
+        "floor": {
+          "currency": "RWF",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "label": "Smallest amount that counts (suggested RWF 200,000)"
+        }
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-06",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "ATO-02"
+        ]
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "profile_change",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "profile.field"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "password",
+                      "pin",
+                      "phone",
+                      "email"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "credential_change_before_transfer",
+        "min_decision": "step_up",
+        "evidence": [
+          "profile.field"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "How long after a change",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer that counts (suggested RWF 200,000)",
+          "type": "money",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-07",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-01"
+      },
+      "overrides": {
+        "floor": {
+          "currency": "RWF",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "label": "Smallest amount that counts (suggested RWF 200,000)"
+        }
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23",
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-08",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-02"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-02"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-09",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-03"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-03"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-10",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-05"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-05"
+      },
+      "overrides": {
+        "large": {
+          "currency": "RWF",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000000,
+          "label": "Large payment after dormancy (suggested RWF 1,000,000)"
+        }
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-11",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-06"
+        ]
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23",
+        "RS24"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "loan_application",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "device",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "device_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "national_id",
+                "field": "account.id"
+              }
+            },
+            "op": "gt",
+            "right": {
+              "param": "national_id_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "phone",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "address",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "shared_identifiers",
+        "min_decision": "review",
+        "evidence": [
+          "shared_identifier",
+          "linked_accounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "device_accounts",
+          "label": "Accounts on one device that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "national_id_accounts",
+          "label": "Accounts allowed on one national ID (as in RW-REG-09)",
+          "type": "count",
+          "default": 3,
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "identity_accounts",
+          "label": "Accounts on one phone or address that count",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 15552000,
+          "min": 604800,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-12",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "VEL-04"
+        ]
+      },
+      "regulators": [
+        "BNR",
+        "FIC"
+      ],
+      "sources": [
+        "RS25",
+        "RS12",
+        "RS9"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "transaction_any",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "all": [
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "gte",
+                      "right": {
+                        "times": {
+                          "factor": "band_low",
+                          "of": {
+                            "param": "cash_ceiling"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "lte",
+                      "right": {
+                        "times": {
+                          "factor": "band_high",
+                          "of": {
+                            "param": "cash_ceiling"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "transactions"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "count",
+                "event": "transaction_any",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "all": [
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "gte",
+                      "right": {
+                        "times": {
+                          "factor": "band_low",
+                          "of": {
+                            "param": "ekash_cap"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "lte",
+                      "right": {
+                        "times": {
+                          "factor": "band_high",
+                          "of": {
+                            "param": "ekash_cap"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "transactions"
+            }
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "param": "use_own_limit"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": 1
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "count",
+                    "event": "transaction_any",
+                    "window": "window",
+                    "by": "account",
+                    "where": {
+                      "all": [
+                        {
+                          "left": {
+                            "fact": "txn.amount"
+                          },
+                          "op": "gte",
+                          "right": {
+                            "times": {
+                              "factor": "band_low",
+                              "of": {
+                                "param": "own_limit"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "left": {
+                            "fact": "txn.amount"
+                          },
+                          "op": "lte",
+                          "right": {
+                            "times": {
+                              "factor": "band_high",
+                              "of": {
+                                "param": "own_limit"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "gte",
+                "right": {
+                  "param": "transactions"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "structuring",
+        "min_decision": "review",
+        "evidence": [
+          "limit_hit",
+          "amounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "transactions",
+          "label": "Transactions just under a limit that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "band_low",
+          "label": "Lower edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 0.99
+        },
+        {
+          "name": "band_high",
+          "label": "Upper edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.999,
+          "min": 0.9,
+          "max": 0.9999
+        },
+        {
+          "name": "cash_ceiling",
+          "label": "Daily cash ceiling (as in RW-REG-08)",
+          "type": "money",
+          "default": 5000000,
+          "min": 0,
+          "max": 5000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "ekash_cap",
+          "label": "eKash cap (as in RW-REG-07)",
+          "type": "money",
+          "default": 10000000,
+          "min": 0,
+          "max": 10000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "use_own_limit",
+          "label": "Also watch your institution's own limit",
+          "type": "flag",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        },
+        {
+          "name": "own_limit",
+          "label": "Your institution's own limit",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-13",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS23"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "sum",
+            "event": "transfer_outbound",
+            "window": "window",
+            "by": "account",
+            "field": "txn.amount",
+            "where": {
+              "left": {
+                "fact": "beneficiary.is_new"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "new_payee_total"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "large_payment_to_new_payee"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "new_payee_total",
+          "label": "Paid to new payees in 24 hours that counts (suggested band RWF 500,000 to 1,000,000)",
+          "type": "money",
+          "default": 1000000,
+          "min": 100000,
+          "max": 100000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-14",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "VEL-02",
+          "BEH-01"
+        ]
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_outbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "times": {
+                    "factor": "multiple",
+                    "of": {
+                      "agg": {
+                        "fn": "daily_avg",
+                        "event": "transfer_outbound",
+                        "window": "baseline",
+                        "by": "account",
+                        "field": "txn.amount"
+                      }
+                    }
+                  }
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_outbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                },
+                "op": "gt",
+                "right": {
+                  "param": "floor"
+                }
+              }
+            ]
+          },
+          "weight": "weight_daily",
+          "label": "Daily total far above usual"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "history.amount_zscore"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "deviations"
+                }
+              },
+              {
+                "left": {
+                  "fact": "customer.history_age"
+                },
+                "op": "gte",
+                "right": {
+                  "param": "history"
+                }
+              }
+            ]
+          },
+          "weight": "weight_amount",
+          "label": "Single amount far above history"
+        }
+      ],
+      "outcome": {
+        "severity": "medium",
+        "reason": "value_spike"
+      },
+      "parameters": [
+        {
+          "name": "weight_daily",
+          "label": "Points for a daily total far above usual",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "weight_amount",
+          "label": "Points for a single amount far above history",
+          "type": "points",
+          "default": 24,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "multiple",
+          "label": "Multiple of the usual daily amount",
+          "type": "ratio",
+          "default": 3,
+          "min": 1.5,
+          "max": 20
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "baseline",
+          "label": "Usual-amount period",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 15552000
+        },
+        {
+          "name": "floor",
+          "label": "Smallest daily total that counts (suggested RWF 200,000)",
+          "type": "money",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "deviations",
+          "label": "Standard deviations above the customer's history",
+          "type": "ratio",
+          "default": 3,
+          "min": 2,
+          "max": 10
+        },
+        {
+          "name": "history",
+          "label": "History needed first",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 15552000
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-15",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "BEH-02"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "BEH-02"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-16",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS24"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Based on a single case; no float threshold was found. Every number is a placeholder to calibrate on your agent network.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "agent_network"
+      ],
+      "trigger": {
+        "events": [
+          "wallet_cash_out",
+          "agent_daily"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "wallet_cash_out",
+                "window": "window",
+                "by": "agent",
+                "field": "customer.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "cluster_min"
+            }
+          },
+          {
+            "left": {
+              "fact": "agent.float_topup_to_peer_p95"
+            },
+            "op": "gt",
+            "right": {
+              "param": "float_peer_multiple"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "agent_cash_out_cluster",
+        "min_decision": "review",
+        "visibility": "compliance_only"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "cluster_min",
+          "label": "Customers cashing out at one agent that count (to be set)",
+          "type": "count",
+          "default": null,
+          "min": 2,
+          "max": 1000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 3600,
+          "min": 600,
+          "max": 86400
+        },
+        {
+          "name": "float_peer_multiple",
+          "label": "Float top-ups above similar agents, as a multiple (to be set)",
+          "type": "ratio",
+          "default": null,
+          "min": 1,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-17",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Sums compare like currencies only: a remittance in another currency leaves the rule not evaluated.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_international",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "txn.direction"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": "credit"
+                  }
+                }
+              }
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "wallet_cash_out",
+                "window": "window",
+                "by": "account",
+                "field": "agent.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "agents"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "wallet_cash_out",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_international",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "credit"
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "remittance_cash_out_spread",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "floor",
+          "label": "Smallest remittance that counts (suggested RWF 200,000)",
+          "type": "money",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "agents",
+          "label": "Different agents that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 259200,
+          "min": 86400,
+          "max": 1209600
+        },
+        {
+          "name": "share",
+          "label": "Share of the remittance cashed out",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-18",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Real estate is rated Medium-High in the 2024 national risk assessment, but no amount was found; enter one before switching this on.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "customer_profile",
+        "counterparty_tags"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ],
+        "scope": {
+          "any": [
+            {
+              "left": {
+                "fact": "counterparty.tag"
+              },
+              "op": "eq",
+              "right": {
+                "literal": "real_estate"
+              }
+            },
+            {
+              "left": {
+                "fact": "txn.property_purpose"
+              },
+              "op": "eq",
+              "right": {
+                "literal": true
+              }
+            }
+          ]
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gte",
+            "right": {
+              "param": "realestate_floor"
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "funding.cash_share_30d"
+                },
+                "op": "gte",
+                "right": {
+                  "param": "cash_share"
+                }
+              },
+              {
+                "left": {
+                  "fact": "account.age"
+                },
+                "op": "lt",
+                "right": {
+                  "param": "new_account"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.amount_to_declared_income"
+                },
+                "op": "gt",
+                "right": {
+                  "param": "income_multiple"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "real_estate_payment",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "realestate_floor",
+          "label": "Property payment that counts (to be set)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "cash_share",
+          "label": "Share funded by cash in 30 days",
+          "type": "ratio",
+          "default": 0.5,
+          "min": 0.1,
+          "max": 1
+        },
+        {
+          "name": "new_account",
+          "label": "How long an account counts as recent",
+          "type": "duration",
+          "default": 7776000,
+          "min": 604800,
+          "max": 31536000
+        },
+        {
+          "name": "income_multiple",
+          "label": "Payment as a multiple of declared monthly income",
+          "type": "ratio",
+          "default": 5,
+          "min": 1,
+          "max": 100
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-19",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ],
+        "scope": {
+          "left": {
+            "fact": "customer.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "corporate"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "fact": "company.shell_indicators"
+        },
+        "op": "gte",
+        "right": {
+          "param": "indicators"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "shell_company",
+        "min_decision": "review",
+        "evidence": [
+          "indicators"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "indicators",
+          "label": "Shell-company indicators that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 6
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-20",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "INS-01",
+          "INS-02"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "staff_directory",
+        "peer_groups"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ]
+      },
+      "branches": [
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "account.linked_to_employee"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "fact": "account.volume_above_peer_p95"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          },
+          "weight": "weight_volume",
+          "label": "Staff-linked account above peers"
+        },
+        {
+          "condition": {
+            "all": [
+              {
+                "left": {
+                  "fact": "event.kind"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "transfer_outbound"
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "exists",
+                    "event": "staff_action",
+                    "window": "window",
+                    "by": "customer",
+                    "where": {
+                      "left": {
+                        "fact": "staff.action"
+                      },
+                      "op": "in",
+                      "right": {
+                        "literal": [
+                          "view_contact",
+                          "change_contact",
+                          "change_limits"
+                        ]
+                      }
+                    }
+                  }
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          },
+          "weight": "weight_access",
+          "label": "Staff touched the customer before money left"
+        }
+      ],
+      "outcome": {
+        "severity": "high",
+        "reason": "insider_embezzlement",
+        "min_decision": "review",
+        "visibility": "compliance_only"
+      },
+      "parameters": [
+        {
+          "name": "weight_volume",
+          "label": "Points for a staff-linked account above peers",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "weight_access",
+          "label": "Points for staff access before money left",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-21",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "PON-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "PON-01"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "RW-TM-22",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local",
+        "of": [
+          "CRY-01",
+          "CRY-03",
+          "CRY-08"
+        ]
+      },
+      "regulators": [
+        "CMA",
+        "BNR"
+      ],
+      "sources": [
+        "RS13",
+        "RS25"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "counterparty_tags"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "field": "sender.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "senders"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "counterparty.tag"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "vasp",
+                      "p2p_crypto",
+                      "unlicensed_vasp"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "crypto_exposure",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "senders",
+          "label": "Different senders that count",
+          "type": "count",
+          "default": 10,
+          "min": 3,
+          "max": 1000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "share",
+          "label": "Share sent to crypto counterparties",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-23",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS5"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "cash_deposit",
+          "forex_buy"
+        ],
+        "scope": {
+          "left": {
+            "fact": "txn.cash_source"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "cross_border"
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "transaction_any",
+            "window": "window",
+            "by": "customer",
+            "where": {
+              "all": [
+                {
+                  "left": {
+                    "fact": "txn.cash_source"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": "cross_border"
+                  }
+                },
+                {
+                  "all": [
+                    {
+                      "left": {
+                        "fact": "txn.amount_usd"
+                      },
+                      "op": "gte",
+                      "right": {
+                        "times": {
+                          "factor": "band_low",
+                          "of": {
+                            "param": "declaration_threshold"
+                          }
+                        }
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "txn.amount_usd"
+                      },
+                      "op": "lte",
+                      "right": {
+                        "times": {
+                          "factor": "band_high",
+                          "of": {
+                            "param": "declaration_threshold"
+                          }
+                        }
+                      }
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "deposits"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "declaration_structuring",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "deposits",
+          "label": "Foreign-cash deposits just under the line that count",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "band_low",
+          "label": "Lower edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 0.99
+        },
+        {
+          "name": "band_high",
+          "label": "Upper edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.999,
+          "min": 0.9,
+          "max": 0.9999
+        },
+        {
+          "name": "declaration_threshold",
+          "label": "Declaration line (as in RW-REG-01)",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000,
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "RW-TM-24",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "RURA"
+      ],
+      "applies_to": [
+        "telco"
+      ],
+      "sources": [
+        "RS28"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "telco"
+      ],
+      "trigger": {
+        "events": [
+          "cdr_daily"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "telco.sims_per_device"
+            },
+            "op": "gte",
+            "right": {
+              "param": "simbox_sims"
+            }
+          },
+          {
+            "left": {
+              "fact": "telco.simbox_route_pattern"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "sim_box",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "simbox_sims",
+          "label": "SIMs on one device or gateway that count",
+          "type": "count",
+          "default": 30,
+          "min": 5,
+          "max": 1000
+        }
+      ]
+    }
+  ]
+}

@@ -14,7 +14,7 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
-    "generate:api": "openapi-typescript ../backend/api/openapi.yaml --output lib/api/schema.gen.ts && openapi-typescript ../backend/api/admin.yaml --output lib/api/admin.gen.ts"
+    "generate:api": "openapi-typescript ../backend/api/openapi.yaml --output lib/api/schema.gen.ts && openapi-typescript ../backend/api/admin.yaml --output lib/api/admin.gen.ts && node scripts/openapi-json.mjs"
   },
   "dependencies": {
     "@phosphor-icons/react": "^2.1.10",
@@ -51,7 +51,8 @@
     "prettier-plugin-tailwindcss": "^0.8.1",
     "tailwindcss": "^4",
     "typescript": "^5",
-    "vitest": "5.0.2"
+    "vitest": "5.0.2",
+    "yaml": "2.9.1"
   },
   "packageManager": "pnpm@12.8.1",
   "engines": {

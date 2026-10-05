@@ -86,6 +86,12 @@ type AggRef struct {
 	Per    string
 	Where  *pack.Cond
 	Window int64
+	// Calendar is day or month for a window that runs from the start of the local period; the
+	// engine resolves its length at the event's time (TenantPack.Query).
+	Calendar string
+	// Over, for days_over, is the daily total a day must reach, in minor units of OverCurrency.
+	Over         float64
+	OverCurrency string
 	// Retention is the longest window the key may be asked for: the window setting's maximum.
 	Retention int64
 	// rule is the compiled rule the filter's settings come from.
@@ -186,7 +192,14 @@ func walkAggs(def *pack.Rule, fn func(*pack.Aggregate)) {
 func (r *Rule) ref(a *pack.Aggregate) AggRef {
 	ref := AggRef{
 		Fn: a.Fn, Event: a.Event, By: a.By, Field: a.Field, Per: a.Per, Where: a.Where,
-		Window: int64(r.params[a.Window]), rule: r,
+		Window: int64(r.params[a.Window]), Calendar: a.Calendar, rule: r,
+	}
+	if a.Over != "" {
+		factor := 1.0
+		if a.OverFactor != "" {
+			factor = r.params[a.OverFactor]
+		}
+		ref.Over, ref.OverCurrency = math.Round(r.params[a.Over]*factor), r.currency[a.Over]
 	}
 	for _, p := range r.Def.Parameters {
 		if p.Name == a.Window {
@@ -446,9 +459,11 @@ func (ev *evaluator) operand(o *pack.Operand) value {
 		return value{v: o.Literal, ok: true}
 	case o.Agg != nil:
 		ref := ev.r.aggs[o.Agg]
-		if ev.r.unset[o.Agg.Window] {
-			ev.missing["setting:"+o.Agg.Window] = true
-			return value{}
+		for _, name := range []string{o.Agg.Window, o.Agg.Over, o.Agg.OverFactor} {
+			if name != "" && ev.r.unset[name] {
+				ev.missing["setting:"+name] = true
+				return value{}
+			}
 		}
 		label := fmt.Sprintf("%s %s by %s", ref.Fn, ref.Event, ref.By)
 		if ev.env.Aggs == nil {

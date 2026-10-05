@@ -108,11 +108,15 @@ func (Store) Get(ctx context.Context, id uuid.UUID, createdAt time.Time) (domain
 	if err := json.Unmarshal(row.NotEvaluated, &notEvaluated); err != nil {
 		return domain.Result{}, fmt.Errorf("decode rules not evaluated: %w", err)
 	}
+	var jurisdiction *domain.JurisdictionResolution
+	if err := json.Unmarshal(row.Jurisdiction, &jurisdiction); err != nil {
+		return domain.Result{}, fmt.Errorf("decode jurisdiction: %w", err)
+	}
 	return domain.Result{
 		ID: row.ID, CreatedAt: row.CreatedAt, EventID: row.EventID, EngineVersion: row.EngineVersion,
 		Score: int(row.RiskScore), Level: domain.Level(row.RiskLevel), Decision: domain.Decision(row.Decision),
 		Signals: nonNil(signals), DegradedSignals: nonNilStrings(row.DegradedSignals), RequestID: row.RequestID,
-		Controls: nonNilControls(controls), NotEvaluated: nonNilNotEvaluated(notEvaluated),
+		Controls: nonNilControls(controls), NotEvaluated: nonNilNotEvaluated(notEvaluated), Jurisdiction: jurisdiction,
 	}, nil
 }
 

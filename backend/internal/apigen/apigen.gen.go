@@ -21,7 +21,167 @@ import (
 	"github.com/getkin/kin-openapi/openapi3"
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for ActivationChangeAction.
+const (
+	ActivationChangeActionCreate   ActivationChangeAction = "create"
+	ActivationChangeActionFallback ActivationChangeAction = "fallback"
+	ActivationChangeActionStatus   ActivationChangeAction = "status"
+	ActivationChangeActionUpdate   ActivationChangeAction = "update"
+)
+
+// Valid indicates whether the value is a known member of the ActivationChangeAction enum.
+func (e ActivationChangeAction) Valid() bool {
+	switch e {
+	case ActivationChangeActionCreate:
+		return true
+	case ActivationChangeActionFallback:
+		return true
+	case ActivationChangeActionStatus:
+		return true
+	case ActivationChangeActionUpdate:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivationChangeState.
+const (
+	ActivationChangeStateApplied  ActivationChangeState = "applied"
+	ActivationChangeStateApproved ActivationChangeState = "approved"
+	ActivationChangeStatePending  ActivationChangeState = "pending"
+	ActivationChangeStateRejected ActivationChangeState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ActivationChangeState enum.
+func (e ActivationChangeState) Valid() bool {
+	switch e {
+	case ActivationChangeStateApplied:
+		return true
+	case ActivationChangeStateApproved:
+		return true
+	case ActivationChangeStatePending:
+		return true
+	case ActivationChangeStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivationChangeStatusFrom.
+const (
+	ActivationChangeStatusFromDraft     ActivationChangeStatusFrom = "draft"
+	ActivationChangeStatusFromLive      ActivationChangeStatusFrom = "live"
+	ActivationChangeStatusFromShadow    ActivationChangeStatusFrom = "shadow"
+	ActivationChangeStatusFromSuspended ActivationChangeStatusFrom = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the ActivationChangeStatusFrom enum.
+func (e ActivationChangeStatusFrom) Valid() bool {
+	switch e {
+	case ActivationChangeStatusFromDraft:
+		return true
+	case ActivationChangeStatusFromLive:
+		return true
+	case ActivationChangeStatusFromShadow:
+		return true
+	case ActivationChangeStatusFromSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivationChangeStatusTo.
+const (
+	ActivationChangeStatusToDraft     ActivationChangeStatusTo = "draft"
+	ActivationChangeStatusToLive      ActivationChangeStatusTo = "live"
+	ActivationChangeStatusToShadow    ActivationChangeStatusTo = "shadow"
+	ActivationChangeStatusToSuspended ActivationChangeStatusTo = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the ActivationChangeStatusTo enum.
+func (e ActivationChangeStatusTo) Valid() bool {
+	switch e {
+	case ActivationChangeStatusToDraft:
+		return true
+	case ActivationChangeStatusToLive:
+		return true
+	case ActivationChangeStatusToShadow:
+		return true
+	case ActivationChangeStatusToSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActivationReadinessItemsKind.
+const (
+	FxRate       ActivationReadinessItemsKind = "fx_rate"
+	Licence      ActivationReadinessItemsKind = "licence"
+	OpenQuestion ActivationReadinessItemsKind = "open_question"
+	Setting      ActivationReadinessItemsKind = "setting"
+)
+
+// Valid indicates whether the value is a known member of the ActivationReadinessItemsKind enum.
+func (e ActivationReadinessItemsKind) Valid() bool {
+	switch e {
+	case FxRate:
+		return true
+	case Licence:
+		return true
+	case OpenQuestion:
+		return true
+	case Setting:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActiveComplianceRuleMode.
+const (
+	ActiveComplianceRuleModeLive   ActiveComplianceRuleMode = "live"
+	ActiveComplianceRuleModeShadow ActiveComplianceRuleMode = "shadow"
+)
+
+// Valid indicates whether the value is a known member of the ActiveComplianceRuleMode enum.
+func (e ActiveComplianceRuleMode) Valid() bool {
+	switch e {
+	case ActiveComplianceRuleModeLive:
+		return true
+	case ActiveComplianceRuleModeShadow:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ActiveComplianceRuleProvenance.
+const (
+	ActiveComplianceRuleProvenanceIndustryPractice ActiveComplianceRuleProvenance = "industry_practice"
+	ActiveComplianceRuleProvenanceMyDesign         ActiveComplianceRuleProvenance = "my_design"
+	ActiveComplianceRuleProvenanceRegulatory       ActiveComplianceRuleProvenance = "regulatory"
+)
+
+// Valid indicates whether the value is a known member of the ActiveComplianceRuleProvenance enum.
+func (e ActiveComplianceRuleProvenance) Valid() bool {
+	switch e {
+	case ActiveComplianceRuleProvenanceIndustryPractice:
+		return true
+	case ActiveComplianceRuleProvenanceMyDesign:
+		return true
+	case ActiveComplianceRuleProvenanceRegulatory:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for ActivityEventType.
 const (
@@ -308,6 +468,30 @@ func (e CaseStatus) Valid() bool {
 	}
 }
 
+// Defines values for ComplianceClockKind.
+const (
+	ComplianceClockKindDesignPlaceholder ComplianceClockKind = "design_placeholder"
+	ComplianceClockKindInternalPolicy    ComplianceClockKind = "internal_policy"
+	ComplianceClockKindLegal             ComplianceClockKind = "legal"
+	ComplianceClockKindNotFound          ComplianceClockKind = "not_found"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceClockKind enum.
+func (e ComplianceClockKind) Valid() bool {
+	switch e {
+	case ComplianceClockKindDesignPlaceholder:
+		return true
+	case ComplianceClockKindInternalPolicy:
+		return true
+	case ComplianceClockKindLegal:
+		return true
+	case ComplianceClockKindNotFound:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ComplianceDefaultsMode.
 const (
 	ComplianceDefaultsModeLive   ComplianceDefaultsMode = "live"
@@ -328,49 +512,76 @@ func (e ComplianceDefaultsMode) Valid() bool {
 
 // Defines values for ComplianceEventKind.
 const (
-	ComplianceEventKindAccountOpened         ComplianceEventKind = "account_opened"
-	ComplianceEventKindAccountReactivated    ComplianceEventKind = "account_reactivated"
-	ComplianceEventKindApiLookup             ComplianceEventKind = "api_lookup"
-	ComplianceEventKindApiRequest            ComplianceEventKind = "api_request"
-	ComplianceEventKindAtmWithdrawal         ComplianceEventKind = "atm_withdrawal"
-	ComplianceEventKindAuthFailure           ComplianceEventKind = "auth_failure"
-	ComplianceEventKindAuthSuccess           ComplianceEventKind = "auth_success"
-	ComplianceEventKindBeneficiaryAdded      ComplianceEventKind = "beneficiary_added"
-	ComplianceEventKindCardAuthorization     ComplianceEventKind = "card_authorization"
-	ComplianceEventKindCashDeposit           ComplianceEventKind = "cash_deposit"
-	ComplianceEventKindCashPayment           ComplianceEventKind = "cash_payment"
-	ComplianceEventKindCashWithdrawal        ComplianceEventKind = "cash_withdrawal"
-	ComplianceEventKindConfigChange          ComplianceEventKind = "config_change"
-	ComplianceEventKindCreditRequested       ComplianceEventKind = "credit_requested"
-	ComplianceEventKindCryptoPurchase        ComplianceEventKind = "crypto_purchase"
-	ComplianceEventKindCryptoTransfer        ComplianceEventKind = "crypto_transfer"
-	ComplianceEventKindCryptoWithdrawal      ComplianceEventKind = "crypto_withdrawal"
-	ComplianceEventKindCustomerOnboarded     ComplianceEventKind = "customer_onboarded"
-	ComplianceEventKindCustomerReview        ComplianceEventKind = "customer_review"
-	ComplianceEventKindDataExport            ComplianceEventKind = "data_export"
-	ComplianceEventKindDeviceBound           ComplianceEventKind = "device_bound"
-	ComplianceEventKindDeviceReregistered    ComplianceEventKind = "device_reregistered"
-	ComplianceEventKindFiatInflow            ComplianceEventKind = "fiat_inflow"
-	ComplianceEventKindFraudReport           ComplianceEventKind = "fraud_report"
-	ComplianceEventKindFunding               ComplianceEventKind = "funding"
-	ComplianceEventKindListUpdated           ComplianceEventKind = "list_updated"
-	ComplianceEventKindLoanApplication       ComplianceEventKind = "loan_application"
-	ComplianceEventKindLoanDisbursement      ComplianceEventKind = "loan_disbursement"
-	ComplianceEventKindLoanRepayment         ComplianceEventKind = "loan_repayment"
-	ComplianceEventKindLogin                 ComplianceEventKind = "login"
-	ComplianceEventKindMerchantDaily         ComplianceEventKind = "merchant_daily"
-	ComplianceEventKindMfaPrompt             ComplianceEventKind = "mfa_prompt"
-	ComplianceEventKindPosPurchase           ComplianceEventKind = "pos_purchase"
-	ComplianceEventKindProfileChange         ComplianceEventKind = "profile_change"
-	ComplianceEventKindRoleChange            ComplianceEventKind = "role_change"
-	ComplianceEventKindSessionActivity       ComplianceEventKind = "session_activity"
-	ComplianceEventKindSimReregistered       ComplianceEventKind = "sim_reregistered"
-	ComplianceEventKindStaffAction           ComplianceEventKind = "staff_action"
-	ComplianceEventKindTelcoLookup           ComplianceEventKind = "telco_lookup"
-	ComplianceEventKindTerminalActivity      ComplianceEventKind = "terminal_activity"
-	ComplianceEventKindTransferInbound       ComplianceEventKind = "transfer_inbound"
-	ComplianceEventKindTransferInternational ComplianceEventKind = "transfer_international"
-	ComplianceEventKindTransferOutbound      ComplianceEventKind = "transfer_outbound"
+	ComplianceEventKindAccountOpened          ComplianceEventKind = "account_opened"
+	ComplianceEventKindAccountReactivated     ComplianceEventKind = "account_reactivated"
+	ComplianceEventKindAgentDaily             ComplianceEventKind = "agent_daily"
+	ComplianceEventKindApiLookup              ComplianceEventKind = "api_lookup"
+	ComplianceEventKindApiRequest             ComplianceEventKind = "api_request"
+	ComplianceEventKindAtmWithdrawal          ComplianceEventKind = "atm_withdrawal"
+	ComplianceEventKindAuditFindingOpened     ComplianceEventKind = "audit_finding_opened"
+	ComplianceEventKindAuditLogCheck          ComplianceEventKind = "audit_log_check"
+	ComplianceEventKindAuthFailure            ComplianceEventKind = "auth_failure"
+	ComplianceEventKindAuthSuccess            ComplianceEventKind = "auth_success"
+	ComplianceEventKindBeneficiaryAdded       ComplianceEventKind = "beneficiary_added"
+	ComplianceEventKindBreachConfirmed        ComplianceEventKind = "breach_confirmed"
+	ComplianceEventKindCardAuthorization      ComplianceEventKind = "card_authorization"
+	ComplianceEventKindCashDeposit            ComplianceEventKind = "cash_deposit"
+	ComplianceEventKindCashPayment            ComplianceEventKind = "cash_payment"
+	ComplianceEventKindCashWithdrawal         ComplianceEventKind = "cash_withdrawal"
+	ComplianceEventKindCdrDaily               ComplianceEventKind = "cdr_daily"
+	ComplianceEventKindConfigChange           ComplianceEventKind = "config_change"
+	ComplianceEventKindConfigScan             ComplianceEventKind = "config_scan"
+	ComplianceEventKindCreditRequested        ComplianceEventKind = "credit_requested"
+	ComplianceEventKindCryptoPurchase         ComplianceEventKind = "crypto_purchase"
+	ComplianceEventKindCryptoTransfer         ComplianceEventKind = "crypto_transfer"
+	ComplianceEventKindCryptoWithdrawal       ComplianceEventKind = "crypto_withdrawal"
+	ComplianceEventKindCustomerOnboarded      ComplianceEventKind = "customer_onboarded"
+	ComplianceEventKindCustomerReview         ComplianceEventKind = "customer_review"
+	ComplianceEventKindDataExport             ComplianceEventKind = "data_export"
+	ComplianceEventKindDataTransfer           ComplianceEventKind = "data_transfer"
+	ComplianceEventKindDesignationReceived    ComplianceEventKind = "designation_received"
+	ComplianceEventKindDeviceBound            ComplianceEventKind = "device_bound"
+	ComplianceEventKindDeviceReregistered     ComplianceEventKind = "device_reregistered"
+	ComplianceEventKindEodReconciliation      ComplianceEventKind = "eod_reconciliation"
+	ComplianceEventKindFiatInflow             ComplianceEventKind = "fiat_inflow"
+	ComplianceEventKindFicOrderReceived       ComplianceEventKind = "fic_order_received"
+	ComplianceEventKindForexBuy               ComplianceEventKind = "forex_buy"
+	ComplianceEventKindForexSell              ComplianceEventKind = "forex_sell"
+	ComplianceEventKindFraudReport            ComplianceEventKind = "fraud_report"
+	ComplianceEventKindFunding                ComplianceEventKind = "funding"
+	ComplianceEventKindIncidentDetected       ComplianceEventKind = "incident_detected"
+	ComplianceEventKindListUpdated            ComplianceEventKind = "list_updated"
+	ComplianceEventKindLoanApplication        ComplianceEventKind = "loan_application"
+	ComplianceEventKindLoanDisbursement       ComplianceEventKind = "loan_disbursement"
+	ComplianceEventKindLoanRepayment          ComplianceEventKind = "loan_repayment"
+	ComplianceEventKindLogin                  ComplianceEventKind = "login"
+	ComplianceEventKindMerchantDaily          ComplianceEventKind = "merchant_daily"
+	ComplianceEventKindMfaPrompt              ComplianceEventKind = "mfa_prompt"
+	ComplianceEventKindOtpUsed                ComplianceEventKind = "otp_used"
+	ComplianceEventKindOutsourcingPlanned     ComplianceEventKind = "outsourcing_planned"
+	ComplianceEventKindOutsourcingSigned      ComplianceEventKind = "outsourcing_signed"
+	ComplianceEventKindPentestCompleted       ComplianceEventKind = "pentest_completed"
+	ComplianceEventKindPosPurchase            ComplianceEventKind = "pos_purchase"
+	ComplianceEventKindProfileChange          ComplianceEventKind = "profile_change"
+	ComplianceEventKindRecordDeleteRequested  ComplianceEventKind = "record_delete_requested"
+	ComplianceEventKindRemoteAccessLogin      ComplianceEventKind = "remote_access_login"
+	ComplianceEventKindRoleChange             ComplianceEventKind = "role_change"
+	ComplianceEventKindSecurityAuditCompleted ComplianceEventKind = "security_audit_completed"
+	ComplianceEventKindSecurityReviewDue      ComplianceEventKind = "security_review_due"
+	ComplianceEventKindSessionActivity        ComplianceEventKind = "session_activity"
+	ComplianceEventKindSimRegistered          ComplianceEventKind = "sim_registered"
+	ComplianceEventKindSimReplaced            ComplianceEventKind = "sim_replaced"
+	ComplianceEventKindSimReregistered        ComplianceEventKind = "sim_reregistered"
+	ComplianceEventKindStaffAction            ComplianceEventKind = "staff_action"
+	ComplianceEventKindTelcoLookup            ComplianceEventKind = "telco_lookup"
+	ComplianceEventKindTerminalActivity       ComplianceEventKind = "terminal_activity"
+	ComplianceEventKindTransferInbound        ComplianceEventKind = "transfer_inbound"
+	ComplianceEventKindTransferInternational  ComplianceEventKind = "transfer_international"
+	ComplianceEventKindTransferOutbound       ComplianceEventKind = "transfer_outbound"
+	ComplianceEventKindVendorOnboarded        ComplianceEventKind = "vendor_onboarded"
+	ComplianceEventKindVendorReview           ComplianceEventKind = "vendor_review"
+	ComplianceEventKindVulnerabilityConfirmed ComplianceEventKind = "vulnerability_confirmed"
+	ComplianceEventKindWalletCashOut          ComplianceEventKind = "wallet_cash_out"
 )
 
 // Valid indicates whether the value is a known member of the ComplianceEventKind enum.
@@ -380,17 +591,25 @@ func (e ComplianceEventKind) Valid() bool {
 		return true
 	case ComplianceEventKindAccountReactivated:
 		return true
+	case ComplianceEventKindAgentDaily:
+		return true
 	case ComplianceEventKindApiLookup:
 		return true
 	case ComplianceEventKindApiRequest:
 		return true
 	case ComplianceEventKindAtmWithdrawal:
 		return true
+	case ComplianceEventKindAuditFindingOpened:
+		return true
+	case ComplianceEventKindAuditLogCheck:
+		return true
 	case ComplianceEventKindAuthFailure:
 		return true
 	case ComplianceEventKindAuthSuccess:
 		return true
 	case ComplianceEventKindBeneficiaryAdded:
+		return true
+	case ComplianceEventKindBreachConfirmed:
 		return true
 	case ComplianceEventKindCardAuthorization:
 		return true
@@ -400,7 +619,11 @@ func (e ComplianceEventKind) Valid() bool {
 		return true
 	case ComplianceEventKindCashWithdrawal:
 		return true
+	case ComplianceEventKindCdrDaily:
+		return true
 	case ComplianceEventKindConfigChange:
+		return true
+	case ComplianceEventKindConfigScan:
 		return true
 	case ComplianceEventKindCreditRequested:
 		return true
@@ -416,15 +639,29 @@ func (e ComplianceEventKind) Valid() bool {
 		return true
 	case ComplianceEventKindDataExport:
 		return true
+	case ComplianceEventKindDataTransfer:
+		return true
+	case ComplianceEventKindDesignationReceived:
+		return true
 	case ComplianceEventKindDeviceBound:
 		return true
 	case ComplianceEventKindDeviceReregistered:
 		return true
+	case ComplianceEventKindEodReconciliation:
+		return true
 	case ComplianceEventKindFiatInflow:
+		return true
+	case ComplianceEventKindFicOrderReceived:
+		return true
+	case ComplianceEventKindForexBuy:
+		return true
+	case ComplianceEventKindForexSell:
 		return true
 	case ComplianceEventKindFraudReport:
 		return true
 	case ComplianceEventKindFunding:
+		return true
+	case ComplianceEventKindIncidentDetected:
 		return true
 	case ComplianceEventKindListUpdated:
 		return true
@@ -440,13 +677,33 @@ func (e ComplianceEventKind) Valid() bool {
 		return true
 	case ComplianceEventKindMfaPrompt:
 		return true
+	case ComplianceEventKindOtpUsed:
+		return true
+	case ComplianceEventKindOutsourcingPlanned:
+		return true
+	case ComplianceEventKindOutsourcingSigned:
+		return true
+	case ComplianceEventKindPentestCompleted:
+		return true
 	case ComplianceEventKindPosPurchase:
 		return true
 	case ComplianceEventKindProfileChange:
 		return true
+	case ComplianceEventKindRecordDeleteRequested:
+		return true
+	case ComplianceEventKindRemoteAccessLogin:
+		return true
 	case ComplianceEventKindRoleChange:
 		return true
+	case ComplianceEventKindSecurityAuditCompleted:
+		return true
+	case ComplianceEventKindSecurityReviewDue:
+		return true
 	case ComplianceEventKindSessionActivity:
+		return true
+	case ComplianceEventKindSimRegistered:
+		return true
+	case ComplianceEventKindSimReplaced:
 		return true
 	case ComplianceEventKindSimReregistered:
 		return true
@@ -461,6 +718,59 @@ func (e ComplianceEventKind) Valid() bool {
 	case ComplianceEventKindTransferInternational:
 		return true
 	case ComplianceEventKindTransferOutbound:
+		return true
+	case ComplianceEventKindVendorOnboarded:
+		return true
+	case ComplianceEventKindVendorReview:
+		return true
+	case ComplianceEventKindVulnerabilityConfirmed:
+		return true
+	case ComplianceEventKindWalletCashOut:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceGapKind.
+const (
+	ComplianceGapKindConflict   ComplianceGapKind = "conflict"
+	ComplianceGapKindUnverified ComplianceGapKind = "unverified"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceGapKind enum.
+func (e ComplianceGapKind) Valid() bool {
+	switch e {
+	case ComplianceGapKindConflict:
+		return true
+	case ComplianceGapKindUnverified:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceLineageKind.
+const (
+	Analogue       ComplianceLineageKind = "analogue"
+	CrossReference ComplianceLineageKind = "cross_reference"
+	NewLocal       ComplianceLineageKind = "new_local"
+	Param          ComplianceLineageKind = "param"
+	Stricter       ComplianceLineageKind = "stricter"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceLineageKind enum.
+func (e ComplianceLineageKind) Valid() bool {
+	switch e {
+	case Analogue:
+		return true
+	case CrossReference:
+		return true
+	case NewLocal:
+		return true
+	case Param:
+		return true
+	case Stricter:
 		return true
 	default:
 		return false
@@ -536,6 +846,45 @@ func (e ComplianceReportFieldsCategory) Valid() bool {
 	case ComplianceReportFieldsCategoryOther:
 		return true
 	case ComplianceReportFieldsCategoryTerrorismFinancing:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceRuleOffReason.
+const (
+	ThresholdToBeConfirmed ComplianceRuleOffReason = "threshold_to_be_confirmed"
+	VerifyFirst            ComplianceRuleOffReason = "verify_first"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceRuleOffReason enum.
+func (e ComplianceRuleOffReason) Valid() bool {
+	switch e {
+	case ThresholdToBeConfirmed:
+		return true
+	case VerifyFirst:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ComplianceRuleProvenance.
+const (
+	ComplianceRuleProvenanceIndustryPractice ComplianceRuleProvenance = "industry_practice"
+	ComplianceRuleProvenanceMyDesign         ComplianceRuleProvenance = "my_design"
+	ComplianceRuleProvenanceRegulatory       ComplianceRuleProvenance = "regulatory"
+)
+
+// Valid indicates whether the value is a known member of the ComplianceRuleProvenance enum.
+func (e ComplianceRuleProvenance) Valid() bool {
+	switch e {
+	case ComplianceRuleProvenanceIndustryPractice:
+		return true
+	case ComplianceRuleProvenanceMyDesign:
+		return true
+	case ComplianceRuleProvenanceRegulatory:
 		return true
 	default:
 		return false
@@ -848,6 +1197,54 @@ func (e InviteStatus) Valid() bool {
 	case InviteStatusPending:
 		return true
 	case InviteStatusRevoked:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JurisdictionActivationStatus.
+const (
+	JurisdictionActivationStatusDraft     JurisdictionActivationStatus = "draft"
+	JurisdictionActivationStatusLive      JurisdictionActivationStatus = "live"
+	JurisdictionActivationStatusShadow    JurisdictionActivationStatus = "shadow"
+	JurisdictionActivationStatusSuspended JurisdictionActivationStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the JurisdictionActivationStatus enum.
+func (e JurisdictionActivationStatus) Valid() bool {
+	switch e {
+	case JurisdictionActivationStatusDraft:
+		return true
+	case JurisdictionActivationStatusLive:
+		return true
+	case JurisdictionActivationStatusShadow:
+		return true
+	case JurisdictionActivationStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for JurisdictionResolutionResolvedBy.
+const (
+	JurisdictionResolutionResolvedByBookingEntity JurisdictionResolutionResolvedBy = "booking_entity"
+	JurisdictionResolutionResolvedByFallback      JurisdictionResolutionResolvedBy = "fallback"
+	JurisdictionResolutionResolvedByInactive      JurisdictionResolutionResolvedBy = "inactive"
+	JurisdictionResolutionResolvedByUnresolved    JurisdictionResolutionResolvedBy = "unresolved"
+)
+
+// Valid indicates whether the value is a known member of the JurisdictionResolutionResolvedBy enum.
+func (e JurisdictionResolutionResolvedBy) Valid() bool {
+	switch e {
+	case JurisdictionResolutionResolvedByBookingEntity:
+		return true
+	case JurisdictionResolutionResolvedByFallback:
+		return true
+	case JurisdictionResolutionResolvedByInactive:
+		return true
+	case JurisdictionResolutionResolvedByUnresolved:
 		return true
 	default:
 		return false
@@ -1250,6 +1647,24 @@ func (e ReadinessResponseStatus) Valid() bool {
 	}
 }
 
+// Defines values for RiskCatalogFieldsKind.
+const (
+	RiskCatalogFieldsKindCountry  RiskCatalogFieldsKind = "country"
+	RiskCatalogFieldsKindCurrency RiskCatalogFieldsKind = "currency"
+)
+
+// Valid indicates whether the value is a known member of the RiskCatalogFieldsKind enum.
+func (e RiskCatalogFieldsKind) Valid() bool {
+	switch e {
+	case RiskCatalogFieldsKindCountry:
+		return true
+	case RiskCatalogFieldsKindCurrency:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for RiskCatalogFieldsType.
 const (
 	Boolean RiskCatalogFieldsType = "boolean"
@@ -1265,6 +1680,27 @@ func (e RiskCatalogFieldsType) Valid() bool {
 	case Number:
 		return true
 	case String:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for RiskCatalogFieldsUnit.
+const (
+	RiskCatalogFieldsUnitCount RiskCatalogFieldsUnit = "count"
+	RiskCatalogFieldsUnitMoney RiskCatalogFieldsUnit = "money"
+	RiskCatalogFieldsUnitRatio RiskCatalogFieldsUnit = "ratio"
+)
+
+// Valid indicates whether the value is a known member of the RiskCatalogFieldsUnit enum.
+func (e RiskCatalogFieldsUnit) Valid() bool {
+	switch e {
+	case RiskCatalogFieldsUnitCount:
+		return true
+	case RiskCatalogFieldsUnitMoney:
+		return true
+	case RiskCatalogFieldsUnitRatio:
 		return true
 	default:
 		return false
@@ -1405,19 +1841,19 @@ func (e Role) Valid() bool {
 
 // Defines values for RuleChangeKind.
 const (
-	Create   RuleChangeKind = "create"
-	Rollback RuleChangeKind = "rollback"
-	Update   RuleChangeKind = "update"
+	RuleChangeKindCreate   RuleChangeKind = "create"
+	RuleChangeKindRollback RuleChangeKind = "rollback"
+	RuleChangeKindUpdate   RuleChangeKind = "update"
 )
 
 // Valid indicates whether the value is a known member of the RuleChangeKind enum.
 func (e RuleChangeKind) Valid() bool {
 	switch e {
-	case Create:
+	case RuleChangeKindCreate:
 		return true
-	case Rollback:
+	case RuleChangeKindRollback:
 		return true
-	case Update:
+	case RuleChangeKindUpdate:
 		return true
 	default:
 		return false
@@ -1889,6 +2325,54 @@ func (e GetAnalyticsParamsWindow) Valid() bool {
 	}
 }
 
+// Defines values for ListComplianceActivationChangesParamsState.
+const (
+	ListComplianceActivationChangesParamsStateApplied  ListComplianceActivationChangesParamsState = "applied"
+	ListComplianceActivationChangesParamsStateApproved ListComplianceActivationChangesParamsState = "approved"
+	ListComplianceActivationChangesParamsStatePending  ListComplianceActivationChangesParamsState = "pending"
+	ListComplianceActivationChangesParamsStateRejected ListComplianceActivationChangesParamsState = "rejected"
+)
+
+// Valid indicates whether the value is a known member of the ListComplianceActivationChangesParamsState enum.
+func (e ListComplianceActivationChangesParamsState) Valid() bool {
+	switch e {
+	case ListComplianceActivationChangesParamsStateApplied:
+		return true
+	case ListComplianceActivationChangesParamsStateApproved:
+		return true
+	case ListComplianceActivationChangesParamsStatePending:
+		return true
+	case ListComplianceActivationChangesParamsStateRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for SetComplianceActivationStatusJSONBodyStatus.
+const (
+	SetComplianceActivationStatusJSONBodyStatusDraft     SetComplianceActivationStatusJSONBodyStatus = "draft"
+	SetComplianceActivationStatusJSONBodyStatusLive      SetComplianceActivationStatusJSONBodyStatus = "live"
+	SetComplianceActivationStatusJSONBodyStatusShadow    SetComplianceActivationStatusJSONBodyStatus = "shadow"
+	SetComplianceActivationStatusJSONBodyStatusSuspended SetComplianceActivationStatusJSONBodyStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the SetComplianceActivationStatusJSONBodyStatus enum.
+func (e SetComplianceActivationStatusJSONBodyStatus) Valid() bool {
+	switch e {
+	case SetComplianceActivationStatusJSONBodyStatusDraft:
+		return true
+	case SetComplianceActivationStatusJSONBodyStatusLive:
+		return true
+	case SetComplianceActivationStatusJSONBodyStatusShadow:
+		return true
+	case SetComplianceActivationStatusJSONBodyStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for ListPackRuleChangesParamsStatus.
 const (
 	ListPackRuleChangesParamsStatusApproved ListPackRuleChangesParamsStatus = "approved"
@@ -1904,6 +2388,24 @@ func (e ListPackRuleChangesParamsStatus) Valid() bool {
 	case ListPackRuleChangesParamsStatusPending:
 		return true
 	case ListPackRuleChangesParamsStatusRejected:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for ExportComplianceLibraryParamsFormat.
+const (
+	Csv ExportComplianceLibraryParamsFormat = "csv"
+	Pdf ExportComplianceLibraryParamsFormat = "pdf"
+)
+
+// Valid indicates whether the value is a known member of the ExportComplianceLibraryParamsFormat enum.
+func (e ExportComplianceLibraryParamsFormat) Valid() bool {
+	switch e {
+	case Csv:
+		return true
+	case Pdf:
 		return true
 	default:
 		return false
@@ -1979,6 +2481,110 @@ type AcceptInviteRequest struct {
 	Password string `json:"password"`
 	Token    string `json:"token"`
 }
+
+// ActivationChange defines model for ActivationChange.
+type ActivationChange struct {
+	Action       ActivationChangeAction `json:"action"`
+	ActivationId string                 `json:"activation_id"`
+	DecidedAt    *time.Time             `json:"decided_at,omitempty"`
+	DecidedBy    *string                `json:"decided_by,omitempty"`
+	DecisionNote *string                `json:"decision_note,omitempty"`
+
+	// Details An update's new values (licence_type, capabilities, day_starts_at).
+	Details map[string]interface{} `json:"details"`
+
+	// Id Example: jch_01j9x2k7m3q4r5s6t7v8w9x0yz
+	Id         string                      `json:"id"`
+	ProposedAt time.Time                   `json:"proposed_at"`
+	ProposedBy string                      `json:"proposed_by"`
+	Rationale  string                      `json:"rationale"`
+	State      ActivationChangeState       `json:"state"`
+	StatusFrom *ActivationChangeStatusFrom `json:"status_from,omitempty"`
+	StatusTo   *ActivationChangeStatusTo   `json:"status_to,omitempty"`
+}
+
+// ActivationChangeAction defines model for ActivationChange.Action.
+type ActivationChangeAction string
+
+// ActivationChangeState defines model for ActivationChange.State.
+type ActivationChangeState string
+
+// ActivationChangeStatusFrom defines model for ActivationChange.StatusFrom.
+type ActivationChangeStatusFrom string
+
+// ActivationChangeStatusTo defines model for ActivationChange.StatusTo.
+type ActivationChangeStatusTo string
+
+// ActivationReadiness defines model for ActivationReadiness.
+type ActivationReadiness struct {
+	Items []struct {
+		Blocking bool                         `json:"blocking"`
+		Kind     ActivationReadinessItemsKind `json:"kind"`
+		Message  string                       `json:"message"`
+		Rule     *string                      `json:"rule,omitempty"`
+	} `json:"items"`
+
+	// Ready True when nothing blocks going live.
+	Ready bool `json:"ready"`
+}
+
+// ActivationReadinessItemsKind defines model for ActivationReadiness.Items.Kind.
+type ActivationReadinessItemsKind string
+
+// ActivationRequest defines model for ActivationRequest.
+type ActivationRequest struct {
+	// BookingEntity The licensed entity events will name in `compliance.booking_entity`.
+	BookingEntity string    `json:"booking_entity"`
+	Capabilities  *[]string `json:"capabilities,omitempty"`
+
+	// DayStartsAt The hour (local time) the business day starts, for daily and monthly limits. Midnight by default.
+	DayStartsAt  *int   `json:"day_starts_at,omitempty"`
+	Jurisdiction string `json:"jurisdiction"`
+	LicenceType  string `json:"licence_type"`
+	Rationale    string `json:"rationale"`
+}
+
+// ActivationUpdate defines model for ActivationUpdate.
+type ActivationUpdate struct {
+	Capabilities []string `json:"capabilities"`
+	DayStartsAt  int      `json:"day_starts_at"`
+	LicenceType  string   `json:"licence_type"`
+	Rationale    string   `json:"rationale"`
+}
+
+// ActiveComplianceRule defines model for ActiveComplianceRule.
+type ActiveComplianceRule struct {
+	BookingEntity string `json:"booking_entity"`
+
+	// Events The `compliance.kind` values that trigger the rule.
+	Events []string `json:"events"`
+
+	// Facts The `compliance.facts` the rule reads (facts RiskOS computes are not listed).
+	Facts        []string `json:"facts"`
+	Jurisdiction string   `json:"jurisdiction"`
+
+	// Kind control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
+	Kind       ComplianceRuleKind              `json:"kind"`
+	Mode       ActiveComplianceRuleMode        `json:"mode"`
+	Name       string                          `json:"name"`
+	Pack       string                          `json:"pack"`
+	Provenance *ActiveComplianceRuleProvenance `json:"provenance,omitempty"`
+
+	// Refs The `compliance.refs` its time windows are kept for.
+	Refs []string `json:"refs"`
+
+	// Rule Example: GH-REG-04
+	Rule string `json:"rule"`
+
+	// UnsetSettings Settings with no value yet; until they are set the rule is not evaluated.
+	UnsetSettings []string `json:"unset_settings"`
+}
+
+// ActiveComplianceRuleMode defines model for ActiveComplianceRule.Mode.
+type ActiveComplianceRuleMode string
+
+// ActiveComplianceRuleProvenance defines model for ActiveComplianceRule.Provenance.
+type ActiveComplianceRuleProvenance string
 
 // ActivityEntry defines model for ActivityEntry.
 type ActivityEntry struct {
@@ -2401,6 +3007,15 @@ type CaseResolution string
 // CaseStatus defines model for CaseStatus.
 type CaseStatus string
 
+// ClockMatrixRow defines model for ClockMatrixRow.
+type ClockMatrixRow struct {
+	Ghana          string `json:"ghana"`
+	Item           string `json:"item"`
+	Nigeria        string `json:"nigeria"`
+	Rwanda         string `json:"rwanda"`
+	WorkingDefault string `json:"working_default"`
+}
+
 // CodeRequest defines model for CodeRequest.
 type CodeRequest struct {
 	Code string `json:"code"`
@@ -2409,16 +3024,30 @@ type CodeRequest struct {
 // ComplianceClock defines model for ComplianceClock.
 type ComplianceClock struct {
 	AppliesTo string `json:"applies_to"`
-	Duration  string `json:"duration"`
-	Duty      string `json:"duty"`
 
-	// Hours The deadline in hours.
-	Hours       int      `json:"hours"`
-	Id          string   `json:"id"`
-	Requirement string   `json:"requirement"`
-	Rules       []string `json:"rules"`
-	Sources     []string `json:"sources"`
+	// Authority The body the clock runs against (FIC, BoG, NCSA), when the library names one.
+	Authority *string `json:"authority,omitempty"`
+	Duration  string  `json:"duration"`
+	Duty      string  `json:"duty"`
+
+	// Hours The deadline in hours; 0 means immediately. Null when the law sets a deadline no readable
+	// source states (`kind` not_found): shown as "not found", never as zero.
+	Hours *int   `json:"hours"`
+	Id    string `json:"id"`
+
+	// Kind What a clock rests on: a deadline a law or regulator sets (legal), the institution's own
+	// target (internal_policy), a design default standing in for a deadline not yet found
+	// (design_placeholder), or a legal deadline no readable source states (not_found).
+	Kind        ComplianceClockKind `json:"kind"`
+	Requirement string              `json:"requirement"`
+	Rules       []string            `json:"rules"`
+	Sources     []string            `json:"sources"`
 }
+
+// ComplianceClockKind What a clock rests on: a deadline a law or regulator sets (legal), the institution's own
+// target (internal_policy), a design default standing in for a deadline not yet found
+// (design_placeholder), or a legal deadline no readable source states (not_found).
+type ComplianceClockKind string
 
 // ComplianceClockList defines model for ComplianceClockList.
 type ComplianceClockList struct {
@@ -2429,6 +3058,14 @@ type ComplianceClockList struct {
 // Everything is optional: a rule whose data is missing is reported as not evaluated, never
 // treated as no risk.
 type ComplianceContext struct {
+	// BookingEntity The licensed entity that holds the customer relationship, as activated in the workspace
+	// (ADR-0007). Its jurisdiction's pack judges the event; without it, the workspace's fallback
+	// activation does, and with no fallback the event is reported as jurisdiction unresolved.
+	BookingEntity *string `json:"booking_entity,omitempty"`
+
+	// DataSubjectCountry The country of the person whose data the event concerns, for data-protection rules only.
+	DataSubjectCountry *string `json:"data_subject_country,omitempty"`
+
 	// Facts Facts from your systems and providers, by the names in the pack's catalog
 	// (`device.rooted`, `telco.sim_swap`, `customer.type`...): true or false, a number (a
 	// duration in seconds, a count, a ratio, a score), one of the fact's listed values, or
@@ -2479,12 +3116,22 @@ type ComplianceEventKind string
 
 // ComplianceGap defines model for ComplianceGap.
 type ComplianceGap struct {
-	Detail  string   `json:"detail"`
-	Id      string   `json:"id"`
-	Rules   []string `json:"rules"`
-	Sources []string `json:"sources"`
-	Title   string   `json:"title"`
+	Detail string `json:"detail"`
+	Id     string `json:"id"`
+
+	// Kind Two sources disagree (conflict), or a fact was not found or not confirmed (unverified).
+	Kind    *ComplianceGapKind `json:"kind,omitempty"`
+	Rules   []string           `json:"rules"`
+	Sources []string           `json:"sources"`
+	Title   string             `json:"title"`
+
+	// Treatment How the library handles it until a person settles it.
+	Treatment    *string          `json:"treatment,omitempty"`
+	Verification *GapVerification `json:"verification,omitempty"`
 }
+
+// ComplianceGapKind Two sources disagree (conflict), or a fact was not found or not confirmed (unverified).
+type ComplianceGapKind string
 
 // ComplianceGapList defines model for ComplianceGapList.
 type ComplianceGapList struct {
@@ -2499,6 +3146,16 @@ type ComplianceGroup struct {
 	// Rules How many rules the group has.
 	Rules int `json:"rules"`
 }
+
+// ComplianceLineage defines model for ComplianceLineage.
+type ComplianceLineage struct {
+	// Kind How the rule relates to the first library's rules ("Param of ATO-01", "New local").
+	Kind ComplianceLineageKind `json:"kind"`
+	Of   []string              `json:"of"`
+}
+
+// ComplianceLineageKind How the rule relates to the first library's rules ("Param of ATO-01", "New local").
+type ComplianceLineageKind string
 
 // ComplianceLink defines model for ComplianceLink.
 type ComplianceLink struct {
@@ -2524,8 +3181,11 @@ type CompliancePack struct {
 	Capabilities []ComplianceOption `json:"capabilities"`
 
 	// Checksum SHA-256 of the pack's files. A loaded version never changes.
-	Checksum string            `json:"checksum"`
-	Counts   ComplianceCounts  `json:"counts"`
+	Checksum string           `json:"checksum"`
+	Counts   ComplianceCounts `json:"counts"`
+
+	// Currency Amounts in the pack's settings are in minor units of this currency (or US dollars).
+	Currency *string           `json:"currency,omitempty"`
 	Groups   []ComplianceGroup `json:"groups"`
 	Id       string            `json:"id"`
 
@@ -2537,8 +3197,30 @@ type CompliancePack struct {
 	LicenceTypes  []ComplianceOption `json:"licence_types"`
 	LoadedAt      time.Time          `json:"loaded_at"`
 	Name          string             `json:"name"`
-	Sources       []ComplianceSource `json:"sources"`
-	Version       string             `json:"version"`
+
+	// Penalties The library's penalty exposure register, for display. Estimates marked as inference are not law.
+	Penalties *[]CompliancePenalty `json:"penalties,omitempty"`
+	Sources   []ComplianceSource   `json:"sources"`
+
+	// Timezone The time zone the pack's windows and hours of the day are kept in.
+	Timezone *string `json:"timezone,omitempty"`
+	Version  string  `json:"version"`
+}
+
+// CompliancePackSummary defines model for CompliancePackSummary.
+type CompliancePackSummary struct {
+	// Activated The workspace has an activation in this jurisdiction.
+	Activated *bool `json:"activated,omitempty"`
+	Controls  int   `json:"controls"`
+
+	// Current The pack the workspace's fallback activation uses.
+	Current      bool   `json:"current"`
+	Governance   int    `json:"governance"`
+	Id           string `json:"id"`
+	Jurisdiction string `json:"jurisdiction"`
+	Name         string `json:"name"`
+	Signals      int    `json:"signals"`
+	Version      string `json:"version"`
 }
 
 // ComplianceParameter defines model for ComplianceParameter.
@@ -2566,9 +3248,26 @@ type ComplianceParameter struct {
 // the day in Africa/Lagos time; flag is 0 or 1.
 type ComplianceParameterType string
 
+// CompliancePenalty defines model for CompliancePenalty.
+type CompliancePenalty struct {
+	// Estimate The amount in the local currency, where the library computes one.
+	Estimate *string `json:"estimate,omitempty"`
+
+	// Inference The estimate is the library's inference (Ghana penalty units at GHS 12), not a stated amount.
+	Inference bool     `json:"inference"`
+	Penalty   string   `json:"penalty"`
+	Provision string   `json:"provision"`
+	Sources   []string `json:"sources"`
+}
+
 // ComplianceProfile defines model for ComplianceProfile.
 type ComplianceProfile struct {
-	Capabilities []string  `json:"capabilities"`
+	Capabilities []string `json:"capabilities"`
+
+	// Confirmed False for the profile every workspace gets automatically until a person saves it: its
+	// licence type ("other") is a placeholder. Automatic profiles start the regulatory
+	// controls at their defaults and every risk signal off.
+	Confirmed    bool      `json:"confirmed"`
 	Jurisdiction string    `json:"jurisdiction"`
 	LicenceType  string    `json:"licence_type"`
 	PackId       string    `json:"pack_id"`
@@ -2597,6 +3296,9 @@ type ComplianceRefs struct {
 	// Address An opaque customer-side identifier.
 	Address *Reference `json:"address,omitempty"`
 
+	// Agent An opaque customer-side identifier.
+	Agent *Reference `json:"agent,omitempty"`
+
 	// ApiKey An opaque customer-side identifier.
 	ApiKey *Reference `json:"api_key,omitempty"`
 
@@ -2617,6 +3319,9 @@ type ComplianceRefs struct {
 
 	// Merchant An opaque customer-side identifier.
 	Merchant *Reference `json:"merchant,omitempty"`
+
+	// NationalId An opaque customer-side identifier.
+	NationalId *Reference `json:"national_id,omitempty"`
 
 	// Phone An opaque customer-side identifier.
 	Phone *Reference `json:"phone,omitempty"`
@@ -2649,7 +3354,13 @@ type ComplianceRule struct {
 
 	// AppliesTo Licence types the rule applies to. Empty means every institution.
 	AppliesTo []string `json:"applies_to"`
-	Caveat    *string  `json:"caveat,omitempty"`
+
+	// Basis The library's "Tag, lineage, default, basis" column, verbatim.
+	Basis  *string `json:"basis,omitempty"`
+	Caveat *string `json:"caveat,omitempty"`
+
+	// Changes The settings an inherited or parameterised rule changes from its parent.
+	Changes *[]string `json:"changes,omitempty"`
 
 	// ConfigVersion The rule's configuration version in this environment; 0 means the library's defaults.
 	ConfigVersion int                `json:"config_version"`
@@ -2670,23 +3381,38 @@ type ComplianceRule struct {
 	Group  string   `json:"group"`
 	Id     string   `json:"id"`
 
+	// InheritedFrom The pack an inherited rule comes from (`ng`); it keeps its ID and logic, with settings restated for the country.
+	InheritedFrom *string `json:"inherited_from,omitempty"`
+
 	// Inputs The data the rule needs. When one is unavailable the rule is reported as not evaluated.
 	Inputs []string `json:"inputs"`
 
+	// Jurisdiction The country of the pack the rule is in.
+	Jurisdiction *string `json:"jurisdiction,omitempty"`
+
 	// Kind control (a regulatory hard control), signal (a risk-scoring rule) or governance (a process requirement).
-	Kind ComplianceRuleKind `json:"kind"`
+	Kind    ComplianceRuleKind `json:"kind"`
+	Lineage *ComplianceLineage `json:"lineage,omitempty"`
 
 	// Mode live (it acts), shadow (it is evaluated and recorded only) or off.
 	Mode PackRuleMode `json:"mode"`
 
 	// Name The library's plain-English name, verbatim.
-	Name       string                `json:"name"`
-	Outcome    ComplianceOutcome     `json:"outcome"`
-	Parameters []ComplianceParameter `json:"parameters"`
+	Name string `json:"name"`
+
+	// OffReason Why the rule ships switched off.
+	OffReason  *ComplianceRuleOffReason `json:"off_reason,omitempty"`
+	Outcome    ComplianceOutcome        `json:"outcome"`
+	Parameters []ComplianceParameter    `json:"parameters"`
 
 	// Points The library's points column (signals only), verbatim.
-	Points     *string  `json:"points,omitempty"`
-	Regulators []string `json:"regulators"`
+	Points *string `json:"points,omitempty"`
+
+	// Provenance Where the rule comes from (country libraries): a cited law (regulatory), a published typology
+	// with no mandated number (industry_practice), or the library author's design, whose numbers are
+	// starting values, not regulation (my_design).
+	Provenance *ComplianceRuleProvenance `json:"provenance,omitempty"`
+	Regulators []string                  `json:"regulators"`
 
 	// Requires Capabilities the workspace must have for the rule to apply.
 	Requires []string `json:"requires"`
@@ -2695,9 +3421,23 @@ type ComplianceRule struct {
 	Sources []string             `json:"sources"`
 	Status  ComplianceRuleStatus `json:"status"`
 
+	// Template The rule whose logic a parameterised rule reuses (ATO-01).
+	Template *string `json:"template,omitempty"`
+
 	// Verification How far the rule's legal facts are confirmed. Anything but confirmed comes with a caveat.
 	Verification ComplianceVerification `json:"verification"`
+
+	// Verifications The workspace's checks, against the original text, of the open questions that name this rule.
+	Verifications *[]GapVerification `json:"verifications,omitempty"`
 }
+
+// ComplianceRuleOffReason Why the rule ships switched off.
+type ComplianceRuleOffReason string
+
+// ComplianceRuleProvenance Where the rule comes from (country libraries): a cited law (regulatory), a published typology
+// with no mandated number (industry_practice), or the library author's design, whose numbers are
+// starting values, not regulation (my_design).
+type ComplianceRuleProvenance string
 
 // ComplianceRuleStatus defines model for ComplianceRule.Status.
 type ComplianceRuleStatus string
@@ -3178,6 +3918,15 @@ type FXRateList struct {
 	Data []FXRate `json:"data"`
 }
 
+// GapVerification defines model for GapVerification.
+type GapVerification struct {
+	Gap        string    `json:"gap"`
+	Link       *string   `json:"link,omitempty"`
+	Note       string    `json:"note"`
+	VerifiedAt time.Time `json:"verified_at"`
+	VerifiedBy string    `json:"verified_by"`
+}
+
 // GeoPoint Where the end user was, for impossible-travel checks (BEH-02). RiskOS rounds it to 2
 // decimals (about 1 km) before storing it.
 type GeoPoint struct {
@@ -3221,6 +3970,81 @@ type InviteStatus string
 type InviteList struct {
 	Data []Invite `json:"data"`
 }
+
+// Jurisdiction defines model for Jurisdiction.
+type Jurisdiction struct {
+	Activated bool `json:"activated"`
+
+	// Code Example: GH
+	Code string `json:"code"`
+
+	// Currency Amounts in this country's rules are in minor units of this currency.
+	Currency string `json:"currency"`
+
+	// MinorUnit Digits after the decimal point (2 for pesewas, 0 for Rwandan francs).
+	MinorUnit int    `json:"minor_unit"`
+	Name      string `json:"name"`
+
+	// Pack The pack ID (gh).
+	Pack       string   `json:"pack"`
+	Regulators []string `json:"regulators"`
+
+	// Timezone Example: Africa/Accra
+	Timezone string `json:"timezone"`
+}
+
+// JurisdictionActivation defines model for JurisdictionActivation.
+type JurisdictionActivation struct {
+	ActivatedAt *time.Time `json:"activated_at,omitempty"`
+
+	// ActivatedBy Who proposed going live.
+	ActivatedBy *string `json:"activated_by,omitempty"`
+
+	// ApprovedBy Who approved going live.
+	ApprovedBy *string `json:"approved_by,omitempty"`
+
+	// BookingEntity The licensed entity events name in `compliance.booking_entity`.
+	BookingEntity string   `json:"booking_entity"`
+	Capabilities  []string `json:"capabilities"`
+
+	// DayStartsAt The hour (local time) the business day starts, for daily and monthly limits.
+	DayStartsAt   *int       `json:"day_starts_at,omitempty"`
+	EffectiveFrom *time.Time `json:"effective_from,omitempty"`
+
+	// Fallback Judges events that name no booking entity (or one not activated).
+	Fallback     bool   `json:"fallback"`
+	Id           string `json:"id"`
+	Jurisdiction string `json:"jurisdiction"`
+	LicenceType  string `json:"licence_type"`
+
+	// Pack The pack version (gh@2026.10.1).
+	Pack      string  `json:"pack"`
+	Rationale *string `json:"rationale,omitempty"`
+
+	// Status Shadow runs every rule in shadow; draft and suspended run none.
+	Status    JurisdictionActivationStatus `json:"status"`
+	UpdatedAt time.Time                    `json:"updated_at"`
+}
+
+// JurisdictionActivationStatus Shadow runs every rule in shadow; draft and suspended run none.
+type JurisdictionActivationStatus string
+
+// JurisdictionResolution Which country's pack judged the event and why (ADR-0007): the booking entity the event named,
+// the workspace's stated fallback, or none (`unresolved`: no pack judged it; `inactive`: the
+// booking entity's activation is in draft or suspended). Absent for workspaces with no activation.
+type JurisdictionResolution struct {
+	BookingEntity *string `json:"booking_entity,omitempty"`
+
+	// Jurisdiction The governing country; absent when unresolved or inactive.
+	Jurisdiction *string `json:"jurisdiction,omitempty"`
+
+	// Pack The pack version that judged the event (gh@2026.10.1).
+	Pack       *string                          `json:"pack,omitempty"`
+	ResolvedBy JurisdictionResolutionResolvedBy `json:"resolved_by"`
+}
+
+// JurisdictionResolutionResolvedBy defines model for JurisdictionResolution.ResolvedBy.
+type JurisdictionResolutionResolvedBy string
 
 // LinkedEntity defines model for LinkedEntity.
 type LinkedEntity struct {
@@ -3503,6 +4327,11 @@ type ProfileChangeEvent struct {
 // ProfileChangeEventType defines model for ProfileChangeEvent.Type.
 type ProfileChangeEventType string
 
+// Rationale defines model for Rationale.
+type Rationale struct {
+	Rationale string `json:"rationale"`
+}
+
 // ReadinessResponse defines model for ReadinessResponse.
 type ReadinessResponse struct {
 	// Checks Status per dependency, keyed by dependency name.
@@ -3515,6 +4344,28 @@ type ReadinessResponseChecks string
 
 // ReadinessResponseStatus defines model for ReadinessResponse.Status.
 type ReadinessResponseStatus string
+
+// RecentRuleTest defines model for RecentRuleTest.
+type RecentRuleTest struct {
+	// Checked Evaluations checked.
+	Checked int `json:"checked"`
+	Matched int `json:"matched"`
+	Sample  []struct {
+		// Amount Minor units of currency, for transactions.
+		Amount       *int64    `json:"amount"`
+		At           time.Time `json:"at"`
+		Currency     *string   `json:"currency"`
+		Decision     string    `json:"decision"`
+		EvaluationId string    `json:"evaluation_id"`
+		EventId      string    `json:"event_id"`
+		EventType    string    `json:"event_type"`
+		RiskScore    int       `json:"risk_score"`
+	} `json:"sample"`
+	Since time.Time `json:"since"`
+
+	// Truncated More evaluations in the period than were checked (the newest 5,000 were).
+	Truncated bool `json:"truncated"`
+}
 
 // RecoveryCodes defines model for RecoveryCodes.
 type RecoveryCodes struct {
@@ -3555,9 +4406,30 @@ type RestrictedSignal struct {
 type RiskCatalog struct {
 	EngineVersion string `json:"engine_version"`
 	Fields        []struct {
+		// Events The event types that carry the fact; empty means every event.
+		Events []string `json:"events"`
+
+		// Group Event, Transaction, Login, Customer history or Recent activity.
+		Group string `json:"group"`
+
+		// Kind A free-text string that is an ISO country or currency code.
+		Kind *RiskCatalogFieldsKind `json:"kind,omitempty"`
+
+		// Label What the fact is, in plain words.
+		Label     string                `json:"label"`
 		Name      string                `json:"name"`
 		Operators []string              `json:"operators"`
 		Type      RiskCatalogFieldsType `json:"type"`
+
+		// Unit How a number reads: money (minor units of the event's currency), count, or ratio
+		// (1.5 = one and a half times).
+		Unit *RiskCatalogFieldsUnit `json:"unit,omitempty"`
+
+		// Values The only values a string field takes, with their labels.
+		Values *[]struct {
+			Label string `json:"label"`
+			Value string `json:"value"`
+		} `json:"values,omitempty"`
 	} `json:"fields"`
 	Signals []struct {
 		Code          string                   `json:"code"`
@@ -3573,8 +4445,15 @@ type RiskCatalog struct {
 	} `json:"signals"`
 }
 
+// RiskCatalogFieldsKind A free-text string that is an ISO country or currency code.
+type RiskCatalogFieldsKind string
+
 // RiskCatalogFieldsType defines model for RiskCatalog.Fields.Type.
 type RiskCatalogFieldsType string
+
+// RiskCatalogFieldsUnit How a number reads: money (minor units of the event's currency), count, or ratio
+// (1.5 = one and a half times).
+type RiskCatalogFieldsUnit string
 
 // RiskCatalogSignalsSource defines model for RiskCatalog.Signals.Source.
 type RiskCatalogSignalsSource string
@@ -3615,6 +4494,11 @@ type RiskDecision struct {
 	//
 	// Example: evt_01j9x2k7m3q4r5s6t7v8w9x0yz
 	EventId *string `json:"event_id"`
+
+	// Jurisdiction Which country's pack judged the event and why (ADR-0007): the booking entity the event named,
+	// the workspace's stated fallback, or none (`unresolved`: no pack judged it; `inactive`: the
+	// booking entity's activation is in draft or suspended). Absent for workspaces with no activation.
+	Jurisdiction *JurisdictionResolution `json:"jurisdiction,omitempty"`
 
 	// NotEvaluated Rules of the pack the event triggered that could not be evaluated because data or a
 	// setting they need was unavailable. Missing data is never treated as no risk: send the
@@ -3862,6 +4746,27 @@ type RuleList struct {
 
 // RuleMode active rules add their weight to the score; shadow rules are only recorded.
 type RuleMode string
+
+// RuleStats defines model for RuleStats.
+type RuleStats struct {
+	Days int `json:"days"`
+
+	// Evaluations Evaluations (not dry runs) in the period.
+	Evaluations int64 `json:"evaluations"`
+	Rules       []struct {
+		// Daily Matches per UTC day, oldest first, one entry per day of the period.
+		Daily []struct {
+			Day     openapi_types.Date `json:"day"`
+			Matches int64              `json:"matches"`
+		} `json:"daily"`
+		LastMatchedAt *time.Time `json:"last_matched_at"`
+		Matches       int64      `json:"matches"`
+		RuleId        string     `json:"rule_id"`
+	} `json:"rules"`
+
+	// Since Start of the first UTC day counted.
+	Since time.Time `json:"since"`
+}
 
 // RuleVersion defines model for RuleVersion.
 type RuleVersion struct {
@@ -4480,6 +5385,30 @@ type ListCasesParams struct {
 	Status *CaseStatus `form:"status,omitempty" json:"status,omitempty"`
 }
 
+// ListComplianceActivationChangesParams defines parameters for ListComplianceActivationChanges.
+type ListComplianceActivationChangesParams struct {
+	ActivationId *string                                     `form:"activation_id,omitempty" json:"activation_id,omitempty"`
+	State        *ListComplianceActivationChangesParamsState `form:"state,omitempty" json:"state,omitempty"`
+}
+
+// ListComplianceActivationChangesParamsState defines parameters for ListComplianceActivationChanges.
+type ListComplianceActivationChangesParamsState string
+
+// SetComplianceActivationStatusJSONBody defines parameters for SetComplianceActivationStatus.
+type SetComplianceActivationStatusJSONBody struct {
+	Rationale string                                      `json:"rationale"`
+	Status    SetComplianceActivationStatusJSONBodyStatus `json:"status"`
+}
+
+// SetComplianceActivationStatusJSONBodyStatus defines parameters for SetComplianceActivationStatus.
+type SetComplianceActivationStatusJSONBodyStatus string
+
+// ListActiveComplianceRulesParams defines parameters for ListActiveComplianceRules.
+type ListActiveComplianceRulesParams struct {
+	// Jurisdiction Only rules of this country.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
 // ListPackRuleChangesParams defines parameters for ListPackRuleChanges.
 type ListPackRuleChangesParams struct {
 	Status *ListPackRuleChangesParamsStatus `form:"status,omitempty" json:"status,omitempty"`
@@ -4487,6 +5416,22 @@ type ListPackRuleChangesParams struct {
 
 // ListPackRuleChangesParamsStatus defines parameters for ListPackRuleChanges.
 type ListPackRuleChangesParamsStatus string
+
+// ListComplianceClocksParams defines parameters for ListComplianceClocks.
+type ListComplianceClocksParams struct {
+	// Jurisdiction The country whose pack to read; without it, the workspace's fallback pack.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// ExportComplianceLibraryParams defines parameters for ExportComplianceLibrary.
+type ExportComplianceLibraryParams struct {
+	// Jurisdiction The country; without it, every country with a pack.
+	Jurisdiction *string                             `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+	Format       ExportComplianceLibraryParamsFormat `form:"format" json:"format"`
+}
+
+// ExportComplianceLibraryParamsFormat defines parameters for ExportComplianceLibrary.
+type ExportComplianceLibraryParamsFormat string
 
 // PrepareFraudReportJSONBody defines parameters for PrepareFraudReport.
 type PrepareFraudReportJSONBody struct {
@@ -4497,6 +5442,38 @@ type PrepareFraudReportJSONBody struct {
 type PutComplianceFXRateJSONBody struct {
 	// UsdPerUnit US dollars per one unit of the currency (for NGN, about 0.00065).
 	UsdPerUnit float64 `json:"usd_per_unit"`
+}
+
+// ListComplianceGapsParams defines parameters for ListComplianceGaps.
+type ListComplianceGapsParams struct {
+	// Jurisdiction The country whose pack to read; without it, the workspace's fallback pack.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// VerifyComplianceGapJSONBody defines parameters for VerifyComplianceGap.
+type VerifyComplianceGapJSONBody struct {
+	// Link Where the original text is (http or https).
+	Link *string `json:"link,omitempty"`
+	Note string  `json:"note"`
+}
+
+// VerifyComplianceGapParams defines parameters for VerifyComplianceGap.
+type VerifyComplianceGapParams struct {
+	// Jurisdiction The country whose pack the question is in; without it, the fallback's.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// ListComplianceGlossaryParams defines parameters for ListComplianceGlossary.
+type ListComplianceGlossaryParams struct {
+	// Jurisdiction The country whose pack to read; without it, the workspace's fallback pack.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// GetCompliancePackParams defines parameters for GetCompliancePack.
+type GetCompliancePackParams struct {
+	// Jurisdiction Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+	// the library's default modes. Without it, the workspace's own pack.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
 }
 
 // ListRestrictedSignalsParams defines parameters for ListRestrictedSignals.
@@ -4523,6 +5500,17 @@ type ListComplianceRulesParams struct {
 
 	// Applicable Only rules that do (true) or do not (false) apply to the workspace's licence type and capabilities. Needs a compliance profile.
 	Applicable *bool `form:"applicable,omitempty" json:"applicable,omitempty"`
+
+	// Jurisdiction Browse another jurisdiction's pack (its latest version), read-only: no applicability and
+	// the library's default modes. Without it, the workspace's own pack.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// GetComplianceRuleParams defines parameters for GetComplianceRule.
+type GetComplianceRuleParams struct {
+	// Jurisdiction The country whose pack the rule is in. Without it, the jurisdiction a country rule ID names
+	// (GH-REG-01 is Ghana's), else the workspace's fallback pack.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
 }
 
 // BacktestPackRuleJSONBody defines parameters for BacktestPackRule.
@@ -4533,10 +5521,34 @@ type BacktestPackRuleJSONBody struct {
 	Settings *PackRuleSettings `json:"settings,omitempty"`
 }
 
+// GetPackRuleConfigParams defines parameters for GetPackRuleConfig.
+type GetPackRuleConfigParams struct {
+	// Jurisdiction The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// PutPackRuleConfigParams defines parameters for PutPackRuleConfig.
+type PutPackRuleConfigParams struct {
+	// Jurisdiction The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
+// ListPackRuleVersionsParams defines parameters for ListPackRuleVersions.
+type ListPackRuleVersionsParams struct {
+	// Jurisdiction The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
+}
+
 // RollbackPackRuleJSONBody defines parameters for RollbackPackRule.
 type RollbackPackRuleJSONBody struct {
 	Reason  string `json:"reason"`
 	Version int    `json:"version"`
+}
+
+// RollbackPackRuleParams defines parameters for RollbackPackRule.
+type RollbackPackRuleParams struct {
+	// Jurisdiction The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+	Jurisdiction *string `form:"jurisdiction,omitempty" json:"jurisdiction,omitempty"`
 }
 
 // ConfirmSuspicionJSONBody defines parameters for ConfirmSuspicion.
@@ -4607,6 +5619,25 @@ type ListRuleChangesParams struct {
 // ListRuleChangesParamsStatus defines parameters for ListRuleChanges.
 type ListRuleChangesParamsStatus string
 
+// GetRuleStatsParams defines parameters for GetRuleStats.
+type GetRuleStatsParams struct {
+	Days *int `form:"days,omitempty" json:"days,omitempty"`
+}
+
+// TestRuleOnRecentEventsJSONBody defines parameters for TestRuleOnRecentEvents.
+type TestRuleOnRecentEventsJSONBody struct {
+	// Condition A condition tree. Each node is exactly one of:
+	// `{"all": [node, ...]}`, `{"any": [node, ...]}`, `{"not": node}`, or a comparison
+	// `{"field": "<field>", "op": "<operator>", "value": <value>}`. Fields and their operators
+	// are listed by `GET /api/v1/risk/catalog`. At most 50 nodes, 6 levels deep, 100 list
+	// items. A comparison on a field the event does not have never matches.
+	//
+	//
+	// Example: {"all":[{"field":"transaction.amount","op":"gt","value":1000000},{"field":"feature.new_beneficiary","op":"eq","value":true}]}
+	Condition RuleCondition `json:"condition"`
+	Days      *int          `json:"days,omitempty"`
+}
+
 // ListWebhookDeliveriesParams defines parameters for ListWebhookDeliveries.
 type ListWebhookDeliveriesParams struct {
 	// Limit Page size.
@@ -4674,6 +5705,24 @@ type UpdateCaseJSONRequestBody = UpdateCaseRequest
 // AddCaseNoteJSONRequestBody defines body for AddCaseNote for application/json ContentType.
 type AddCaseNoteJSONRequestBody = CreateCaseNoteRequest
 
+// ApproveComplianceActivationChangeJSONRequestBody defines body for ApproveComplianceActivationChange for application/json ContentType.
+type ApproveComplianceActivationChangeJSONRequestBody = DecisionNote
+
+// RejectComplianceActivationChangeJSONRequestBody defines body for RejectComplianceActivationChange for application/json ContentType.
+type RejectComplianceActivationChangeJSONRequestBody = DecisionNote
+
+// CreateComplianceActivationJSONRequestBody defines body for CreateComplianceActivation for application/json ContentType.
+type CreateComplianceActivationJSONRequestBody = ActivationRequest
+
+// UpdateComplianceActivationJSONRequestBody defines body for UpdateComplianceActivation for application/json ContentType.
+type UpdateComplianceActivationJSONRequestBody = ActivationUpdate
+
+// MakeComplianceActivationFallbackJSONRequestBody defines body for MakeComplianceActivationFallback for application/json ContentType.
+type MakeComplianceActivationFallbackJSONRequestBody = Rationale
+
+// SetComplianceActivationStatusJSONRequestBody defines body for SetComplianceActivationStatus for application/json ContentType.
+type SetComplianceActivationStatusJSONRequestBody SetComplianceActivationStatusJSONBody
+
 // ApprovePackRuleChangeJSONRequestBody defines body for ApprovePackRuleChange for application/json ContentType.
 type ApprovePackRuleChangeJSONRequestBody = DecisionNote
 
@@ -4685,6 +5734,9 @@ type PrepareFraudReportJSONRequestBody PrepareFraudReportJSONBody
 
 // PutComplianceFXRateJSONRequestBody defines body for PutComplianceFXRate for application/json ContentType.
 type PutComplianceFXRateJSONRequestBody PutComplianceFXRateJSONBody
+
+// VerifyComplianceGapJSONRequestBody defines body for VerifyComplianceGap for application/json ContentType.
+type VerifyComplianceGapJSONRequestBody VerifyComplianceGapJSONBody
 
 // PutComplianceProfileJSONRequestBody defines body for PutComplianceProfile for application/json ContentType.
 type PutComplianceProfileJSONRequestBody = ComplianceProfileRequest
@@ -4730,6 +5782,9 @@ type RejectRuleChangeJSONRequestBody = RejectRuleChangeRequest
 
 // CreateRuleJSONRequestBody defines body for CreateRule for application/json ContentType.
 type CreateRuleJSONRequestBody = CreateRuleRequest
+
+// TestRuleOnRecentEventsJSONRequestBody defines body for TestRuleOnRecentEvents for application/json ContentType.
+type TestRuleOnRecentEventsJSONRequestBody TestRuleOnRecentEventsJSONBody
 
 // UpdateRuleJSONRequestBody defines body for UpdateRule for application/json ContentType.
 type UpdateRuleJSONRequestBody = UpdateRuleRequest
@@ -5152,6 +6207,36 @@ type ServerInterface interface {
 	// AddCaseNote Add a note to a case
 	// (POST /api/v1/cases/{case_id}/notes)
 	AddCaseNote(w http.ResponseWriter, r *http.Request, caseId string)
+	// ListComplianceActivationChanges Activation changes (history and pending approvals)
+	// (GET /api/v1/compliance/activation-changes)
+	ListComplianceActivationChanges(w http.ResponseWriter, r *http.Request, params ListComplianceActivationChangesParams)
+	// ApproveComplianceActivationChange Approve a pending activation change
+	// (POST /api/v1/compliance/activation-changes/{change_id}/approve)
+	ApproveComplianceActivationChange(w http.ResponseWriter, r *http.Request, changeId string)
+	// RejectComplianceActivationChange Reject a pending activation change
+	// (POST /api/v1/compliance/activation-changes/{change_id}/reject)
+	RejectComplianceActivationChange(w http.ResponseWriter, r *http.Request, changeId string)
+	// ListComplianceActivations The workspace's country activations
+	// (GET /api/v1/compliance/activations)
+	ListComplianceActivations(w http.ResponseWriter, r *http.Request)
+	// CreateComplianceActivation Activate a country for a booking entity (as a draft)
+	// (POST /api/v1/compliance/activations)
+	CreateComplianceActivation(w http.ResponseWriter, r *http.Request)
+	// UpdateComplianceActivation Change an activation's licence type, capabilities or business day start
+	// (PATCH /api/v1/compliance/activations/{activation_id})
+	UpdateComplianceActivation(w http.ResponseWriter, r *http.Request, activationId string)
+	// MakeComplianceActivationFallback Make an activation the fallback
+	// (POST /api/v1/compliance/activations/{activation_id}/fallback)
+	MakeComplianceActivationFallback(w http.ResponseWriter, r *http.Request, activationId string)
+	// GetComplianceActivationReadiness What must be settled before an activation goes live
+	// (GET /api/v1/compliance/activations/{activation_id}/readiness)
+	GetComplianceActivationReadiness(w http.ResponseWriter, r *http.Request, activationId string)
+	// SetComplianceActivationStatus Move an activation to draft, shadow, live or suspended
+	// (POST /api/v1/compliance/activations/{activation_id}/status)
+	SetComplianceActivationStatus(w http.ResponseWriter, r *http.Request, activationId string)
+	// ListActiveComplianceRules Every pack rule running for the workspace
+	// (GET /api/v1/compliance/active-rules)
+	ListActiveComplianceRules(w http.ResponseWriter, r *http.Request, params ListActiveComplianceRulesParams)
 	// ListPackRuleChanges Configuration changes in this environment
 	// (GET /api/v1/compliance/changes)
 	ListPackRuleChanges(w http.ResponseWriter, r *http.Request, params ListPackRuleChangesParams)
@@ -5161,9 +6246,15 @@ type ServerInterface interface {
 	// RejectPackRuleChange Reject or withdraw a pending change
 	// (POST /api/v1/compliance/changes/{change_id}/reject)
 	RejectPackRuleChange(w http.ResponseWriter, r *http.Request, changeId string)
+	// GetComplianceClockMatrix Legal clocks and thresholds side by side
+	// (GET /api/v1/compliance/clock-matrix)
+	GetComplianceClockMatrix(w http.ResponseWriter, r *http.Request)
 	// ListComplianceClocks The pack's legal deadlines
 	// (GET /api/v1/compliance/clocks)
-	ListComplianceClocks(w http.ResponseWriter, r *http.Request)
+	ListComplianceClocks(w http.ResponseWriter, r *http.Request, params ListComplianceClocksParams)
+	// ExportComplianceLibrary Export a country's rule library
+	// (GET /api/v1/compliance/export)
+	ExportComplianceLibrary(w http.ResponseWriter, r *http.Request, params ExportComplianceLibraryParams)
 	// PrepareFraudReport Prepare an industry fraud report for a confirmed-fraud case
 	// (POST /api/v1/compliance/fraud-reports)
 	PrepareFraudReport(w http.ResponseWriter, r *http.Request)
@@ -5178,13 +6269,22 @@ type ServerInterface interface {
 	PutComplianceFXRate(w http.ResponseWriter, r *http.Request, currency string)
 	// ListComplianceGaps The pack's open questions
 	// (GET /api/v1/compliance/gaps)
-	ListComplianceGaps(w http.ResponseWriter, r *http.Request)
+	ListComplianceGaps(w http.ResponseWriter, r *http.Request, params ListComplianceGapsParams)
+	// VerifyComplianceGap Record that an open question was checked against the original text
+	// (POST /api/v1/compliance/gaps/{gap_id}/verify)
+	VerifyComplianceGap(w http.ResponseWriter, r *http.Request, gapId string, params VerifyComplianceGapParams)
 	// ListComplianceGlossary The pack's glossary
 	// (GET /api/v1/compliance/glossary)
-	ListComplianceGlossary(w http.ResponseWriter, r *http.Request)
+	ListComplianceGlossary(w http.ResponseWriter, r *http.Request, params ListComplianceGlossaryParams)
+	// ListComplianceJurisdictions The countries RiskOS has a rule pack for
+	// (GET /api/v1/compliance/jurisdictions)
+	ListComplianceJurisdictions(w http.ResponseWriter, r *http.Request)
 	// GetCompliancePack The workspace's rule pack
 	// (GET /api/v1/compliance/pack)
-	GetCompliancePack(w http.ResponseWriter, r *http.Request)
+	GetCompliancePack(w http.ResponseWriter, r *http.Request, params GetCompliancePackParams)
+	// ListCompliancePacks The jurisdictions with a rule pack
+	// (GET /api/v1/compliance/packs)
+	ListCompliancePacks(w http.ResponseWriter, r *http.Request)
 	// GetComplianceProfile The workspace's compliance profile
 	// (GET /api/v1/compliance/profile)
 	GetComplianceProfile(w http.ResponseWriter, r *http.Request)
@@ -5199,22 +6299,22 @@ type ServerInterface interface {
 	ListComplianceRules(w http.ResponseWriter, r *http.Request, params ListComplianceRulesParams)
 	// GetComplianceRule One rule
 	// (GET /api/v1/compliance/rules/{rule_id})
-	GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string)
+	GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string, params GetComplianceRuleParams)
 	// BacktestPackRule What a rule would have done over recent events
 	// (POST /api/v1/compliance/rules/{rule_id}/backtest)
 	BacktestPackRule(w http.ResponseWriter, r *http.Request, ruleId string)
 	// GetPackRuleConfig A rule's configuration in this environment
 	// (GET /api/v1/compliance/rules/{rule_id}/config)
-	GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string)
+	GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string, params GetPackRuleConfigParams)
 	// PutPackRuleConfig Set a rule's mode and settings in this environment
 	// (PUT /api/v1/compliance/rules/{rule_id}/config)
-	PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string)
+	PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string, params PutPackRuleConfigParams)
 	// ListPackRuleVersions A rule's configuration versions in this environment
 	// (GET /api/v1/compliance/rules/{rule_id}/history)
-	ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string)
+	ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string, params ListPackRuleVersionsParams)
 	// RollbackPackRule Restore an earlier configuration as a new version
 	// (POST /api/v1/compliance/rules/{rule_id}/rollback)
-	RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string)
+	RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string, params RollbackPackRuleParams)
 	// ConfirmSuspicion Confirm suspicion on a case
 	// (POST /api/v1/compliance/suspicion)
 	ConfirmSuspicion(w http.ResponseWriter, r *http.Request)
@@ -5302,6 +6402,12 @@ type ServerInterface interface {
 	// CreateRule Create a rule
 	// (POST /api/v1/rules)
 	CreateRule(w http.ResponseWriter, r *http.Request)
+	// GetRuleStats How often each of the workspace's rules matched
+	// (GET /api/v1/rules/stats)
+	GetRuleStats(w http.ResponseWriter, r *http.Request, params GetRuleStatsParams)
+	// TestRuleOnRecentEvents Try a condition on recent events
+	// (POST /api/v1/rules/test-recent)
+	TestRuleOnRecentEvents(w http.ResponseWriter, r *http.Request)
 	// GetRule Get a rule
 	// (GET /api/v1/rules/{rule_id})
 	GetRule(w http.ResponseWriter, r *http.Request, ruleId string)
@@ -5605,6 +6711,66 @@ func (_ Unimplemented) AddCaseNote(w http.ResponseWriter, r *http.Request, caseI
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ListComplianceActivationChanges Activation changes (history and pending approvals)
+// (GET /api/v1/compliance/activation-changes)
+func (_ Unimplemented) ListComplianceActivationChanges(w http.ResponseWriter, r *http.Request, params ListComplianceActivationChangesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveComplianceActivationChange Approve a pending activation change
+// (POST /api/v1/compliance/activation-changes/{change_id}/approve)
+func (_ Unimplemented) ApproveComplianceActivationChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectComplianceActivationChange Reject a pending activation change
+// (POST /api/v1/compliance/activation-changes/{change_id}/reject)
+func (_ Unimplemented) RejectComplianceActivationChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceActivations The workspace's country activations
+// (GET /api/v1/compliance/activations)
+func (_ Unimplemented) ListComplianceActivations(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// CreateComplianceActivation Activate a country for a booking entity (as a draft)
+// (POST /api/v1/compliance/activations)
+func (_ Unimplemented) CreateComplianceActivation(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// UpdateComplianceActivation Change an activation's licence type, capabilities or business day start
+// (PATCH /api/v1/compliance/activations/{activation_id})
+func (_ Unimplemented) UpdateComplianceActivation(w http.ResponseWriter, r *http.Request, activationId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// MakeComplianceActivationFallback Make an activation the fallback
+// (POST /api/v1/compliance/activations/{activation_id}/fallback)
+func (_ Unimplemented) MakeComplianceActivationFallback(w http.ResponseWriter, r *http.Request, activationId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetComplianceActivationReadiness What must be settled before an activation goes live
+// (GET /api/v1/compliance/activations/{activation_id}/readiness)
+func (_ Unimplemented) GetComplianceActivationReadiness(w http.ResponseWriter, r *http.Request, activationId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetComplianceActivationStatus Move an activation to draft, shadow, live or suspended
+// (POST /api/v1/compliance/activations/{activation_id}/status)
+func (_ Unimplemented) SetComplianceActivationStatus(w http.ResponseWriter, r *http.Request, activationId string) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListActiveComplianceRules Every pack rule running for the workspace
+// (GET /api/v1/compliance/active-rules)
+func (_ Unimplemented) ListActiveComplianceRules(w http.ResponseWriter, r *http.Request, params ListActiveComplianceRulesParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListPackRuleChanges Configuration changes in this environment
 // (GET /api/v1/compliance/changes)
 func (_ Unimplemented) ListPackRuleChanges(w http.ResponseWriter, r *http.Request, params ListPackRuleChangesParams) {
@@ -5623,9 +6789,21 @@ func (_ Unimplemented) RejectPackRuleChange(w http.ResponseWriter, r *http.Reque
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetComplianceClockMatrix Legal clocks and thresholds side by side
+// (GET /api/v1/compliance/clock-matrix)
+func (_ Unimplemented) GetComplianceClockMatrix(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // ListComplianceClocks The pack's legal deadlines
 // (GET /api/v1/compliance/clocks)
-func (_ Unimplemented) ListComplianceClocks(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListComplianceClocks(w http.ResponseWriter, r *http.Request, params ListComplianceClocksParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ExportComplianceLibrary Export a country's rule library
+// (GET /api/v1/compliance/export)
+func (_ Unimplemented) ExportComplianceLibrary(w http.ResponseWriter, r *http.Request, params ExportComplianceLibraryParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5655,19 +6833,37 @@ func (_ Unimplemented) PutComplianceFXRate(w http.ResponseWriter, r *http.Reques
 
 // ListComplianceGaps The pack's open questions
 // (GET /api/v1/compliance/gaps)
-func (_ Unimplemented) ListComplianceGaps(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListComplianceGaps(w http.ResponseWriter, r *http.Request, params ListComplianceGapsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// VerifyComplianceGap Record that an open question was checked against the original text
+// (POST /api/v1/compliance/gaps/{gap_id}/verify)
+func (_ Unimplemented) VerifyComplianceGap(w http.ResponseWriter, r *http.Request, gapId string, params VerifyComplianceGapParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // ListComplianceGlossary The pack's glossary
 // (GET /api/v1/compliance/glossary)
-func (_ Unimplemented) ListComplianceGlossary(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) ListComplianceGlossary(w http.ResponseWriter, r *http.Request, params ListComplianceGlossaryParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListComplianceJurisdictions The countries RiskOS has a rule pack for
+// (GET /api/v1/compliance/jurisdictions)
+func (_ Unimplemented) ListComplianceJurisdictions(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // GetCompliancePack The workspace's rule pack
 // (GET /api/v1/compliance/pack)
-func (_ Unimplemented) GetCompliancePack(w http.ResponseWriter, r *http.Request) {
+func (_ Unimplemented) GetCompliancePack(w http.ResponseWriter, r *http.Request, params GetCompliancePackParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListCompliancePacks The jurisdictions with a rule pack
+// (GET /api/v1/compliance/packs)
+func (_ Unimplemented) ListCompliancePacks(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5697,7 +6893,7 @@ func (_ Unimplemented) ListComplianceRules(w http.ResponseWriter, r *http.Reques
 
 // GetComplianceRule One rule
 // (GET /api/v1/compliance/rules/{rule_id})
-func (_ Unimplemented) GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (_ Unimplemented) GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string, params GetComplianceRuleParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5709,25 +6905,25 @@ func (_ Unimplemented) BacktestPackRule(w http.ResponseWriter, r *http.Request, 
 
 // GetPackRuleConfig A rule's configuration in this environment
 // (GET /api/v1/compliance/rules/{rule_id}/config)
-func (_ Unimplemented) GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (_ Unimplemented) GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string, params GetPackRuleConfigParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // PutPackRuleConfig Set a rule's mode and settings in this environment
 // (PUT /api/v1/compliance/rules/{rule_id}/config)
-func (_ Unimplemented) PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (_ Unimplemented) PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string, params PutPackRuleConfigParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // ListPackRuleVersions A rule's configuration versions in this environment
 // (GET /api/v1/compliance/rules/{rule_id}/history)
-func (_ Unimplemented) ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (_ Unimplemented) ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string, params ListPackRuleVersionsParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
 // RollbackPackRule Restore an earlier configuration as a new version
 // (POST /api/v1/compliance/rules/{rule_id}/rollback)
-func (_ Unimplemented) RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (_ Unimplemented) RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string, params RollbackPackRuleParams) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -5902,6 +7098,18 @@ func (_ Unimplemented) ListRules(w http.ResponseWriter, r *http.Request) {
 // CreateRule Create a rule
 // (POST /api/v1/rules)
 func (_ Unimplemented) CreateRule(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetRuleStats How often each of the workspace's rules matched
+// (GET /api/v1/rules/stats)
+func (_ Unimplemented) GetRuleStats(w http.ResponseWriter, r *http.Request, params GetRuleStatsParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// TestRuleOnRecentEvents Try a condition on recent events
+// (POST /api/v1/rules/test-recent)
+func (_ Unimplemented) TestRuleOnRecentEvents(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -6969,6 +8177,269 @@ func (siw *ServerInterfaceWrapper) AddCaseNote(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// ListComplianceActivationChanges operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceActivationChanges(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListComplianceActivationChangesParams
+
+	// ------------- Optional query parameter "activation_id" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "activation_id", r.URL.Query(), &params.ActivationId, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "activation_id"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "activation_id", Err: err})
+		}
+		return
+	}
+
+	// ------------- Optional query parameter "state" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "state", r.URL.Query(), &params.State, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "state"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "state", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceActivationChanges(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveComplianceActivationChange operation middleware
+func (siw *ServerInterfaceWrapper) ApproveComplianceActivationChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "change_id" -------------
+	var changeId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "change_id", chi.URLParam(r, "change_id"), &changeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "change_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveComplianceActivationChange(w, r, changeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectComplianceActivationChange operation middleware
+func (siw *ServerInterfaceWrapper) RejectComplianceActivationChange(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "change_id" -------------
+	var changeId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "change_id", chi.URLParam(r, "change_id"), &changeId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "change_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectComplianceActivationChange(w, r, changeId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceActivations operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceActivations(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceActivations(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// CreateComplianceActivation operation middleware
+func (siw *ServerInterfaceWrapper) CreateComplianceActivation(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.CreateComplianceActivation(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// UpdateComplianceActivation operation middleware
+func (siw *ServerInterfaceWrapper) UpdateComplianceActivation(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "activation_id" -------------
+	var activationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "activation_id", chi.URLParam(r, "activation_id"), &activationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "activation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.UpdateComplianceActivation(w, r, activationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// MakeComplianceActivationFallback operation middleware
+func (siw *ServerInterfaceWrapper) MakeComplianceActivationFallback(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "activation_id" -------------
+	var activationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "activation_id", chi.URLParam(r, "activation_id"), &activationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "activation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.MakeComplianceActivationFallback(w, r, activationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetComplianceActivationReadiness operation middleware
+func (siw *ServerInterfaceWrapper) GetComplianceActivationReadiness(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "activation_id" -------------
+	var activationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "activation_id", chi.URLParam(r, "activation_id"), &activationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "activation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComplianceActivationReadiness(w, r, activationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetComplianceActivationStatus operation middleware
+func (siw *ServerInterfaceWrapper) SetComplianceActivationStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "activation_id" -------------
+	var activationId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "activation_id", chi.URLParam(r, "activation_id"), &activationId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "activation_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetComplianceActivationStatus(w, r, activationId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListActiveComplianceRules operation middleware
+func (siw *ServerInterfaceWrapper) ListActiveComplianceRules(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListActiveComplianceRulesParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListActiveComplianceRules(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListPackRuleChanges operation middleware
 func (siw *ServerInterfaceWrapper) ListPackRuleChanges(w http.ResponseWriter, r *http.Request) {
 
@@ -7054,11 +8525,90 @@ func (siw *ServerInterfaceWrapper) RejectPackRuleChange(w http.ResponseWriter, r
 	handler.ServeHTTP(w, r)
 }
 
+// GetComplianceClockMatrix operation middleware
+func (siw *ServerInterfaceWrapper) GetComplianceClockMatrix(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetComplianceClockMatrix(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListComplianceClocks operation middleware
 func (siw *ServerInterfaceWrapper) ListComplianceClocks(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListComplianceClocksParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComplianceClocks(w, r)
+		siw.Handler.ListComplianceClocks(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ExportComplianceLibrary operation middleware
+func (siw *ServerInterfaceWrapper) ExportComplianceLibrary(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ExportComplianceLibraryParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
+	// ------------- Required query parameter "format" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, true, "format", r.URL.Query(), &params.Format, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "format"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "format", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ExportComplianceLibrary(w, r, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7151,8 +8701,69 @@ func (siw *ServerInterfaceWrapper) PutComplianceFXRate(w http.ResponseWriter, r 
 // ListComplianceGaps operation middleware
 func (siw *ServerInterfaceWrapper) ListComplianceGaps(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListComplianceGapsParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComplianceGaps(w, r)
+		siw.Handler.ListComplianceGaps(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// VerifyComplianceGap operation middleware
+func (siw *ServerInterfaceWrapper) VerifyComplianceGap(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "gap_id" -------------
+	var gapId string
+
+	err = runtime.BindStyledParameterWithOptions("simple", "gap_id", chi.URLParam(r, "gap_id"), &gapId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "gap_id", Err: err})
+		return
+	}
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params VerifyComplianceGapParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.VerifyComplianceGap(w, r, gapId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7165,8 +8776,41 @@ func (siw *ServerInterfaceWrapper) ListComplianceGaps(w http.ResponseWriter, r *
 // ListComplianceGlossary operation middleware
 func (siw *ServerInterfaceWrapper) ListComplianceGlossary(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListComplianceGlossaryParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListComplianceGlossary(w, r)
+		siw.Handler.ListComplianceGlossary(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListComplianceJurisdictions operation middleware
+func (siw *ServerInterfaceWrapper) ListComplianceJurisdictions(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListComplianceJurisdictions(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7179,8 +8823,41 @@ func (siw *ServerInterfaceWrapper) ListComplianceGlossary(w http.ResponseWriter,
 // GetCompliancePack operation middleware
 func (siw *ServerInterfaceWrapper) GetCompliancePack(w http.ResponseWriter, r *http.Request) {
 
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetCompliancePackParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetCompliancePack(w, r)
+		siw.Handler.GetCompliancePack(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListCompliancePacks operation middleware
+func (siw *ServerInterfaceWrapper) ListCompliancePacks(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListCompliancePacks(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7338,6 +9015,19 @@ func (siw *ServerInterfaceWrapper) ListComplianceRules(w http.ResponseWriter, r 
 		return
 	}
 
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListComplianceRules(w, r, params)
 	}))
@@ -7364,8 +9054,24 @@ func (siw *ServerInterfaceWrapper) GetComplianceRule(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetComplianceRuleParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetComplianceRule(w, r, ruleId)
+		siw.Handler.GetComplianceRule(w, r, ruleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7416,8 +9122,24 @@ func (siw *ServerInterfaceWrapper) GetPackRuleConfig(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetPackRuleConfigParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.GetPackRuleConfig(w, r, ruleId)
+		siw.Handler.GetPackRuleConfig(w, r, ruleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7442,8 +9164,24 @@ func (siw *ServerInterfaceWrapper) PutPackRuleConfig(w http.ResponseWriter, r *h
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params PutPackRuleConfigParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.PutPackRuleConfig(w, r, ruleId)
+		siw.Handler.PutPackRuleConfig(w, r, ruleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7468,8 +9206,24 @@ func (siw *ServerInterfaceWrapper) ListPackRuleVersions(w http.ResponseWriter, r
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params ListPackRuleVersionsParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.ListPackRuleVersions(w, r, ruleId)
+		siw.Handler.ListPackRuleVersions(w, r, ruleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -7494,8 +9248,24 @@ func (siw *ServerInterfaceWrapper) RollbackPackRule(w http.ResponseWriter, r *ht
 		return
 	}
 
+	// Parameter object where we will unmarshal all parameters from the context
+	var params RollbackPackRuleParams
+
+	// ------------- Optional query parameter "jurisdiction" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "jurisdiction", r.URL.Query(), &params.Jurisdiction, runtime.BindQueryParameterOptions{Type: "string", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "jurisdiction"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "jurisdiction", Err: err})
+		}
+		return
+	}
+
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		siw.Handler.RollbackPackRule(w, r, ruleId)
+		siw.Handler.RollbackPackRule(w, r, ruleId, params)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8235,6 +10005,53 @@ func (siw *ServerInterfaceWrapper) CreateRule(w http.ResponseWriter, r *http.Req
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.CreateRule(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetRuleStats operation middleware
+func (siw *ServerInterfaceWrapper) GetRuleStats(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params GetRuleStatsParams
+
+	// ------------- Optional query parameter "days" -------------
+
+	err = runtime.BindQueryParameterWithOptions("form", true, false, "days", r.URL.Query(), &params.Days, runtime.BindQueryParameterOptions{Type: "integer", Format: ""})
+	if err != nil {
+		var requiredError *runtime.RequiredParameterError
+		if errors.As(err, &requiredError) {
+			siw.ErrorHandlerFunc(w, r, &RequiredParamError{ParamName: "days"})
+		} else {
+			siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "days", Err: err})
+		}
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetRuleStats(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// TestRuleOnRecentEvents operation middleware
+func (siw *ServerInterfaceWrapper) TestRuleOnRecentEvents(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.TestRuleOnRecentEvents(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -8996,6 +10813,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/rules", wrapper.CreateRule)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/rules/stats", wrapper.GetRuleStats)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/rules/test-recent", wrapper.TestRuleOnRecentEvents)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/rules/{rule_id}", wrapper.GetRule)
 	})
 	r.Group(func(r chi.Router) {
@@ -9176,6 +10999,45 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/v1/onboarding/submit", wrapper.SubmitOnboarding)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/packs", wrapper.ListCompliancePacks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/jurisdictions", wrapper.ListComplianceJurisdictions)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/activations", wrapper.ListComplianceActivations)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/activations", wrapper.CreateComplianceActivation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Patch(options.BaseURL+"/api/v1/compliance/activations/{activation_id}", wrapper.UpdateComplianceActivation)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/activations/{activation_id}/status", wrapper.SetComplianceActivationStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/activations/{activation_id}/fallback", wrapper.MakeComplianceActivationFallback)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/activations/{activation_id}/readiness", wrapper.GetComplianceActivationReadiness)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/activation-changes", wrapper.ListComplianceActivationChanges)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/activation-changes/{change_id}/approve", wrapper.ApproveComplianceActivationChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/activation-changes/{change_id}/reject", wrapper.RejectComplianceActivationChange)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/v1/compliance/gaps/{gap_id}/verify", wrapper.VerifyComplianceGap)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/active-rules", wrapper.ListActiveComplianceRules)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/compliance/pack", wrapper.GetCompliancePack)
 	})
 	r.Group(func(r chi.Router) {
@@ -9249,6 +11111,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/compliance/clocks", wrapper.ListComplianceClocks)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/clock-matrix", wrapper.GetComplianceClockMatrix)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/v1/compliance/export", wrapper.ExportComplianceLibrary)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/v1/compliance/gaps", wrapper.ListComplianceGaps)
@@ -12957,6 +14825,1078 @@ func (response AddCaseNotedefaultJSONResponse) VisitAddCaseNoteResponse(w http.R
 	return err
 }
 
+type ListComplianceActivationChangesRequestObject struct {
+	Params ListComplianceActivationChangesParams
+}
+
+type ListComplianceActivationChangesResponseObject interface {
+	VisitListComplianceActivationChangesResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceActivationChanges200JSONResponse struct {
+	Data []ActivationChange `json:"data"`
+}
+
+func (response ListComplianceActivationChanges200JSONResponse) VisitListComplianceActivationChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivationChanges401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceActivationChanges401JSONResponse) VisitListComplianceActivationChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivationChanges403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceActivationChanges403JSONResponse) VisitListComplianceActivationChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivationChanges404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ListComplianceActivationChanges404JSONResponse) VisitListComplianceActivationChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivationChangesdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceActivationChangesdefaultJSONResponse) VisitListComplianceActivationChangesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChangeRequestObject struct {
+	ChangeId string `json:"change_id"`
+	Body     *ApproveComplianceActivationChangeJSONRequestBody
+}
+
+type ApproveComplianceActivationChangeResponseObject interface {
+	VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error
+}
+
+type ApproveComplianceActivationChange200JSONResponse ActivationChange
+
+func (response ApproveComplianceActivationChange200JSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChange400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ApproveComplianceActivationChange400JSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChange401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApproveComplianceActivationChange401JSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChange403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveComplianceActivationChange403JSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChange404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveComplianceActivationChange404JSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChange409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveComplianceActivationChange409JSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveComplianceActivationChangedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ApproveComplianceActivationChangedefaultJSONResponse) VisitApproveComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChangeRequestObject struct {
+	ChangeId string `json:"change_id"`
+	Body     *RejectComplianceActivationChangeJSONRequestBody
+}
+
+type RejectComplianceActivationChangeResponseObject interface {
+	VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error
+}
+
+type RejectComplianceActivationChange200JSONResponse ActivationChange
+
+func (response RejectComplianceActivationChange200JSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChange400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RejectComplianceActivationChange400JSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChange401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RejectComplianceActivationChange401JSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChange403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectComplianceActivationChange403JSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChange404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectComplianceActivationChange404JSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChange409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectComplianceActivationChange409JSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectComplianceActivationChangedefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response RejectComplianceActivationChangedefaultJSONResponse) VisitRejectComplianceActivationChangeResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivationsRequestObject struct {
+}
+
+type ListComplianceActivationsResponseObject interface {
+	VisitListComplianceActivationsResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceActivations200JSONResponse struct {
+	Data []JurisdictionActivation `json:"data"`
+}
+
+func (response ListComplianceActivations200JSONResponse) VisitListComplianceActivationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivations401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceActivations401JSONResponse) VisitListComplianceActivationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivations403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceActivations403JSONResponse) VisitListComplianceActivationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceActivationsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceActivationsdefaultJSONResponse) VisitListComplianceActivationsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivationRequestObject struct {
+	Body *CreateComplianceActivationJSONRequestBody
+}
+
+type CreateComplianceActivationResponseObject interface {
+	VisitCreateComplianceActivationResponse(w http.ResponseWriter) error
+}
+
+type CreateComplianceActivation201JSONResponse JurisdictionActivation
+
+func (response CreateComplianceActivation201JSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivation400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response CreateComplianceActivation400JSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivation401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response CreateComplianceActivation401JSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivation403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response CreateComplianceActivation403JSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivation404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response CreateComplianceActivation404JSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivation409JSONResponse struct{ ConflictJSONResponse }
+
+func (response CreateComplianceActivation409JSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type CreateComplianceActivationdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response CreateComplianceActivationdefaultJSONResponse) VisitCreateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivationRequestObject struct {
+	ActivationId string `json:"activation_id"`
+	Body         *UpdateComplianceActivationJSONRequestBody
+}
+
+type UpdateComplianceActivationResponseObject interface {
+	VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error
+}
+
+type UpdateComplianceActivation200JSONResponse JurisdictionActivation
+
+func (response UpdateComplianceActivation200JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivation202JSONResponse ActivationChange
+
+func (response UpdateComplianceActivation202JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivation400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response UpdateComplianceActivation400JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivation401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response UpdateComplianceActivation401JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivation403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response UpdateComplianceActivation403JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivation404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response UpdateComplianceActivation404JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivation409JSONResponse struct{ ConflictJSONResponse }
+
+func (response UpdateComplianceActivation409JSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type UpdateComplianceActivationdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response UpdateComplianceActivationdefaultJSONResponse) VisitUpdateComplianceActivationResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallbackRequestObject struct {
+	ActivationId string `json:"activation_id"`
+	Body         *MakeComplianceActivationFallbackJSONRequestBody
+}
+
+type MakeComplianceActivationFallbackResponseObject interface {
+	VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error
+}
+
+type MakeComplianceActivationFallback200JSONResponse JurisdictionActivation
+
+func (response MakeComplianceActivationFallback200JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallback202JSONResponse ActivationChange
+
+func (response MakeComplianceActivationFallback202JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallback400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response MakeComplianceActivationFallback400JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallback401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response MakeComplianceActivationFallback401JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallback403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response MakeComplianceActivationFallback403JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallback404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response MakeComplianceActivationFallback404JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallback409JSONResponse struct{ ConflictJSONResponse }
+
+func (response MakeComplianceActivationFallback409JSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type MakeComplianceActivationFallbackdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response MakeComplianceActivationFallbackdefaultJSONResponse) VisitMakeComplianceActivationFallbackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceActivationReadinessRequestObject struct {
+	ActivationId string `json:"activation_id"`
+}
+
+type GetComplianceActivationReadinessResponseObject interface {
+	VisitGetComplianceActivationReadinessResponse(w http.ResponseWriter) error
+}
+
+type GetComplianceActivationReadiness200JSONResponse ActivationReadiness
+
+func (response GetComplianceActivationReadiness200JSONResponse) VisitGetComplianceActivationReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceActivationReadiness401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetComplianceActivationReadiness401JSONResponse) VisitGetComplianceActivationReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceActivationReadiness403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetComplianceActivationReadiness403JSONResponse) VisitGetComplianceActivationReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceActivationReadiness404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetComplianceActivationReadiness404JSONResponse) VisitGetComplianceActivationReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceActivationReadinessdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetComplianceActivationReadinessdefaultJSONResponse) VisitGetComplianceActivationReadinessResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatusRequestObject struct {
+	ActivationId string `json:"activation_id"`
+	Body         *SetComplianceActivationStatusJSONRequestBody
+}
+
+type SetComplianceActivationStatusResponseObject interface {
+	VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error
+}
+
+type SetComplianceActivationStatus200JSONResponse JurisdictionActivation
+
+func (response SetComplianceActivationStatus200JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatus202JSONResponse ActivationChange
+
+func (response SetComplianceActivationStatus202JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(202)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatus400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SetComplianceActivationStatus400JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatus401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SetComplianceActivationStatus401JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response SetComplianceActivationStatus403JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetComplianceActivationStatus404JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response SetComplianceActivationStatus409JSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetComplianceActivationStatusdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response SetComplianceActivationStatusdefaultJSONResponse) VisitSetComplianceActivationStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListActiveComplianceRulesRequestObject struct {
+	Params ListActiveComplianceRulesParams
+}
+
+type ListActiveComplianceRulesResponseObject interface {
+	VisitListActiveComplianceRulesResponse(w http.ResponseWriter) error
+}
+
+type ListActiveComplianceRules200JSONResponse struct {
+	Data []ActiveComplianceRule `json:"data"`
+}
+
+func (response ListActiveComplianceRules200JSONResponse) VisitListActiveComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListActiveComplianceRules401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListActiveComplianceRules401JSONResponse) VisitListActiveComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListActiveComplianceRules403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListActiveComplianceRules403JSONResponse) VisitListActiveComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListActiveComplianceRulesdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListActiveComplianceRulesdefaultJSONResponse) VisitListActiveComplianceRulesResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListPackRuleChangesRequestObject struct {
 	Params ListPackRuleChangesParams
 }
@@ -13251,7 +16191,83 @@ func (response RejectPackRuleChangedefaultJSONResponse) VisitRejectPackRuleChang
 	return err
 }
 
+type GetComplianceClockMatrixRequestObject struct {
+}
+
+type GetComplianceClockMatrixResponseObject interface {
+	VisitGetComplianceClockMatrixResponse(w http.ResponseWriter) error
+}
+
+type GetComplianceClockMatrix200JSONResponse struct {
+	Data []ClockMatrixRow `json:"data"`
+}
+
+func (response GetComplianceClockMatrix200JSONResponse) VisitGetComplianceClockMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceClockMatrix401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetComplianceClockMatrix401JSONResponse) VisitGetComplianceClockMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceClockMatrix403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetComplianceClockMatrix403JSONResponse) VisitGetComplianceClockMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetComplianceClockMatrixdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetComplianceClockMatrixdefaultJSONResponse) VisitGetComplianceClockMatrixResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListComplianceClocksRequestObject struct {
+	Params ListComplianceClocksParams
 }
 
 type ListComplianceClocksResponseObject interface {
@@ -13324,6 +16340,132 @@ type ListComplianceClocksdefaultJSONResponse struct {
 }
 
 func (response ListComplianceClocksdefaultJSONResponse) VisitListComplianceClocksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceLibraryRequestObject struct {
+	Params ExportComplianceLibraryParams
+}
+
+type ExportComplianceLibraryResponseObject interface {
+	VisitExportComplianceLibraryResponse(w http.ResponseWriter) error
+}
+
+type ExportComplianceLibrary200ResponseHeaders struct {
+	ContentDisposition *string
+}
+
+type ExportComplianceLibrary200ApplicationpdfResponse struct {
+	Body          io.Reader
+	Headers       ExportComplianceLibrary200ResponseHeaders
+	ContentLength int64
+}
+
+func (response ExportComplianceLibrary200ApplicationpdfResponse) VisitExportComplianceLibraryResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "application/pdf")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ExportComplianceLibrary200TextcsvResponse struct {
+	Body          io.Reader
+	Headers       ExportComplianceLibrary200ResponseHeaders
+	ContentLength int64
+}
+
+func (response ExportComplianceLibrary200TextcsvResponse) VisitExportComplianceLibraryResponse(w http.ResponseWriter) error {
+
+	w.Header().Set("Content-Type", "text/csv")
+	if response.ContentLength != 0 {
+		w.Header().Set("Content-Length", fmt.Sprint(response.ContentLength))
+	}
+	if response.Headers.ContentDisposition != nil {
+		w.Header().Set("Content-Disposition", fmt.Sprint(*response.Headers.ContentDisposition))
+	}
+	w.WriteHeader(200)
+
+	if closer, ok := response.Body.(io.ReadCloser); ok {
+		defer closer.Close()
+	}
+	_, err := io.Copy(w, response.Body)
+	return err
+}
+
+type ExportComplianceLibrary401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ExportComplianceLibrary401JSONResponse) VisitExportComplianceLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceLibrary403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ExportComplianceLibrary403JSONResponse) VisitExportComplianceLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceLibrary404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ExportComplianceLibrary404JSONResponse) VisitExportComplianceLibraryResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ExportComplianceLibrarydefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ExportComplianceLibrarydefaultJSONResponse) VisitExportComplianceLibraryResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -13699,6 +16841,7 @@ func (response PutComplianceFXRatedefaultJSONResponse) VisitPutComplianceFXRateR
 }
 
 type ListComplianceGapsRequestObject struct {
+	Params ListComplianceGapsParams
 }
 
 type ListComplianceGapsResponseObject interface {
@@ -13785,7 +16928,126 @@ func (response ListComplianceGapsdefaultJSONResponse) VisitListComplianceGapsRes
 	return err
 }
 
+type VerifyComplianceGapRequestObject struct {
+	GapId  string `json:"gap_id"`
+	Params VerifyComplianceGapParams
+	Body   *VerifyComplianceGapJSONRequestBody
+}
+
+type VerifyComplianceGapResponseObject interface {
+	VisitVerifyComplianceGapResponse(w http.ResponseWriter) error
+}
+
+type VerifyComplianceGap201JSONResponse GapVerification
+
+func (response VerifyComplianceGap201JSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyComplianceGap400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response VerifyComplianceGap400JSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyComplianceGap401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response VerifyComplianceGap401JSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyComplianceGap403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response VerifyComplianceGap403JSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyComplianceGap404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response VerifyComplianceGap404JSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyComplianceGap409JSONResponse struct{ ConflictJSONResponse }
+
+func (response VerifyComplianceGap409JSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type VerifyComplianceGapdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response VerifyComplianceGapdefaultJSONResponse) VisitVerifyComplianceGapResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListComplianceGlossaryRequestObject struct {
+	Params ListComplianceGlossaryParams
 }
 
 type ListComplianceGlossaryResponseObject interface {
@@ -13872,7 +17134,83 @@ func (response ListComplianceGlossarydefaultJSONResponse) VisitListComplianceGlo
 	return err
 }
 
+type ListComplianceJurisdictionsRequestObject struct {
+}
+
+type ListComplianceJurisdictionsResponseObject interface {
+	VisitListComplianceJurisdictionsResponse(w http.ResponseWriter) error
+}
+
+type ListComplianceJurisdictions200JSONResponse struct {
+	Data []Jurisdiction `json:"data"`
+}
+
+func (response ListComplianceJurisdictions200JSONResponse) VisitListComplianceJurisdictionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceJurisdictions401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListComplianceJurisdictions401JSONResponse) VisitListComplianceJurisdictionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceJurisdictions403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListComplianceJurisdictions403JSONResponse) VisitListComplianceJurisdictionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListComplianceJurisdictionsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListComplianceJurisdictionsdefaultJSONResponse) VisitListComplianceJurisdictionsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetCompliancePackRequestObject struct {
+	Params GetCompliancePackParams
 }
 
 type GetCompliancePackResponseObject interface {
@@ -13945,6 +17283,81 @@ type GetCompliancePackdefaultJSONResponse struct {
 }
 
 func (response GetCompliancePackdefaultJSONResponse) VisitGetCompliancePackResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCompliancePacksRequestObject struct {
+}
+
+type ListCompliancePacksResponseObject interface {
+	VisitListCompliancePacksResponse(w http.ResponseWriter) error
+}
+
+type ListCompliancePacks200JSONResponse struct {
+	Data []CompliancePackSummary `json:"data"`
+}
+
+func (response ListCompliancePacks200JSONResponse) VisitListCompliancePacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCompliancePacks401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListCompliancePacks401JSONResponse) VisitListCompliancePacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCompliancePacks403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListCompliancePacks403JSONResponse) VisitListCompliancePacksResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListCompliancePacksdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response ListCompliancePacksdefaultJSONResponse) VisitListCompliancePacksResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -14326,6 +17739,7 @@ func (response ListComplianceRulesdefaultJSONResponse) VisitListComplianceRulesR
 
 type GetComplianceRuleRequestObject struct {
 	RuleId string `json:"rule_id"`
+	Params GetComplianceRuleParams
 }
 
 type GetComplianceRuleResponseObject interface {
@@ -14517,6 +17931,7 @@ func (response BacktestPackRuledefaultJSONResponse) VisitBacktestPackRuleRespons
 
 type GetPackRuleConfigRequestObject struct {
 	RuleId string `json:"rule_id"`
+	Params GetPackRuleConfigParams
 }
 
 type GetPackRuleConfigResponseObject interface {
@@ -14605,6 +18020,7 @@ func (response GetPackRuleConfigdefaultJSONResponse) VisitGetPackRuleConfigRespo
 
 type PutPackRuleConfigRequestObject struct {
 	RuleId string `json:"rule_id"`
+	Params PutPackRuleConfigParams
 	Body   *PutPackRuleConfigJSONRequestBody
 }
 
@@ -14736,6 +18152,7 @@ func (response PutPackRuleConfigdefaultJSONResponse) VisitPutPackRuleConfigRespo
 
 type ListPackRuleVersionsRequestObject struct {
 	RuleId string `json:"rule_id"`
+	Params ListPackRuleVersionsParams
 }
 
 type ListPackRuleVersionsResponseObject interface {
@@ -14824,6 +18241,7 @@ func (response ListPackRuleVersionsdefaultJSONResponse) VisitListPackRuleVersion
 
 type RollbackPackRuleRequestObject struct {
 	RuleId string `json:"rule_id"`
+	Params RollbackPackRuleParams
 	Body   *RollbackPackRuleJSONRequestBody
 }
 
@@ -18038,6 +21456,182 @@ func (response CreateRuledefaultJSONResponse) VisitCreateRuleResponse(w http.Res
 	return err
 }
 
+type GetRuleStatsRequestObject struct {
+	Params GetRuleStatsParams
+}
+
+type GetRuleStatsResponseObject interface {
+	VisitGetRuleStatsResponse(w http.ResponseWriter) error
+}
+
+type GetRuleStats200JSONResponse RuleStats
+
+func (response GetRuleStats200JSONResponse) VisitGetRuleStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuleStats400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response GetRuleStats400JSONResponse) VisitGetRuleStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuleStats401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetRuleStats401JSONResponse) VisitGetRuleStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuleStats403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response GetRuleStats403JSONResponse) VisitGetRuleStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetRuleStatsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response GetRuleStatsdefaultJSONResponse) VisitGetRuleStatsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestRuleOnRecentEventsRequestObject struct {
+	Body *TestRuleOnRecentEventsJSONRequestBody
+}
+
+type TestRuleOnRecentEventsResponseObject interface {
+	VisitTestRuleOnRecentEventsResponse(w http.ResponseWriter) error
+}
+
+type TestRuleOnRecentEvents200JSONResponse RecentRuleTest
+
+func (response TestRuleOnRecentEvents200JSONResponse) VisitTestRuleOnRecentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestRuleOnRecentEvents400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response TestRuleOnRecentEvents400JSONResponse) VisitTestRuleOnRecentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestRuleOnRecentEvents401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response TestRuleOnRecentEvents401JSONResponse) VisitTestRuleOnRecentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.WWWAuthenticate != nil {
+		w.Header().Set("WWW-Authenticate", fmt.Sprint(*response.Headers.WWWAuthenticate))
+	}
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestRuleOnRecentEvents403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response TestRuleOnRecentEvents403JSONResponse) VisitTestRuleOnRecentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type TestRuleOnRecentEventsdefaultJSONResponse struct {
+	Body       ErrorResponse
+	Headers    DefaultErrorResponseHeaders
+	StatusCode int
+}
+
+func (response TestRuleOnRecentEventsdefaultJSONResponse) VisitTestRuleOnRecentEventsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.XRequestID != nil {
+		w.Header().Set("X-Request-ID", fmt.Sprint(*response.Headers.XRequestID))
+	}
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetRuleRequestObject struct {
 	RuleId string `json:"rule_id"`
 }
@@ -20822,6 +24416,36 @@ type StrictServerInterface interface {
 	// AddCaseNote Add a note to a case
 	// (POST /api/v1/cases/{case_id}/notes)
 	AddCaseNote(ctx context.Context, request AddCaseNoteRequestObject) (AddCaseNoteResponseObject, error)
+	// ListComplianceActivationChanges Activation changes (history and pending approvals)
+	// (GET /api/v1/compliance/activation-changes)
+	ListComplianceActivationChanges(ctx context.Context, request ListComplianceActivationChangesRequestObject) (ListComplianceActivationChangesResponseObject, error)
+	// ApproveComplianceActivationChange Approve a pending activation change
+	// (POST /api/v1/compliance/activation-changes/{change_id}/approve)
+	ApproveComplianceActivationChange(ctx context.Context, request ApproveComplianceActivationChangeRequestObject) (ApproveComplianceActivationChangeResponseObject, error)
+	// RejectComplianceActivationChange Reject a pending activation change
+	// (POST /api/v1/compliance/activation-changes/{change_id}/reject)
+	RejectComplianceActivationChange(ctx context.Context, request RejectComplianceActivationChangeRequestObject) (RejectComplianceActivationChangeResponseObject, error)
+	// ListComplianceActivations The workspace's country activations
+	// (GET /api/v1/compliance/activations)
+	ListComplianceActivations(ctx context.Context, request ListComplianceActivationsRequestObject) (ListComplianceActivationsResponseObject, error)
+	// CreateComplianceActivation Activate a country for a booking entity (as a draft)
+	// (POST /api/v1/compliance/activations)
+	CreateComplianceActivation(ctx context.Context, request CreateComplianceActivationRequestObject) (CreateComplianceActivationResponseObject, error)
+	// UpdateComplianceActivation Change an activation's licence type, capabilities or business day start
+	// (PATCH /api/v1/compliance/activations/{activation_id})
+	UpdateComplianceActivation(ctx context.Context, request UpdateComplianceActivationRequestObject) (UpdateComplianceActivationResponseObject, error)
+	// MakeComplianceActivationFallback Make an activation the fallback
+	// (POST /api/v1/compliance/activations/{activation_id}/fallback)
+	MakeComplianceActivationFallback(ctx context.Context, request MakeComplianceActivationFallbackRequestObject) (MakeComplianceActivationFallbackResponseObject, error)
+	// GetComplianceActivationReadiness What must be settled before an activation goes live
+	// (GET /api/v1/compliance/activations/{activation_id}/readiness)
+	GetComplianceActivationReadiness(ctx context.Context, request GetComplianceActivationReadinessRequestObject) (GetComplianceActivationReadinessResponseObject, error)
+	// SetComplianceActivationStatus Move an activation to draft, shadow, live or suspended
+	// (POST /api/v1/compliance/activations/{activation_id}/status)
+	SetComplianceActivationStatus(ctx context.Context, request SetComplianceActivationStatusRequestObject) (SetComplianceActivationStatusResponseObject, error)
+	// ListActiveComplianceRules Every pack rule running for the workspace
+	// (GET /api/v1/compliance/active-rules)
+	ListActiveComplianceRules(ctx context.Context, request ListActiveComplianceRulesRequestObject) (ListActiveComplianceRulesResponseObject, error)
 	// ListPackRuleChanges Configuration changes in this environment
 	// (GET /api/v1/compliance/changes)
 	ListPackRuleChanges(ctx context.Context, request ListPackRuleChangesRequestObject) (ListPackRuleChangesResponseObject, error)
@@ -20831,9 +24455,15 @@ type StrictServerInterface interface {
 	// RejectPackRuleChange Reject or withdraw a pending change
 	// (POST /api/v1/compliance/changes/{change_id}/reject)
 	RejectPackRuleChange(ctx context.Context, request RejectPackRuleChangeRequestObject) (RejectPackRuleChangeResponseObject, error)
+	// GetComplianceClockMatrix Legal clocks and thresholds side by side
+	// (GET /api/v1/compliance/clock-matrix)
+	GetComplianceClockMatrix(ctx context.Context, request GetComplianceClockMatrixRequestObject) (GetComplianceClockMatrixResponseObject, error)
 	// ListComplianceClocks The pack's legal deadlines
 	// (GET /api/v1/compliance/clocks)
 	ListComplianceClocks(ctx context.Context, request ListComplianceClocksRequestObject) (ListComplianceClocksResponseObject, error)
+	// ExportComplianceLibrary Export a country's rule library
+	// (GET /api/v1/compliance/export)
+	ExportComplianceLibrary(ctx context.Context, request ExportComplianceLibraryRequestObject) (ExportComplianceLibraryResponseObject, error)
 	// PrepareFraudReport Prepare an industry fraud report for a confirmed-fraud case
 	// (POST /api/v1/compliance/fraud-reports)
 	PrepareFraudReport(ctx context.Context, request PrepareFraudReportRequestObject) (PrepareFraudReportResponseObject, error)
@@ -20849,12 +24479,21 @@ type StrictServerInterface interface {
 	// ListComplianceGaps The pack's open questions
 	// (GET /api/v1/compliance/gaps)
 	ListComplianceGaps(ctx context.Context, request ListComplianceGapsRequestObject) (ListComplianceGapsResponseObject, error)
+	// VerifyComplianceGap Record that an open question was checked against the original text
+	// (POST /api/v1/compliance/gaps/{gap_id}/verify)
+	VerifyComplianceGap(ctx context.Context, request VerifyComplianceGapRequestObject) (VerifyComplianceGapResponseObject, error)
 	// ListComplianceGlossary The pack's glossary
 	// (GET /api/v1/compliance/glossary)
 	ListComplianceGlossary(ctx context.Context, request ListComplianceGlossaryRequestObject) (ListComplianceGlossaryResponseObject, error)
+	// ListComplianceJurisdictions The countries RiskOS has a rule pack for
+	// (GET /api/v1/compliance/jurisdictions)
+	ListComplianceJurisdictions(ctx context.Context, request ListComplianceJurisdictionsRequestObject) (ListComplianceJurisdictionsResponseObject, error)
 	// GetCompliancePack The workspace's rule pack
 	// (GET /api/v1/compliance/pack)
 	GetCompliancePack(ctx context.Context, request GetCompliancePackRequestObject) (GetCompliancePackResponseObject, error)
+	// ListCompliancePacks The jurisdictions with a rule pack
+	// (GET /api/v1/compliance/packs)
+	ListCompliancePacks(ctx context.Context, request ListCompliancePacksRequestObject) (ListCompliancePacksResponseObject, error)
 	// GetComplianceProfile The workspace's compliance profile
 	// (GET /api/v1/compliance/profile)
 	GetComplianceProfile(ctx context.Context, request GetComplianceProfileRequestObject) (GetComplianceProfileResponseObject, error)
@@ -20972,6 +24611,12 @@ type StrictServerInterface interface {
 	// CreateRule Create a rule
 	// (POST /api/v1/rules)
 	CreateRule(ctx context.Context, request CreateRuleRequestObject) (CreateRuleResponseObject, error)
+	// GetRuleStats How often each of the workspace's rules matched
+	// (GET /api/v1/rules/stats)
+	GetRuleStats(ctx context.Context, request GetRuleStatsRequestObject) (GetRuleStatsResponseObject, error)
+	// TestRuleOnRecentEvents Try a condition on recent events
+	// (POST /api/v1/rules/test-recent)
+	TestRuleOnRecentEvents(ctx context.Context, request TestRuleOnRecentEventsRequestObject) (TestRuleOnRecentEventsResponseObject, error)
 	// GetRule Get a rule
 	// (GET /api/v1/rules/{rule_id})
 	GetRule(ctx context.Context, request GetRuleRequestObject) (GetRuleResponseObject, error)
@@ -22148,6 +25793,310 @@ func (sh *strictHandler) AddCaseNote(w http.ResponseWriter, r *http.Request, cas
 	}
 }
 
+// ListComplianceActivationChanges operation middleware
+func (sh *strictHandler) ListComplianceActivationChanges(w http.ResponseWriter, r *http.Request, params ListComplianceActivationChangesParams) {
+	var request ListComplianceActivationChangesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceActivationChanges(ctx, request.(ListComplianceActivationChangesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceActivationChanges")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceActivationChangesResponseObject); ok {
+		if err := validResponse.VisitListComplianceActivationChangesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveComplianceActivationChange operation middleware
+func (sh *strictHandler) ApproveComplianceActivationChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	var request ApproveComplianceActivationChangeRequestObject
+
+	request.ChangeId = changeId
+
+	var body ApproveComplianceActivationChangeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveComplianceActivationChange(ctx, request.(ApproveComplianceActivationChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveComplianceActivationChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveComplianceActivationChangeResponseObject); ok {
+		if err := validResponse.VisitApproveComplianceActivationChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectComplianceActivationChange operation middleware
+func (sh *strictHandler) RejectComplianceActivationChange(w http.ResponseWriter, r *http.Request, changeId string) {
+	var request RejectComplianceActivationChangeRequestObject
+
+	request.ChangeId = changeId
+
+	var body RejectComplianceActivationChangeJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectComplianceActivationChange(ctx, request.(RejectComplianceActivationChangeRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectComplianceActivationChange")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectComplianceActivationChangeResponseObject); ok {
+		if err := validResponse.VisitRejectComplianceActivationChangeResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListComplianceActivations operation middleware
+func (sh *strictHandler) ListComplianceActivations(w http.ResponseWriter, r *http.Request) {
+	var request ListComplianceActivationsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceActivations(ctx, request.(ListComplianceActivationsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceActivations")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceActivationsResponseObject); ok {
+		if err := validResponse.VisitListComplianceActivationsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// CreateComplianceActivation operation middleware
+func (sh *strictHandler) CreateComplianceActivation(w http.ResponseWriter, r *http.Request) {
+	var request CreateComplianceActivationRequestObject
+
+	var body CreateComplianceActivationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.CreateComplianceActivation(ctx, request.(CreateComplianceActivationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "CreateComplianceActivation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(CreateComplianceActivationResponseObject); ok {
+		if err := validResponse.VisitCreateComplianceActivationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// UpdateComplianceActivation operation middleware
+func (sh *strictHandler) UpdateComplianceActivation(w http.ResponseWriter, r *http.Request, activationId string) {
+	var request UpdateComplianceActivationRequestObject
+
+	request.ActivationId = activationId
+
+	var body UpdateComplianceActivationJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.UpdateComplianceActivation(ctx, request.(UpdateComplianceActivationRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "UpdateComplianceActivation")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(UpdateComplianceActivationResponseObject); ok {
+		if err := validResponse.VisitUpdateComplianceActivationResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// MakeComplianceActivationFallback operation middleware
+func (sh *strictHandler) MakeComplianceActivationFallback(w http.ResponseWriter, r *http.Request, activationId string) {
+	var request MakeComplianceActivationFallbackRequestObject
+
+	request.ActivationId = activationId
+
+	var body MakeComplianceActivationFallbackJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.MakeComplianceActivationFallback(ctx, request.(MakeComplianceActivationFallbackRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "MakeComplianceActivationFallback")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(MakeComplianceActivationFallbackResponseObject); ok {
+		if err := validResponse.VisitMakeComplianceActivationFallbackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetComplianceActivationReadiness operation middleware
+func (sh *strictHandler) GetComplianceActivationReadiness(w http.ResponseWriter, r *http.Request, activationId string) {
+	var request GetComplianceActivationReadinessRequestObject
+
+	request.ActivationId = activationId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComplianceActivationReadiness(ctx, request.(GetComplianceActivationReadinessRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComplianceActivationReadiness")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComplianceActivationReadinessResponseObject); ok {
+		if err := validResponse.VisitGetComplianceActivationReadinessResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetComplianceActivationStatus operation middleware
+func (sh *strictHandler) SetComplianceActivationStatus(w http.ResponseWriter, r *http.Request, activationId string) {
+	var request SetComplianceActivationStatusRequestObject
+
+	request.ActivationId = activationId
+
+	var body SetComplianceActivationStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetComplianceActivationStatus(ctx, request.(SetComplianceActivationStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetComplianceActivationStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetComplianceActivationStatusResponseObject); ok {
+		if err := validResponse.VisitSetComplianceActivationStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListActiveComplianceRules operation middleware
+func (sh *strictHandler) ListActiveComplianceRules(w http.ResponseWriter, r *http.Request, params ListActiveComplianceRulesParams) {
+	var request ListActiveComplianceRulesRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListActiveComplianceRules(ctx, request.(ListActiveComplianceRulesRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListActiveComplianceRules")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListActiveComplianceRulesResponseObject); ok {
+		if err := validResponse.VisitListActiveComplianceRulesResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListPackRuleChanges operation middleware
 func (sh *strictHandler) ListPackRuleChanges(w http.ResponseWriter, r *http.Request, params ListPackRuleChangesParams) {
 	var request ListPackRuleChangesRequestObject
@@ -22246,9 +26195,35 @@ func (sh *strictHandler) RejectPackRuleChange(w http.ResponseWriter, r *http.Req
 	}
 }
 
+// GetComplianceClockMatrix operation middleware
+func (sh *strictHandler) GetComplianceClockMatrix(w http.ResponseWriter, r *http.Request) {
+	var request GetComplianceClockMatrixRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetComplianceClockMatrix(ctx, request.(GetComplianceClockMatrixRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetComplianceClockMatrix")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetComplianceClockMatrixResponseObject); ok {
+		if err := validResponse.VisitGetComplianceClockMatrixResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListComplianceClocks operation middleware
-func (sh *strictHandler) ListComplianceClocks(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListComplianceClocks(w http.ResponseWriter, r *http.Request, params ListComplianceClocksParams) {
 	var request ListComplianceClocksRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListComplianceClocks(ctx, request.(ListComplianceClocksRequestObject))
@@ -22263,6 +26238,32 @@ func (sh *strictHandler) ListComplianceClocks(w http.ResponseWriter, r *http.Req
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListComplianceClocksResponseObject); ok {
 		if err := validResponse.VisitListComplianceClocksResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ExportComplianceLibrary operation middleware
+func (sh *strictHandler) ExportComplianceLibrary(w http.ResponseWriter, r *http.Request, params ExportComplianceLibraryParams) {
+	var request ExportComplianceLibraryRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ExportComplianceLibrary(ctx, request.(ExportComplianceLibraryRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ExportComplianceLibrary")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ExportComplianceLibraryResponseObject); ok {
+		if err := validResponse.VisitExportComplianceLibraryResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -22385,8 +26386,10 @@ func (sh *strictHandler) PutComplianceFXRate(w http.ResponseWriter, r *http.Requ
 }
 
 // ListComplianceGaps operation middleware
-func (sh *strictHandler) ListComplianceGaps(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListComplianceGaps(w http.ResponseWriter, r *http.Request, params ListComplianceGapsParams) {
 	var request ListComplianceGapsRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListComplianceGaps(ctx, request.(ListComplianceGapsRequestObject))
@@ -22408,9 +26411,45 @@ func (sh *strictHandler) ListComplianceGaps(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// VerifyComplianceGap operation middleware
+func (sh *strictHandler) VerifyComplianceGap(w http.ResponseWriter, r *http.Request, gapId string, params VerifyComplianceGapParams) {
+	var request VerifyComplianceGapRequestObject
+
+	request.GapId = gapId
+	request.Params = params
+
+	var body VerifyComplianceGapJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.VerifyComplianceGap(ctx, request.(VerifyComplianceGapRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "VerifyComplianceGap")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(VerifyComplianceGapResponseObject); ok {
+		if err := validResponse.VisitVerifyComplianceGapResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListComplianceGlossary operation middleware
-func (sh *strictHandler) ListComplianceGlossary(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) ListComplianceGlossary(w http.ResponseWriter, r *http.Request, params ListComplianceGlossaryParams) {
 	var request ListComplianceGlossaryRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListComplianceGlossary(ctx, request.(ListComplianceGlossaryRequestObject))
@@ -22432,9 +26471,35 @@ func (sh *strictHandler) ListComplianceGlossary(w http.ResponseWriter, r *http.R
 	}
 }
 
+// ListComplianceJurisdictions operation middleware
+func (sh *strictHandler) ListComplianceJurisdictions(w http.ResponseWriter, r *http.Request) {
+	var request ListComplianceJurisdictionsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListComplianceJurisdictions(ctx, request.(ListComplianceJurisdictionsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListComplianceJurisdictions")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListComplianceJurisdictionsResponseObject); ok {
+		if err := validResponse.VisitListComplianceJurisdictionsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetCompliancePack operation middleware
-func (sh *strictHandler) GetCompliancePack(w http.ResponseWriter, r *http.Request) {
+func (sh *strictHandler) GetCompliancePack(w http.ResponseWriter, r *http.Request, params GetCompliancePackParams) {
 	var request GetCompliancePackRequestObject
+
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetCompliancePack(ctx, request.(GetCompliancePackRequestObject))
@@ -22449,6 +26514,30 @@ func (sh *strictHandler) GetCompliancePack(w http.ResponseWriter, r *http.Reques
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetCompliancePackResponseObject); ok {
 		if err := validResponse.VisitGetCompliancePackResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListCompliancePacks operation middleware
+func (sh *strictHandler) ListCompliancePacks(w http.ResponseWriter, r *http.Request) {
+	var request ListCompliancePacksRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListCompliancePacks(ctx, request.(ListCompliancePacksRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListCompliancePacks")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListCompliancePacksResponseObject); ok {
+		if err := validResponse.VisitListCompliancePacksResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -22564,10 +26653,11 @@ func (sh *strictHandler) ListComplianceRules(w http.ResponseWriter, r *http.Requ
 }
 
 // GetComplianceRule operation middleware
-func (sh *strictHandler) GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (sh *strictHandler) GetComplianceRule(w http.ResponseWriter, r *http.Request, ruleId string, params GetComplianceRuleParams) {
 	var request GetComplianceRuleRequestObject
 
 	request.RuleId = ruleId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetComplianceRule(ctx, request.(GetComplianceRuleRequestObject))
@@ -22626,10 +26716,11 @@ func (sh *strictHandler) BacktestPackRule(w http.ResponseWriter, r *http.Request
 }
 
 // GetPackRuleConfig operation middleware
-func (sh *strictHandler) GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (sh *strictHandler) GetPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string, params GetPackRuleConfigParams) {
 	var request GetPackRuleConfigRequestObject
 
 	request.RuleId = ruleId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.GetPackRuleConfig(ctx, request.(GetPackRuleConfigRequestObject))
@@ -22652,10 +26743,11 @@ func (sh *strictHandler) GetPackRuleConfig(w http.ResponseWriter, r *http.Reques
 }
 
 // PutPackRuleConfig operation middleware
-func (sh *strictHandler) PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (sh *strictHandler) PutPackRuleConfig(w http.ResponseWriter, r *http.Request, ruleId string, params PutPackRuleConfigParams) {
 	var request PutPackRuleConfigRequestObject
 
 	request.RuleId = ruleId
+	request.Params = params
 
 	var body PutPackRuleConfigJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -22685,10 +26777,11 @@ func (sh *strictHandler) PutPackRuleConfig(w http.ResponseWriter, r *http.Reques
 }
 
 // ListPackRuleVersions operation middleware
-func (sh *strictHandler) ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (sh *strictHandler) ListPackRuleVersions(w http.ResponseWriter, r *http.Request, ruleId string, params ListPackRuleVersionsParams) {
 	var request ListPackRuleVersionsRequestObject
 
 	request.RuleId = ruleId
+	request.Params = params
 
 	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
 		return sh.ssi.ListPackRuleVersions(ctx, request.(ListPackRuleVersionsRequestObject))
@@ -22711,10 +26804,11 @@ func (sh *strictHandler) ListPackRuleVersions(w http.ResponseWriter, r *http.Req
 }
 
 // RollbackPackRule operation middleware
-func (sh *strictHandler) RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string) {
+func (sh *strictHandler) RollbackPackRule(w http.ResponseWriter, r *http.Request, ruleId string, params RollbackPackRuleParams) {
 	var request RollbackPackRuleRequestObject
 
 	request.RuleId = ruleId
+	request.Params = params
 
 	var body RollbackPackRuleJSONRequestBody
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
@@ -23552,6 +27646,63 @@ func (sh *strictHandler) CreateRule(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetRuleStats operation middleware
+func (sh *strictHandler) GetRuleStats(w http.ResponseWriter, r *http.Request, params GetRuleStatsParams) {
+	var request GetRuleStatsRequestObject
+
+	request.Params = params
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetRuleStats(ctx, request.(GetRuleStatsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetRuleStats")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetRuleStatsResponseObject); ok {
+		if err := validResponse.VisitGetRuleStatsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// TestRuleOnRecentEvents operation middleware
+func (sh *strictHandler) TestRuleOnRecentEvents(w http.ResponseWriter, r *http.Request) {
+	var request TestRuleOnRecentEventsRequestObject
+
+	var body TestRuleOnRecentEventsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.TestRuleOnRecentEvents(ctx, request.(TestRuleOnRecentEventsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "TestRuleOnRecentEvents")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(TestRuleOnRecentEventsResponseObject); ok {
+		if err := validResponse.VisitTestRuleOnRecentEventsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetRule operation middleware
 func (sh *strictHandler) GetRule(w http.ResponseWriter, r *http.Request, ruleId string) {
 	var request GetRuleRequestObject
@@ -24251,539 +28402,641 @@ func (sh *strictHandler) GetReadiness(w http.ResponseWriter, r *http.Request) {
 // const string: with thousands of chunks the chained `+` fold is several
 // times slower for the Go compiler than parsing a slice literal.
 var swaggerSpec = []string{
-	"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",
-	"wsxw9DhpJ2kEcsxXtvf+9/f/3wA=",
+	"7P37chtH0jcI30oF9o0wOdGEIFm2x1RsxEdLtIbvyJIekraf2YEXKHYXgBo2qjBd1aQwehWxV7N7H3sp",
+	"eyVfZGZVdTXQDTQgUgdL88dYRHfXMTMrKw+/fNtL9XyhlVDW9I7f9maCZ6LAf/73ufh3KYw9ewZ/ZcKk",
+	"hVxYqVXvuPdUF4XIOfzFzp6xiS6YnUnDCvqkz07TmRaGcZbyPBfFkSkXi1yKjI3/+8i1e3T2bMxuZ0Ix",
+	"aZk07OHR94+HKp3xgqdWFIbpCRv/8+To/+BH/xkc/dgfHf0xfsK0nYniVhrBODOiuBHF0VQoUXALjRfi",
+	"36P/7//6v8fs7Fl/qHpJz6QzMecwAbtciN5xz9hCqmnv3bt3SW/BCz4X1s33aVkYXazP9XIm2FiJN3aU",
+	"4htjGJidCbYoxI3UpWELPhX9XtKT8Pq/S1Ese0lP8Tn0R9/URjLnb14INbWz3vH3j5O1gSW9v4vlWQZv",
+	"YoMLbmdVe9diOZJZL+nBUstCZL1jW5Qibl+84fNF7l8ePPzXj28eXf8w//bfj4vvzPf2h5u/3v74ZrD8",
+	"T6+p7xdyLu36IrzmU8GM/E/rPHP8Lh5GJia8zG3v+LtBAnOW83LeO344gL+kcn+FIUhlxVQUtDGFMAut",
+	"jKB90WqSyxQHlWplhcJ/ciCoFEnwwb8MDPJt1Pn/KMSkd9z73x5U5P2AnpoHp0Whi3PXBXVYn+z46auX",
+	"P784e3o5PsaNLoTRZZEKoFKlLZMKiM9yK5idcct4nutbg6/qBZCi1KrPxmfPTn95/ery9OXTf4xWWhQ3",
+	"QtmRzNgtN4znheDZkpVGZOxW2hnjLJOTiSiEsmzBl7nmWb/3Luk9oyXFCXy45cAXYNIwcmO5yniRsXNp",
+	"rl9dMIEPYSDAtuzALETK/t//54dDIJRYmkRs3zYi9/qDSPLgcH7WxZXMMqE+IAn8/Or8p7Nnz05fuh27",
+	"FkuW8/QaZJpnPWZSvRB9Nr48fXny8nJ08evF69OXz06fuW+sUFxZTzU8tfJG4D6eqRuey8xN8wPO6uzl",
+	"bycvzp6Nzk//69fTi4q+cRww0DnPJ7qYi4zpgk24zA3DoRJNw9hfavuzLlX2AUf98tXl6OdXv758tsqP",
+	"mRa0tuKNNNaTKB053xgm1I0stJoLZfvs3H2E5wqeIm5/DEw1etUwXggmVSaNlWpaSjPjV7lgk0LPmdIK",
+	"+wLO1EoYXJJzbgXKTfEhV+X85PJ09OLsl7NLIjit2Zyrpd9NU53KJ6/PkH61n/IKb54LWyyPTiZWFPUB",
+	"rsvmd0nvV8VLOxPKwsQ+6Ix/fXny6+XfTl9enj09uQxc5mcH1CuNkWqaVGScsFJdK32rElaIG31NhC3e",
+	"LIB/++ySqAm7ZErciIIZvjTsdibT2coq/f7770cn0cwbl6pSL3ClFoVOhTFAPx9wnS4uT16cjk5/O30J",
+	"HK7TtCwKkY04crgurZGZwKXjaSoWFk8dlenbPgsCwn8cDiv49Fbk+ZETD1elZUbMOS5Gni+ZJJnWZ+OL",
+	"05cXZ5dnv52Onp1cnrhG3DGGJwWXyrCMW07H57w01i3+lWAGOjsQ/WkftcciY6qcX4nisI/6iVsFWKQT",
+	"HP2ZupFWRKKUZ5mEleD56wKOYyuF6R1PeG5E0ltEP711uktNI/P6Sfh7TUkCvdGYW11kq58++mv900cN",
+	"31p9LVTTh+uqWKXh/dN95rStaAR/hA/11b9EaqGLEzhokLKezriaih0XhadER297QoGO9s9eWgig96RX",
+	"LjL6h7HclqaX9CY8z694et37Y20GSY+HgYDKus4kQLipzJA04TGQFvyrB70cWYlTbf3matnapIEulbai",
+	"5Q0LB1v7spBCXWeqE8Vo9t8YpsQtnIqlMOwgl6lQqRhBLwlL+YJfyVxCOwnL+HJkLC+sGXGLCtHaXsms",
+	"rrH/K53tpLHT5mmz4xqGj1oWkXRYnjcvIKq+MYFwutwBYQqVwVsJ/FboG0FXFZiuyBqJhEhpBKdr3GRW",
+	"8AneJ2Y807e9pJfLG6S80kAfmxuz+n2bWmE/vHHVyTnxjBKvll+b+grXN6kiwM3Mey54JpUwZkf+lVbM",
+	"6//Y4eOrXKfXsALVvl9pnQuuYHDXUmXxyjrih2kLa2nfJ29GBS2BXgg1QrEMy9S0XXM4G6fNRFaUjdS3",
+	"sjFhvG5wVZtNi+t+4EXBl9gH3LsabvxFKcgyobSdSTVl2I1hUw1/5KjGJ2vrszI0ajxx27Btr/c5vq60",
+	"hrmPhLLSLpstF7hFcLGkl+gwN+xW5jmDwwSU5jFoGbnkKhX9epvjPh421ooCGvw/Y3PM8dEfbx8m3z9+",
+	"9z+aJEwsCWvEuNn6gZaCM3r3u0F4HHasJlKbZzzTZcEOcp3ynIH8O0T946o0yEwglBm1kKCGnHGZLxlX",
+	"GZtrZWf5kqEpw/TZLzJTcjqz7GrJnDGj34tMGY++jSwZg3VLRtL7V1lIk8lwoK6s5B9vHzUvXnyobJfP",
+	"de1lm/qyQqW1ISarJLUylLjjzQT9K2kKu9Hzh6KZHXbwA+7EykrXFmN1Ep02QjwNbH1e5rtuxrpwWZs7",
+	"yZIWi2kkU0Ayj73GhCq/LeR0Kgq6zZc5WRX9bq/1s7qhE5526RZfG4c+GAhkww7wZ2++gtdLK+jOr7Rl",
+	"uTRWZIe7DWiVz9c+8Afnpntdfbf+Dl8AaetM1I/cG1HpMk2Hqr/UNFxb0uvmB6CoKeg57qkQ0zLnVqOV",
+	"V6qsNLZYjhYFqD145s+Xo0wYOW0+2wsx6bBH8NaYSWtQVLt7KO3GtVhYkNC7bYVXGyqV+vnfjs5Pnx8N",
+	"HjdJ2lIZYUdOe2kY74V7QnZZpYmK2VLYJ6xUVuZAXkscrxG2ojVn8xPwOrci22USq3pEiYqlu/k5LWdF",
+	"bOPWNkhvpJ7AqJ5z3Oaszb5Vkki7PFW2WO5/kwy7QZeorNd8XWzzv0QWLLM0VszZv/SVM76nbnnX2qNr",
+	"666XS1DNt10NW65xHe8QuGM02dBhbbQb9+HGG5A27cPK3TVNdaksrN4i5xZWgqzRoBDiIgK5ColGUQ56",
+	"kFiyub4Rc6EsUxp+BD4/koodcMU4tTdUoOGDjY0r3CFneUwYJ+uOeLPQBf5pLJ9MGE2+3+8f9hvOh8jw",
+	"hq67NVrSxTYReoIvwdaHxrtL3adaWfHG0uf0z22WONiL6DPv1en03d8FyqvIOtedSr02Eu7fbjO3X2TD",
+	"EN2L9QFUZBktYAs16mIrFa7uIFJNh/U5F+j7SgVx5I1Mxa5fGWFMZXfq/FlpRLHbNyvr6xtoXLRcFLte",
+	"8bgBxhO426rMc7Ik16RQfOcyfqG2v7uHcHSnGawrbuW6rD4Nbxg2LXS5EBmTymryQ3BYAHZg4NppSlyX",
+	"hAmezvB0lQrkCN7eVhzsseks0s0nsjBwegm10yxWTW48L3Y0uXXR5nCzvRKX830GOudvRibVhajdWeoO",
+	"9MZLiwFbulPaN5KxNNcvxI3IK9NZp2ld0KvwEe3ijufR73gFAP8DEgRQxpUuLTkK0tJYPUf/HTATKzyv",
+	"Jei/monYV4c3eCPSEqZLzZn+2tmB83m7XYxCf72kF7W/LlCT3psjeP/ohhegkhn4kFaF1uJXaiT+6TRu",
+	"cM2y7y7WYtJsspK2xQrrNKkdSKpJIXH6pN9I32FERJG1P0ijStbEZNogIVa5dIUXanKoNqVWAfpsi4bW",
+	"qoneOI4IavgWTSJSexvuGdwL863cUpecpvsQ4ONKoG69J9CI6n0lTarByoJGXey2qN7Tsm0iz/x7eJpP",
+	"Cw7eGyAkntdXY+vlLlyn9j22WtxQseLW8tDLiq163SW8CFsjzfUoR+m6ixjGz4LUb5DtDeu2qfELfH8r",
+	"8dTXKIn1xGj+teHVplj53XrVGBu2e2UPW4ny7+6IXfFsQ4/jY9ATqgGzAlQIkUUnip0Vwsx0Dt5ofzqM",
+	"j6NvDCu4oju9ixlgboT9XhLOA+gNJSG10GjmwNG+kDvb7uGCtJsoaGKIKCyxg9a3suc4hHobrftxEbQD",
+	"vzhw90PD0I0wVk65c/8Ik/Lc3fBx4qOFNtKS1aoQRuc3Lb67E8XzpZXpzi6rMr0WNh4a6JBkMm3syIhi",
+	"1cC8cfH9uF5rqRp3wUh30ex4e9OL0X5s/BTP1IYRQJOgvXRv8FIvUFNpaIyMcPGCPno86yW9H2BPvx10",
+	"cJe6FhK/N36JwtrHI64vSCMF1ndgx6N/h5Piiqts68r9xFWGG2HicAPT9RSsPq3M5+tifi64aj8GVk9+",
+	"G9v4ok/j4fnZNS7wQoI5YkdvzT43yEgT3naYRq/ClxiyZTb1tvXOK7P3C4/eZFsvxES+aTZeKq2OjEgL",
+	"Ycnx6K+312JJLshCpHqq5H/gGJI++Ekqluup8S+HoEZ9q5wNlO7F1XQKcz2ywtgRf3j1KP02eyy+m3zf",
+	"azTNL3KehuiP9RFfC2cX9G/S/V0rAUerLqczVmjrYkI7LLwLvXuvzcNY2x0EJrzeKKzXTjIKzO15Gst6",
+	"YcAdA0N8UBbRQJ3Kw8Cja9Q2Uy9y473rFNjLR1MqsPffpZ1dIGfsKtQXcnQtlt3naEIv69Q+KfPcexj6",
+	"7GIGHKYVhjT6rBYXIcpV5gIVC2ELKW5gXRifcqk6sOJo8PDRt4+/+/6Hv/7Ir9JMTKazf13P1eLfhbE3",
+	"t29aEjJqgt5NO8yncWnLTNoXenpXHhvXad9R7UbPzQ5dtdy2/D1rRfFHB8KYyeC4xR/QpQtSE7fJhduj",
+	"Vg/5RrqwGOFqvNM5hOR/Y4Yq11PGc6OZmYHH8UpAO86DITLcah/CBgEg9lZHSRnU+1xAYKohd0UVCxf2",
+	"CKV0L/F2Jfxou0hxN60WI/LKCcrz/NWkd/zPHc7SP1bNcS+B/ichOPwIb3TOWWPW5fu7pDfjZra+SX8T",
+	"b9jF306OHn33PZ1a0jABRMjSGZcKThGNNt0RfN/vZJstsx1P6Lmw3MvBnVx4ezlidGlTPa8ZEU2JJIfX",
+	"H5mXTgtTsuXWE9ajkRscPbaZJnwixN2y3vuQp4EBu9vQSgYZXgO18lkanhMZTJ4ohB08PLriBjyKU744",
+	"mhRCMJ4W2oDrIK/laKDqE/ZIKvv94wYfQdNhHUbY5vqqwjr96lb7XNuRiNgcS8TbuUk03/vZXjsCPtYR",
+	"X9rZhd09Cmw+4aO5sDOdNcZjpFplbIKbRSl36CVIucJYnlxYEXzVcBLUAi88j1ptFy6KnkQ1aOA3oliO",
+	"Up2JRj5dDx2NvmgY6EtxCxqEMaXImH+Z4csJM+06xo7RLrVRjAox51LVw3dj26HfjY2KM3lOaedWt55a",
+	"aNlt/RNEye662zrbOqTQ9i/w8jsf/TQKdpdV95JQjF5h4kZmwO108xIZO8CwotuZzAXzwcOYFqMO++xC",
+	"YLAnUBXlFj9hcqp0gV5MxtnrXy9rcmeHC8zKQs51tmUdf9FZw9zGejIZH7OnhcS8G4b3fMOmwrLz09/O",
+	"Tn8HiydOnfJulsxYmefRCwmqNpTXE0yo0gzVnBeQHjW+1WWejXBtxjBtaQ1b6FymS1C3jFYmgYN8yjFc",
+	"xC9wn4218n1Cbz+9ePX070N1sNDGSFCTkdz5xIqCPXwMYbgGWqfBwtrfSptisLXVDKcJ/j4/GWb5tTBM",
+	"TCYitYxD7IlKxbFLHcfbNEzTYCN1hUxPJnHwf0soelj3ytK5AxWLXE5hko1ByT9D4iCGkweCA3F1Jdxw",
+	"Rca0YgdAQCHqvFoaWAUgzj3pLnkvDoNdGlV0uzqzZ7VNZNATuxITXYhNU2325q/y9H6TjYh3hJ7Gh49x",
+	"EptDFZxKAh8E2sQrQ5gFtstm/MbNTGRNs2hi8pWZtSxtUiOhDfNokhk/8fTa7p4+kHKVyazDkeDbv4RE",
+	"P+gQ1SZld/7OJ/l0U67R+LRsortTSmLwLzQTVEsCSdKzuvsYbFGqkOa6bjqg1EhMGGBpSVfMhSikzuCM",
+	"L+wT/IXGyfCoNihPdZ4JY+lz0yWXhGJAcf1wAtHqxINMok2ttmkTzfxC7q9d5d0G0zVoLx2iIelq7Bra",
+	"NEKinh1JOxe8aB7exIuylkcjg5dP00p1IcYXX0fRDUms2lj2aJD4rcWwhx3DyOfVXjQEzMx5JqrOa9HF",
+	"CXU/wcuJcp3X+u7Cpp4UGkamtB2F3poXz4X0Nz9evUOGd/1+JG7LVruqFmV1e5pJJrhmdvVlkD7VPDWR",
+	"i5v2ic/kdNb8JNe3zQ8wfIvnHVbKv0mNRUNx/SbV0BsXRCgxkankxfIky0T2bKNlpNm9WjWxazQlhgAV",
+	"y+6ZT6vJffWuu0xwr/BoTOhd8KUQ/c8y7tjbBjYyeRMlfMyY5XhzedYpC7dr8DKuRxO1POVG3GsA7h4u",
+	"Uf9Nazp7RKpvt1tMU252TiCXeudoUYzkKP2oulmhYfXPq+/AEL1mWa7aDfn7HbyLFFXyXu7F0Ajtw9b3",
+	"u4XLwpSraNn7juX0oZsxzURux7DRtUDOaCfXl7++uPVVWondjOh4ayAnLMunFMdp3j8SK3WiZRs1OG1q",
+	"B082fPUSNmNbDB8OIczId7MlBBRav29ztJ/3x7BCh9XbkdBKO9NFI69e6axZVO8j/dfEt7K7IvatiQEc",
+	"YOKnsDXcYEUsx7gvWk1kMRfZaFLwsjGiLxdTaeWc7ptSpVqleWngWZORLRKH2yMJNwYLPkVjFbeFfHOu",
+	"b3fc3OmMK958mjbfXZOeklNRyOaPiluusuZHt7rAhMyAhdjxWuy7S9xYQyfrTTZuqc72RERKdbaayf7t",
+	"o1oe+/fbaDBtM21HKu8ejgLCmPHYLmsrTdTeCoMBPEFxVNA1K0plKG7DWHbw89nThP2knyfs5dOLk8OE",
+	"rLAW0TOuCl4sESkD458avdZZWfBWBS0rW7LnIUq1JUM6EzzLpUJwDnztCRuwueDKMDmfi0xyK/Jln70M",
+	"JmMcLL9lRljDeNWA0hgjAWJ1qBxqHjpxDDsYU94lXLgnulTZ4bFzTHHDhj2lIbumVNmwl7igF27Yf0Sh",
+	"ybzeIq1jQ1B2B7nwSCo+j8qRmQ9+aMSM2TGlgNZkp4+aZG4gAbfhSUyv9YH7na9yb9wQ/Pg78E5zeDya",
+	"ibgnccQA1Oo4JgeORIIhhy65nyjmIBdTnh8mSEfAFNLiaUDxhkNleQE+nQPY3ULxfEQOoUNM9UUMAI+Q",
+	"QgCh6FRTGFRSI0bLlsKTlTqgL0cYYgjR+qI4xCQvznA4jVTMVoi4ot661wdbwFOlNmLSjld6dVYnbKb5",
+	"tKmv/r3rS/XutlJg+313zciwZ6IeHDpmwVNAP0PzIwAOMCVE5nL3IqDAg5Nn50eDweD7JwxRBC/68+x/",
+	"qwwjsE+n4LO2M+96XdBwgFKx8duZNoJSyCtQR4ZO8oVGLy43qwZQlFBDZUnXoRcYJHA0JZPvA5yE/iCg",
+	"F1NLU2QeB9vM5CKBfh1MGPmMa4s3VH5tfjjsszNrWAzj8I2hVf1XmU2FqRb0CcYxwBpLm6zthgfgG6oK",
+	"ngxxUcnP62Er/Gt1QMd4PeOhsFJ57cst3z4QULCBI5dYOIpsgetr7R6GvF9RGK1iMqhGDRqmKFQAb7L8",
+	"aFFoK2jcKEDR09wAXNUKtxTwZJpZ4+0awubP8AEBwi4hX9nFY+OKQ8igzERhEh9KQMqDIwbY4m8MS7nl",
+	"uZ4O1cGYEtz7hdZWZOOEja3IU903cj4yt3wBv3hi68PQxwCgcMzg1CWQXmBcxh1MJjvgQ+VPI+jUYMQM",
+	"kAMtM/wDn8I/MHwAhK4SfvFhMb4xDgfHgfaAVB4qlOZzaMOw8dthj/497B2zYTkYfJvOpdIFK5W0Bn8Q",
+	"CRs6H1S6xNd6L5+/HPbejfvs5yYQniF8KvIJO7gSMw6p3wWbSWN1sUyQ6CeAs008QJ3jissMWHQiHWZ8",
+	"oJVDxgsxVIWYlMYT8py/ibf2+8cNUnM3BYUMo0FBmewg3c/h7XfvtgjufdwZWtlC5y0Ouin4IQPcz8YU",
+	"wy3eidBP9VGt+c1nkkMz33VyQoEekDUjFO4Kl7QyId920h6gE+08BqNABzvrAg2RPf/4xz/+cfTLL0fP",
+	"niUIJYThMkG3r2s9nGLWoaHGC4k/6jdPFt/aMsVA3M3KZnyaJF7EBQXhG8OsKOYApYeQMsBYhk01nUpj",
+	"W3BlKNpyTK2YZKh88B69TG/meioVCEIHBnIFmtoYmd//VIhCTKWxohDZ2H3mHqWIgjtOhspHPiH8t2/c",
+	"m8fGffZ7dNA62ZSJQt4IH2KkMpL6kbYD+u2VtEMljZvSRBQjXVoaJMrdQmTSRk+lqh5ClLDIGE6RjeEa",
+	"O3KBwyjo61rtWvu9pPpNqoafUPslwqSs/dlowZfuIoJ/wipkBb+tXsgEWnh6SY/bef35QpvRoizSGdka",
+	"U15kI3f1/o+/AKXFcmF17TX6pd4T/eaHiv5dbkdSTcjTOSk9kmyuuRpl0lyVhfFXKPytENVUcP2c1WtU",
+	"RV7jn1VIdkw/1Z8x7fSSBs9UhSfjiYVUyonMPXn5MUW43iBFJny0KPR8QTmQ89WuPCYOASlFPxQiqJEY",
+	"yEHn/0irK82LrP5jIW6kgCUjOhuFJAYYkzR2FGFugWoxyrW+LhfOUTYilCboeyH9t+6v8CJaAqfVVAsd",
+	"TxwTG0YhbhqNhSPSLWENBNCBsiNE2sRBFHMJV7JoMSFm7M3oqqz+bUQOZHLL81zYEdKlLqtljBaRfqBE",
+	"tV7S0xYzS7Nw1aO09kKkQt64kIN0pItMFPGPUqWoSIwyYQmtOOndlLkSBcEwLkfBHAo0gknntZ90aVFK",
+	"w8VikXOl1n6FwVC7QmW6vpvup7CXhZhrK0aUvzLy1I0bFrFMIVJdZKNM5MKK2sbzEkgh17BpAsHhhIZN",
+	"Af1Z5tITKJ+KaGfSrKj+TVtuUq4I1xnzmXyMdRblxY+or/gR/TKRyMIVdYcvaJqjrBRb7tvP+WLX0zX4",
+	"lVqM7a0GqZV7ya1mvmJEJg2fFkKwg9QVo/GGCtCW2a27jqIBAX6HPwJpsINS3YgCFFTClYzN69AWAvH5",
+	"NxrX48PYtTY5KPFe7e1uK2k/+rZmK51xlcEtTFqHkMj9hc4Ia+lJo9ZCS5AGU+omJfo5X/wWv77FH+ow",
+	"9mgdq8XZrPw854sPZ+kBQr8DO8/zQpeLu0kHyvmVyDebWdcJgSqQwHOkCcQAgwyffsfsHOq0myX0hVSC",
+	"71zeoJnbPRE7oNgc1WzELRMUTefJ2xnADDsY9l7zgs/hynly+epo8BAM5UNI/GAIPj3s1bgdi431kh5X",
+	"cPEvSS3SxowCwBWepIVMLVkkxe0I22mUCHryHhZrZ3fWk+0LvKuXZkOIQ5F3uJI4joWXN4/t1WIPxKId",
+	"Kb2dQLeMrcoK3BNOya5jllSQbmsPLTfX7+PBoO83z+k139lj1wrn3U0iuh1uirUAjcaU84b0sDj9NFxC",
+	"QU03fXbCcs0zMGqJAhbaebVIjTXNELLB+tI1ls+De3i71/oYT5wJrW4Q9CC8rvgUi4xpIZnWt8kOdMF+",
+	"vWCZznNemMPGoaPo3Wfd6QhpWPYW7lkFv67P9uziFfv24fffHz1kPF/M+NGjYO0FR3Hj0FH62pHbphZQ",
+	"DXErjF3d0YmDCIzH1Ge/uyKTlL/tDLdj9804YYbfUBK5YJWfgrn7HeOZXthWpSVGbb9bKqep7RRN0g5P",
+	"IhTPK0Gz7uvwZxu9uEToXlMWgvmblrO3SwNZB312aijqwzCXNsaBoN1BVoGp89vOUeiRqKExdNVquzV6",
+	"gV82K71z8R+tRPPSwFP2H0I+CcwaYMpVRv55L3CguETALpeqTc1tEfNN580K0LeDGvFtrPFKJBxjCgri",
+	"YJVg1+oMVM5oJ/u2HwsX5XzO94KauGnPrAk+LtAeGYJOB/eWz5mtcXlDEk2yxRAepTGtD2DhvWVN3rZ4",
+	"NKURprn3bYb2jgK1O5tvsNzfNd1tM/1vzj6KCcjV4N1VuYjO14ag6RBu1QB1EYzqUaADFaHzEP7o9apn",
+	"XOryKt8QSEzOt83XpjlvAIj6OQ7G8LVnyMVFQRAO+Ld5NGu9z6WqHxetb7YSUTMCC7AEaCN9Bw8vTYOW",
+	"Mva7Mn7CKh+kidyQTwjgWZoI63movOiUip1MCpnyBy/4VFNNiCdsknP0/g/AtPKwbhDHwdTjbzzwLP6A",
+	"JmtJwGgLUaQOkmkhKIWGgAI9WBp01HjbQnpoXhN8FCRSDE18QBa0shBZwkRu6ARxpHn4hFX5vliGYS9y",
+	"W+Fcx6X+Eo0vV9zg50FUQvS4hTndSbyjg87pBs0L5hy3PuUWyzR5ssHIu0LUzEmhQktb9F1QO5r786Px",
+	"eeKVrhM+ZAfPIcoyKD9Ez9yy53+7YA8fHSZUv5e8b5mbQbPIX1Qr1lhmZcMN770D0ar2q3HEy9PV7vWa",
+	"FN+7uu1ttTpWRvR16Qg9Ba3ea+QCsTQqDWGKQY+l1XPuq5GuWh75DdodjxkEJyinAzEYCRhy0B847B2i",
+	"XGJRZFifnfhmfe/GgfhRYq8X3EPlD0RGblFZeFYnNZHGDAFJDmmW6cmEZNk6FW3VALaWpQLtpQ01CJ+1",
+	"awP7ZKNU3zSmMW2uOba58JWfycq4a6OsdR8TVCdC3zNS+v2LlX37aHspqX1Lxm0exf4bsnlF/6sUpfgw",
+	"BvNLbq6bpIkDIN4Jav0iLYRQUk1Pw8dNTZfKB8y5hIiu7f8aPvwZvmvOh2nOb4mn0zCCzdtx7sKRdgj5",
+	"fLXg/y5FVXXBBOmLcZBSePv3tRCLetEuqNXFXqJNDd7/6beXCVvMtBJDRfpKEtdzRv9ZlhXCGEZhX8fM",
+	"CJVRRB2EoYcx4BCkbSwLRC3slJaMPs/dvugGN1n75upG7fQ+LM1OH7gAiVEFAdf5Uxdkscsnuea7zce7",
+	"/Xf6yIeq7JppjmS20xeOj4qdPgL63OmTd1vYE8bwsxR5tnOEH7diqsnoEoKDRFHoQpo5ON65Sn1Z3Ezx",
+	"xQIopeDKIIBIqouiXMThGr2klxXlFGILJhPpS+pOhRIFRuughtR4N5IqkynoQK2n4KPBYOMx+KihZqeC",
+	"f/nYuqitx4PGxhaFwFGIkZ5M/F1g22dbNmf3kpm8xQYeQuVc7bpMg/8wKIwQ6XeYgA37ils5b7zkuLCi",
+	"q7wZ7wx2p/Jf4suV/zI2YDkl1t8+Xbwb979vQHOO1NN6KlZ9MC8i1do0DanPTucLu3TpTKQWR4aY3RBT",
+	"rriRW23aw94lnyYsJ3dx4vXyhOHXwx5LdV7O1ZYdSPmN4M1pR86D1DyOyrGjmFQzUUi4Q+qCLbzlSxqR",
+	"0Sq5hshBgbhrvBDK7rYmLnBno/cEeoModGehIEON+6LJmFHln9Wv0P6K04zAlEUBvt2UuhASTF9LJTd7",
+	"eZsq9cP85jydSSVY1YZTYaYSs+qsKBaFgCLPryDMFvSLqCDhMb0nYIXHjWX7V1AZNnpUci7V0ama5tLM",
+	"WPTmFnoTcXRxx1D08Al8X80Bw8fSbQM1Lofih58wGDXdbW26VQXGZ6uyAUjNJ/KwXSXA1Ae8dI32Cjw4",
+	"8mhkLbb/Gr8Se+q5Z86DsZqOD58waVERJlSvs2d41cfVSxwOtef+QjjrkVennRe0xaS1KNuWMOTD4JAw",
+	"Bct5OLXCtSwVv+ESRXhtjVuTp96v1vH2bB7vSPEDafGL7V8jOa8Cgbp97COHOqIjgpML+vPgiN503p3t",
+	"4Yst/K4nkxHhazad8MtqBc1MLkyEpziZxGFGofTRyOrRlahFqGKA3XKE8UzNUUVV4EpH77X7AK1K7jjb",
+	"xztbeYEaKM4Z8LctOL7lznJ24JxSnZSrev3rNeWqiPgoFgGezmkMUphDyGBMUV5Amu1BZR7ERNlFeQXE",
+	"IDIQgDrX0+VQ+fy8OVdowApZXGsFtw9D/UM3Z0Zx93gKw2wTlzBHLRhKfkJbpVTTkMgFnO/GBcL+IBTx",
+	"Xsk0eO/q3+7zHW3BzgLSsNtPIytUXa0l3x1ic3rhintlNaqdy93kW2SHX4ktwgfs7JlhB0bU4gHcNzvC",
+	"/a1XIqkteiFSPZ8LRfHhjVlVUdtivshbfS5RVi0eTkCM69pnIUoDFxOKZjx87xjdir3robr1VswW/z+o",
+	"qRjSkATABlh5XcipBDM6ZDEl/qzRC6EYWnOhZcrZBdnrMLbLXHSOR1mLMO4CA+AccHUAJlJRqnR/j8cU",
+	"8UgzXEA9HqNSCFe2IVK0g+oQ1YOqsOsjEV27UYY68StXhz+2XpCbU8PczRZyoyLX9gxsf+7RYeK9IPCO",
+	"NNdHJtVAY7hHhyDpKoKHdxaFxkIeEZDCaiw9tBuiEbZzTH0iHy7QG3q7i0jvizus/JBLdb3PsY0Bwjvk",
+	"EWwK0qcxbJ4z2vz3qzruagA3+KPpBdDkfW45Ozg/fX708HuW5hokonvFRPaSn357edip9JWvIfNe4HSh",
+	"kY7gdDsVAoc5dgfbw9ffbzauia5zuQdMxVK81wTWCsp2+KJC2dz68kTmaK0Vk06vr0GI2es965nXmYPu",
+	"i/2Ly/PE3R37T6N//xz9+/Xp69FcKzvLl+E3wxVVEAq/BC0SLc7gDDKiDyd2wkSWJU6LGunJCFwbJv7h",
+	"VvDczhJmhJK6GBE/8Dxhk0KI/4iR41A4N4ie3Q/NN60bUWSlaE4gp7HubnGi7zDYXOQZmHedhT5hwTjN",
+	"nHE6YZXRPGHB1J34yBJI+22yOrUimhuhHCLberQ5M6VZyFTq0rAo49oNGJZUuFIkV8s4/FmDH0AULaGN",
+	"HeEva5J7rWx8ZxK/01LnDks9qGHV4gXJUNFIfaxJ7ThJNlVNruqjh0TYTnCZdWFfPz9i0RlL4poQr8mP",
+	"7cdpBcdXpxvyTWG2PirVkOde8AkkPvohJZhYkT2hdHqGWSSM+DmDYC12opZszpdQ/iGTZi6NEVmstDng",
+	"P98eDR3/C9/Df/xXWzS4S1HMd862ia3La22LNwuuWgNkrOtvG75CMe/FTdVs2lu2RhTzD6eT4vrdgU76",
+	"28rtcD3HbsKrC/o3xoW4Iv4Oxs0HaxUSDyFEXZVxMi0ZYNBswhn5ZFZzar25i0JOIYvfHyQqZDbnMnUw",
+	"k/yWS0v84q4qLcSmjM6Fq460q7fWFJOR1deihdiiwmYNho+Zhou7VgiM5EsU0hLAUo4JqeIoKvI3ZjPB",
+	"MzAjeVS2sRXGjg87335Xqu+uBdlsr8a77vCd7Ao97+pzdb+ZvKYP3r9SFhYIa9APVjm8VkfM9DZ008Q4",
+	"C1GAeNsxVKmlrm0hEOvihucyG2H44zop/Qo/U8wxVA84kvMFT60v9YgcyPNc34osXHXIZgx8GMqc7lm/",
+	"d/fiY0mPigTezSV3Q+1mnZW4BKMIW6gtEJUziFU6wvpgkQ0SV9yDxrgTzdV6IZQHqaZPWNWV52Oq3fV4",
+	"8C0bvz5/9ezXp5dnr16OoHbW6bMx+lyxVlmHGjH1UsRrU2oiQCxMutviAkHvhK7QuuyFzreH7MA7jROl",
+	"cYQJY2PrU2wsXxcKsjrqqjPiijhOYuFdE3yNLEdirvmURAvVuTAuM2WXGhwFV+msJdWlyhruUn6epLeY",
+	"I2GPSnWt9G2rHw9H7GI3MnYlUl4agUQdmgBvX56hW+FKkKVWZE3UmvQmQox8Dka3HBX0Y7nMkeYx5lpN",
+	"hTMJ463RK5wzkWedaoTujhm2iaaDA68RNKF+UQcj0+Bh01EZErpb4ojWEpcyDd6m6o5ev1r7C+WeeQXu",
+	"wuQ4zZmK3Uz9WJuIqpEL8NpDdbn3i7uuqx6rwavUCMOXlk9oca6EzzaZlLYsxP5nmN/3KLLs4WBQg8d+",
+	"eIel6+shcnOp3F8PVzYs6ZVK/rsU7jEMviUzyI2kfWc8XP5+e+Oh8evrs3WFVsaKrWwe4n7Dw8oII5nt",
+	"G6//3aDDwie1kjFxGOR3Ta2vRBJF73/XFuq4R7mWYJBfDcvcZV+okfaNeSYU1dm4C8bej0G7xJDAMCu8",
+	"Ti+vt8arhhzAmLgf/XW3JXQmKGqrfSXP1I3clweDgraV9PZWwLzu1aJ0+VmAp+v9qhDEyS/86D9//JOA",
+	"h0d/vH2UfP9tcyIMKAuyi3sahvc0vLyRFR82s2LttuAyjttiZrvEGTXFGO161EQ4MZsvWu49KFIh5HRm",
+	"XWeQa1x1RX8Nku1AsFmkIoRBhLZjD3O2wf6FdPO7uJppfb0f6WyUp62emd3QO9wAERz1crl6Vj/ceFZX",
+	"SEiVIjizdmGOHzyARk3f/d5P9fwBuMa16SXxPB4NHv91m5yBLupza1/ujKTNPmJm9G/I92pCcChKEVfR",
+	"UNeYWpkbza4EGBPwc5H5EHWJQxDswF2gZ9zQK6xKoj5svlXIMPpNW+bmGN4fuU1YCfGRapqLo9LQmLcW",
+	"at+8CW5ktS6T+sI17cqz6EbX5GcKUUHObpNQOFouuLGwnlgKFFlQ9Bl8guntvoQ3WQaEYWO09AAq7thY",
+	"sRiViDROwIwOWtfVAD/w/9A+HpizTKjlUS6NZXNu0xkCketitS75UFE+d8jNXS+5fhKHiPgbp4vmaa46",
+	"YASk8NqZcPMPtU/c2rvwrLFrzIyZe8dflQ+Ph+qIjSdCjI/J3kVY+emMF1OxktjLJkKwqbwRyl8iXLtP",
+	"qJGcT+utZA40TsNPR+Ui/oag4OnLQhDY2/jY1Q+2UTACWZNoJCHgBdZsLix9Dlfj8TEWJIguvxNEk4At",
+	"JLweX5g2GsM3hj6iMsXUGNWZdhi342MmHE6y+wXn5QYCHlczw9hDoayz9VMrmUhzqWBR3b+IYWKn44Ev",
+	"7YFTPox6Hx8zY/WiQlbuDxVG8lfUzKqQJb/1yI+2LBR4DJ7m0hXo5dbFx65uPV4Ih4ogKl3yCYF91IIf",
+	"cTt7aLHwsBBJz3EJ3n0DSCvtYY9MFb2kV1tJdPjgSvgnjdYEz/B7Qb3TUBuN2Fe+ylLLozDMxlf8yBsf",
+	"TkTbA1irxie4QI1Pwiq2PMXFbnzmt2Q7Uv2H2NF1Eb5H4TkfiLNFcXnX2Ku7f+1c/PjOI2zu4i63GteS",
+	"qeWecS273wbbb3/d4wzok8hSVrMdtwUD/LFpY+/bIxw6asSjA5HdrJSgkBbKFlJgnlsMg5NyhbHZzSli",
+	"VlveoIidurakz9sK7SVMqjQvMwLs08YBzVG1ElA2OiDNutR66ttPrG3hfYirPxuc78Cd1AFEvpf05KIO",
+	"Ht+rKmA3i3347imm/O1RlxvwYanrnZOlQdrp0uz1+cpS1kfRvIbVNPerzg0rjlkO0JDLkcz+vJW61+ji",
+	"Y1bprpXQ+AAVuk+x2NYLH4+8e6Bv91s8dCIy6rA5j7YkKXRnLdJi3l17cnF3bQGT3VVrq8YI4zIO/A5V",
+	"KxGvMs2nnSj2g6Xymr/p6iCtIHyJmHGADScUPKxAfGls7CC+cOE/CpHCKfhdMhgMDpvPQMzHGxkhVHc+",
+	"ve54Kv3RCK+7c3c57vf2oKGKeckkNiJovUblfS642vTcBYd2Mqj7cMxqw2rLGs85HldtEElEK2HGzeRY",
+	"xUbV4DeMrYVeNC7+aVHoYq/a594ovmKysqBEJz7j/SjUyUQwEMRYZge/vn59ej66eHny99PR05OLUyTE",
+	"SrM+e/nbyYuzZ6Pz0//69fTisjF4SxjDpw39/62ccxV6TZjhE3Fk9ZFDCo4T3j04EJydXCrDfG1OUx/O",
+	"pTN7CGMpXRgDLBpDud1ro9W7QiH+/T5ltJ0520+61k8jRcBanzvD4I7bivu0lbMiqlk7c7GBxmHdNKLb",
+	"niiysCQsk/D7XCpMPb1asjEVGGSnPJ0ROh5YYjGK6VaxMRzbY2ZmfCGeMOfm9wHvrtbev7B2DplW0PjX",
+	"Z2dRfT7ukml98SIqMMv0KurUMdjRQLM3AkrFot0sIZOwAWMjhRwTuh/PKSkeRlp1RRadaIa0ynPCwgkI",
+	"xOgradUV8TktY1NdqJYPf6pePIH3fAN1ZaqD+uc/pPI/bWcxPPRvrhSlaouTpLfqnfgSV5s/dRF69U8j",
+	"E1/bd5fVK/TVu8AIy5fo6yL6BcVViVeT3vE/t6gg1bTfJZtfbeh78wfNG7jtq/Wd2/ZFw2Ju+6Rh67Z9",
+	"Uqfjd394yYB3oU4Qcc0pdR3TmWq3zK1vgyLTDFzZoFW2yuP42rXrKdtSp3a9kMEuJWanQm9NOBb6tZbE",
+	"GXLRMIDXN49B9J29vvk+IOf5eqcqw2tyv+4qfPxd2woHDLzYzvjwUSc7I67uXiqMqGtOOwSgV5k2XeJe",
+	"asGOqBQ69L7OQaugFefyPyKDaom55tnuGWEpV1qhMwx0bNwmhH91IEQ1+JW1Nd7r8l7w2/2H6zUuiL6C",
+	"o9SXxmscnn+4l21hqwGDfOqNUb9hM4OBIaapVXNDPMz68jRucY3MWuXK30VbFetKp6GwMAAECuiZVMob",
+	"/ikzMV9oi5VcrsWyrvzaN2r0aPDo+9FgMHj46NtttbcfPvprs8DBod63vRg78eUfGowKSryxo7QsjC46",
+	"CP9mK23cRuue7F2CooPqXT8q3yXxEdHh8NsjPHsfibWfwNiHjUGIjXKMLNwlBBE/23Ddr+mQnfW5NeK7",
+	"a/GyUaBUU6otS7TtrRR7uWJo9RU+42VoLkVbv0Ws6e0NhWnDRafJIPHzf5/znb2UG6tv3Dl8OOgsGaQO",
+	"jEolu+UOrF7o/XhXmmpHEW/aOFqq+xaqbkP2TsdcBa7ZbahTvmiFCGlRlWxzLoSvaLoTHYSPuuDIw1jr",
+	"n9R7dYNrXCSvbO/mjKrQwLzGDcVfKdZGzhfaGHmViyNb8BuRO9widvDT6d+OBo8O+z49rNAYrCMxXOvR",
+	"UIG0mPPcsAN+BTl3D9n1/JBdiYkuBDOWgHGa8a9z3sIPIZTzxziS8+jHQVPJGq22NPLwr7VWHv51vZmV",
+	"vck5GS6aReBzrae52CsXCiKPtnr5SjsLOYQhIHpdY6Nh+Kirb3zM4QGiKo6uSiOVMC319dpBANdahVe7",
+	"NRoB8PmDgYpGj/BwqDex3R3nm2vagr2iPu8jVKQ1oRCfjAwcyU3JPoh56TgqhJO6aNMnjF/Bh1iMGZCO",
+	"5QTYbUbQl/snAO2T99yisHWPvm9CilsIXx2fp6lYUNXtQtzoa/wXjTPbTiG1XEocUuhtE2BFtA7ttHXf",
+	"B2UV07vfQfk/V5BM9y1e11R2LlvJ9Xv+t0bW6FYkVBqPqRqqD3eoEtooYPCDoEbV+3wmp9AOn1gHJu7O",
+	"JYLWZAeP8JhbCCPwzBvgn+e3XGVcsUnBVWpaPJztqdeuqmwLBO/ZM3YwnR22uH72Q5iMyz1W++PKjp2k",
+	"acG7uodctkOkW0arG3W0gvSHc04iEtpGmyeh1uC+VLqTvKq+ulo2SV0N3u6FNiJjUw2aCeTLtoHWx7Bl",
+	"6w35F7Y1dKU1BI2PBAUctCDBpkLBoOglMri4s1eqGMK6X29u3AL3vm85q4wvRwi72pyjCmPFwncHVPsM",
+	"tuEQ2c2f61gKj1pwVVe5zJcYhO1AtlyZwGZmCziRAeC627772pbrQ/6fZTYVxq9oBaqpNHNL6RcdChNr",
+	"JahemqejtsSNPatfdqp9tUGoeJj7g+ns/weWtv7DQb8F7bRw5Uia+zEt0EkXmDjOijLUNyDka8UopfwJ",
+	"ISnhhprSLCiZoygVU67GXYi+gveqVPQkpKb7rxpv9HeDlrVSE2qFBSMtIdBNEG2bC3pFw9sm+c6F0XnZ",
+	"SfKtCheZzqJDEzf+X0DGWWWNxQ24nS3Zwcmz86PBYPDD4TExYp2oqw+A6rNkqFaTUzy0u1sJRGqGvWQH",
+	"41IVMIkbAdkaStdGIu0TNpYKGQXSJuxMDFW9829MrfAtKgREPbqoiAfyaEjfBXERRuZwkpSO2mi6RK6L",
+	"1x2LfANvEdwqjNwte9DBXY1Lvw4wcj/pRq7ryL8oh9b2tAtXu4G4Y8kz2xqFR4Rdjb6X9Pzgt2vXcU9N",
+	"tF4Lo9vRlRaqLKyfAHsEeHUKtoqirEwtpqp5bjdCCWP2DItZv/Lo6+0L7r5qHA8YWPeIs54LO9O1WLsF",
+	"N+ZWF1mF/NRLeoQEZYwGWSn1XNhCpttA9n2LpkxTYUiYyrwsRPerfeIH2Drn/YKujZyqI6kYt1bMF/bP",
+	"G25d0cXHjLMm8//9x1fjbO8bWCAwyOrL32+dn7NEhBaa5vBS21PvPN+jShciPVEEWAO8zi2vVVA5ZmNA",
+	"JzweloPBtymc//gvMYYkUwVH+OrlAl4348OEjV3tl/Vvh+rACEScjusVwCczaawulu4TKqwYOrwSMw6J",
+	"GwVzr6GewaM6iaiX0EdKQonGBXaBeOqhNrdrHMYZmuYqqsvMFUXX+Q/gpFURaqOrFLFDUYc16CMsMfB4",
+	"qyKKHyZhx5qI4VVAV9v1cqzMrQt538TpVfsn7oN3STsJuXeYsTLPsTiPyIIhv7yaS6SIBEItMWwSNcrd",
+	"qkY0o9U1ARlDSmMA9m4K+IAXMFwBXmIHPL/lS+OSnVFp8+Gc3aDOXYPvBw7eDVi42pUaqDCs73v2/96X",
+	"p3Av8gRWkUvj5q0MvL6M9W3cendaJ9bdjv2/K317BPVXj4Itws2iz07xJktUKw3THmoL4QnpToIQh2Oa",
+	"TjWU8VC59aG6LVoJ4xP2QHZWb/bdQo0bK72inXuULXgzvbvnVhRz0/LGPB8tCj0teEPZr79xwzjLdFrO",
+	"hYKhnfzy4sHTny+Z+2Iumq0YleQfOcTsUfeDsuHjNtyXhm9bAhWfVuW3pEp1sdBkxkjY+4Uwgk4B62dF",
+	"uAUGqeXVmGm2KIBMr0fuX4r+s9ALyXtJL00X8J98usg2FhWt0FT+2glyC8dWCCMzb073IxIljgf+D5kS",
+	"7bwwMD1ahIOzcQzZQu+wlVM9yh0Au+9aockGruBSjb4lgHxT/fJ99UvObXt1VcTMr98/lh6bMg9uoCuu",
+	"XNHWtFgurEbvbXEtLFazx1urKQtUwJPelM/p3fYdQJiGJmpsRsfyJh/nDe5CwHOtpNWgulZ32TWCiua6",
+	"4EtNpW0wRmZCshUVZ+PqvpQL06NKyqMojsZsIbHvO5GYM72ObqDAWG2fS5WJYvRwAET2cHA9ejhw/4R/",
+	"z+Ff89HDwdyhyuM/W0pmwWBHiCxbry3elUWjOXWDqoM+jSX5sMveOYeGyFoKwBoy81DzonB4wowzV5mY",
+	"5xXESrNcDY87kZ/xBdxBQN1IV6R5xSzrC1Kg3e/16WsWvmL+qwQcxVwt+71ke6e24FiAuzOT3IorI9fg",
+	"Hb7tCO+wpvPEabreUOxViTqsvtfjGunOVzd86vI+dtOiCRs2rjbbomLF6CPciPiLRvARmb2nJufbuNot",
+	"UrN7KZzVpLNFOtsRoGKf4pPe+baTuSF81BKEsQm3VhiS0t6btH1/N9QpoWqoXed84d/fFgPRidSbvBzu",
+	"hlmjyABWF4YbgXjUlyNyg8RLXN+lGinWaHuV6pI1fmrS8usMe99RFvXe9o+2CO0goNuuNpt9GMWRB4Ek",
+	"dcgoW53pH41ZHfiQ+aoRCAefapW5XMT4AKkzSjd06DtlmQ532c734Y5StLXq+MBdFEN1TnSPhiIW3UqK",
+	"N5uHOvFtW5xvRSfbiXY/u+k+tLuhEHASjIa8zKSFgp6o0OAvJAdX08C+6wQcui+drWxK6x5sWt9fGnPb",
+	"4ULFDiSGEhgoGUmOdfilVjOcIzxdqosMC4jnSzR4rhRGrqO6Y73ljerQRbQgzbvdCcJ+RQd1jZLzMpOT",
+	"iSgIvrGZCdBSSMWjHdKEW1fKMbJuo+NRfftowzr/VrHnLlGfKPM6FxS8+xjR92Ohu1Bp3kcMb9B0V3in",
+	"kyRrj8qs9ml1jn9sp4kPpUe47t5HkSCf6/1HLrdVSwW/d/m+VTBbYiI3FHWpbXxtEBuW6cQYUVAszV5I",
+	"3IVASAWe755ROn4NBc/Tv4vl09DKmKTdWPEbOcXbf9WD6U+FHSfsf168enkkVKqzxuzTlRWKRrhhGc4j",
+	"Q8fnsBK019sXox0ofEsI65ZVi1EG9giaIEyQRotecPHOKDbWZbJXZN7g+20sxvCeFTHcELfOfq/wCQfj",
+	"62GhqK8/P3TdOtl8zJiKlTzI+w+uOI/DRXfgllqY6VrZgV3qS1QtNY5PgMFy/5gsymfbpBBHsVpJLwqj",
+	"aHawrAJZ2dJgicNMYFijSpcJJMgTNFH1Y3Car02wMWhs20Da/Lduts0LmQplQZu53OMgmWGNrCZIOQ8+",
+	"YBoKacXIadymM9GCpmycOTISvTsMjqJA1sf2Sz3RxIeGuMto5GtprLm1Xb/e6bIQZc3slIC/vZD3xsLd",
+	"G2pHND7enPG+JnxaSwlzG/52csntUi33JEy01nET9a5GlBjpjpKOYrYoVdrs+/lFFwHYBMnYwyMi1jzF",
+	"Ed2KItSJYwfwVIlbYRxEIj4+7FDtkAadBG6quCIeYWCHFi7GWp1PdSZ25ZN6nc9dEkRWJXa9oeZxejd1",
+	"E5Sbg07z4CNHRmYiwkHr740gco6W9Mogup/a3FhhqSui+blDYwcErhj/557vfbuJhe0hTXKqeN4dXLWa",
+	"9QV+uZWGNpUhj++MfiB/dFzq+zYJNG7v3naBtWW7fzNtex3INnN+VWupm23b3YnqZZQaZy/N9VNuea6n",
+	"O4NyTaVq8sdWo264zu2VqrB+M8ZniDTpbKIpLwpKuYEA1SdMzBd2iXVwfTIVfrJbzOS00OWiBcM3YRGc",
+	"TMIwQDphT5049aG2YFAmrY95NJX+Jlze1XD6SSHEEVylGL1Lk5WIlg9hWakP2orCbuFEqNc2x3fiY78Z",
+	"3vdK5BuKh8K6MmnQorzIuVSQMJSZjSAHaw9gf/dJvl25ojk7eeI/ScJ53zSz5rRlKCvPGbXECsEzcwx5",
+	"kmLJDtbSox3BfVNlSR8mtPYYS43Xp6E6eNj/jv3vmMgIrgXOZjyfYKKmj33248d+PIp1zyUMNo4dBJxo",
+	"YQKsq0QvgD+RCIQiLS2/FiYJfjJZMNxeU6P/HXgxEMe+FS7oNU9l29XL5jqk/n4dqMg36Hk1pBl1U2DX",
+	"D9g9gJUb7g7ohRm1C+1kw4IaXRZpjdqdLEGXZa5TyjJTwkLCXiPRGFugxkSxwk08LTBSHx1DuAjMlgVE",
+	"OLEX+vboCjNMsfqXVFazi8vT16NfXzcHXFWTXBGSPp2Y0RuhDBbPcwwejwD4OvhsXe683+2VJY5OOrd8",
+	"a4uwM8mtnG8VuSSbbIA1GMndrH+XHunRl4pjB2YhUvb//j8/HPZZdTkD8Y87V869dHJh0W4vaS1MwlK+",
+	"WIiMcTtUDweDPsvEtOAQQ+Kmgt8ZRkvmD9K4LnflKyXnsTShyNYtLyAYdKUpf+z5X2cgjCAZ0rnxQy4K",
+	"z8O7hbgqJUJBT6wohsphs+TaYK4LVmXLdGoePDu7OLm4PD0fnZ8+ffXb6fk/+vPs8Alzbl088DEw9VYa",
+	"0RQK7iu7teU1rNaTM5sLyuFy+SLnriChSyaFIWNWbqqV0ZD8ws4Rf8O5arGAHbqpq+pqodYYFieb5CL1",
+	"ke7+yfgJiHl0RA+V+5DeXujCOh92n53iSoDo16VlnFV2X29YXknE2WwKjsvPNxan2B2pcJUOd1MG1hXP",
+	"CMBdmusjeuHoUX/QH3S6p1Xfi5t8x1i8+EpXJypHx2fPPBmRZ9VDeiK+ELBVhpn+agXNXtzYzSPZen9c",
+	"zb3etDst2fOE0zYKYqBhkkjWboKOLYJ6XsjpFKN4N0mWK5Hy0gjCYtcF40Pl3NfQ1BKzoVbT6/rsF0r5",
+	"oK+kYQpLBFi6tjLEa0KReYxI8MSMTkpipp0/jrxeF6XijanaJGp2RtiagKWBmR0YaC3rsIGi6+UI2jF2",
+	"cRldJc6MxHGQGgdUwxGKJ5gEx6wLOZWK5/7zlqz2u4Dl7F4AeHezRpsxI+mtHEHvZU0LG1Azg6xaSDog",
+	"dyabFIc1wbc+iaQ6plaZr03feOF3r0WfQH1OT+DwgKEfM9wgnicMq4+KXCDeSsJmcjpLWOqLsR44LYvZ",
+	"WSEM1DU0Q/Vo8OC7wYMfBg9+HCSMZ/8qDVYSQQdMpNI9YVhM9fnpJXvAF/LBzUMsSvyAysmOV+9DNCDM",
+	"y7iF392QekkPxgSL4gbVqO/CIrzGhveq7D+XahQfY35Ua3Uem/rmpdWjUDJzC7qg/glerHIPYWf2vn/A",
+	"xzvxrFea9zmytxXlkaqzywLHHX8St94wyi5XOTJjj1KOClYL2kituHREq9+YiMLXousaAkuj608HK1jV",
+	"dpfduqze3nojiVpuXIKkicA91dVIt020bI9m3IGvQrH7qm7qusSietSucq//mk6+gktDhSKx/T47oczj",
+	"RSEQMEaqcHUyT3Cnh0pTXgttJ2evf72MqlVL43SyujS6L74ntCyZj1AIStHNJb4QMLY016YlEafBXsfD",
+	"VS9yqyHOkKHbmNUJSexgRz1mY+pjjNXIaBvOT387O/39cAjmsDGMBB5SzWqohTtFCKFLtMJG5TQnWIAd",
+	"G3ML+yY4l31JGjetegUYN8kmlw4cAyOYihhdLUexK3drkK33Jge15GGTWhKN8deLZ+hrGgwGW4YSKHrN",
+	"uCinsyN8pxItq8CLk8poK4UJFzYy10F1IwFm2z77HW/OXC2Hyl3w6cLOpAnbnHiUNY4IT/xK3wi4GE+F",
+	"ZSu7ubIlD3Geg2TX9dpfqnljzUbyDxrld1sVyvrKv7oRRSEzupSAYcECHE3dMsIOBkffDQ6jKBH33JvO",
+	"N4cO+uE3kkIrqa7yfpvIvawt7A72oxca/eFkI9ITJqAYF+p+RA5OyXqCxcyZVGkhuBGMvF/5soM4ZU3S",
+	"ND4jEV/UidR184tX4eIbN8JMN98emtnUa4ZxI9/t2AjsUK2BH3ZswNVOD98/2un7FXLaQeWNKMXBAAcn",
+	"j3M8jXg2l1RvHIzFC1H4m8qcKz7FP7ni+dJgHMgakAA8LjNpdXN697kmbDO4ye7n2I80pR3WaFNe27m2",
+	"3IqThfy7WO43Jn0jipwvRpSSZWq6yl+/fzwYrLIa+I5yTRYKBqL9WkBNFrEwaCvEBC+Ewy20pbM33KUe",
+	"PUYYT5MwRzDsBwDuJAjcQEPfDx7/ddtV+l3rWvwurmZaX1+ItBD2/ZYEx1pbkEePN66GrxLNDPbuVgXk",
+	"K5prBFg9CylMbboPv//rHnPdHcOppRZmJfyrPDMxhzMapZ60jIKEVkx0kaCHetb1Et4NwBuKxrn1vKTE",
+	"MffynpkxtRk2RaJswgBaK4tZ5veQodwpIsJl2Y1quUSrXvIALLyWZYmJbWDKqBB0DttzLZMOOT9riVn+",
+	"SilNgJj0H8FVRfAilwLhbfudQhrx6uOAHTcXAXTvrWVsNuDdU+3MooBz3Y8SbKqOtFqR7Tclaq4PvfIF",
+	"djcINiWu1IGy4+lEy7Ma3VLRdMxrcZpnLahpCyTSXSIbrF9y/RYE+oz2YXcchPX2CXCt2mkggcAkB8Hz",
+	"wCGGkkDkuvW8weX9wYEX1oTUzjAKq8WwaRMCbVBlA1R3GnUhv6Ad5bmNqpfeIxDDWuIvHF+3WJiPEA4S",
+	"IgeEa+smAstctLsm4Kx0CSroManTFQqes2fuKurOUw+70OiPuD+8hlEsW1wB8BUAhzVUhr0BGkLaZRdk",
+	"hg+HynAXiAx1/WSnpLYTFiQzs4UQrmK0As1LGibecLiJYgSVnhwP1fjtsMfzfNg7Zv+ElxLW7/f/eDdO",
+	"GD5Ry5YnSlt4Ag/gJyRJWA1eSKMVtYtBHPDWsOeQLfEH+KcY9hI27OlF/NgHHcVvoPKHL+Er9Cc+fzfu",
+	"s59dhWuVeaOOa8IMFS+CU/Fq2eAnSSkmc9xnJ5bNNcS5D3A+JmHfM/Q6GZYJsUjYw8EAmxoqJAEILajm",
+	"yuCU8UFhwTObaWexm/Eb4XynXsVdtdjxPEcIDGyjdxyb7PohoUAvese9KfzLxYM5s9K7pPpwIrgtC9Ff",
+	"15Xxa/Hv6mtMvPvjXTvxWaF25ZP99e/30qXvTBPeK/t8d1Wyc6Tx3Whn2/PNYXE+hFh8P4HYjERBgO++",
+	"9k7m5QAtjY8ZQoPdE49SUdXpwfBOj08RB/RSqxUoRaOhBsAELLdm52VbtqDDR/k5m3PQDkCw+KCWw3ou",
+	"T2OaVzMS1N5+USx70pBkRPINBsJ+vXwKRpcEbDfCWDaRhbEJnjtodMeXoJyKnqwMfr8BLdc0vWYYPhxh",
+	"o/NiCzNmmLzsG+jiMUUgAPrg/dT2XUZdUya3YziTxuY7WB9z4vZ6p2y1tfTRwvptRjLwxEHx3d3vxi2J",
+	"ZshQde7x9N0mS/ZEW/mg9qUtyCtf1JHZ0SbSGcTlbk7WNryXLVS3x1HrDEtboBl3PY9bAV/2EiKrY9yQ",
+	"jn9x8eqpK+GyJ+SHo98asOfjv7ZcdsXu5Q7cHZa+bpuCVkrsU6MwzeWm3OWKcRvMjNQgWRtD/8yXFLgq",
+	"LVP6SmdLlnLyyYJ2gEkq0rZU+zKmJFTWyO5u7cIcP3iAsQR993s/1fOqhXusKr2yF26ASbRuMUfuUie6",
+	"tmtnalHa99m6LSQVBkx+mobIXjfJ6GSE9XrCcgGXRgxV0OjeiYObqbUVILmHg0dr2NdJ77aQVrxS+ZKk",
+	"8VanRKCEOCP44aPkfTaoZRv2DHtK6zzXCT2yzqoAHtmA/5jJQqR2VBay2QqXOnkFO+LBk5nL26OcbrsM",
+	"YMX97fUz4g6TeFpt62V5sXuGd+ikJXh1beRQ1ay0M13I/5BX9dfzFzvNJt84gfutb9NYsqZxOKleiEY3",
+	"lyiw0oFWfXby+gyczgYlKUYXcbVk4k0KgnaM+uWxM5eCTaxy9B8j242ToYp/TBGosizEGM1V8SMjlJFY",
+	"aQ4sxzKd0cV0IfQiF9T1wQqa6VC5rg2r/G6xqdhAJgu9y4ywxp0Yq3kqOJYwNCrHN1Q4uSc0iugbF8Bg",
+	"MPAYStzJFP3Qkb3KZcoY167/9Aia8sFVq6mafCFHsNDHheAEj+3+xnX04RKjXE/DKxSKFV5wf7qHmJTg",
+	"Y7r9VSA8xD/8h7Vd9J+G5fDRndXI6C//dcpN1TD94R/dUnxAeBr+9i9Ywef+If47NFrRhW+5+oXiU4UT",
+	"76skV/8pnkYTsTUaNS488PqpSXnO9yjweOJiR12lHb0Qii24oYhJnuUSLc8hmaUBcgu+blOO9nLUl2Kz",
+	"25bGCx6crBTdHbUeSmDlUD99fvTwMTuoIOz9tBH79Pmr344ePmQHk4KXWZWHaHkxFZQ/4tmCGuolPfqk",
+	"cbviu1RVsOy2l/TmIpPlvGN0vylRNI6aaw0mPStt3iEDOexcQO+mD+sd1C5atSuU26hGiS1QKu8Ne5cG",
+	"R3PdFYljFZNCGAdQAweA4p3cXmvoZS3D3bPMHzURxxAkLAwVSAkLjP55IevWt/xjQta57fhwkHVu+hf+",
+	"/uoHMp/wUego6QkFHvQ5dBb92loGFdq9E5GxF5LLevV98FRl4kamjZsQUvirD16KW9b+wR2Ex6ykwbsW",
+	"G3cIl+Cph2W7C1yDmWyvHNuMZrB59Nhe29jLBbK0sHvGmfpKZF3LrKwmKdU+bx/kq0XwiOxzZ1gPRDwq",
+	"F2QRwXeSqro7DAQVVw90ijAwISO20Xoy1Xqat0Q8wuGPVRsz5rt8jq9vbbel+KbrrH2tXkeVFd57rX6f",
+	"iUK4e0Mm8CAydSiJinDFm4UshNmsZxm3+DlfGGHYAVbSZ3zKYZEmVhSHOyhfwgiVjfCzelRxY9xsqazM",
+	"q/qZMB+41l2FzN9mRMeWfWjsvLYI7Vv0YXgt2aEobOfCdi3VYx8++us2Xnf2dr9+9dlsKSpLy/abKORk",
+	"+X7W4hhtb3D04x9vv2/C12uSqE3juhR8/ovwhbnuG/jO7+ZOUOhovn0/1+OEby5m2u4ZcukTG50QmoIC",
+	"1iPSggM+k2bVjrgpCs1TmCMsHERSBZ3F02mCbQ8LtnnD7ztYoupp/5AJwL/dP4dkf1en8Ledrep5s868",
+	"ZTKmzHedC5Vga6ReBKrYLcDuN0IDC/5sDEBz7hhqoyr7bJJVVJ8mbOR10OBohO2OuA0lfeIAaIuHmwND",
+	"oeBQqgkbDRiOdhsOwW0u3FYPoK91V+G90vo27qhe/Gp2Fp0VYOG6huzSZVvABB320lRbdo4px3CDxpzh",
+	"ZiRnFAdGCNVdRm9J4C+NKDq5VP2L9aR9N/VqnvEYm1fYLk7D7XDHhdZ2AX4A7w9pMDw1u7R+4kZ8+8hn",
+	"JgHxz7kqee4ybbfHdFC7SW0AjbOrbM57mIPawLRPQqn1BoDCAP94IPrTPkthPw4bw63iy2ftf9sSbaOg",
+	"zQ5Gjgp++B2VmFEijw/RlBeZK0A78pVZqd6s5cqOXAVXREjJc2E3Vp2N88HrawYgmY8fPfwhpPau1UT9",
+	"tqVsMfqMVhBBMnElXThFJm3jUCJ3w26LtEJrK+20gHeHQW6hwv2sfASHOdc3wqP0/TmNeavs+jFNedG+",
+	"fwA7XjTzi3I+58VyRyL5eQXHP4kVD66YyzVmJuUKIQ+azvCdawl0DCNdF1jbq5BVgmr7u5HU2Sw/tngm",
+	"dubsX5XH/PsZPDVPeYeaHGuZGNwIVgij8xtCTEOXXDHH9H5w/wQEQcV8OXH3hDpnB+j7eXTYkOoPaTUt",
+	"eqHvcjcu6ebj8f1Wvp24t8aVxJCck1x0d//PpYp/fbhGvwZMSaLB7PZzQHMOSrgPAvd8gjBuzqAMK49X",
+	"RkSis3wyYWfPDj22tdWAiId9rZadbjakaNswpHNf/1BG3kYARJJzkUslVpseNNfRXi+gQvguUt0IY+WU",
+	"W3IK4xKOFto5eav9aZZ1LdsF9H4fu7V1DVfCWuulCRqNUoXUXcJJ69h6FQDjtoMSFyKGa6y+DQWpt4+y",
+	"2r5tnVXQZYEjV2192+oOtezpLtaAbXt6Z6k+a0WVPkwg86qtc2sN1vdJ89nJF9WyeZVJ6K628IMY6Fpm",
+	"4+Az7moqG4VGsqk8UHeQTDdk1EYBj6te8+7hYFPRu71XMOm50L1tgc5NS/27uDop7UxtdaA1mbn8x0wv",
+	"nNa54MZUMMxXhb41GC8YFUfEmDlMhLZloVrKIrqF/ABG8/fMoPD7MqpSv7cqrHdFWavkA8BWhGHamGOz",
+	"hkBRlArMFvAZwpNb0GgMQ4+byPrsBLFzvkVcHPxQqGyhpUKgbz/xVm/czsgBt7PrHZEDPMiNC54GEBiZ",
+	"jdCN12DhI/TV2gJ4WCAHsxNDkuw3p705eJ/w+CLvWIEW3lxNZImJMHJ+rNLzKlVtXvRN5Y23IH04Aj8h",
+	"KtzVVFd91ZDyUhIO52jellJZFGQ/WQuvmsH9ilaCmTKdgdwaw37o0o7hOjCeWbtgtHrsu8Fg3Ge+OiO7",
+	"0pl0OaSU2l0hsnWho2JXeqBRjLwjc0cLvV/CWt/1xat34ddtw2Y+I5ip5X67aRq2xD0JVSwcIzs8qyVL",
+	"l2kuEDkTk/V/RM4G4D26QAOM1mGzLT91YS7vl4W5X72yNuj6ywgZ/ewZOxgTlv2RW96js2x8SJYew+cC",
+	"LemuyJIX1BBWQj8VwtnWI4ErbvZC2Q+2stASAcFW0ZIdZH22Y9fox3CU8V5bhA0Flu/2+o6slfSUeHM3",
+	"o+12J1zht+p66ELKO7mUZNarfbACwR4VsAynReDU9Rmv71jDWtZ2Y/XwiBmyg5B5JqwLf9hT1Oyih/lj",
+	"qrESRyX0dtgzip1Z5ppnu1coR8QWLDbOMK/PUPkTiD20mLKBVSqZtIZdLS0cShSmdbgdZTVMpxpetO8d",
+	"9uW+4yAa1nF1S5A207IwnXi+KXii3kaHWV9swE8yZZoKkTnnt2zTCddU/qixVYFLfzsVyyWaRI/xzw02",
+	"vtDZB9qs/SNWXAO/Szu7CO7lHUbb5pO+dKGHEI5J7/TZxQzgnzHBSTpoQZ+L8YSUOSx6pBh3nxjm0F1X",
+	"ztmZEeno238/Ovrh9vSkw/+ao5bDjbjTAq+BJdPvwSvfuLgzzedyZ6Q9zMRaq+EDv+2oXVS1ALb6+6JX",
+	"61+ujUOoXbUck+pdruaUKNggdqxQvGFAVqidBrSyk1Wra/Ou/VAlydEjN6s/mgS+EWkJJskLmFLYVvCn",
+	"rqvglPF4zMaFuR5ZYezo//u//m+6DMEvIP7wlz72Ce2BNVbwAuMKXN9wbeq9g66lmujWok2L8iqXKfvb",
+	"5eVrKtHFU9tnl8CJmJjoS7BJBQHTDo8dLvlFaWfH7LlmRhR09SqvAgTYUIE4vcDuGKUj4y1tKpQoeADW",
+	"hqJn4zm/rh6Atg1tPD1Do4kBc0H1EQYMZ4WcWEDvGqq//AWMY0JZmeIVqv+Xv7BT1MXHDmNs7KDIKB4M",
+	"txgG6bNK6RjnZqjGJ3G+7TH7CZeT1XfgAP4ZF9Q4XN+UGgIrrKSAjoYqE5TUJGhBicZwrrViMkqHIkiE",
+	"ZZZy5dFe7UzMAfQMBp5yJzd5aocKPJhSofZBePqhRewBX/QlMhmRKSw+gq+7lTwFDdH85S+sNALxgTw1",
+	"HCPQHCqQw97x2yGG4g57ybA3F8bwKf27Kiw07L17N3aNnmVivtAWXL2wN+PXry4q+DcKpcLiFNK/Z5le",
+	"KVflNeQxc5NE8roWy5XKiuwcrl9wuFQThSubU6mcMdSsFoxylgT/zVDNBM9EwcZh6PboHItNHQPNi/GT",
+	"qumVsTHuSqrANHy3ssKjxJeGavx48CM7e3b6y+tXl6cvn/5j9PTVy59fnD299It2zq1guZyD+/8vf2HO",
+	"Ok9mDvxZYPpxoGFO6ciOpPrs9E0qjPFkZNhUWOj10Y/s/OTydPTi7Jezy9NnbsxjXLYjNESOoZ4fRtEf",
+	"uqG85rBOnrVAdan4yduX2RhUCZdOHelw4z57zY2p/0ZFOZDh/C9WwwgZFbp/Ays3FU9WvpKGAicdccCV",
+	"Bt/rMwpF9Tag24BxRbnNznfnhd3J67MIJ/e4N+j/tT9w1XoVX8jece/b/qD/LUVPzVBKe2qlpGP4ZboB",
+	"RMIQd7FxlLGMcjos21nWO+7BSp5Qg9BVwefCisK0YihUrzx4ARTQe5dsffEprh2+KWGE/y7pjkG+t+qG",
+	"SYfs1uAmGK2/9ba16bBGd2jx7/DFOwCD8KyIS/xoMPB1LH04F6CLkpR/8C/nBtihH1hwOg3XsAb4FA80",
+	"2rA+UMPjwaCt0TDKB2cKzbKOO+mzh9s/+1Xx6siiEjCPB99u/+5nXVzJLBPobn386MftX4AYeUHiIqqJ",
+	"tf27Z/Qingekuvh4KSRbt1BJjduA1fjUhHuT6f0BX9Z558Fbn5n8bj82YueRDHfdAyZoBDkWJZJjnWSz",
+	"znvPBbHeOuchSQPjVxQd51IHDZHutBX1xVa6YrPiGTkQv29Azrh3PnAmnAZOuPQL1//AtDx4vP2Ll9r+",
+	"rEuVfUzify5sqMjloZxMjfZQ+XXhRE0cgadKOutM9QRg0mcnALyB7kKoSCUy7w1xECPHvmIVnsC1QKTx",
+	"UFmNgCl64t5KVl9J2LgerDTGwmFkyRj3155CN0NVvYFH7wTUKRigKNxhLAi5gmB/0U6CdQooGs+rW/Oh",
+	"OqgrhfDYjA+fwFJXTdCiS+OKbUGT1D+0CduA5hd2oihkbKjGPtppHGLHCC/Ya9IcBBlwPlMa1MoptM6Z",
+	"0kd6QbpDXWpE4XOfrODAk+gnnS3vTGY0BA2+e/dudUrv7ltqdZFXn/qRvbOYG3QQc0+1muQytR9TLl4W",
+	"ElSoIBoPSDolzLNgAiwmDrfpCBAXamXaXcWO4IbGfebSi+AidFWm18KyA/BF5kt02j16PEPx+EOWMIRS",
+	"xV+/HWSHyVCBzgBgC8LYI6wjWxoQDM6WEUq8o9CYANmj6zMhzye8cStVpm+bxAYoG2FizXJjRYemtmpa",
+	"dNil3qPHswiahv76AWTMt4PGyK971SfCvNq407/Q/zK0Y19F1iSEdE0U5KmHiMU5qB0fEAWv8MFCHgHs",
+	"VncVOcbtGvfZhTOUV1ERcRxYwz309dnfxfIDXETvlRjRlrr9lufR5D6PQ+PO7mx+2iE8CzLNiroFLZbP",
+	"pZ2RvqrNLhToFdZLup/VDZWFSIW8CebHahjBDAmfuZRFWUUvsr/8RatU/OUvyUYf0XwuMsmtyJdNcvgp",
+	"OuqI1Hv3oyu5LmrV+TopSw/vmAsiz10DLzx1BZgYpI5x6S2ihDG4CEDwHt70S2ETWpbYNSBVRKPbWKVB",
+	"gD94S46hdw8KcaOvCfpiT37i18IwMZmI1HozuLPUMq1c+BHlk6ZoE73RVJoRACpzOBeWjAZBBRy9LVxa",
+	"VipX06iJa7Chimt2Ox/+LpZn2YeQ+m36RzTjT92mcRcUTJsVUfCuVKo9xtleVBoFwtELTpBQs7QLjLgM",
+	"LtoF+FRSTLcl91XlVgn4T+6kgH9WFBvqbWqk9cvWuqQTXZBq70KPnZaO0XyKOZAgsAl4OtEFc8xyFA0a",
+	"DjClLWIU0a+NnIKP7oBT7v5caqoa+84dTB/xHCIODUTg6KP1TKo2/ut9P7V3JjOQNjrLDLBDHgEAcPfL",
+	"SR0zOLbho7fyCAt8ISyFdKzu/72iqg5VzduL5dSohE3KC/wASISslFr505t6+cawGTczsP5J1cS+eA+C",
+	"ob6AyX3eNyE3jQ4eL3jTL/cXdiGqzb1G9Ah3Uad6O3tAkH8PPPx8+ykJBTXIQO3AiIzGCqUOcdA3QJsQ",
+	"YRFCqEOqMw9LboAvx33/2byEqncubx1bpnTpgzH+F4p9yIkU2fiwz84m0QszTuAEKdb4SZBHqMSBaxnB",
+	"AKUaqisJ2mQYjIMKZgc5t1TU1+AoqHreIY6SB3RcTGhwFjICnFZCZIaR3x2Y18GmTxCogR2MdWlTPRfH",
+	"OACRjaSCsb+yM1HcSiMYp5GVC9920BH8XGmGQxW1hZ2OPKzd+PCYdAk00eni2ix46hZ97GOfCdYOahhy",
+	"mWMg71RY9njwcKjGz1+9ev7idPTzydmL02fjJrnxs1TSzGjRWsx7qdbXUlT2PTAwajOa+m8qrv5ANv2G",
+	"qi8f2KZP6+VAxBpE1AWSBJPKFbT0lOCLXYPpFgOtY8RQMG5R7A6O90LYo6e09M2RqI5yaXuwowgb8xvj",
+	"MysZ8IVU0/7GrXr3NWpgTeC6gMfe8T//iMUvsUyIBJYKlr6OyxrJY7dN7RLZ+IIcbZcW0jaCXFsrq0E3",
+	"DTSYUjbaEYTyZY4w/PbTVYZ2jXJvpRkqRyN99njwmHlx8fLVJYZ0nT3/9RzDrOC6UZe2GM+kLXTLykZ3",
+	"I5bpCKtxb5wYKpo0cKHDndXMCOcI8dPdjdPcqq2zFDv4m7ULqIuTsAs+FxfSiv/9BX+TMCsQ+au0gpC9",
+	"tjHepx1B0MIIuPDvzwdS3UgrzAOepmKxgRP81Rs2kr7J0M/lQxfXUZfhD3f4Vic9HvGoCBDkOeOrZzsE",
+	"7vXZGQ0LvRAUPHxUGuqArt4ENcx+eIQpg6aJCU5wStTSPRlt4y4+loe7tDOCl2+5JYMl3S3/N5g7bt/v",
+	"sGvkuwtbyNQm4D0qCyx6ZWQmWK5TngPSu8j1Yu7zme7pIPy0Hd4tbEwURNhRjlC3My0C3Lbz6oXnOnd/",
+	"8BtI5i4/SGYANYAqFdVZEI4XTH9CZgQVOS5XMD4kbceVzUIhEHO0VgIuFusVDSAsh241SEbSMAOhxUIi",
+	"mvctX/bZ74VWU4/ofot/1OSJT373NxITYn/R9Pd48BDqgLsUZF4IsOAV2trcxTxjyyHi+ew1O3j86MfD",
+	"PnupCeYy+PeaLvm46PcjR7DtT1WAVMIDA6yNFYs/pwD5sjTpC1dW0kHBeFlR1VSoHedd5ZIuNygRp8qh",
+	"LHuCgB7SXPDCRJKhhfmg5TU2eNxcs0FkQEGfOJXuR273RAi0utu3eD7hD4Am0Pmz5Rz6jUwttLfcGFFY",
+	"PIV8wRITLjS6YIU4iufaKIKxweVr6v6eRLFr/cQP99OXyk6l+xiS77NUuZwJgTNHx84kSNu0JxM80BU8",
+	"12ZTQoDkGr/G3Mm/i+XTgL3lNsVhfY1RJxkrfgPB1rroRyBd/amw4wSEtzdFbmCmJl5ydI6ah+vvPk0F",
+	"qzBmTRYDvzLeUOLWtP9BafS+bup3RW6+bG1XsVstiIYwlKD90/VcF+49137lYCsEQlIsMWvWJMy4XPtU",
+	"IAhXUP1nPGNKK9EcAEJj/SASmzqj3r8K7Tv1RX90FvIiO8soC2QRCGpP7rkjeY1WMalVF4FNYB8QYQtX",
+	"1QC9ilAv7roMxR7GG4R1TOKfmMxO3UrckdD+DGnUifn3JtG37l8+0TETuWhGpHaxEvXDHivBhFR3ynV+",
+	"OPD2cDCPsFzAj1qJFbsPWnEKMW+JcniGA6lk+fYspmomHfOYFtfL0cnJ6dOT2//qJVurk/3R5Tp4Lub6",
+	"BoLXv8bvbCFgWqk9SNerCkeoKnQIAdyNYr0RG1snj0DQRciiCBF8GGJgrF74CL4WhcShgZy7MT/FId+j",
+	"EK13tMFGj9PrfzYBMa1EhDF5bKnLYkWH3JmeHqCmvGwnqBfyWrAxvYVnJ1mvdFWcPPId1QfTbl6IN+y+",
+	"Yv11Jj4TFTWksRH35WJiv5oaOnPDrxiKVKO8zlxgtV08cDFbG/yy9IJhlcPFu2QpUAv63OtWN1R4rWMn",
+	"KJ1Kggl3Q2ZXItVzkMYIntyYMkMDA7b8ykXsAPekvvoU2iGNKUV2+PUq2JGlHF3VDRtHfLGIOGA3HqPv",
+	"2lnsZ4wi80zQ5tukYDPlOCIwyoolLqvBUK2pOjFCictTwEhJxcaulN7xgwdj9uv5Gd40Ofuvc2LwBgY8",
+	"DVfK+1RvVuoTtrCDg9aMtuiLvR/eGdluU47WvSxNfvxVt0sDCQOlQX77kZwvEC7OlTBzUfRUVhziY0NO",
+	"TexyB55pV7a+Hg9fnTc7cRGRDVLpGid1Vq/8k/Y0lEgMozsZ2AcoOXEpIQkrdC4SoPC5ND5tP7amuAp/",
+	"Kzs9VF6ffnpx/jOz+lqomvsdbTAYMikVG//3Ebx2dAmvjatczVIZPgmhkS3AERdukvdI509p0L6nzcT+",
+	"2V9tL6N6BiuRVd2oDnMFNplHUl1kJg4kx9MfgzEM4+z7o0xOJan0zGq2KMBeA6/zLCuEMU9iNCIHLs2w",
+	"8AelMuKH0oQciJWAMA/WCvbp25nAsCxdQJtRSohPCKbUkKFykVjsACPCFqIwWrEpBkT7qnyGI7Cm0Zhk",
+	"LDiWeeE4mkNCebzFiU80AFTF7DBURZkLww4ePoIJP3z0V0jCKnhqBTBYbWT0p1TsWsGd5qoQPJ1BBDC7",
+	"EC4ajmL1UYKS/qSGCsJHExfOJkV99V2kdohcXjnaWqLJ2uKxKVfknk47anyn8+7RHXf+mpS85qwxT3qa",
+	"YGYh2m/H6Jy21Ir2OHCtRFVQ5J5ixj7j2PEIVW0lvWnP8C8ScA98QMK2G1XIy5lp46WLS3TwAuqYBunY",
+	"cmWUxJpxEg9hy1VJajybS0UeM10kXSPSWUNAeqOBI04B2y19y/hvPnz6Fvbsx/41Zv0zDTn9LHX3l+vZ",
+	"lBgAiiyOaO5xnlO5MIe7iJ3Io9+o1FOuK4JBIyQlmd+8EJKGmVtp05kA7WQCeo9DfXYADqiTYxNP2Jiy",
+	"x7At4JWhasnSQvPttCy8qhXUxpm+NQ5XHeSPNIzfcIlFT9rUeZzlB/D61ztqYdAwWjjJDaZ5QRRpuejf",
+	"D+n8jmkKK32hLzCMZBdaKQRs54YMCqEy44x+qLkcYIyUK6xHrnOrK7QQKDvgKpppBWTtTHpI3xMwplg5",
+	"FwgvOFSe5EBbpJMsAlE/bHZbwnC96M7E/Rw290pPG5XDsMwrCuL7iMhPQ9ESmOfu57cLiW4z7/3uE9oL",
+	"KFCMzSct2tIB9/UiSG8ShszKVaWJGJ3KJEMVPcl1eu1vkUyrK82LzOPdLvAGmlE6fye1a6jcxDvqXezE",
+	"pQEheeC18vFgwMZPXz07HZ29/O3kxdmz8RNksaGq3jRMROibyGyGzK9TLtVhuz3yc1TmvNv6qyr3VZX7",
+	"wGbYYHzx1XUifa4mg7pJPqPfAyKlARuFDm19IzNRtCCkRCnmDiZlxm8EuxJC+TrLATfSGx68C69KM09C",
+	"mETU3dkzZ99FKUfy3MFUkpy8uHgVlEWeG+1QT+JmKMC/wm1x1jbAE/TwJasQLk9AkyY4lpUBeVAWq+O2",
+	"aOyE0+JGY9xSLFBPihIsXQt91pZiSoUO8yXLMTQHcyPGx3ROxXmnoDFvSzxdB1Vh44uLV9sBVS4uXu0o",
+	"wY3+MqFUvuZ+fkVRIfSIIC8D5JnEyHW7DBKkswzfAqpC1j/nKSDjH3UKHjYTasWBKNKKHbxaCHX2DLD9",
+	"lEjtYT1IopJuQ7WOzdKAPsKsTvbCbBmq+Azos18V+RnIO5M0pKZDLzQxgp/SJYl8nudOoD0eKpRoK5gv",
+	"Hf0M4fzAatvijTRkzfX9g3khIYejM2UQthY31yaAIMEU6kIYgTVueZGZdk8GCth7EonYw0eSh38SQJsv",
+	"z5dxt5IMq8h0BqnEtzeVanuKzX0mldpgsKFQ233ahaCj7SiTuLhfy6ptRaTEdWqtqoZPd4DkJ5ImZGY6",
+	"LutFpch2PvZVigxVcZrKG6GielNYS3WocmmqIkx4F7oSvuaULlbrSWFGx9IFGLNxKOI07rPf3SHKh2q8",
+	"KKQGcTBOHMyrEcwiznlUjoUZiJeRNkAA0yQgEE5kspyPw7lMDw7bsf+BWu8V+R86+Ei4/zi3lgsAVsb6",
+	"Cpn8UUskgQbsSp8lLr+S5/nSFzhDpY8IWyqrmWzi/NXT7cFb+M9OxRQ3nnPPhXUssj0t0PXcMScw5eaT",
+	"LYoIU95cEzHin68lEZtKIkYV/SoJTTW/WksiRsdZt4qI8XkWHVDnoQjgwZjUpGMWChMeRhW/fcHCEtof",
+	"O9gibUIdGiO+8UM/Xq94iIelM4G5Nhjgf64XTtQBwDguoXgSBkWLhcXVFc+fuFVKuXJXuysMBcQaA76Y",
+	"IWusZdhaovBTZuL7KlC489E7+Hr0fiFHLxEIJUogCzqBtdMJ+wDZtHtplLq0eqk9ECpfLITKjsCuc0xa",
+	"clVcRKBIg4ESXkDWZ8/0EJ8uSrgeFBlT5fwK42YXIeRWFyRzXLYRWpJwtI2AqlkG9AoD+nJERKWdw7w/",
+	"ooaOy97mZNX2TysqPhLnn2QYuaEt2vw6cT0EVUquUvEAM6hwo49cleXtWva4+t4XO3kZ3eafhAijR4NB",
+	"i50pNHAS+n/quu9UPLQaNrFtRZxbeG+D6alepMDXHkVWENCHSw3sJT0fToLyAtyM4l6KkvKMgHd4/rqA",
+	"NbQS2kFVLOktop/e9jJu8RNpxdxsx4Kur3nvXRg7Lwq+7NVFxj+p9WqCGl2rrcoA7eOXUImsWkg/a3Yw",
+	"k8bqYumcIGQuJ3rheS1MtGKiHZjzwVv6Bx7Wjgw7HNdjTE45dh+M2cFC6EVOlacwJioJVQDJS54QGIBQ",
+	"tu5zgUP+SmfLoXJt4b1CFuidoaE9YVMNkwZPFUaWzgTGZU1QNeEZBcFjeFN1wWk6w6mDdlHR7WT3y7Xx",
+	"bP84B7avo+vPy3v1n6/xfDP3etHmNvOrVn93NcgcQTNeyYVV+XGn4oGOpveVDp7jGTW3zu8VEzdEA8Mn",
+	"Xzn4g3Kw10i+cvDdVxHEpb0PBt5P636lRDyEhSgYRlQ49eNKU3Vc8ikfO/TU9BrLSBumVULJtlIZKy1Z",
+	"+4BxqHoamRnZQVbwiQX8HY5FRfFY1wUzpYFV8DHVPguXmkbMkIkPc8QA6n+VGehHVAmeKT6HkSm9Mkh2",
+	"cPLs/GgwGPxw2Fa+sEmcmN4nqmr/z7KQJpMYoF4N924V7oiKyMUYFh6vY/3Pr3LhZRyQ+42piLq24Y2M",
+	"ttVvHLNRSHp6H414qKpiv8grMUtq3wZO4BuD0avGIhsehw8cbyhN7NFnv4CeIO1QWR0YD3YGuS9xlf1e",
+	"v7q4ZC3i5MHb2g353QPi5vFGjdsZkBr4696KEvkOPpK1qo09mxltdXe/Hq13qBzTqqLV2nE74Uatng88",
+	"8Nnel+k17kAdeYt/7h7kxgmZlhi3DtdOvMESS1oxTudsNcwETthCMK7ICu6CUsMtXNqNrO3cR82svV0H",
+	"XzW3fWp6eDUdmuiHdo51lyMre44i5C4BLrrcEkDF0UZkTxj24/H9VkiLDpmVq2FMb1+l351JP9qrgGiG",
+	"+wfKgkyFSoVTylO+4Fcylwj+oosKUCLjS8oAujOB+GCyNbnpPgXjZazE1i8OeJdABI21u0Of4TLCD3QL",
+	"WTg6ZwePBo8OCXLjvSh+k4T9hV83ytef/Ur+GeTsOadL0lcB+1XAflYCFrizLl5rN+W7E5zBw7GXQedn",
+	"V50biYJkHVDQskqEDMNHtNUCHeoIAyKVy/uJEuSPmREWoi4NW7XzuHx2KyDtnSEyIAjSN2TGYgW3wing",
+	"v14MVabznMPQCmFmOs/YwRVk2/sa5cBYhc4NmYL0QiiGlAgrxBSZj2e8QnNjB7e8gCyI5jhmiNBskKTn",
+	"YWk/vCi9d5tuNblWs657gRxqX4J79fcAvHAlkJIxm1pMdLHKy1MtDN6Y7o6RXTLKR9F/nlcOVEq0pkoX",
+	"8OMKGbCDx4MfWS4NZO7BciFfwulx2GdRM6j75ILfVL8UokFBcuKm63FVdwPPn7CasRgbDHZiRjU7HO5M",
+	"iB/dqFRdNEuCC58o9HloVDsYl4ugYNVH9HAwGCS9uVThh7URJr2KZH3wCm5HL+nRfvSSnuORsClNYSt1",
+	"U3RIyqqG1myY/qoMflUGPxNlUN+sHiBWs21+rj2OFnGEG7qXKogpaagIQkoYoSm7AYss2EiDigh0RUri",
+	"UEXzAglclJR3vaodsoMwR5zzYVJlpMa3bVvI6ZRce3iMkOKcurzxQkxEIVQqTMg4poxt+BPCfW94XnIM",
+	"8z2h6VAi/bhURtiRV1ARoU5pqLIOuQBYo4BedF05VdcIZRN4txALjZgnHL+r+oGpZs4vb/rsH7qkaAXc",
+	"iqGChrhlY79n+PO4zdmIDB7d68/h7fWDp76tkBhN3VFxHxk8WBAi0RR++K9IotWiEBfcWlHAF//nP0+O",
+	"/o8/3j569z96n1mk4cry3YPz012YEoDaiR3gZ88+Q+cnMT766ZFdilIpf9FqQyrqIJDuKro32R7d+xpg",
+	"Yspc7BTR25D87bWYDx54u7mGazy5trTwLywQ9qm799RjYRvOnL1o9tMJek15cLk1xcH5czhsPuP0F4zE",
+	"IxPdiMKgQy8tXCoMQLZIG+zVRYJD9FWu4Fs2c6ccNZsxI+EShZe/cJM67BJOWyffrwF4e3P+bgG0XxXw",
+	"zZGw+0TP3WXMK+qbV8KDKVGL31QsSWXRsoLfkntpM69RnOBXVrtnVmuOdP3Kag0hq7pgnoDfl+vAwHg0",
+	"57aQb/ZSJmHncnlVcIyHg+e8kEYruCu9lFNRSJ6w5zOuOOrw57dcZby6mg6VQ7Jmbnmcm2Je5lYeee0/",
+	"KMkJnLdX3Mp5HFrKhr2XGr4sVTbssbng6KgYKhgjgoUbXRapYFOOYoryUbf6Kp7C2vxCS/OJ3siiIZ7r",
+	"27u9iwFI2Gd44XohpjxnKRnOCR3VubkMQ3jHqyX+dw8+MXtzCJk3gMzJyELzYJngWS6VUzLhkvgNQbtP",
+	"csDpt3IutsdNP6WhbbFiXFZxq84Ss8Bgbo0+iCcBkEjapH4v/cZUwRvwyadq9NjIJvXF2nTNc5uQIxWF",
+	"/fkSbn3ts9+NVcQboPU7sJLyKNAaifVAF5X1FH45hCvfIudSsVM1zaWZJUMVIF1QF1QcYzGpJJ7znlNN",
+	"vaYLLYRl3QjujKF0apgE7n1PL35juhiq189+TthVKXPro8GNKG5EsVGDPMUlqajwBR2YO/BsnUGFK+br",
+	"2JnKLt8nc7bkWU90Med2M86Cs/qk5gamm03e38IDjdRY3w3juHclFS3r2vh7VryxD2AQtS9X32sUCU69",
+	"WYHbfEqDO3omDQHpaLWl7T+/CCE6rzEuMnMe6H0HOTIpeJkd0cm5q+feY5gAglmVySFVVhqMRYem3aHM",
+	"Dp6/+u3o4aNDp3mm3ED5Pw98xI3HQRcZfZewRSEmEsHgJ4WeBygmcIlUY4AwHpmKInb7uaBF7yWcyJx+",
+	"Do6aMELQ5ZXI2cHLs58uLg6d2lDVaQx+mmOHsTtUCqQCIKXPpaX4Rkgoc5PEZDJuBCtVLgx1yg3LpJlL",
+	"gzEDjwc/YnZoEPsIFWWEpUwzp0FnWpDpisqLU6H2dsH3uhALXoifYd3OcSS9D+J49wgwHRAkagqy/24/",
+	"n/jDe1BYLrm5br8xw4omnr6/OpXv7qLtCJdx1SI1nLDwouGIHq6CtXSQcm+OCm739OT8esEolg8rPAE3",
+	"slJJi0oSlsjGqrHpMgF9J6OaDvNFCeWAx/aN6vM5yOlRabIxTsh5OVXVMKNXDDs4P31+9HBwWIHKoVM5",
+	"EghYO9huv6/8/N/nOOF71Pepi01qPq75Z5pLGQV+fmPqQZ5mP+J78NZTyjsiQF9Gs/NRu4oy0Aoi8Azb",
+	"XqWGdWJ43NQ9xJxlX8JdjKYKAsbty+pGb0iY3W6Wdm1u1NvXLgbftt3aF6V9D1LZNcnO0VXlndPuNhSH",
+	"wrhCOd+5zxtB5V6XtpEK7103KU02WohiBJJ6feE2iHQb6oCnS3YA8vrl85cJ41dwLRz0B4PB998hTL94",
+	"k+alkTfiF6nkvJz73Q33pEyXVLhwzt/QCxCR6IMS6ZdB2Gwyl67pSrV5fOwgQreBG6T956Ed3YXwuCB4",
+	"2x0lR/MJMeWLPcEsFkI5O1KVPBBuPhgGTjHg7CB1uhuYR3XBSlVduJwFpgN6xHMY6FcbaJcrxXO+6GAB",
+	"red9fGEG0Prkd2eZB2+nfIEu7G3lNHdKPADkaLIB3M50gGIDcgWtPPG4kRj5r4bKQ7azXKrrJ1EqkqSk",
+	"S4P1gPF3HKYjrD47i/R6H/qiyDB7jDYBsqMay5fBQOKqDb9C04fKlxvtAlTGr0aSnTzqtKq7KC786D+D",
+	"ox/7o6M/3j5Mvm21bnYTFDMRiIJJw6RalxleTnxj7lVI3LuWAiTTUPyVahHNBNOFnEqgLTCswmIczKxd",
+	"gPyG/1K5oMj08t1g0JDiANS6e2rEih6CjXxsg81zTuVQ3ddtsrXGZl/NNXcYFwFi0cXPq7r4RkOnl5UI",
+	"VGnsOgnvKONzbQx2vYdq9BocVkfOYYXRCihNnYZvRTE3kawuTQcf8HM/nq8aUCejqijmHVQgv8tfmPIz",
+	"rYhpB5aId/59cmTidqryHJUl08q5YP/RSiSsENMy51YXhhwrMP6khl9Xo2EMu62SbqTdCZ7uf9bm9xkA",
+	"1N1tNFBtez9TwylJPimMr0uJBEEuSpSDE13sRvQLB6qyV1AQdunix30wQR0nz3/FFoUGZyHGtcJrcw1l",
+	"kslGBkWPNc9ERg2ifV5p/wmoZkbYJy4lMd5GrLBGaYvxz1DSNMK1SzDzCytGbo2Ye92IjFJflZ+wqZae",
+	"XZwHcLwbglufwwRPKFeDQmnm+AsRdJZVJlsViujjCec6E6aq4dZ0skHUPx5qQ/VZH2u4/C38G883EPyX",
+	"crA1Tn53Tt8//q9OzFUQk2Pc2plHTOdPvqHCAaPoMv5wgwrmWok1QvY8Xxphtp9orznFDX6aka21YV64",
+	"7bzTIw239DM9ymrHsY8A25e0iWr2Iu7Hg8esVFbmYNutnTjbDwvX7YcRja6zDtJx/dj9EsXk+ipscDm+",
+	"lwewzy4EAdHXqDqp4eVR6bsIMg+Oe24xNTwTTiTShRkxT/rsgtBReKYXDa3XsXu9YB6qgzH9PHK/jL1i",
+	"huGmT5gTxrX8SF6gTqm3RYHWPI4x9d9D8ajVfj5WmbmuDFjntC/ESWf35rlmQV4IYwuZWpEdGTlVPN9R",
+	"YTFChYqQM5FnlLiKWfirUY2GwiYxZhBRFNicF9ciG6rqXVTW2YEp0xl4Cc5eXhwNHibMWD6ZHIF9Gexx",
+	"KWk2h4xnmUvCXWiprMe/YCbVhRiqUmXuPp/qTMTDHhXiRorbMalUhKsrciOOa9ARiQPBSEKlz1txNdP6",
+	"GkAk0F/C86WVqQGFTRoHwkRxTghFQQcttq6VgOx5kUUQGygYpDUin/hq2EPVkGLfopWdh627cDvXKc0+",
+	"48t6kn0gzR8i5/63sV+/sqdLZcVUFPd8PalmdhoWcpPtLVruL0caPF1hGse+7EBpZuViga7xyWRHjOy7",
+	"gqvx5x+YHzJRAGzbkp09qy4pIMUgBTFxDvtkqMRkIgjMI+NWJDXPhytGkfg7unH1LUpFVgxP9nR3Emoq",
+	"lRBwk2a5nsp0qLDcRb4kaG0j1TQnBkwIv5DnOUgosnhEk4taGm+/Hu0KDuPTSaaFLhdt9nF8uGOFu61w",
+	"NNdSZW0dwrNaf92Oa5j83+HTzSOQ6sYVMsaBBIMsO3j608uEvfz57FeXScO0OmwbY/isbWEefr/bwjip",
+	"LE0T2bWNIn51jxVbcf+tDe93it3XbCIVohpxjyMBnARjoCKq4Zu2cf67dZUafKwbl4k0aM0OQA08xO41",
+	"+vwP8P5+WEcrjTWVjao5IMwQzGHTVap5Ut6cl9fLNrrZXGmdC964rF/NifemsoMM6OAlQ1r6kzqz79iz",
+	"VrgjZdcz/MFb+I+vbbHzaT6ODr4RHqFjdlAnbyPI+PjDT5RrNM7ERCpJZecPMFF/ztOZVIJVTw4Rx02q",
+	"NC/h4MYj+b0O4Jp9CMivU1CQW5uuUUEHPp75f3kWO4Lkhv91+cv/ujh9+r+ev/rt8PDon4OjHzckQ3YO",
+	"F6JrARyU6zKjZvWtCqXgJ2fPKEJrqA6e/+0Ici8GD6EdRFL4xhwmeMXZ4qP/E8ifJtmDaW3ll2GW83N9",
+	"L6HxAEjCCmN3DENE8UHigC7PXqCci0XOl2YtffobIPSpMFZkHnNST9xJyo1lY7ivjtmBP0x/qO7G3w7i",
+	"QtPJYDBwLRwyOyt0OY2u2SBXhmpcgU0ewJ0xKDRyMhFFlZrpOjNPmJ5La0V2HEXS27oxz5WVWAk7WHkp",
+	"QWxmzLaEd0Aj8IYAiE24lSoD9IZCUJq4VGwu5rpY9oeAtjNDyCHDjNVwk4LVReBOSqiUBszpukxnEEx5",
+	"SmtYgWE6uOywEihnCoj19IiaBW5NswHyJ0cGHo/nk5SuHya8EQjRqc/dbCRJz5NbV7SjC//+u3cNDqn7",
+	"tLr6fW5T3OytrlO0+YYVwuBNHKzYZHeDGwmx4FflbjOovfO83eoyz9gMMIYyrQQtpctjooV8PylOW7aX",
+	"BvibczwPHDhS493G9JsUsgDeRb3/eRQydoDJvTNRIGwjPvC26pPLV0eDx+49A6Ke54fr4ZG+DzgGvMYW",
+	"aWYfKBb8vlHbaOPbYFFjOfIlaGQn3mxTm/ku6Ki7OEzvqARFpCuRY2OTwrQuGJ5QOrkv3uHSK/FW6Br+",
+	"xpD91lBiYrDoLVku59K6UraUD+bO3MM+e0UKWYXMUxLnDJXruc9WMP+htsXgMNRWlIotCp2VdIeinPyo",
+	"b1fJxkP0L8NwA6htiKfLBFa0MIzf8iWtBahlx7REjeXHahUAhsqboO6i/Njr8qvc/eTl7t277et7/pF8",
+	"9tvl/n3X4diOF9qtCsfXghv3kmxD+cXuFETJiS6eCF3t/XDCV/XemTQgzd8b6/6Jt/4bRlhJHmh2E+q9",
+	"05zNVwH8xSm+bus3uUA8QX3Bim/gqTvn+0K/b9XanaoCXDqjh6+CxnNiDW4YX5mzz4mms6cRM9yN/ZM2",
+	"tX3V3+65/Jvg7vPVTOgtpd8cT+GXm+K26sHv/qvEd/yxQVm+apJfNcktadvoBWFcMcGLXIpiRdCi7FXi",
+	"llW0vcOBYkqzkKljpB1OkCoOlh1UP4fQ127Gl6HyB4sHIfXDKQ2zBVeGk9UiAhT0SKIJy8pgZkHgvcff",
+	"GDY2thhlJdTpPHj0mM10WRiIxHM7cUhWC6VvAcaT/EyEDUX102+kkYCFr0uLOOjRzAqdk6vZh/RuME08",
+	"JXCei7C2nxagZwUqsX604S2AEeC6C2ukxYdiPryASd6IFeCKx4PGqKqvqKFfSh2sYh4YV1HA6e4gn5ab",
+	"PZMH0b+EseYNdk3DHG2xA9rUEDQPgZcQhKtm0FiG4iSTuZwKREOfFEL8x8FtpbnGUsRYQRMVs8OEADQ0",
+	"8AnxzNUywAKDy36o0E//3WDQZxebpBpVegSTcxwf1CxrY/nzcxxFNCN0ihC4PxYm5Tk5Lr09m54xY2We",
+	"0+gX3NggO4fKpIUQigqN0ETYwQ+PGoQo2DJmcjrDtSkkUG3um3fFz3lK06FAAakYIkg/hAAvR1bM8mIq",
+	"LDv4dsDmUpVW1DppmSAQlkmGalwqXw9zhLiyfpb4AtuATR007TXc2qFagbvulJZQlyj71/7rLrVcMegP",
+	"FWP0X6UoW5OS/g0Pv5Tkv0gdgIgymvweYu7BW/jPnrGKlODcoouRe2ejFtXfHFKIx+KHQZjZcADD+nwp",
+	"sWsRVVla/L1hax1ZvVcttU50WytK+UGGlex3OzmmI7UpO89NIRzDdLR+f0gMJtVQRXeXVpPYyZY7izRV",
+	"gUQcCnlCp/rklxcuHIan5Ki1x5ghLjIkYxgoqSLcslzAUa0Vlj+Ax7og96pyX2NaIbdiCroPAZH/ePik",
+	"KpXJHg8GzEBA4q1z1s6lAaWmSwnNKN60KlDwqciHr1aGO61PGV21JzKnIsT7n28PQHX+VKUEZdq/93k6",
+	"VOeRIo8Txuw/Wj64a8yf+CoidItYIv0y5VKAlLabS4Q8hTYbjuh7Nym0gk+uWRScQhtVM8q0Er2kF8qn",
+	"NBU1qtsIXBsf2yT7VQJ9DAn0Cy+uGSfGoNDQwjMNk/b9hNA+5dbuUDjYsnDxpEETqFVIcQZ0q5lQVhTe",
+	"ahqMGZCkpwvL850KqH0qR7VbiK8033DqqlWKSKKDF86QGVdZG+1/WhcCD4/0Sd8GKnBwgsGNq4xljRxa",
+	"FeEN7BgjWvgSY1RMEZkUK+j2PXxiveIYNWo28vHPMm9WuO/9tCeyGyE118/8R3/dDW86aunraf7Fg00H",
+	"XuKGOO39TnNq7YPKGm7T2YfWGxCEwJdlPNALoQ79QrrI7Co4fCJFntH9o1T0tFlHyKS9Q9nSMUcVu/kZ",
+	"h/iV+78E7gcyC6RbeCrbxvKZUMsjcOJ0UNQpZ4CSb8FbVkhzHUW11YNaKzfOQ0iaDTmjFL5VGlEkQ+Uc",
+	"ewnLxI0Eq9vZa8azrBDGJOxKKDGRqeTFEroLsVnG++0OgN2Vtky8WQBlY9r/UF1BKW2RRdmwBN+FgF1t",
+	"DqVnQi1PCYS5mzNpJ/waaN2h1tyn+8hPYrkRx4pm+aHvBo86sAQVR5xL18udVN2XrqgCEDoSTsQUSNCk",
+	"1G9RbNdIPdR7u+TXwjBClfKRMb66W0TOgg4KSq4eKqlYypVW6MSd6GJOYDUBB7xcLERxlHIjnDmZyQx2",
+	"YCJFYSjfaQ7nIxNveGrRwM0tW+oSMokIxselyLLHgx+r2phVK2gjz4GZl8EPToE+ccG6GTfsIWa9g9Oe",
+	"CKfJVlYIbkUgv/s63eq97JSG8vDumWwTgy0/l5Ntx4PqY7HxSYZul4h8rd7K1k3H3IO3uD3eDby9ouh+",
+	"nN9SXjTmkO16tB/p5jr2b/h8kcPrmVqOBg//9eObR9c/zL/99+PiO/O9/eHmr7c/vhks/9MpV+HzLW76",
+	"sQjTF0St0WYE8dGJOuFDK4V58Ba0incP3hZi0iFKwaR6IVYhUH5CbI8wAmx6iflQxnpv6ncRjMkxVR6R",
+	"dplAMJIuhElidFI4l+yMNDb4M/WI76SymSQ6teDd2pFnhFAOFUVaAuUOR9HqMaO0GxFe1WQbTvcpTqhC",
+	"Kd7ORk5T28BCznkCU+wlPTfFXtKjKTb6UJrCOCMKWOqSCk9TZRdd9KHxkczCCo5kRrh60MVIVjiJ9cED",
+	"XXa8R6PB6EPmI9W3ohOA8lf5sZa8BITxTcVZ35iKLKrKCZH8ICZZESD0234SI761eYTVicwt6Yi+VmOf",
+	"jfnEimLMCvKtDBVGVjieVeIWL1qcmHsqb4RTQT2i241gc62k1QVb6Dw3HqS1tcTRqYcmWWHxprWuXnmA",
+	"G9R7l2x98WlZGNiPZiTKpnlJ46Z09qwVLxLWaEcc1aZ28LWu10tcqUv4orU9L9F3uLK6D1qbBM1olIsb",
+	"kXduFOzzL/CLd5uX3SPIAnOwg5oEbUVrdeK7u2zsNALHln4QlfRuHUd1ftzRUNxhLo0TC34s4exoHQq9",
+	"0ftkDgyYT5tt4oQt+FS4EjSfD7jTx7RrxKQqXNj2N22JruHc2GrtqJ8SZFvvs99gjbkFjU/pYs5z+R+n",
+	"8qFRw2PSCzDneWA4w6QlGPsicsh7WeR97ojo5WfdZ2eZmC80UBvTyg1jJLMxOzBCQObQjYAz41LOhbF8",
+	"vjAB/8VbHL8Lse2uh0lpy4LgAEKCknu04AZUzae8yBgVlDcJe/rbbyZhr89e0gQX3Jhb9GBiT+RevBLM",
+	"CGWfsAVf5ppnGPNuuYRYfggLLLIjau8ol9fCA9vwAqYKPrlmZ8EZwhQio9yTFYXa/sAuARD80YnSHLMg",
+	"IQrFvVRhOaa8KJZsXFHFET05ZjDoMYi+meAZagdve2uv1cfoVX34tEmvf/cntdo86jK0RaFTYQyCXX9E",
+	"0UYsgLmXqGwBB0LOCvryYxrppBQ/eOsFyJ436sZLqOPPDjYc13lHG464se9rw7nj4/qZsFzm7UUxhLJf",
+	"73bNhPxcRFQcoFvDcQF0XRUV2ULMWl1pjrUsOjjqrODzuBAaGFQCGrNhKdrRMVzWBcwQgWuonmNnYklY",
+	"kUqzqlc4cccumHYcFaHhytyKwie4KSGyCg2WAnAsxLs323JeVZO6RzKOemmh4mqaX3hFNR1viCfH6McO",
+	"GIFIe15nxCM4FTVSecJ4nutbgfUic1e0P3SBbinnxAaq5VBo0ulL7MC42mlBhcLsjDka4iPvNxZTPyTX",
+	"F4LzOUokH5ePNmsiygt+I1ao8u41sKqDE1qSD62N7cERX0M07gKgjN/ESxuE54Ej3MM2rms8CB4QVXfB",
+	"kKgxpauhRA8zN4hwh1oUwqDVDnKXSM6vJC/BUeDODSyZBhysGBU7Y9I+YQGmSCPAhJ2JGAwzup02ciBO",
+	"6lM5GSLB8ZUj7oMjcH1XzwBCagV66sAQcCV4kHLLcz3trOFHoUx9dkaFQgyByVKJs6iyDuppoWrYrZDT",
+	"WYyKsm50abwyAMc8daO854u276aFpt1afSEBQOgPPZIqlK7zDk0XvomUwFKuwNYcu2mluW4gNG/Z6iB1",
+	"PalBAIH/DHSiUpnK7HVDVjXEFKrdBxj3NSvgj6vSDpWzs3lH6ZOVKpAMC52lusgIggEOFajaQi2T0arg",
+	"EkORCDZCF0Plq00iNg+TwXxy7CqBA4EzGdV6aAxxdQ+B+r5osxU78Bd+WDNV5vnh52LH/pxMRJ7e6tdr",
+	"hJQiloGLhGUHjgEOt/P1Qucy3QTlyjOYtKtorpZgdK/ZiRI2Jq4KfyIoSvgrOnEASaUuFZrCaR0DaiUQ",
+	"iMUIEimFk1ZGCDbTtwzv67wQ7IqrrJk73enzmqZ4z+ziemmLBsCnX8jRc1mPcvnGmS9hoxB3vhBmpnNn",
+	"CXIdVqE322k2LvzSTetZjWXzaZJOPa/qnlLpfN8B0pfhGAbWQlyhqMw9k1dUvKZZYXfPvxASe+6qdTeQ",
+	"mal2ZIWOttlw2qglRD6u6FROJzZszpdwhbSlQiOgvRVCsQE5AL8bPAnFDah850rIZHO1gTXaunvNYp2s",
+	"PqyCsZWkqSDXCmV/9Yu3xGOixXF3poiFa5mLI0er+90omxNhAM+such6QILtVtfZ85FHtqYSbaF63UIo",
+	"Mtm3RIU04KCFpe+5j3tJ8JVWv3jLKTIiGWDh1zzv/fFhPVPVgm3KdPEZe19QREgoBgPk6Bdgc/BxTO0P",
+	"3tI/dvKWxpTfqB6EzerkMQ0j6OgyLdLZp+My3YzpXBHlV5fpBpdpIxXvR8Q1yLTN5ho7C7QcyiItRIFG",
+	"b6qtKdMZoYm5glegvLMDMqycvD5j12JpHJAZHyoXa19DLlvBZiZsf9ebM8ErjWZ4eMsXbJrpsCIOHo1o",
+	"yNWgMqz6jXH6y1VEUOJNKC3+JMRggVtMTsJ7EH0/9AnMzEjljk/qk+fsgP4lnF/N54m5HqM8Mri7wB20",
+	"A7rZV6EQC4UAgEHzjMAu3OaBNcO57f90oC4fLfQ+wK81yRt24HH3Zc0vt4vwISWpi4OuLncSsgfhb+S1",
+	"C/4GJxN0AdKGoB7C6CumHKoDoKCs4LdkCjusoNdDhTkVJMBGhj3HSXyS/HoPd8GVyUY5pu8+qoQIAQ+f",
+	"if7wuQgB2nAMNXEMs7f+Ye5GY/YXwvs1pZX5xqsTjjCBCLFUZ+JLukHhzMP5K4tQav2mKri2M35Abd99",
+	"HEYwp11YXlisJkKdS8XGZsYzfTvGMnbHlZE/eOEg+4qSqmzBAVyXUZQ9uf8ScBiyTKM26c6zYFj2xt1b",
+	"adMZHBuajTEHVIwj5LwabAAQASh6ll8L1YQT4DVASOR8NBi4iRxkEl1FAPKOP2BizBP3FObjX0icf5Ly",
+	"sTMIMTlTjHvD9ErcyIr6GdhVKmMFb6qEGoEAb6ig04ps4Cpl3R+oAXTwkfAMcG5tl1UXKYpy8MDrog8P",
+	"++xSGBtviTfqBhPvPRVO2lo0qYFczHFMMLc8ohikkVsuramilq6WK1WWhurA3uoj+gPXIlKngOL93Wkp",
+	"QvSTAI2dMp/Hr19dXLKuN1Xgwa/YEXcp1onDXGXQDsf4A2N5l2TauskXCmdQxAT87HOyIipM0F07B99x",
+	"FbOBYauI5AJC8oDEMFKly5XFMEFIIDqksv3QaM6NZeOML82Ywf8n1a/YFFE1CVsgYfbr5dOhyvgSMJWw",
+	"xBK8T8lJlG8XDUf5a4bUWZ89w/koEtZ4mECj7W7mMhcXuHqdMJRg8M1m6B+w1hEVmPuW6tK1V5u777s7",
+	"zajVO8OtNFamn4lj5i446m/6lumJFYoi5hytxzHldMI7wu7Cc1YYe0Qms+73Zcd6GFEF9K4IdTMhXzXo",
+	"KUrbhMxWDgYK7HA+Y3Ko6h6iGCIj5omDkFcIuBmJd1xGHEjKBiL9z/TtUCGXS+tKDWA2hVsL+pqVC1C7",
+	"Hn3nRjJPmIpcRtXpIo13/3HEOnMQHRUY4WWYE3CoRXC1KgiM5mzlXDxhV2LGb6QuC7IaxOcW2vyGShpk",
+	"cfh8vihbuBwOfmCKV+ocVypk6X+IYmt+hztpCeHldwlJmr0FzEpVtdDwx4ZZpR2AyV6K5rvc7zNHA2HQ",
+	"DTT55Qiuy2IZCwoG6pznd0fGWyVVqAN8pw6yO6vDG9nUyvzTsoFvMjZ8dYhtcoi1aK7bQXI3Gx4wmKCC",
+	"a3ER0d67RHki9Je7CRpwbEVlT5+E8qjuBzqGrsWCwuZTrsCZVVA5VXAM+fYIpDgHameKDruh8p0o7dv7",
+	"ZOwAvy6yyg7waXDq3dsiqknuZIv4cFKiyqI9WGgDZWOXoDgdrhrpvpod/sRmhz+rK+Kp8+A7a1uQuHGd",
+	"6cOdNJQHhav2v0O2SvNJcZJlKyOpXNSOwfw1EM+SoQonxEwarA0LtwvKQRHQvBWfjnA/d8v0Jxfv8TQ/",
+	"aQFPVT7cxdeTFzco+IEEv0r7r9L+83c8I31jBlNdh2YHWokjY8WCefm9o9i3wthdRb6zpZ0G5K4ojMzz",
+	"W2Rhw2oamLQ+VOPw+7hubKPUrNK4inwrAdnovZwIbstCmJDAhcSKtwGwizVYwqqslduZQAaqTOghudOh",
+	"bbkjyV1s0ORXXf5L0wxm7i1cf+KTwE/xI50CVfemzF3v6+eBFWiOhVf+rCn3n1XSJbp8nXbqudznX+4m",
+	"n0IoxXsnV7SHz/xWhWv86Q1rbq6bAnr8kn+1s7XhMLuzzh/C7tqymbCN0d2qCEQALHBGJRVAuwsFT1gh",
+	"jqIFRwjEcP16TQHnkG4HHlpS+Sg8yWNTEks2nWdUeuDi4lXvK97/XeH9g0rjNuSoht0GG42W2R0g2kB/",
+	"UgJvFGMPG0CxVxcXr5jzyhlhWbkgh1+aS5daUAgbLtaQcgCKUat3vpEE7k4SXVy82pbKWIhMFiK17Nfz",
+	"M2Y1K8RUGisK76mEy4nMRFGVHaiW5gtKGrdCcVSR62QWLUYTxXUHZussgryrO8SXPBx4aN3+UDnxxA68",
+	"7m5nwhHlYajFCTROlwlpTIlQOa8WQp09Y09pNhADmGr0NWQ6LedC2aHCw92FNE5KhCxRrgFMheCKPNVg",
+	"B3o8GBwCEyFTjKj/MYGhOIgrugNAi+gKH6pccLo846g1uxZiQaMnm4NWos+euptINHgIw58Ka2rECiBR",
+	"4P017Aqk01BZHcpktGQ1e068e83+4uLV00AlZwpo4gMr97URtAYWrrL113TmZnwslPpY/o4MS9sOnkg5",
+	"gV8eSHUjbZfQ9PhEainIcObaukfioS7aFFk3gJVgmS8oOF2GHViX/t0hAO9W/Ff2GO6o86g0guVSXScE",
+	"b4XJSz88crjrGCk107eKAoTZ76DouMMC7JxizmU+VAF4InPhjVJdU66h0fQOha5HSVEHY/x99O9SlCIb",
+	"H7bHcxMh3WtEN3XxkWK6aQiZm2aLDCZiwv2Q1uACf61ad8dI5rTCjkA7S+sHb+kfLonwRl+LnVE+N2b0",
+	"QYuBB7abR8JoOhpIpLrZbCDZvQhJ400VpvH1ptp6U4XlQeJThKzsN3wLEc4FVsG4E5XhUvD5L669ezUo",
+	"+2422cCwhN2XVvc23CXdMU+r0JkKHrx1ZZfeUe33LTXZ71HL+Icu/b3P6cJL0CdEPnkSTZTx/BbCsOFG",
+	"h5dGn1KRQYSvsQhz32cnaukhD5hQ7oJKldiYEYZMpa1hYBW5dRKfbgU7Cs/SFHcgPO8rOKya+kfzHYW1",
+	"38DmXzGaP5FYJsdTBUgeXbAAPdUufTwgbWfnkP9g80n0u2/2HmnT9bG5+nrsAhcqW2ip7Bd8pXW7Vy1F",
+	"RByBFLqnWAdiWAthI/szDcuX6jIuLIG6RoPrVIGuRFZEqIjrbqoYKC2Nu7P+ev7C1QKDq+7M2gXdawOC",
+	"D7YH19NcpzyfaYMQA4tC3nArkqHKtV5AYEeC164jfIsh6rkRBeQuVTV0D/DGm85Eeg2/T6wo2LOXYFg1",
+	"Oi99GgOmHg5VJiCqolge9tlJQJ2r1hazAeMYuwNI874SS62yDddlR9f3el92fXykC7Pr/XdpZxe49e38",
+	"S0sZrs1EKV8vznd8d/F+oTX50CweGs6PB2/dv3bK1Vk5TNhLF7JaVS90G97sYqs4ZbtaWA2vo2Z4O7vu",
+	"rBl+/7hFMbzfo28b23y9rG9K8+lG652zftrPQuenZWPSx1wNeAG1nY+EgkAjvDv5cQyVx+lw58+Ey1yq",
+	"Kblp01zwgoJz4feyoKRo0X5/+vS55L6uT/ucch+LSf980XYf9S6kC0as9cAx050dbg+c1ifFPV2anlXt",
+	"f5Ism9xLUfiO0MkdGM6t3/KCvv4gJ7Hvc3u57Yp6vjL+3d9vo2P0GxOtdf3G/96M/+Ct+/fyfdTdjUqt",
+	"p6hPVgY0DCNalM7jyD51JdtvxObSvH7qX1XuTSq3X6W1+ryuHBc84taK+eKuefRBIdyf3VN1Nmj0lhfW",
+	"p2iGSaXLNBcYfsHZeIIxE+PwlALVgockaH8sFHZ2XhRYlbNnzZ5k19gnrdF/uqLh0X2Jhm1CIQleYQob",
+	"/+r3uCvDlUWIGeK1sNx7io5CW27FEVmc7kJKnEd2LBAU1HLCGq3cQ/UrAoXCy/pGFDlfoK80ibQYlvKi",
+	"WFIdIMrjQ4fvlbaz0IkP5V4UAvCnzFCFbjXC70BbrqgZYpKGXMCs0IsFEClKI9Ocum2ra7Uz3X5JZoWG",
+	"+X9c48IeJvSKEr9eQO5WGiFxNNgZ1jxdewqo3RKN1+TSf5WiRIQL/6gPDY6d8kGQ97LykqKAasvY/cws",
+	"7x/85Keg2M/nVvC5nPgXAsFWMVmZ6Ja06u4mvZnmc7nhxl4d2RTilNSRt1VG/OWTUoQRyorMV6QhP/EN",
+	"PNagADiWVJq+agSk+52GdJ+HBfXQQqs1gmNpITL4i+fvRbR3sdnPcKiuPA9URsaCGmF80V5D926fZ4Ln",
+	"dvYA+G7rLgN2+u1M5qECTyqMwVymUqG4hu1G47HVDEMF2N8uL19Dhmgx0cUcNzYToNwLlS4pbMA0bvIL",
+	"eSOUMPcaEOP7OHcdtMCp+ElyWCMY7EzwzIWg/veRO+OPzp61dedef/Df7tWzZ76jvbdcpGUh7bJ3/M8/",
+	"6iY9mhBszVUcS0ubXN9xhMTvuOVCefRon7QW7eLBa23stBAX//UiYecikwg4a24FvOeiJ0GRwt0eKivn",
+	"QpeWvHPfDb5liDNzK41ImMRa90BJFZkhHRWwAVnBJZJZViLytJmVNtO3kFb8WhRH0ZDIEI6UKRa6sCIL",
+	"WrtUVhSK50zAcrIMrVSmDTFa8EzeNxmGTjbRIby0ZDZcSXxhhTukx+8G337YOb10SZLLJ4xblgtuLNNK",
+	"xLQlDSsVv+EyR7GiixaS+KTZMizGBr6sfw5LL/8usCVQz2jCTRU3X2BsViZuRK4Xc8K6KIu8d9ybWbs4",
+	"fvAghHgd/3Xw10Hv3R+h97WmvPSgxNbamA3qu7pIZ8JFKdNraIu84jlXKUavByXWzexdstrLZePZhI15",
+	"nWDOFZ8KmEzUIC9bmwtB5JbPF6I4EpD4CsoHGBaAUWReayiTtqElhIr2Fdo9ghxnZqnSWaGVLk29mH6V",
+	"BU6KlXizyHUhiqgrfGAa+oKEsgjEe7U+PDSOdE4FjFNuea7pdK3ViY26gt8bOnpaGqvnovAlcxx+BKat",
+	"CWPJ0YvbjU+uctGv4440jf4EK8mzgksjMjKp1FbGlwyfFjwTWTRPE9ZMFswWkk/j7qhAfUN/Z+oGVmVK",
+	"a4WF69m00OWCyg/AVw64XGnEJESdt4pAjPrAjxu6uJBTJTL4Xk6cxDMgbVO/flEsLPYUjNi5nnqOseSl",
+	"XL3INfX31KU7YKasVEm9ECM16CP92UGq9bUUR1fciOwJDBK5MRR1jLp032zoERMssH2XzhV9jeHOTZ/O",
+	"F7kEFmdaXWle4AmtJwzSG45Izwvw+oYdXCt9i+kP7Ko0KETiIVZNtLDzv8pCmkwShh3QIFvw9Jrxqg+G",
+	"RkB2cPLs/GgwGHx/eMwKMS1zjlCOcIAVOjcJUuWRSbFOhS/yAzOfgsFQ4YTwRgK7irUCgpslF1OeM6PL",
+	"IhUJE5OJIDdExq1ALgpk4nQNKiNOqaBXBS+W3xi2yLlUR6dqmkszg9HDpEnT8OQYVrb37o93//8BAA==",
 }
 
 // decodeSpec returns the embedded OpenAPI spec as raw JSON bytes,

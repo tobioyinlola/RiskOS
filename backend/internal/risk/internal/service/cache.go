@@ -19,8 +19,8 @@ type config struct {
 	settings domain.Settings
 	rules    []engine.CompiledRule
 	deny     domain.DenyList
-	// pack is the tenant's rule pack, nil without a compliance profile.
-	pack *rulepack.TenantPack
+	// packs are the tenant's activations compiled for evaluation, nil without any.
+	packs *rulepack.TenantPacks
 }
 
 type configEntry struct {

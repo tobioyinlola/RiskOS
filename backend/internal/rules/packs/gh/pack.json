@@ -1,0 +1,1441 @@
+{
+  "id": "gh",
+  "jurisdiction": "GH",
+  "name": "Ghana",
+  "version": "2026.10.2",
+  "currency": "GHS",
+  "timezone": "Africa/Accra",
+  "library": "docs/compliance/GHANA_RWANDA_RULES_LIBRARY.md",
+  "groups": [
+    {
+      "id": "mandatory_controls",
+      "label": "Mandatory controls"
+    },
+    {
+      "id": "typology",
+      "label": "Typology and monitoring"
+    },
+    {
+      "id": "cybersecurity",
+      "label": "Cybersecurity"
+    },
+    {
+      "id": "governance",
+      "label": "Governance"
+    },
+    {
+      "id": "account_takeover",
+      "label": "Account takeover"
+    },
+    {
+      "id": "velocity",
+      "label": "Velocity and structuring"
+    },
+    {
+      "id": "behaviour",
+      "label": "Unusual behaviour"
+    },
+    {
+      "id": "cards",
+      "label": "Cards and e-commerce"
+    },
+    {
+      "id": "lending",
+      "label": "Digital lending"
+    }
+  ],
+  "licence_types": [
+    {
+      "id": "bank",
+      "label": "Universal bank"
+    },
+    {
+      "id": "sdi",
+      "label": "Specialised deposit-taking institution"
+    },
+    {
+      "id": "forex_bureau",
+      "label": "Forex bureau"
+    },
+    {
+      "id": "securities",
+      "label": "Securities firm"
+    },
+    {
+      "id": "mfb",
+      "label": "Microfinance institution"
+    },
+    {
+      "id": "emi",
+      "label": "E-money issuer"
+    },
+    {
+      "id": "psp",
+      "label": "Payment service provider"
+    },
+    {
+      "id": "digital_lender",
+      "label": "Digital credit provider"
+    },
+    {
+      "id": "vasp",
+      "label": "Virtual asset service provider"
+    },
+    {
+      "id": "telco",
+      "label": "Telecom operator"
+    },
+    {
+      "id": "other",
+      "label": "Other"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "ectr_reporter",
+      "label": "Reports electronic currency transactions to the FIC"
+    },
+    {
+      "id": "cii_designated",
+      "label": "Designated critical information infrastructure owner"
+    }
+  ],
+  "sources": [
+    {
+      "id": "GS1",
+      "title": "FIC report types",
+      "links": [
+        {
+          "title": "FIC report types",
+          "url": "https://fic.gov.gh/report-types.html"
+        }
+      ]
+    },
+    {
+      "id": "GS2",
+      "title": "Bank of Ghana AML/CFT&P Guideline, December 2022",
+      "links": [
+        {
+          "title": "BoG guideline (hosted copy)",
+          "url": "https://www.moneylaundering.com/wp-content/uploads/2022/12/Ghana.Guidance.AMLCTFGUIDELINe.122322.pdf"
+        }
+      ]
+    },
+    {
+      "id": "GS3",
+      "title": "Anti-Money Laundering Act 2020 (Act 1044)",
+      "links": [
+        {
+          "title": "Act 1044 on GhaLII",
+          "url": "https://ghalii.org/akn/gh/act/2020/1044/eng@2020-12-29"
+        }
+      ]
+    },
+    {
+      "id": "GS4",
+      "title": "Act 1044 text",
+      "links": [
+        {
+          "title": "RegAlert Act 1044 text",
+          "url": "https://regalert.today/document/64b40107-da3b-41fa-9957-3c725fb7b088/text"
+        }
+      ]
+    },
+    {
+      "id": "GS5",
+      "title": "SEC administrative sanctions schedule",
+      "links": [
+        {
+          "title": "SEC sanctions schedule",
+          "url": "https://sec.gov.gh/wp-content/uploads/Anti-Money-Laundering/AML_CFT_CPF_Administrative%20Sanctions_Penalties.pdf"
+        }
+      ]
+    },
+    {
+      "id": "GS6",
+      "title": "Penalty unit value",
+      "links": [
+        {
+          "title": "GRA penalty unit page",
+          "url": "https://gra.gov.gh/?p=6244"
+        }
+      ]
+    },
+    {
+      "id": "GS7",
+      "title": "Executive Instrument 2 and the Anti-Terrorism Act",
+      "links": [
+        {
+          "title": "FIC Executive Instrument 2",
+          "url": "https://www.fic.gov.gh/assets/publications/E.-I.-2.pdf"
+        },
+        {
+          "title": "Anti-Terrorism Act 2008",
+          "url": "https://www.fic.gov.gh/assets/publications/Anti-Terrorism-Act-2008-Act-762.pdf"
+        }
+      ]
+    },
+    {
+      "id": "GS8",
+      "title": "Mobile-money limits from 1 March 2024",
+      "links": [
+        {
+          "title": "Graphic on MoMo limits",
+          "url": "https://www.graphic.com.gh/business/business-news/see-the-new-momo-balance-transaction-limits-effective-march-1.html"
+        },
+        {
+          "title": "Graphic, limits reviewed",
+          "url": "https://graphic.com.gh/business/business-news/transaction-limits-for-mobile-money-wallets-reviewed.html"
+        }
+      ]
+    },
+    {
+      "id": "GS9",
+      "title": "Forex bureaux AML guideline",
+      "links": [
+        {
+          "title": "Graphic on forex bureaux rules",
+          "url": "https://www.graphic.com.gh/business/business-news/no-ghana-card-no-forex-see-the-new-strict-rules-for-forex-bureaux-to-curb-money-laundering.html"
+        }
+      ]
+    },
+    {
+      "id": "GS10",
+      "title": "Wallet limits blog (conflicting, unreliable)",
+      "links": [
+        {
+          "title": "Kolonell",
+          "url": "https://kolonell.com/en/blog/mtn-momo-wallet-limits-ghana-2026"
+        }
+      ]
+    },
+    {
+      "id": "GS11",
+      "title": "Vendor AML guides (unverified)",
+      "links": [
+        {
+          "title": "YouVerify bank AML guide",
+          "url": "https://youverify.co/en/blogs/aml-compliance-banks-ghana"
+        },
+        {
+          "title": "YouVerify transaction monitoring",
+          "url": "https://youverify.co/blog/transaction-monitoring-for-payment-service-banks-in-ghana-fatf-bog-requirements-2026"
+        }
+      ]
+    },
+    {
+      "id": "GS12",
+      "title": "SEC press release on the VASP Bill",
+      "links": [
+        {
+          "title": "SEC",
+          "url": "https://sec.gov.gh/press-release-passage-of-the-virtual-asset-service-providers-bill/"
+        }
+      ]
+    },
+    {
+      "id": "GS13",
+      "title": "Bank of Ghana virtual assets page",
+      "links": [
+        {
+          "title": "BoG",
+          "url": "https://www.bog.gov.gh/virtual-assets/"
+        }
+      ]
+    },
+    {
+      "id": "GS14",
+      "title": "Act 1154 summary",
+      "links": [
+        {
+          "title": "CryptoSlate",
+          "url": "https://cryptoslate.com/crypto-laws/ghana-virtual-asset-service-providers-act-2025-act-1154/"
+        }
+      ]
+    },
+    {
+      "id": "GS15",
+      "title": "Virtual asset law to be operational by 2027",
+      "links": [
+        {
+          "title": "GNA",
+          "url": "https://gna.org.gh/2026/08/ghana-to-fully-operationalise-virtual-asset-law-by-2027/"
+        }
+      ]
+    },
+    {
+      "id": "GS16",
+      "title": "Act 1154 commentary",
+      "links": [
+        {
+          "title": "Afriwise",
+          "url": "https://www.afriwise.com/blog/ghanas-vasp-act"
+        },
+        {
+          "title": "Ndowuona",
+          "url": "https://www.ndowuona.com/ghana-vasp-act"
+        }
+      ]
+    },
+    {
+      "id": "GS17",
+      "title": "VASP licensing",
+      "links": [
+        {
+          "title": "Mondaq",
+          "url": "https://www.mondaq.com/fin-tech/1727288/vasp-licencing-a-tool-for-advancing-the-future-of-virtual-assets-in-ghana"
+        }
+      ]
+    },
+    {
+      "id": "GS18",
+      "title": "CSA directive for critical information infrastructure",
+      "links": [
+        {
+          "title": "Digital Policy Alert",
+          "url": "https://digitalpolicyalert.org/event/24785-implemented-csa-directive-for-the-protection-of-critical-information-infrastructure-cii-highlighting-baseline-cybersecurity-measures-24-hour-incident-reporting-and-72-hour-vulnerability-disclosure"
+        }
+      ]
+    },
+    {
+      "id": "GS19",
+      "title": "Cybersecurity Act 2020 (Act 1038) summary",
+      "links": [
+        {
+          "title": "regulations.ai",
+          "url": "https://regulations.ai/regulations/RAI-GH-NA-ACT1038-2020"
+        }
+      ]
+    },
+    {
+      "id": "GS20",
+      "title": "CSA licensing enforcement",
+      "links": [
+        {
+          "title": "Graphic",
+          "url": "https://www.graphic.com.gh/news/general-news/csa-to-enforce-strict-licensing-of-cybersecurity-providers-from-january-31.html"
+        }
+      ]
+    },
+    {
+      "id": "GS21",
+      "title": "Cybersecurity Amendment Bill",
+      "links": [
+        {
+          "title": "Digital Policy Alert",
+          "url": "https://digitalpolicyalert.org/change/16824-licensing-requirements-in-cybersecurity-amendment-bill"
+        }
+      ]
+    },
+    {
+      "id": "GS22",
+      "title": "BoG and CSA alignment",
+      "links": [
+        {
+          "title": "GNA",
+          "url": "https://gna.org.gh/?p=217831"
+        }
+      ]
+    },
+    {
+      "id": "GS23",
+      "title": "BoG cyber watch and fraud losses",
+      "links": [
+        {
+          "title": "Graphic",
+          "url": "https://www.graphic.com.gh/business/business-news/mobile-money-and-bank-fraud-cost-ghana-ghc10m-in-2024-bog-to-tighten-cyber-watch.html"
+        }
+      ]
+    },
+    {
+      "id": "GS24",
+      "title": "Payment Systems and Services Act 2019 (Act 987)",
+      "links": [
+        {
+          "title": "Act 987 on GhaLII",
+          "url": "https://ghalii.org/akn/gh/act/2019/987"
+        }
+      ]
+    },
+    {
+      "id": "GS25",
+      "title": "BoG Cyber and Information Security Directive 2026",
+      "links": [
+        {
+          "title": "AllAfrica",
+          "url": "https://allafrica.com/stories/202603310611.html"
+        },
+        {
+          "title": "Ghanaian Times",
+          "url": "https://ghanaiantimes.com.gh/bog-launches-new-cyber-security-directive-to-safeguard-financial-sector/"
+        },
+        {
+          "title": "Group-IB (vendor)",
+          "url": "https://www.group-ib.com/resources/research-hub/cisd-2026-ghana-compliance/"
+        },
+        {
+          "title": "OpenSecurityArchitecture mapping of the 2018 CISD",
+          "url": "https://opensecurityarchitecture.org/frameworks/bog-cisd"
+        }
+      ]
+    },
+    {
+      "id": "GS26",
+      "title": "Data protection",
+      "links": [
+        {
+          "title": "Templars",
+          "url": "https://www.templars-law.com/app/uploads/2023/05/Data-Protection-Compliance-in-Ghana_final.pdf"
+        },
+        {
+          "title": "Mondaq",
+          "url": "https://www.mondaq.com/privacy-protection/1661208/data-protection-compliance-in-ghana-navigating-ghanas-data-protection-law"
+        },
+        {
+          "title": "B&FT on the 2025 Bill",
+          "url": "https://thebftonline.com/2025/11/21/understanding-the-data-protection-bill-2025-key-highlights-for-businesses-and-individuals/"
+        }
+      ]
+    },
+    {
+      "id": "GS27",
+      "title": "SIM re-registration",
+      "links": [
+        {
+          "title": "Ghanaian Times",
+          "url": "https://ghanaiantimes.com.gh/new-deadline-for-sim-re-registration-too-short-momo-agents-association/"
+        }
+      ]
+    },
+    {
+      "id": "GS28",
+      "title": "Bank of Ghana 2025 fraud report",
+      "links": [
+        {
+          "title": "MyJoyOnline",
+          "url": "https://www.myjoyonline.com/financial-fraud-cases-in-ghana-rise-63-in-four-years-as-exposure-hits-gh%C2%A2101-million-bog/"
+        },
+        {
+          "title": "Citi Newsroom",
+          "url": "https://www.citinewsroom.com/2026/07/bog-2025-fraud-report-the-numbers-beneath-the-headline/"
+        },
+        {
+          "title": "Cash suppression",
+          "url": "https://www.myjoyonline.com/bog-flags-gh%C2%A240-7m-cash-suppression-risk-after-single-gh%C2%A236-million-fraud-case/"
+        },
+        {
+          "title": "Cab-Beyuo on MoMo fraud",
+          "url": "https://www.myjoyonline.com/the-fraudsters-dont-use-hacking-they-play-on-our-minds-bogs-cab-beyuo-on-mobile-money-fraud/"
+        }
+      ]
+    },
+    {
+      "id": "GS29",
+      "title": "Ghana Association of Banks fraud report, September to December 2025",
+      "links": [
+        {
+          "title": "GAB",
+          "url": "https://gab.com.gh/assets/images/docs/FRAUD%20REPORT%20SEPT-DEC%202025.pdf"
+        }
+      ]
+    },
+    {
+      "id": "GS30",
+      "title": "FIC typology on personal accounts and tax evasion",
+      "links": [
+        {
+          "title": "FIC",
+          "url": "https://fic.gov.gh/media/attachments/2026/01/22/suspicious-use-of-personal-bank-accounts-for-business-transactions-to-evade-payment-of-tax.pdf"
+        }
+      ]
+    },
+    {
+      "id": "GS31",
+      "title": "Gold trade",
+      "links": [
+        {
+          "title": "Mining Index on the Swissaid report",
+          "url": "https://www.miningindex.co.zw/?p=109878"
+        },
+        {
+          "title": "Citi Newsroom on gold sector reforms",
+          "url": "https://www.citinewsroom.com/2025/08/government-steps-up-gold-sector-reforms-ahead-of-anti-money-laundering-review/"
+        }
+      ]
+    },
+    {
+      "id": "GS32",
+      "title": "Unlicensed digital lenders",
+      "links": [
+        {
+          "title": "Graphic on 20 blacklisted loan apps",
+          "url": "https://graphiconline.com/business/business-news/sika-tap-cedigo-popocedi-named-full-list-of-20-illegal-loan-apps-blacklisted-by-bank-of-ghana.html"
+        }
+      ]
+    },
+    {
+      "id": "GS33",
+      "title": "SEC investment scam alert",
+      "links": [
+        {
+          "title": "SEC",
+          "url": "https://sec.gov.gh/investment-scam-alert-rise-of-fraudulent-investment-schemes-in-ghana/"
+        }
+      ]
+    },
+    {
+      "id": "GS34",
+      "title": "Mobile money volumes 2025",
+      "links": [
+        {
+          "title": "Graphic",
+          "url": "https://www.graphic.com.gh/business/business-news/mobile-money-transactions-reach-ghc518b-in-2025.html"
+        }
+      ]
+    },
+    {
+      "id": "GS35",
+      "title": "Mobile-money fraud",
+      "links": [
+        {
+          "title": "MyJoyOnline on INTERPOL",
+          "url": "https://www.myjoyonline.com/ghanaians-lose-1-3m-to-mobile-money-fraud-in-first-quarter-of-2025-interpol-report/"
+        },
+        {
+          "title": "The Fourth Estate",
+          "url": "https://thefourthestategh.com/2025/10/mobile-money-robberies-inside-ghanas-rising-cybercrime-wave/"
+        }
+      ]
+    },
+    {
+      "id": "GS36",
+      "title": "Romance scams",
+      "links": [
+        {
+          "title": "Citi Newsroom on EOCO",
+          "url": "https://www.citinewsroom.com/2025/03/eoco-raises-alarm-over-rising-romance-scams/"
+        },
+        {
+          "title": "US DOJ, N.D. Ohio",
+          "url": "https://www.justice.gov/usao-ndoh/pr/ghanaian-nationals-indicted-romance-fraud-scams"
+        }
+      ]
+    },
+    {
+      "id": "GS37",
+      "title": "E-Levy repeal",
+      "links": [
+        {
+          "title": "GNA",
+          "url": "https://gna.org.gh/2025/03/parliament-abolishes-e-levy-returns-gh2-billion-to-ghanaians/"
+        }
+      ]
+    },
+    {
+      "id": "GS38",
+      "title": "FIC advisories",
+      "links": [
+        {
+          "title": "FIC advisory 3 (25 August 2025)",
+          "url": "https://fic.gov.gh/images/2026/advisory-notice---3.pdf"
+        },
+        {
+          "title": "FIC advisory 1 (30 May 2025)",
+          "url": "https://fic.gov.gh/images/2026/Advisory_Notice_-_1.pdf"
+        }
+      ]
+    },
+    {
+      "id": "GS39",
+      "title": "GIABA evaluation and grey-list exit",
+      "links": [
+        {
+          "title": "FIC on the GIABA evaluation",
+          "url": "https://fic.gov.gh/event-ghana-third-round-mutual-evaluation.html"
+        },
+        {
+          "title": "FIC on grey-list exit",
+          "url": "https://fic.gov.gh/press-ghana-exits-fatf-grey-list.html"
+        }
+      ]
+    },
+    {
+      "id": "GS42",
+      "title": "Bank of Ghana licence categories and e-money guidelines",
+      "links": [
+        {
+          "title": "BoG licence categories",
+          "url": "https://www.bog.gov.gh/?p=32589"
+        },
+        {
+          "title": "Digital Policy Alert on the 2015 e-money notice",
+          "url": "https://digitalpolicyalert.org/change/13133-bank-of-ghana-notice-no-bggovsec201509-to-e-money-issuers-and-the-general-public-regarding-the-guidelines-for-e-money-issuers-in-ghana-and-agent-guidelines"
+        }
+      ]
+    },
+    {
+      "id": "NG",
+      "title": "Nigeria rules library (parent rules)",
+      "links": []
+    },
+    {
+      "id": "GRLIB",
+      "title": "Ghana and Rwanda rules library, 4 October 2026 (the author's design)",
+      "links": []
+    }
+  ],
+  "clocks": [
+    {
+      "id": "str_filing",
+      "duration": "24 hours",
+      "duty": "File a suspicious transaction report within 24 hours of forming suspicion (the BoG guideline says from confirmation)",
+      "applies_to": "All accountable institutions (Act 1044 s.38)",
+      "requirement": "Timer from the earliest recorded suspicion",
+      "sources": [
+        "GS2",
+        "GS3"
+      ],
+      "rules": [
+        "GH-REG-06"
+      ],
+      "hours": 24,
+      "kind": "legal",
+      "authority": "FIC"
+    },
+    {
+      "id": "ctr_filing",
+      "duration": "24 hours",
+      "duty": "Report cash at or above GHS 50,000 (banks, securities) or GHS 20,000 (specialised deposit-taking institutions, forex bureaux)",
+      "applies_to": "Accountable institutions (FIC report types)",
+      "requirement": "Report draft with a deadline; the FIC page says \"filed daily\", so the deadline is configurable",
+      "sources": [
+        "GS1",
+        "GS2",
+        "GS9"
+      ],
+      "rules": [
+        "GH-REG-04"
+      ],
+      "hours": 24,
+      "kind": "legal",
+      "authority": "FIC"
+    },
+    {
+      "id": "ectr_filing",
+      "duration": "24 hours",
+      "duty": "Report cross-border transfers of US$1,000 or more within 24 hours after the transfer",
+      "applies_to": "Commercial banks and other reporters (BoG guideline s.2.9.2)",
+      "requirement": "Report draft with a deadline",
+      "sources": [
+        "GS1",
+        "GS2"
+      ],
+      "rules": [
+        "GH-REG-05"
+      ],
+      "hours": 24,
+      "kind": "legal",
+      "authority": "FIC"
+    },
+    {
+      "id": "fic_suspension",
+      "duration": "Up to 7 working days",
+      "duty": "Hold a transaction the FIC suspends, then let the hold expire",
+      "applies_to": "Any account or transaction in scope (Act 1044 s.45)",
+      "requirement": "Hold with automatic expiry; RiskOS counts calendar time until working-day clocks arrive",
+      "sources": [
+        "GS3"
+      ],
+      "rules": [
+        "GH-REG-11"
+      ],
+      "hours": 168,
+      "kind": "legal",
+      "authority": "FIC"
+    },
+    {
+      "id": "sanctions_freeze",
+      "duration": "24 hours (design placeholder)",
+      "duty": "Freeze funds of a designated person without prior notice; E.I. 2 gives no hour count",
+      "applies_to": "Accountable institutions (E.I. 2)",
+      "requirement": "Case timer from the match",
+      "sources": [
+        "GS7"
+      ],
+      "rules": [
+        "GH-REG-08"
+      ],
+      "hours": 24,
+      "kind": "design_placeholder",
+      "authority": "FIC"
+    },
+    {
+      "id": "bog_payment_report",
+      "duration": "10 days",
+      "duty": "Report suspected or confirmed fraud, a security breach, a material service interruption or loss of confidential data",
+      "applies_to": "Payment institutions (Act 987 s.42(5))",
+      "requirement": "Incident record with a 10-day outer limit",
+      "sources": [
+        "GS24"
+      ],
+      "rules": [
+        "GH-SEC-09"
+      ],
+      "hours": 240,
+      "kind": "legal",
+      "authority": "BoG"
+    },
+    {
+      "id": "bog_cisd_2026",
+      "duration": "Not found",
+      "duty": "A faster incident clock may exist in the Bank of Ghana's 2026 cyber directive; its text was not found",
+      "applies_to": "Institutions under the BoG cyber directive",
+      "requirement": "Shown as not found until a person enters the directive's clock",
+      "sources": [
+        "GS25"
+      ],
+      "rules": [
+        "GH-SEC-09"
+      ],
+      "hours": null,
+      "kind": "not_found",
+      "authority": "BoG"
+    },
+    {
+      "id": "csa_incident",
+      "duration": "24 hours",
+      "duty": "Report a significant incident to the Cyber Security Authority within 24 hours of detection",
+      "applies_to": "Designated critical information infrastructure owners",
+      "requirement": "Incident record with a countdown from detection",
+      "sources": [
+        "GS18",
+        "GS19"
+      ],
+      "rules": [
+        "GH-SEC-08"
+      ],
+      "hours": 24,
+      "kind": "legal",
+      "authority": "CSA"
+    },
+    {
+      "id": "csa_vulnerability",
+      "duration": "72 hours",
+      "duty": "Disclose a vulnerability to the Cyber Security Authority within 72 hours",
+      "applies_to": "Designated critical information infrastructure owners",
+      "requirement": "Second clock on the same record",
+      "sources": [
+        "GS18",
+        "GS19"
+      ],
+      "rules": [
+        "GH-SEC-08"
+      ],
+      "hours": 72,
+      "kind": "legal",
+      "authority": "CSA"
+    },
+    {
+      "id": "dpc_breach",
+      "duration": "72 hours (internal policy)",
+      "duty": "Notify the Data Protection Commission and the people affected as soon as reasonably practicable; the Act has no hour count",
+      "applies_to": "Data controllers (Act 843)",
+      "requirement": "Breach workflow with an internal 72-hour target",
+      "sources": [
+        "GS26"
+      ],
+      "rules": [
+        "GH-SEC-12"
+      ],
+      "hours": 72,
+      "kind": "internal_policy",
+      "authority": "DPC"
+    },
+    {
+      "id": "outsourcing_sla",
+      "duration": "10 days",
+      "duty": "File the signed service agreement with the Bank of Ghana after signing",
+      "applies_to": "Payment institutions (Act 987 s.38)",
+      "requirement": "Task with a deadline",
+      "sources": [
+        "GS24"
+      ],
+      "rules": [
+        "GH-SEC-10"
+      ],
+      "hours": 240,
+      "kind": "legal",
+      "authority": "BoG"
+    },
+    {
+      "id": "forex_remediation",
+      "duration": "45 days",
+      "duty": "Fix audit findings",
+      "applies_to": "Forex bureaux (BoG guideline, September 2025)",
+      "requirement": "Calendar task",
+      "sources": [
+        "GS9"
+      ],
+      "rules": [
+        "GH-GOV-07"
+      ],
+      "hours": 1080,
+      "kind": "legal",
+      "authority": "BoG"
+    },
+    {
+      "id": "alert_triage",
+      "duration": "4 hours (internal policy)",
+      "duty": "Triage a high-risk alert",
+      "applies_to": "Your institution",
+      "requirement": "Escalation when breached",
+      "sources": [
+        "GRLIB"
+      ],
+      "rules": [
+        "GH-GOV-12"
+      ],
+      "hours": 4,
+      "kind": "internal_policy"
+    },
+    {
+      "id": "str_decision",
+      "duration": "12 hours (internal policy)",
+      "duty": "Decide whether to file an STR, inside the 24-hour legal clock",
+      "applies_to": "Your institution",
+      "requirement": "Escalation when breached",
+      "sources": [
+        "GRLIB"
+      ],
+      "rules": [
+        "GH-GOV-12"
+      ],
+      "hours": 12,
+      "kind": "internal_policy"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "C4",
+      "title": "Ghana CTR threshold",
+      "detail": "GHS 50,000 (FIC, BoG) versus a vendor claim of GHS 10,000 single and GHS 30,000 cumulative, STR in 3 working days, 7-year retention",
+      "rules": [
+        "GH-REG-04",
+        "GH-TM-08"
+      ],
+      "sources": [
+        "GS1",
+        "GS2",
+        "GS11"
+      ],
+      "kind": "conflict",
+      "treatment": "Official figures used; vendor claim ignored; the Gazette notice that sets thresholds under ss.40-42 was not found"
+    },
+    {
+      "id": "C5",
+      "title": "BoG CISD 2026 incident clock",
+      "detail": "Launched 30 March 2026; no hours, MFA or pentest cadence found",
+      "rules": [
+        "GH-SEC-09"
+      ],
+      "sources": [
+        "GS24",
+        "GS25"
+      ],
+      "kind": "conflict",
+      "treatment": "GH-SEC-09 uses the 10-day Act 987 limit with a null faster-clock placeholder"
+    },
+    {
+      "id": "C8",
+      "title": "Data protection penalties",
+      "detail": "Mondaq 150 and 5,000 penalty units versus Templars GHS 1,500 and GHS 60,000 (150 x 12 = GHS 1,800)",
+      "rules": [
+        "GH-GOV-13"
+      ],
+      "sources": [
+        "GS26"
+      ],
+      "kind": "conflict",
+      "treatment": "Not coded as thresholds; penalty register shows both"
+    },
+    {
+      "id": "C9",
+      "title": "Act 1154 commencement",
+      "detail": "Afriwise says effective in 2025; GNA says enacted December 2025 with full operation by 2027; BoG pages due end Q3 2026",
+      "rules": [
+        "GH-REG-13",
+        "GH-GOV-11"
+      ],
+      "sources": [
+        "GS12",
+        "GS13",
+        "GS15",
+        "GS16"
+      ],
+      "kind": "conflict",
+      "treatment": "VASP rules treat VASPs as accountable institutions; GH-REG-13 and GH-GOV-11 off"
+    },
+    {
+      "id": "C11",
+      "title": "Ghana E-Levy",
+      "detail": "Parliament approved repeal on 26 March 2025; effective date unverified (one source suggests a short-term carry-over)",
+      "rules": [],
+      "sources": [
+        "GS37"
+      ],
+      "kind": "conflict",
+      "treatment": "No levy-avoidance rule"
+    },
+    {
+      "id": "C12",
+      "title": "Wallet monthly caps",
+      "detail": "Medium and Enhanced \"unchanged, figure not stated\" versus \"unrestricted\"; a 2026 blog gives much lower estimates (Kolonell)",
+      "rules": [
+        "GH-REG-01",
+        "GH-REG-03"
+      ],
+      "sources": [
+        "GS8",
+        "GS10"
+      ],
+      "kind": "conflict",
+      "treatment": "Medium and Enhanced left null; BoG figures kept; blog treated as unreliable"
+    },
+    {
+      "id": "C13",
+      "title": "E.I. 2 court period",
+      "detail": "E.I. 2 summary says 48 hours; Act 1044 s.56 summary says 7 working days",
+      "rules": [
+        "GH-REG-11"
+      ],
+      "sources": [
+        "GS3",
+        "GS7"
+      ],
+      "kind": "conflict",
+      "treatment": "GH-REG-11 uses 7 working days; unresolved"
+    },
+    {
+      "id": "C14",
+      "title": "Ghana STR clock start",
+      "detail": "Statute: from forming suspicion; BoG guideline: from confirmation",
+      "rules": [
+        "GH-REG-06"
+      ],
+      "sources": [
+        "GS2",
+        "GS3"
+      ],
+      "kind": "conflict",
+      "treatment": "Clock starts at the earliest recorded suspicion"
+    },
+    {
+      "id": "C15",
+      "title": "GIABA evaluation",
+      "detail": "One note says \"second mutual evaluation scheduled 2026\", another says \"third-round\" onsite 26 January to 6 February 2026",
+      "rules": [],
+      "sources": [
+        "GS39"
+      ],
+      "kind": "conflict",
+      "treatment": "Not rule-relevant; round number unresolved"
+    },
+    {
+      "id": "C16",
+      "title": "FIC tax typology date",
+      "detail": "Described as Aug 2025 in one note and January 2026 in another; same PDF",
+      "rules": [
+        "GH-TM-18"
+      ],
+      "sources": [
+        "GS30"
+      ],
+      "kind": "conflict",
+      "treatment": "Cited by URL only"
+    },
+    {
+      "id": "C20",
+      "title": "Act 1038 dates",
+      "detail": "regulations.ai gives 2023 milestones that conflict with the CSA's 31 January 2026 licensing enforcement",
+      "rules": [
+        "GH-SEC-14"
+      ],
+      "sources": [
+        "GS19",
+        "GS20"
+      ],
+      "kind": "conflict",
+      "treatment": "Use the 2026 date"
+    },
+    {
+      "id": "U1",
+      "title": "Primary texts read through summaries",
+      "detail": "Primary text of Act 1044 s.38 and s.48 and Act 987 section numbers (all per summary, aggregator or one secondary source).",
+      "rules": [
+        "GH-REG-06",
+        "GH-REG-10",
+        "GH-SEC-09",
+        "GH-SEC-10",
+        "GH-SEC-11"
+      ],
+      "sources": [
+        "GS3",
+        "GS4",
+        "GS24"
+      ],
+      "kind": "unverified",
+      "treatment": "Section numbers are shown as \"per summary\"; confirm against the Gazette"
+    },
+    {
+      "id": "U2",
+      "title": "Penalty unit and reporting channel",
+      "detail": "The value of a Ghana penalty unit (GHS 12) and its effective date; Anti-Terrorism Act amendment content; goAML registration for Ghana (a vendor claims goAML).",
+      "rules": [
+        "GH-GOV-03",
+        "GH-GOV-13"
+      ],
+      "sources": [
+        "GS6",
+        "GS7",
+        "GS11"
+      ],
+      "kind": "unverified",
+      "treatment": "Penalty estimates are labelled inference; the reporting channel is a setting"
+    },
+    {
+      "id": "U3",
+      "title": "Act 1154 details",
+      "detail": "Ghana Act 1154 Travel Rule threshold, penalties, capital and gazette date.",
+      "rules": [
+        "GH-REG-13",
+        "GH-GOV-11"
+      ],
+      "sources": [
+        "GS12",
+        "GS13",
+        "GS14",
+        "GS17"
+      ],
+      "kind": "unverified",
+      "treatment": "Rules ship off with placeholders"
+    },
+    {
+      "id": "U4",
+      "title": "E-money and agent rules",
+      "detail": "Ghana BoG e-money and agent guideline numbers, float limits and Ghana Card as sole ID outside forex bureaux.",
+      "rules": [
+        "GH-REG-09",
+        "GH-TM-16"
+      ],
+      "sources": [
+        "GS42"
+      ],
+      "kind": "unverified",
+      "treatment": "Agent rules ship off; the Ghana Card is a setting outside forex bureaux"
+    },
+    {
+      "id": "U5",
+      "title": "Cyber and data bills",
+      "detail": "Whether Ghana's Cybersecurity Amendment Bill, Data Protection Bill 2025 and any CSA directive for financial institutions passed; whether the CII 24-hour clock covers all financial institutions or only designated owners.",
+      "rules": [
+        "GH-SEC-08",
+        "GH-GOV-09"
+      ],
+      "sources": [
+        "GS18",
+        "GS19",
+        "GS21",
+        "GS26"
+      ],
+      "kind": "unverified",
+      "treatment": "CSA clocks apply only when the designation is switched on"
+    },
+    {
+      "id": "U9",
+      "title": "Qualitative typology evidence",
+      "detail": "Typology evidence is qualitative for Ghana wrong-transfer scams, interoperability fraud, agent float and galamsey.",
+      "rules": [
+        "GH-TM-16",
+        "GH-TM-19",
+        "GH-TM-23",
+        "GH-TM-24"
+      ],
+      "sources": [
+        "GS28",
+        "GS31",
+        "GS34",
+        "GS35"
+      ],
+      "kind": "unverified",
+      "treatment": "Those rules are marked off or flagged as the author's design"
+    },
+    {
+      "id": "U10",
+      "title": "Regulator sites unreadable",
+      "detail": "Fetched pages were model summaries and several regulator sites were not readable directly.",
+      "rules": [],
+      "sources": [
+        "GS3",
+        "GS24"
+      ],
+      "kind": "unverified",
+      "treatment": "Every regulatory rule carries a caveat to confirm against the original"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "FIC",
+      "expansion": "Financial Intelligence Centre",
+      "definition": "Ghana's agency that receives suspicious transaction reports, cash reports and electronic transfer reports."
+    },
+    {
+      "term": "BoG",
+      "expansion": "Bank of Ghana",
+      "definition": "Ghana's central bank, which licenses and supervises banks, payment institutions, e-money issuers and forex bureaux."
+    },
+    {
+      "term": "CSA",
+      "expansion": "Cyber Security Authority",
+      "definition": "Ghana's cybersecurity regulator: it licenses security providers and receives incident reports from critical infrastructure owners."
+    },
+    {
+      "term": "DPC",
+      "expansion": "Data Protection Commission",
+      "definition": "Ghana's data protection regulator, which registers data controllers and receives breach notices."
+    },
+    {
+      "term": "GhIPSS",
+      "expansion": "Ghana Interbank Payment and Settlement Systems",
+      "definition": "The company that connects Ghana's banks and mobile-money networks so money can move between them."
+    },
+    {
+      "term": "Ghana Card",
+      "expansion": "",
+      "definition": "Ghana's national identity card, issued by the National Identification Authority."
+    },
+    {
+      "term": "NIA",
+      "expansion": "National Identification Authority",
+      "definition": "The body that issues the Ghana Card and verifies it."
+    },
+    {
+      "term": "SDI",
+      "expansion": "Specialised deposit-taking institution",
+      "definition": "A licensed institution that takes deposits but is not a universal bank, such as a savings and loans company or a rural bank."
+    },
+    {
+      "term": "CII",
+      "expansion": "Critical information infrastructure",
+      "definition": "Systems so important that the Cyber Security Authority designates them for stricter protection and faster incident reporting."
+    },
+    {
+      "term": "CTR",
+      "expansion": "Cash transaction report",
+      "definition": "A report to the FIC of a large cash deposit, withdrawal or payment."
+    },
+    {
+      "term": "ECTR",
+      "expansion": "Electronic currency transaction report",
+      "definition": "A report to the FIC of a cross-border transfer of US$1,000 or more."
+    },
+    {
+      "term": "STR",
+      "expansion": "Suspicious transaction report",
+      "definition": "A report to the FIC about activity that may be linked to crime. Its existence must not be revealed to the customer."
+    },
+    {
+      "term": "PEP",
+      "expansion": "Politically exposed person",
+      "definition": "Someone who holds or held an important public role, or their close family or associates."
+    },
+    {
+      "term": "EDD",
+      "expansion": "Enhanced due diligence",
+      "definition": "Deeper checks for higher-risk customers, such as where their money and wealth come from, and approval by a senior manager."
+    },
+    {
+      "term": "KYC",
+      "expansion": "Know your customer",
+      "definition": "The checks an institution makes to confirm who a customer is before and while serving them."
+    },
+    {
+      "term": "Penalty unit",
+      "expansion": "",
+      "definition": "Ghana states fines in penalty units. One unit is GHS 12 according to a Ghana Revenue Authority page whose effective date is not stated."
+    },
+    {
+      "term": "MoMo",
+      "expansion": "Mobile money",
+      "definition": "Money held in a mobile-phone wallet and moved by phone, through agents and between networks."
+    },
+    {
+      "term": "Galamsey",
+      "expansion": "",
+      "definition": "Illegal small-scale gold mining in Ghana."
+    },
+    {
+      "term": "TFS",
+      "expansion": "Targeted financial sanctions",
+      "definition": "Freezing the money of people and organisations named on sanctions lists, without warning them first."
+    },
+    {
+      "term": "VASP",
+      "expansion": "Virtual asset service provider",
+      "definition": "A business that exchanges, holds or transfers crypto assets for customers."
+    },
+    {
+      "term": "Structuring",
+      "expansion": "",
+      "definition": "Splitting money into several smaller amounts to stay under a limit or a reporting threshold."
+    },
+    {
+      "term": "Mule account",
+      "expansion": "",
+      "definition": "An account used to receive and pass on stolen or criminal money, often owned by someone recruited or deceived."
+    }
+  ],
+  "penalties": [
+    {
+      "provision": "Act 1044 s.48(1): failure to report in time, tipping off (s.38(4))",
+      "penalty": "500 to 4,000 penalty units and/or 6 months to 5 years",
+      "sources": [
+        "GS3"
+      ],
+      "estimate": "GHS 6,000 to 48,000",
+      "inference": true
+    },
+    {
+      "provision": "Act 1044 s.48(2): false statements, concealment",
+      "penalty": "1,000 to 10,000 penalty units and/or 12 months to 5 years",
+      "sources": [
+        "GS3"
+      ],
+      "estimate": "GHS 12,000 to 120,000",
+      "inference": true
+    },
+    {
+      "provision": "Act 1044 s.48(5): employee non-compliance",
+      "penalty": "Up to 10,000 penalty units",
+      "sources": [
+        "GS4"
+      ],
+      "estimate": "Up to GHS 120,000",
+      "inference": true
+    },
+    {
+      "provision": "SEC schedule",
+      "penalty": "Institutions 1,000 to 100,000 units; individuals 500 to 20,000 units; blacklisting, licence suspension, public disclosure",
+      "sources": [
+        "GS5"
+      ],
+      "estimate": "GHS 12,000 to 1,200,000 (institutions)",
+      "inference": true
+    },
+    {
+      "provision": "Act 987 s.42(3): late reports",
+      "penalty": "500 units plus 50 units per day",
+      "sources": [
+        "GS24"
+      ],
+      "estimate": "GHS 6,000 plus GHS 600 per day",
+      "inference": true
+    },
+    {
+      "provision": "Act 987 s.35: CDD non-compliance",
+      "penalty": "2,000 units",
+      "sources": [
+        "GS24"
+      ],
+      "estimate": "GHS 24,000",
+      "inference": true
+    },
+    {
+      "provision": "Act 987 s.9: unlicensed operation (body corporate)",
+      "penalty": "4,500 to 7,000 units",
+      "sources": [
+        "GS24"
+      ],
+      "estimate": "GHS 54,000 to 84,000",
+      "inference": true
+    },
+    {
+      "provision": "Act 1038: hacking",
+      "penalty": "Up to 10 years; directors liable unless without knowledge or consent",
+      "sources": [
+        "GS19"
+      ]
+    },
+    {
+      "provision": "Act 843",
+      "penalty": "Conflicting: up to 150 units or 1 year (summary offence), 5,000 units or 10 years (others) per Mondaq; GHS 1,500 and GHS 60,000 per Templars",
+      "sources": [
+        "GS26"
+      ],
+      "estimate": "Conflict: 150 x 12 = GHS 1,800 versus GHS 1,500",
+      "inference": true
+    },
+    {
+      "provision": "Vendor claim: up to GHS 500,000 per violation",
+      "penalty": "Conflicts with the penalty-unit regime: do not use",
+      "sources": [
+        "GS11"
+      ]
+    }
+  ],
+  "inherits": [
+    {
+      "pack": "ng",
+      "rule": "ATO-04"
+    },
+    {
+      "pack": "ng",
+      "rule": "ATO-05"
+    },
+    {
+      "pack": "ng",
+      "rule": "ATO-06"
+    },
+    {
+      "pack": "ng",
+      "rule": "VEL-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "VEL-05",
+      "overrides": {
+        "round_unit": {
+          "currency": "GHS",
+          "min": 100,
+          "max": 100000000,
+          "label": "Round amount unit, in cedis (set by your institution)"
+        }
+      },
+      "note": "The round-amount unit is restated in cedis."
+    },
+    {
+      "pack": "ng",
+      "rule": "VEL-06",
+      "overrides": {
+        "high_value": {
+          "currency": "GHS",
+          "min": 0,
+          "max": 100000000000,
+          "label": "High-value first payment at night, in cedis (set by your institution)"
+        }
+      },
+      "note": "Night hours are Accra time; the amount is restated in cedis."
+    },
+    {
+      "pack": "ng",
+      "rule": "BEH-01"
+    },
+    {
+      "pack": "ng",
+      "rule": "BEH-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "CNP-01",
+      "overrides": {
+        "tiny": {
+          "currency": "GHS",
+          "min": 1,
+          "max": 10000,
+          "label": "Tiny test payment, in cedis (set by your institution)"
+        }
+      },
+      "note": "The tiny-payment amount is restated in cedis."
+    },
+    {
+      "pack": "ng",
+      "rule": "CNP-02"
+    },
+    {
+      "pack": "ng",
+      "rule": "CNP-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "LEN-01",
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "sdi",
+        "mfb"
+      ]
+    },
+    {
+      "pack": "ng",
+      "rule": "LEN-03",
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "sdi",
+        "mfb"
+      ]
+    },
+    {
+      "pack": "ng",
+      "rule": "LEN-04",
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "sdi",
+        "mfb"
+      ]
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-02"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-05",
+      "overrides": {
+        "high_value": {
+          "currency": "GHS",
+          "min": 0,
+          "max": 100000000000,
+          "label": "High-value transaction, in cedis (set by your institution)"
+        }
+      },
+      "note": "The high-value amount is restated in cedis."
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-06"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-07"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-11"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-01"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-02"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-04"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-07"
+    }
+  ]
+}

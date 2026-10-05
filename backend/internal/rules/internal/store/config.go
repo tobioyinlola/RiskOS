@@ -219,8 +219,8 @@ func (Store) Change(ctx context.Context, id uuid.UUID) (RuleChange, error) {
 		r.ProposedBy, r.ProposedAt, r.DecidedBy, r.DecidedAt, r.DecisionNote, r.AppliedVersion)
 }
 
-// Changes lists changes, newest first; status and ruleID filter when not empty.
-func (Store) Changes(ctx context.Context, status, ruleID string) ([]RuleChange, error) {
+// Changes lists changes, newest first; status, packID and ruleID filter when not empty.
+func (Store) Changes(ctx context.Context, status, packID, ruleID string) ([]RuleChange, error) {
 	q, scope, err := scoped(ctx)
 	if err != nil {
 		return nil, err
@@ -228,6 +228,9 @@ func (Store) Changes(ctx context.Context, status, ruleID string) ([]RuleChange, 
 	p := sqlcgen.ListRuleChangesParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID}
 	if status != "" {
 		p.Status = &status
+	}
+	if packID != "" {
+		p.PackID = &packID
 	}
 	if ruleID != "" {
 		p.RuleID = &ruleID

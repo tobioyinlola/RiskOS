@@ -12,6 +12,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivationChange struct {
+	TenantID     uuid.UUID
+	ID           uuid.UUID
+	ActivationID uuid.UUID
+	Action       string
+	StatusFrom   *string
+	StatusTo     *string
+	Details      []byte
+	Rationale    string
+	State        string
+	ProposedBy   string
+	ProposedAt   time.Time
+	DecidedBy    *string
+	DecidedAt    *time.Time
+	DecisionNote *string
+}
+
 type Alert struct {
 	TenantID        uuid.UUID
 	EnvironmentID   uuid.UUID
@@ -284,11 +301,53 @@ type FeatureStoreState struct {
 	ResetAt        *time.Time
 }
 
+type GapVerification struct {
+	TenantID   uuid.UUID
+	PackID     string
+	GapID      string
+	VerifiedBy string
+	VerifiedAt time.Time
+	Note       string
+	Link       *string
+}
+
 type GoogleLogin struct {
 	StateHash   []byte
 	BrowserHash []byte
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
+}
+
+type Jurisdiction struct {
+	Code       string
+	Name       string
+	Currency   string
+	MinorUnit  int16
+	Timezone   string
+	Regulators []string
+	PackID     string
+}
+
+type JurisdictionActivation struct {
+	TenantID      uuid.UUID
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	SignalDefault string
+	ID            uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	DayStartsAt   int16
 }
 
 type PackRule struct {
@@ -529,16 +588,6 @@ type Tenant struct {
 	CreatedAt         time.Time
 	ProductionEnabled bool
 	Origin            string
-}
-
-type TenantCompliance struct {
-	TenantID     uuid.UUID
-	PackID       string
-	PackVersion  string
-	LicenceType  string
-	Capabilities []string
-	UpdatedAt    time.Time
-	UpdatedBy    string
 }
 
 type TenantOnboarding struct {

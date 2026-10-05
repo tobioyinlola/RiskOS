@@ -1,6 +1,7 @@
 import type { Page, Route } from "@playwright/test";
 
 import {
+  ACTIVE_RULES,
   applies,
   CLOCKS,
   ENGINEERING,
@@ -9,6 +10,14 @@ import {
   PACK,
   RULES,
   task,
+  ACTIVATIONS,
+  CLOCK_MATRIX,
+  JURISDICTIONS,
+  RW_CLOCKS,
+  RW_GAPS,
+  RW_GLOSSARY,
+  RW_PACK,
+  RW_RULES,
 } from "./compliance-fixtures";
 
 /**
@@ -123,6 +132,10 @@ export interface MockApi {
   /** Pack rule configuration by "<environment>/<rule>", and changes awaiting approval. */
   ruleConfigs: Record<string, MockRuleConfig>;
   ruleChanges: MockRuleChange[];
+  /** Country activations and their changes (phase 4 of ADR-0007). */
+  activations: Record<string, unknown>[];
+  activationChanges: Record<string, unknown>[];
+  gapVerifications: Record<string, Record<string, unknown>>;
   /** Compliance tasks (ReturnType<typeof task>). */
   tasks: ReturnType<typeof task>[];
   /** Alerts past a deadline of the pack, and confirmed fraud not yet reported. */
@@ -130,12 +143,19 @@ export interface MockApi {
   unreportedFraud: { case_id: string; title: string; resolved_at: string }[];
   /** Exchange rates by currency. */
   fxRates: Record<string, number>;
-  /** The workspace's compliance profile (null until set). */
+  /**
+   * The workspace's compliance profile: every workspace starts with the automatic one (licence
+   * "other", unconfirmed, risk signals off) until a person saves it.
+   */
   complianceProfile: {
     jurisdiction: string;
     licence_type: string;
     capabilities: string[];
-  } | null;
+    confirmed: boolean;
+    signalsOff: boolean;
+  };
+  /** The workspace's own rules (POST /rules), newest last. */
+  rules: Record<string, unknown>[];
 }
 
 /** The answers onboarding needs before it can be submitted. */
@@ -206,6 +226,71 @@ export function eventSummary(score: number, user = "usr_4812") {
     },
   };
 }
+
+/** The rule fields the builder offers (GET /risk/catalog), as the engine describes them. */
+const CATALOG_FIELDS = [
+  {
+    name: "event.type",
+    type: "string",
+    operators: ["eq", "ne", "in", "not_in"],
+    label: "Event type",
+    group: "Event",
+    events: [],
+    values: [
+      { value: "transaction", label: "Transaction" },
+      { value: "login", label: "Login" },
+      { value: "beneficiary_added", label: "Beneficiary added" },
+    ],
+  },
+  {
+    name: "transaction.amount",
+    type: "number",
+    operators: ["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in"],
+    label: "Amount",
+    group: "Transaction",
+    unit: "money",
+    events: ["transaction"],
+  },
+  {
+    name: "transaction.channel",
+    type: "string",
+    operators: ["eq", "ne", "in", "not_in"],
+    label: "Channel",
+    group: "Transaction",
+    events: ["transaction"],
+    values: [
+      { value: "card", label: "Card" },
+      { value: "bank_transfer", label: "Bank transfer" },
+      { value: "wallet", label: "Wallet" },
+    ],
+  },
+  {
+    name: "beneficiary.country",
+    type: "string",
+    operators: ["eq", "ne", "in", "not_in"],
+    label: "Beneficiary's country",
+    group: "Transaction",
+    kind: "country",
+    events: ["transaction", "beneficiary_added"],
+  },
+  {
+    name: "feature.new_beneficiary",
+    type: "boolean",
+    operators: ["eq", "ne"],
+    label: "New beneficiary for this customer",
+    group: "Customer history",
+    events: [],
+  },
+  {
+    name: "feature.failed_logins_15m",
+    type: "number",
+    operators: ["eq", "ne", "gt", "gte", "lt", "lte", "in", "not_in"],
+    label: "Failed logins in the last 15 minutes",
+    group: "Recent activity",
+    unit: "count",
+    events: ["login"],
+  },
+];
 
 function hourAgo(h: number): string {
   return (
@@ -325,9 +410,19 @@ export async function mockApi(page: Page): Promise<MockApi> {
     productionEnabled: true,
     onboarding: null,
     permissions: ALL_PERMISSIONS,
-    complianceProfile: null,
+    complianceProfile: {
+      jurisdiction: "NG",
+      licence_type: "other",
+      capabilities: [],
+      confirmed: false,
+      signalsOff: true,
+    },
+    rules: [],
     ruleConfigs: {},
     ruleChanges: [],
+    activations: ACTIVATIONS.map((a) => ({ ...a })),
+    activationChanges: [],
+    gapVerifications: {},
     fxRates: {},
     tasks: [],
     escalations: [],
@@ -393,7 +488,10 @@ export async function mockApi(page: Page): Promise<MockApi> {
 
   type FixtureRule = (typeof RULES)[number];
   const defaultMode = (r: FixtureRule) =>
-    r.defaults.enabled ? r.defaults.mode : "off";
+    !r.defaults.enabled ||
+    (r.kind === "signal" && state.complianceProfile.signalsOff)
+      ? "off"
+      : r.defaults.mode;
   const currentVersion = (env: string, r: FixtureRule) =>
     state.ruleConfigs[`${env}/${r.id}`]?.versions.at(-1);
   const configView = (env: string, r: FixtureRule) => {
@@ -414,6 +512,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
   };
   const ruleView = (r: FixtureRule, detail: boolean, env: string) => ({
     ...r,
+    jurisdiction: "NG",
     mode: configView(env, r).mode,
     config_version: configView(env, r).version,
     parameters: r.parameters.map((p) => ({
@@ -450,9 +549,25 @@ export async function mockApi(page: Page): Promise<MockApi> {
     if (!state.permissions.includes("compliance:read")) {
       return error(route, 403, "FORBIDDEN", "Not allowed.");
     }
-    const sub = path.match(
-      /^\/compliance\/rules\/([A-Z]{3}-[0-9]{2})(?:\/(config|history|backtest|rollback))?$/,
+    const country = new URL(route.request().url()).searchParams.get(
+      "jurisdiction",
     );
+    const rwanda = country === "RW";
+    const rwView = (r: (typeof RW_RULES)[number]) => ({
+      ...r,
+      mode: r.defaults.enabled ? r.defaults.mode : "off",
+      config_version: 0,
+      parameters: r.parameters.map((p) => ({ ...p, value: p.default })),
+      applicable: null,
+    });
+    const sub = path.match(
+      /^\/compliance\/rules\/((?:[A-Z]{3}|[A-Z]{2}-(?:REG|TM|SEC|GOV))-[0-9]{2})(?:\/(config|history|backtest|rollback))?$/,
+    );
+    if (sub && (rwanda || sub[1]?.startsWith("RW-"))) {
+      const r = RW_RULES.find((x) => x.id === sub[1]);
+      if (!r || sub[2]) return error(route, 404, "NOT_FOUND", "No such rule.");
+      return json(route, rwView(r));
+    }
     if (sub) {
       const r = RULES.find((x) => x.id === sub[1]);
       if (!r) return error(route, 404, "NOT_FOUND", "No such rule.");
@@ -657,6 +772,80 @@ export async function mockApi(page: Page): Promise<MockApi> {
       state.tasks.push(t);
       return json(route, t, 201);
     }
+    const activation = path.match(
+      /^\/compliance\/activations\/([^/]+)\/(status|fallback|readiness)$/,
+    );
+    if (activation) {
+      const a = state.activations.find((x) => x.id === activation[1]);
+      if (!a) return error(route, 404, "NOT_FOUND", "No such activation.");
+      if (activation[2] === "readiness") {
+        const ready = Boolean(state.fxRates.RWF);
+        return json(route, {
+          ready,
+          items: ready
+            ? []
+            : [
+                {
+                  blocking: true,
+                  kind: "fx_rate",
+                  rule: "RW-REG-01",
+                  message:
+                    "RW-REG-01: set a RWF to US dollar rate, or send txn.amount_usd, for its dollar threshold",
+                },
+              ],
+        });
+      }
+      const to = String(body?.status ?? "");
+      const change = {
+        id: `jch_${state.activationChanges.length + 1}`,
+        activation_id: a.id,
+        action: activation[2] === "fallback" ? "fallback" : "status",
+        status_from: activation[2] === "fallback" ? undefined : a.status,
+        status_to: activation[2] === "fallback" ? undefined : to,
+        details: {},
+        rationale: String(body?.rationale),
+        proposed_by: "usr_admin",
+        proposed_at: NOW,
+        state: "applied",
+      };
+      if (
+        activation[2] === "fallback" ||
+        to === "live" ||
+        a.status === "live"
+      ) {
+        change.state = "pending";
+        state.activationChanges.unshift(change);
+        return json(route, change, 202);
+      }
+      a.status = to;
+      state.activationChanges.unshift(change);
+      return json(route, a);
+    }
+    const activationDecision = path.match(
+      /^\/compliance\/activation-changes\/([^/]+)\/(approve|reject)$/,
+    );
+    if (activationDecision) {
+      const c = state.activationChanges.find(
+        (x) => x.id === activationDecision[1],
+      );
+      if (!c) return error(route, 404, "NOT_FOUND", "No such change.");
+      c.state = activationDecision[2] === "approve" ? "approved" : "rejected";
+      c.decided_by = "usr_officer";
+      c.decided_at = NOW;
+      return json(route, c);
+    }
+    const verify = path.match(/^\/compliance\/gaps\/([^/]+)\/verify$/);
+    if (verify) {
+      const v = {
+        gap: verify[1],
+        verified_by: "usr_admin",
+        verified_at: NOW,
+        note: String(body?.note),
+        ...(body?.link ? { link: String(body.link) } : {}),
+      };
+      state.gapVerifications[verify[1]!] = v;
+      return json(route, v, 201);
+    }
     const fx = path.match(/^\/compliance\/fx-rates\/([A-Z]{3})$/);
     if (fx) {
       const code = fx[1]!;
@@ -673,6 +862,88 @@ export async function mockApi(page: Page): Promise<MockApi> {
       });
     }
     switch (path) {
+      case "/compliance/packs":
+        return json(route, {
+          data: [
+            {
+              id: "ng",
+              jurisdiction: "NG",
+              name: "Nigeria",
+              version: PACK.version,
+              controls: 2,
+              signals: 1,
+              governance: 0,
+              current: true,
+              activated: true,
+            },
+            {
+              id: "rw",
+              jurisdiction: "RW",
+              name: "Rwanda",
+              version: RW_PACK.version,
+              controls: 1,
+              signals: 1,
+              governance: 0,
+              current: false,
+              activated: false,
+            },
+          ],
+        });
+      case "/compliance/jurisdictions":
+        return json(route, { data: JURISDICTIONS });
+      case "/compliance/activations": {
+        if (method === "POST") {
+          if (
+            state.activations.some(
+              (a) => a.booking_entity === body?.booking_entity,
+            )
+          )
+            return error(route, 409, "CONFLICT", "Already activated.");
+          const a = {
+            id: `jac_${String(body?.booking_entity)}`,
+            jurisdiction: String(body?.jurisdiction),
+            booking_entity: String(body?.booking_entity),
+            status: "draft",
+            fallback: false,
+            pack: `${String(body?.jurisdiction).toLowerCase()}@2026.10.2`,
+            licence_type: String(body?.licence_type),
+            capabilities: (body?.capabilities as string[]) ?? [],
+            day_starts_at: Number(body?.day_starts_at ?? 0),
+            rationale: String(body?.rationale),
+            updated_at: NOW,
+          };
+          state.activations.push(a);
+          state.activationChanges.unshift({
+            id: `jch_${state.activationChanges.length + 1}`,
+            activation_id: a.id,
+            action: "create",
+            status_to: "draft",
+            details: {},
+            rationale: a.rationale,
+            proposed_by: "usr_admin",
+            proposed_at: NOW,
+            state: "applied",
+          });
+          return json(route, a, 201);
+        }
+        return json(route, { data: state.activations });
+      }
+      case "/compliance/activation-changes":
+        return json(route, { data: state.activationChanges });
+      case "/compliance/active-rules":
+        return json(route, { data: ACTIVE_RULES });
+      case "/compliance/clock-matrix":
+        return json(route, { data: CLOCK_MATRIX });
+      case "/compliance/export":
+        return route.fulfill({
+          status: 200,
+          contentType: "text/csv",
+          headers: {
+            "Content-Disposition":
+              'attachment; filename="riskos-rules-rw-2026-09-30.csv"',
+          },
+          body: "Country,Rule\nRwanda,RW-REG-04\n",
+        });
       case "/compliance/changes": {
         const status = new URL(route.request().url()).searchParams.get(
           "status",
@@ -708,37 +979,55 @@ export async function mockApi(page: Page): Promise<MockApi> {
           })),
         });
       case "/compliance/pack":
-        return json(route, PACK);
+        return json(route, rwanda ? RW_PACK : PACK);
       case "/compliance/rules":
-        return json(route, { data: RULES.map((r) => ruleView(r, false, env)) });
+        return json(route, {
+          data: rwanda
+            ? RW_RULES.map(rwView)
+            : RULES.map((r) => ({
+                ...ruleView(r, false, env),
+                jurisdiction: "NG",
+              })),
+        });
       case "/compliance/clocks":
-        return json(route, { data: CLOCKS });
+        return json(route, { data: rwanda ? RW_CLOCKS : CLOCKS });
       case "/compliance/gaps":
-        return json(route, { data: GAPS });
+        return json(route, {
+          data: (rwanda ? RW_GAPS : GAPS).map((g) =>
+            state.gapVerifications[g.id]
+              ? { ...g, verification: state.gapVerifications[g.id] }
+              : g,
+          ),
+        });
       case "/compliance/glossary":
-        return json(route, { data: GLOSSARY });
+        return json(route, { data: rwanda ? RW_GLOSSARY : GLOSSARY });
       case "/compliance/profile": {
         const view = () => ({
-          ...state.complianceProfile,
+          jurisdiction: state.complianceProfile.jurisdiction,
+          licence_type: state.complianceProfile.licence_type,
+          capabilities: state.complianceProfile.capabilities,
+          confirmed: state.complianceProfile.confirmed,
           pack_id: "ng",
           pack_version: PACK.version,
           updated_at: NOW,
-          updated_by: "usr_admin",
+          updated_by: state.complianceProfile.confirmed
+            ? "usr_admin"
+            : "system:default",
         });
         if (method === "PUT") {
           if (!state.permissions.includes("compliance:write")) {
             return error(route, 403, "FORBIDDEN", "Not allowed.");
           }
           state.complianceProfile = {
+            ...state.complianceProfile,
             jurisdiction: String(body?.jurisdiction),
             licence_type: String(body?.licence_type),
             capabilities: (body?.capabilities as string[]) ?? [],
+            confirmed: true,
           };
           return json(route, view());
         }
-        return state.complianceProfile
-          ? json(route, view())
-          : error(route, 404, "NOT_FOUND", "No compliance profile.");
+        return json(route, view());
       }
       default:
         state.problems.push(`unmocked ${method} ${path}`);
@@ -976,6 +1265,20 @@ export async function mockApi(page: Page): Promise<MockApi> {
     }
 
     // Console data.
+    const own = path.match(/^\/rules\/(rul_[0-9]+)(\/versions)?$/);
+    if (own) {
+      const rule = state.rules.find((r) => r.id === own[1]);
+      if (!rule) return error(route, 404, "NOT_FOUND", "No such rule.");
+      if (own[2])
+        return json(route, {
+          data: [{ ...rule, created_by: "usr_admin" }],
+          current_version: rule.version,
+        });
+      if (method === "PATCH") {
+        Object.assign(rule, body, { version: Number(rule.version) + 1 });
+      }
+      return json(route, rule);
+    }
     switch (path) {
       case `/alerts/${ALERT.id}`:
         return json(route, {
@@ -1073,13 +1376,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
               strengthenable: true,
             },
           ],
-          fields: [
-            {
-              name: "amount",
-              type: "number",
-              operators: ["gt", "gte", "lt", "lte", "eq"],
-            },
-          ],
+          fields: CATALOG_FIELDS,
         });
       case "/risk/settings":
         return json(route, {
@@ -1150,7 +1447,61 @@ export async function mockApi(page: Page): Promise<MockApi> {
       case `/rule-changes/${RULE_CHANGE_ID}/approve`:
         state.changeStatus = "approved";
         return json(route, ruleChange("approved"));
+      case "/rules/stats": {
+        const today = new Date().toISOString().slice(0, 10);
+        const day = (back: number) =>
+          new Date(Date.parse(today) - back * 86_400_000)
+            .toISOString()
+            .slice(0, 10);
+        return json(route, {
+          since: `${day(6)}T00:00:00Z`,
+          days: 7,
+          evaluations: 1240,
+          rules: state.rules.map((r) => ({
+            rule_id: r.id,
+            matches: 9,
+            last_matched_at: NOW,
+            daily: [6, 5, 4, 3, 2, 1, 0].map((b) => ({
+              day: day(b),
+              matches: b === 0 ? 4 : b % 2,
+            })),
+          })),
+        });
+      }
+      case "/rules/test-recent":
+        return json(route, {
+          since: NOW,
+          checked: 1240,
+          matched: 4,
+          truncated: false,
+          sample: [
+            {
+              evaluation_id: "evl_1",
+              event_id: "evt_1",
+              at: NOW,
+              event_type: "transaction",
+              amount: 250_000_000,
+              currency: "NGN",
+              decision: "review",
+              risk_score: 62,
+            },
+          ],
+        });
       case "/rules":
+        if (method === "POST") {
+          const rule = {
+            id: `rul_${state.rules.length + 1}`,
+            ...body,
+            version: 1,
+            restored_from: null,
+            created_at: NOW,
+            updated_at: NOW,
+            pending_change_id: null,
+          };
+          state.rules.push(rule);
+          return json(route, rule, 201);
+        }
+        return json(route, { data: state.rules });
       case "/webhooks":
       case "/team/invites":
         return json(route, { data: [] });

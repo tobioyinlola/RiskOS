@@ -1,10 +1,11 @@
 "use client";
 
 import Link from "next/link";
+import { useSearchParams } from "next/navigation";
 import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
-import { CodeBlock, KeyValues, Tag } from "@/components/ui/misc";
+import { KeyValues, Tag } from "@/components/ui/misc";
 import { PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
 import { Empty, ErrorState, Loading, Notice } from "@/components/ui/states";
@@ -16,19 +17,25 @@ import {
   formatParameterValue,
   formatRange,
   KIND_LABEL,
+  lineageText,
   MODE_LABEL,
+  OFF_REASON,
+  PROVENANCE,
   VERIFICATION,
   wordingHeadings,
 } from "@/lib/compliance";
-import { humanize } from "@/lib/format";
+import { formatTimestamp, humanize } from "@/lib/format";
 import {
+  useActivations,
   useComplianceConfig,
   useCompliancePack,
   useComplianceRule,
+  useUserName,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
 import { ConfigHistory, ConfigureDialog, PendingChange } from "./configure";
+import { PenaltyRegister } from "./penalties";
 
 type Pack = Schemas["CompliancePack"];
 type Rule = Schemas["ComplianceRule"];
@@ -36,13 +43,25 @@ type Rule = Schemas["ComplianceRule"];
 const list = (items: string[], fallback = "–") =>
   items.length ? items.join(", ") : fallback;
 
-/** One rule of the library: its wording verbatim, its legal basis and how it runs. */
+/**
+ * One rule of the library: its wording verbatim, where it comes from, its legal basis and how it
+ * runs. ?jurisdiction= names the country (a country rule ID names its own).
+ */
 export function ComplianceRule({ id }: { id: string }) {
-  const rule = useComplianceRule(id);
-  const pack = useCompliancePack();
+  const params = useSearchParams();
+  const country = params.get("jurisdiction") ?? undefined;
+  const rule = useComplianceRule(id, country);
+  const pack = useCompliancePack(country ?? rule.data?.jurisdiction);
   const back = (
-    <Link href="/compliance" className="hover:underline">
-      Rules library
+    <Link
+      href={
+        (country
+          ? `/rules?tab=presets&country=${country}`
+          : "/rules?tab=presets") as "/rules"
+      }
+      className="hover:text-accent"
+    >
+      Rules
     </Link>
   );
   if (rule.isLoading || pack.isLoading) {
@@ -90,11 +109,20 @@ function RuleView({
     pack.groups.find((g) => g.id === rule.group)?.label ?? rule.group;
   const verification = VERIFICATION[rule.verification];
   const { can, environment } = useSession();
-  const config = useComplianceConfig(rule.id);
+  const config = useComplianceConfig(rule.id, rule.jurisdiction);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string>();
   const pending = config.data?.pending ?? null;
-  const configurable = can("compliance:configure");
+  const acts = useActivations();
+  const userName = useUserName();
+  const fallback = acts.data?.data.find((a) => a.fallback)?.jurisdiction;
+  // Settings are changed for the rules of every country the workspace has activated.
+  const configurable =
+    can("compliance:configure") &&
+    rule.applicable !== null &&
+    (acts.data?.data ?? []).some(
+      (a) => a.jurisdiction === (rule.jurisdiction ?? fallback),
+    );
   return (
     <>
       <PageHeader
@@ -124,6 +152,34 @@ function RuleView({
       {pending ? (
         <div className="mb-5">
           <PendingChange rule={rule} change={pending} />
+        </div>
+      ) : null}
+      {rule.verifications?.length ? (
+        <div className="mb-5">
+          <Notice tone="ok">
+            {rule.verifications.map((v) => (
+              <span key={v.gap} className="block">
+                <span className="font-medium">
+                  {v.gap} verified against the original text
+                </span>{" "}
+                by {userName(v.verified_by)} on {formatTimestamp(v.verified_at)}
+                : {v.note}
+                {v.link ? (
+                  <>
+                    {" "}
+                    <a
+                      href={v.link}
+                      className="underline"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      Source
+                    </a>
+                  </>
+                ) : null}
+              </span>
+            ))}
+          </Notice>
         </div>
       ) : null}
       {rule.caveat ? (
@@ -231,34 +287,42 @@ function RuleView({
             )}
           </Panel>
           <ConfigHistory rule={rule} onDone={setMessage} />
-          {rule.engineering_logic ? (
+        </div>
+        <div className="flex min-w-0 flex-col gap-5">
+          {rule.provenance || rule.inherited_from ? (
             <Panel>
-              <PanelHeader
-                title="Engineering logic"
-                legend="for engineers and administrators"
-              />
+              <PanelHeader title="Where it comes from" />
               <div className="flex flex-col gap-3 px-5 pb-5">
-                <CodeBlock
-                  value={rule.engineering_logic}
-                  label="Engineering logic"
-                />
-                {rule.definition ? (
-                  <details>
-                    <summary className="cursor-pointer text-body-sm text-text-secondary">
-                      Machine definition the engine interprets
-                    </summary>
-                    <CodeBlock
-                      value={rule.definition}
-                      label="Rule definition"
-                      className="mt-2"
-                    />
-                  </details>
+                {rule.provenance ? (
+                  <p className="flex flex-col items-start gap-1.5">
+                    <StatusPill tone={PROVENANCE[rule.provenance].tone}>
+                      {PROVENANCE[rule.provenance].label}
+                    </StatusPill>
+                    <span className="text-body-sm text-text-secondary">
+                      {PROVENANCE[rule.provenance].meaning}
+                    </span>
+                  </p>
+                ) : null}
+                <p className="text-body-sm">{lineageText(rule)}</p>
+                {rule.off_reason ? (
+                  <Notice tone="warn">
+                    {OFF_REASON[rule.off_reason]}. Enter the confirmed values
+                    and a reason before switching it on.
+                  </Notice>
+                ) : null}
+                {rule.basis ? (
+                  <section>
+                    <h3 className="text-label text-text-muted">
+                      The library says
+                    </h3>
+                    <p className="mt-1 text-body-sm text-text-secondary">
+                      {rule.basis}
+                    </p>
+                  </section>
                 ) : null}
               </div>
             </Panel>
           ) : null}
-        </div>
-        <div className="flex min-w-0 flex-col gap-5">
           <Panel>
             <PanelHeader title="Legal basis" />
             <div className="px-5 pb-5">
@@ -360,6 +424,9 @@ function RuleView({
               </p>
             </div>
           </Panel>
+          {rule.status === "regulatory" ? (
+            <PenaltyRegister pack={pack} compact />
+          ) : null}
         </div>
       </div>
       {configurable && editing ? (

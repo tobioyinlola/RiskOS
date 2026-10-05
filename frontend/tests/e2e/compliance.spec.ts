@@ -3,28 +3,22 @@ import { expect, test } from "@playwright/test";
 import { PACK, task } from "./compliance-fixtures";
 import { mockApi } from "./mock-api";
 
-test("the rules library: wording, conflicts, settings and what applies", async ({
+test("preset rules: confirm the institution, activate, turn off; no code anywhere", async ({
   page,
+  isMobile,
 }) => {
   const api = await mockApi(page);
   api.signedIn = true;
   await page.goto("/compliance");
+  await expect(page).toHaveURL(/\/rules\?tab=presets$/);
   await expect(
-    page.getByRole("heading", { level: 1, name: "Rules library" }),
+    page.getByRole("heading", { level: 1, name: "Rules" }),
   ).toBeVisible();
   await expect(page.getByText("Nigeria · version 2026.10.0")).toBeVisible();
   await expect(page.getByText("3 of 3 rules")).toBeVisible();
 
-  // Conflicts stay visible.
-  await page.getByLabel("Verification").selectOption("conflicting");
-  await expect(page.getByText("1 of 3 rules")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "REG-13", exact: true }),
-  ).toBeVisible();
-  await page.getByLabel("Verification").selectOption("");
-
-  // The licence type decides what applies; setting it is a person's decision.
-  await page.getByRole("button", { name: "Set licence type" }).click();
+  // Every workspace starts with a profile; a person confirms what kind of institution it is.
+  await page.getByRole("button", { name: "Confirm institution type" }).click();
   const dialog = page.getByRole("dialog", { name: "Your institution" });
   await dialog.getByLabel("Licence type").selectOption("mfb");
   await dialog.getByRole("button", { name: "Save" }).click();
@@ -32,36 +26,58 @@ test("the rules library: wording, conflicts, settings and what applies", async (
   await expect(
     page.getByText("Microfinance bank · NG pack 2026.10.0"),
   ).toBeVisible();
-  await page.getByLabel("Only rules that apply to us").check();
-  await expect(page.getByText("2 of 3 rules")).toBeVisible();
-  await expect(
-    page.getByRole("link", { name: "REG-01", exact: true }),
-  ).toBeHidden();
-  await page.getByLabel("Only rules that apply to us").uncheck();
 
-  // A rule's page: the library's words, the caveat, bounded settings and the logic.
-  await page.getByRole("link", { name: "REG-01", exact: true }).click();
-  await expect(page).toHaveURL(/\/compliance\/rules\/REG-01$/);
+  // Legal controls start on; risk signals start off until someone activates them.
+  const table = page.getByRole("table", { name: "Preset rules" });
+  const row = (name: RegExp) => table.getByRole("row", { name });
+  await expect(row(/Person of interest/)).toContainText("Required by law");
+  await expect(row(/Person of interest/)).toContainText("Active");
+  await expect(row(/Burst of transfers/)).toContainText("Off");
+  await expect(row(/New-device limit/)).toContainText(
+    "Not for your institution type",
+  );
+  await page.getByLabel("Only rules for our institution type").check();
+  await expect(page.getByText("2 of 3 rules")).toBeVisible();
+
+  await page
+    .getByRole("button", { name: "Activate Burst of transfers" })
+    .click();
+  await expect(row(/Burst of transfers/)).toContainText("Active");
+  expect(api.calls).toContain("PUT /compliance/rules/VEL-01/config");
+
+  // Turning off a control the law requires asks why.
+  await page
+    .getByRole("button", { name: "Turn off Person of interest" })
+    .click();
+  const off = page.getByRole("dialog", {
+    name: "Turn off Person of interest?",
+  });
+  await expect(off).toContainText("required by");
+  await off.getByLabel("Why").fill("Replaced by our own screening provider");
+  await off.getByRole("button", { name: "Turn off" }).click();
+  await expect(off).toBeHidden();
+  await expect(row(/Person of interest/)).toContainText("Off");
+
+  // A rule's page: the library's words and its settings, never engineering logic or code.
+  await page.getByLabel("Only rules for our institution type").uncheck();
+  await page.getByRole("link", { name: "New-device limit" }).click();
+  await expect(page).toHaveURL(/\/compliance\/rules\/REG-01\?jurisdiction=NG$/);
   await expect(
     page.getByRole("heading", { level: 1, name: "New-device limit" }),
   ).toBeVisible();
-  await expect(
-    page.getByText(
-      "A customer sends more than ₦20,000 within 24 hours of linking a new phone or app, or within 24 hours of opening the account",
-    ),
-  ).toBeVisible();
   await expect(page.getByText("Declines the transfer")).toBeVisible();
-  await expect(
-    page.getByText(/summaries of the CBN circular, not the circular itself/),
-  ).toBeVisible();
   const settings = page.getByRole("table", { name: "Settings" });
   await expect(settings.getByText("20,000.00 NGN").first()).toBeVisible();
-  await expect(settings.getByText("1 day to 7 days")).toBeVisible();
-  await expect(page.getByText("Does not apply")).toBeVisible();
   await expect(
     page.getByRole("heading", { name: "Engineering logic" }),
-  ).toBeVisible();
-  await expect(page.getByText(/RULE REG-01 \| control=hard/)).toBeVisible();
+  ).toHaveCount(0);
+  await expect(page.getByText(/RULE REG-01/)).toHaveCount(0);
+  if (!isMobile) {
+    // A preset rule's page belongs to Rules in the navigation.
+    await expect(
+      page.getByRole("navigation").getByRole("link", { name: "Rules" }),
+    ).toHaveAttribute("aria-current", "page");
+  }
 
   expect(api.problems).toEqual([]);
   expect(api.calls).toContain("PUT /compliance/profile");
@@ -70,7 +86,7 @@ test("the rules library: wording, conflicts, settings and what applies", async (
 test("deadlines, open questions and the glossary", async ({ page }) => {
   const api = await mockApi(page);
   api.signedIn = true;
-  await page.goto("/compliance");
+  await page.goto("/rules?tab=references");
   await page.getByRole("tab", { name: "Deadlines" }).click();
   await expect(
     page.getByText("Report cyber incidents to the CBN"),
@@ -101,13 +117,14 @@ test("an auditor reads the plain wording and changes nothing", async ({
     "team:read",
     "compliance:read",
   ];
-  await page.goto("/compliance");
+  await page.goto("/rules?tab=presets");
   await expect(
-    page.getByText(/An administrator or compliance officer sets/),
+    page.getByText(/A compliance officer or administrator should confirm/),
   ).toBeVisible();
   await expect(
-    page.getByRole("button", { name: "Set licence type" }),
+    page.getByRole("button", { name: "Confirm institution type" }),
   ).toHaveCount(0);
+  await expect(page.getByRole("button", { name: /^Activate / })).toHaveCount(0);
 
   await page.goto("/compliance/rules/REG-01");
   await expect(page.getByText("Declines the transfer")).toBeVisible();
@@ -130,6 +147,8 @@ test("configure a rule: settings in natural units, a backtest, a version", async
 }) => {
   const api = await mockApi(page);
   api.signedIn = true;
+  // A profile set up before automatic profiles: risk signals at the pack's defaults (shadow).
+  api.complianceProfile = { ...api.complianceProfile, signalsOff: false };
   await page.goto("/compliance/rules/VEL-01");
   await expect(page.getByText("Shadow in test")).toBeVisible();
   await page.getByRole("button", { name: "Configure" }).click();
@@ -184,7 +203,7 @@ test("production: a control's change waits for a second person", async ({
     decision_note: null,
     applied_version: null,
   });
-  await page.goto("/compliance");
+  await page.goto("/rules?tab=presets");
   await page.getByRole("radio", { name: "Production" }).click();
   await expect(page.getByText("1 change awaits approval")).toBeVisible();
   await page.getByRole("link", { name: "REG-13", exact: true }).first().click();
@@ -215,7 +234,7 @@ test("production: a control's change waits for a second person", async ({
 test("exchange rates", async ({ page }) => {
   const api = await mockApi(page);
   api.signedIn = true;
-  await page.goto("/compliance");
+  await page.goto("/rules?tab=references");
   await page.getByRole("tab", { name: "Exchange rates" }).click();
   await expect(page.getByText("No exchange rates")).toBeVisible();
   await page.getByLabel("US dollars per unit").fill("0.00065");
@@ -294,6 +313,8 @@ test("a newer pack version can be adopted", async ({ page }) => {
     jurisdiction: "NG",
     licence_type: "bank",
     capabilities: [],
+    confirmed: true,
+    signalsOff: false,
   };
   await page.route("**/api/v1/compliance/pack", (route) =>
     route.fulfill({
@@ -301,7 +322,7 @@ test("a newer pack version can be adopted", async ({ page }) => {
       body: JSON.stringify({ ...PACK, latest_version: "2026.10.1" }),
     }),
   );
-  await page.goto("/compliance");
+  await page.goto("/rules?tab=presets");
   await expect(
     page.getByText(/Version 2026.10.1 of the Nigeria pack is available/),
   ).toBeVisible();

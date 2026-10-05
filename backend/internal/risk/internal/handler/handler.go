@@ -12,6 +12,7 @@ import (
 	"strings"
 
 	"github.com/google/uuid"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
@@ -55,12 +56,28 @@ func (h *Handlers) GetRiskCatalog(ctx context.Context, _ apigen.GetRiskCatalogRe
 		names = append(names, n)
 	}
 	slices.Sort(names)
-	for _, n := range names {
-		out.Fields = append(out.Fields, struct {
-			Name      string                       `json:"name"`
-			Operators []string                     `json:"operators"`
-			Type      apigen.RiskCatalogFieldsType `json:"type"`
-		}{n, rules.Operators(fields[n]), apigen.RiskCatalogFieldsType(fields[n].String())})
+	info := rules.Info()
+	out.Fields = slices.Grow(out.Fields, len(names))[:len(names)]
+	for i, n := range names {
+		fi, f := info[n], &out.Fields[i]
+		f.Name, f.Operators, f.Type = n, rules.Operators(fields[n]), apigen.RiskCatalogFieldsType(fields[n].String())
+		f.Label, f.Group, f.Events = fi.Label, fi.Group, append([]string{}, fi.Events...)
+		if fi.Unit != "" {
+			f.Unit = new(apigen.RiskCatalogFieldsUnit(fi.Unit))
+		}
+		if fi.Kind != "" {
+			f.Kind = new(apigen.RiskCatalogFieldsKind(fi.Kind))
+		}
+		if len(fi.Values) > 0 {
+			values := make([]struct {
+				Label string `json:"label"`
+				Value string `json:"value"`
+			}, len(fi.Values))
+			for j, c := range fi.Values {
+				values[j].Label, values[j].Value = c.Label, c.Value
+			}
+			f.Values = &values
+		}
 	}
 	return out, nil
 }
@@ -471,4 +488,59 @@ func (h *Handlers) ListRestrictedSignals(ctx context.Context, req apigen.ListRes
 		}
 	}
 	return apigen.ListRestrictedSignals200JSONResponse{Data: data}, nil
+}
+
+// GetRuleStats implements GET /api/v1/rules/stats.
+func (h *Handlers) GetRuleStats(ctx context.Context, req apigen.GetRuleStatsRequestObject) (apigen.GetRuleStatsResponseObject, error) {
+	n := 0
+	if req.Params.Days != nil {
+		n = *req.Params.Days
+	}
+	st, err := h.svc.RuleStats(ctx, n)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	out := apigen.GetRuleStats200JSONResponse{Since: st.Since, Days: st.Days, Evaluations: st.Evaluations}
+	out.Rules = slices.Grow(out.Rules, len(st.Rules))[:len(st.Rules)]
+	for i, r := range st.Rules {
+		o := &out.Rules[i]
+		o.RuleId, o.Matches, o.LastMatchedAt = ids.Format(ids.PrefixRule, r.RuleID), r.Matches, r.LastMatchedAt
+		o.Daily = slices.Grow(o.Daily, len(r.Daily))[:len(r.Daily)]
+		for j, d := range r.Daily {
+			o.Daily[j].Day, o.Daily[j].Matches = openapi_types.Date{Time: d.Day}, d.Matches
+		}
+	}
+	return out, nil
+}
+
+// TestRuleOnRecentEvents implements POST /api/v1/rules/test-recent.
+func (h *Handlers) TestRuleOnRecentEvents(ctx context.Context, req apigen.TestRuleOnRecentEventsRequestObject) (apigen.TestRuleOnRecentEventsResponseObject, error) {
+	if req.Body == nil {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	condition, err := json.Marshal(req.Body.Condition)
+	if err != nil {
+		return nil, httpx.InvalidRequest("The condition is not valid JSON.", err)
+	}
+	n := 0
+	if req.Body.Days != nil {
+		n = *req.Body.Days
+	}
+	res, err := h.svc.TestRecent(ctx, condition, n)
+	if err != nil {
+		return nil, MapError(err)
+	}
+	out := apigen.TestRuleOnRecentEvents200JSONResponse{
+		Since: res.Since, Checked: res.Checked, Matched: res.Matched, Truncated: res.Truncated,
+	}
+	out.Sample = slices.Grow(out.Sample, len(res.Sample))[:len(res.Sample)]
+	for i, m := range res.Sample {
+		o := &out.Sample[i]
+		o.EvaluationId, o.At, o.EventType = ids.Format(ids.PrefixEvaluation, m.EvaluationID), m.At, m.EventType
+		o.Amount, o.Currency, o.Decision, o.RiskScore = m.Amount, m.Currency, m.Decision, m.Score
+		if m.EventID != nil {
+			o.EventId = ids.Format(ids.PrefixEvent, *m.EventID)
+		}
+	}
+	return out, nil
 }

@@ -20,7 +20,15 @@ func MoneyKinds() []string {
 		"transfer_outbound", "transfer_inbound", "transfer_international", "cash_payment", "cash_withdrawal",
 		"cash_deposit", "atm_withdrawal", "pos_purchase", "card_authorization", "crypto_purchase",
 		"crypto_withdrawal", "crypto_transfer", "fiat_inflow", "funding", "loan_disbursement", "loan_repayment",
+		"forex_buy", "forex_sell", "wallet_cash_out",
 	}
+}
+
+// groupKinds are kinds an event also counts as, so one window can cover several kinds.
+var groupKinds = map[string]string{ //nolint:gochecknoglobals // fixed vocabulary
+	"forex_buy": "forex_any", "forex_sell": "forex_any",
+	"sim_registered": "sim_change", "sim_replaced": "sim_change",
+	"cash_deposit": "cash_any", "cash_withdrawal": "cash_any", "cash_payment": "cash_any",
 }
 
 // KindsFor returns the kinds a customer may name for an event of API type t.
@@ -44,6 +52,13 @@ func KindsFor(t string) []string {
 			"customer_onboarded", "customer_review", "credit_requested", "list_updated", "telco_lookup",
 			"data_export", "api_request", "api_lookup", "config_change", "role_change", "staff_action",
 			"fraud_report", "merchant_daily", "terminal_activity",
+			// Country packs (ADR-0007).
+			"sim_registered", "sim_replaced", "otp_used", "designation_received", "fic_order_received",
+			"incident_detected", "vulnerability_confirmed", "breach_confirmed", "outsourcing_planned",
+			"outsourcing_signed", "vendor_onboarded", "vendor_review", "remote_access_login", "data_transfer",
+			"record_delete_requested", "audit_log_check", "eod_reconciliation", "agent_daily", "cdr_daily",
+			"config_scan", "pentest_completed", "security_audit_completed", "audit_finding_opened",
+			"security_review_due",
 		}
 	}
 	return nil
@@ -80,6 +95,9 @@ func Kinds(in KindInput) []string {
 	default:
 		return nil
 	}
+	if g, ok := groupKinds[own[0]]; ok {
+		own = append(own, g)
+	}
 	if slices.ContainsFunc(own, func(k string) bool { return slices.Contains(MoneyKinds(), k) }) {
 		own = append(own, "transaction_any")
 	}
@@ -87,7 +105,9 @@ func Kinds(in KindInput) []string {
 }
 
 // derivedFacts are facts RiskOS reads from the event itself; a customer cannot send them.
-func derivedFacts() []string { return []string{"txn.amount", "txn.local_hour", "profile.field"} }
+func derivedFacts() []string {
+	return []string{"txn.amount", "txn.local_hour", "txn.direction", "event.kind", "profile.field"}
+}
 
 // CheckSuppliedFact checks a fact a customer sent: a catalog fact from a provider outside
 // RiskOS, with a value of its type. JSON numbers arrive as float64; money as
@@ -97,7 +117,8 @@ func CheckSuppliedFact(name string, v any) error {
 	switch {
 	case !ok:
 		return fmt.Errorf("%s is not a fact in the rule pack's catalog", name)
-	case f.Input == "history" || f.Input == "workflow" || f.Type == FactID || slices.Contains(derivedFacts(), name):
+	case f.Input == "history" || f.Input == "workflow" || f.Input == "activation" || f.Type == FactID ||
+		slices.Contains(derivedFacts(), name):
 		return fmt.Errorf("%s is computed by RiskOS and cannot be sent", name)
 	}
 	switch f.Type {

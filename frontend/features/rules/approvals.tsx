@@ -4,7 +4,7 @@ import { useState, type ReactNode } from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
-import { CodeBlock, KeyValues, Tag } from "@/components/ui/misc";
+import { KeyValues, Tag } from "@/components/ui/misc";
 import { Drawer } from "@/components/ui/overlay";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { Notice } from "@/components/ui/states";
@@ -17,7 +17,9 @@ import {
   useRuleChange,
   useRuleChanges,
   useUserName,
+  useCatalog,
 } from "@/lib/queries";
+import { ruleSentence } from "@/lib/rule-builder";
 import { useSession } from "@/lib/session";
 
 type Rule = Schemas["Rule"];
@@ -150,6 +152,7 @@ function ChangeReview({
   change: RuleChange;
   onDecided: () => void;
 }) {
+  const catalog = useCatalog();
   const { session, can } = useSession();
   const userName = useUserName();
   const current = useRule(c.kind === "create" ? undefined : c.rule_id);
@@ -190,6 +193,7 @@ function ChangeReview({
   ];
   const conditionChanged =
     !now || JSON.stringify(now.condition) !== JSON.stringify(p.condition);
+  const fields = catalog.data?.fields ?? [];
 
   return (
     <div className="flex flex-col gap-5">
@@ -236,9 +240,10 @@ function ChangeReview({
 
       <div className="flex flex-col gap-2">
         <p className="text-label text-text-muted">
-          Condition{conditionChanged && c.kind !== "create" ? " (changed)" : ""}
+          What it says
+          {conditionChanged && c.kind !== "create" ? " (changed)" : ""}
         </p>
-        <CodeBlock value={JSON.stringify(p.condition, null, 2)} />
+        <p className="text-body">{ruleSentence(p, fields)}</p>
       </div>
 
       {approve.error ? <Notice tone="error">{approve.error}</Notice> : null}

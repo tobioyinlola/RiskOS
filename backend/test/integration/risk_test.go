@@ -112,6 +112,7 @@ func storedEvaluation(t *testing.T, evaluationID string) stored {
 func TestSpecScenarioScoresHigh(t *testing.T) {
 	s := newStack(t, time.Second)
 	a := s.createTenant(t, "Spec scenario")
+	withoutCompliance(t, a.id)
 	u := actor{"u_spec", "acc_spec", "dev_home"}
 
 	// History: six ordinary transfers from the usual device to the usual beneficiary.
@@ -295,6 +296,7 @@ func ruleWeight(d apigen.RiskDecision, code string) (int, bool) {
 func TestRuleLifecycle(t *testing.T) {
 	s := newStack(t, time.Second)
 	a := s.createTenant(t, "Rules")
+	withoutCompliance(t, a.id)
 	u := actor{"u_rule", "acc_rule", "dev_rule"}
 	big := func() map[string]any { return debit(u, "ben_rule", "NG", "NGN", 2000000) }
 

@@ -27,9 +27,6 @@ func (e Event) Kinds() []string {
 	return rulepack.Kinds(in)
 }
 
-// Lagos is West Africa Time (UTC+1, no daylight saving): pack hours are Lagos hours.
-var Lagos = time.FixedZone("WAT", 3600) //nolint:gochecknoglobals // a fixed zone, never mutated
-
 // authFactors maps login methods to the pack's authentication factors.
 func authFactor(method string) (string, bool) {
 	switch method {
@@ -50,10 +47,10 @@ func txnSource(channel string) (string, bool) {
 }
 
 // PackFacts builds the facts pack rules see: what the event says, what the customer sent in its
-// compliance block, behaviour history from the feature store and the activity history. History
-// is left out while it is degraded or warming up, so rules on it are not evaluated rather than
-// judged on wrong values.
-func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
+// compliance block, behaviour history from the feature store and the activity history. Hours of
+// the day are in loc, the governing jurisdiction's time zone. History is left out while it is
+// degraded or warming up, so rules on it are not evaluated rather than judged on wrong values.
+func PackFacts(e Event, v Values, p Activity, loc *time.Location) rulepack.Facts {
 	f := rulepack.Facts{}
 	if e.Compliance != nil {
 		for name, value := range e.Compliance.Facts {
@@ -66,9 +63,15 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 			f[name] = value
 		}
 	}
-	at := e.OccurredAt.In(Lagos)
+	at := e.OccurredAt.In(loc)
+	if kinds := e.Kinds(); len(kinds) > 0 {
+		f["event.kind"] = kinds[0]
+	}
 	if t := e.Transaction; t != nil {
 		f["txn.amount"] = rulepack.Money{Minor: float64(t.Amount), Currency: t.Currency}
+		if t.Direction == "credit" || t.Direction == "debit" {
+			f["txn.direction"] = t.Direction
+		}
 		f["txn.local_hour"] = float64(at.Hour())
 		if s, ok := txnSource(t.Channel); ok {
 			if _, sent := f["txn.source"]; !sent {
@@ -106,6 +109,9 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 	if v.ToPriorSender != nil {
 		f["txn.to_prior_sender"] = *v.ToPriorSender
 	}
+	if v.NewSender != nil {
+		f["txn.from_new_sender"] = v.NewUser || *v.NewSender
+	}
 	if e.Context.Country != "" && !v.NewUser {
 		f["geo.country_usual"] = !v.NewCountry
 	}
@@ -121,7 +127,7 @@ func PackFacts(e Event, v Values, p Activity) rulepack.Facts {
 	if p.AccountLast != nil {
 		f["account.inactive_for"] = math.Max(0, e.OccurredAt.Sub(*p.AccountLast).Seconds())
 	}
-	// A usual hour is one the user was active in before (Lagos time).
+	// A usual hour is one the user was active in before (the jurisdiction's time).
 	if p.Hours != nil && *p.Hours != 0 {
 		f["history.hour_usual"] = (*p.Hours>>at.Hour())&1 == 1
 	}
@@ -170,6 +176,10 @@ func (e Event) FieldValue(field string) string {
 	switch field {
 	case "account.id":
 		return e.Actor.AccountID
+	case "customer.id":
+		return e.Actor.UserID
+	case "agent.id":
+		return e.ref("agent")
 	case "beneficiary.id":
 		return e.BeneficiaryID()
 	case "card.id":
@@ -223,7 +233,7 @@ type WindowEvent struct {
 	Currency string
 	// UserID and AccountID key the activity profile.
 	UserID, AccountID string
-	// Hour is the hour of the day in Lagos (-1: none recorded); ExportRows the rows of a data
+	// Hour is the hour of the day in the jurisdiction's time zone (-1: none recorded); ExportRows the rows of a data
 	// export, when the event says; Geo where the end user was.
 	Hour       int
 	ExportRows *float64
@@ -248,7 +258,8 @@ type WindowValue struct {
 type Activity struct {
 	UserFirst, AccountLast *time.Time
 	MaxAmount              *float64
-	// Hours is the user's mask of hours of the day (Lagos) active in before this event.
+	// Hours is the user's mask of hours of the day (the jurisdiction's time) active in before
+	// this event.
 	Hours *int64
 	// ExportUser and ExportTenant are the rows-per-export baselines before this event.
 	ExportUser, ExportTenant Baseline

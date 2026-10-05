@@ -39,13 +39,21 @@ const (
 // modeRank orders modes by how much a rule acts: off, shadow, live.
 func modeRank(m string) int { return slices.Index([]string{ModeOff, ModeShadow, ModeLive}, m) }
 
-// defaultMode is how the library starts a rule: off when not enabled by default.
-func defaultMode(def *pack.Rule) string {
-	if !def.Defaults.Enabled {
+// defaultMode is how a rule starts for profile c: off when not enabled by default, and a risk
+// signal off when the profile starts signals off (an automatic profile: a compliance person
+// activates the signals they want).
+func defaultMode(def *pack.Rule, c *store.Activation) string {
+	if !def.Defaults.Enabled || (def.Kind == pack.KindSignal && c != nil && c.SignalDefault == SignalsOff) {
 		return ModeOff
 	}
 	return string(def.Defaults.Mode)
 }
+
+// SignalsOff is the profile setting that starts every risk signal off.
+const SignalsOff = "off"
+
+// SystemProfileAuthor marks a compliance profile created automatically with its workspace.
+const SystemProfileAuthor = "system:default"
 
 // RuleConfig is a rule's configuration in the caller's environment.
 type RuleConfig struct {
@@ -62,9 +70,9 @@ type RuleConfig struct {
 	Pending *store.RuleChange
 }
 
-func configOf(def *pack.Rule, v *store.RuleVersion) RuleConfig {
+func configOf(def *pack.Rule, v *store.RuleVersion, c *store.Activation) RuleConfig {
 	if v == nil {
-		return RuleConfig{RuleID: def.ID, Mode: defaultMode(def), Settings: map[string]float64{}}
+		return RuleConfig{RuleID: def.ID, Mode: defaultMode(def, c), Settings: map[string]float64{}}
 	}
 	return RuleConfig{
 		RuleID: def.ID, Version: v.Version, Mode: v.Mode, Settings: v.Settings, Reason: v.Reason,
@@ -157,9 +165,43 @@ func person(ctx context.Context, p authz.Permission) (tenancy.Scope, error) {
 	return scope, nil
 }
 
-// rule loads the tenant's pack and one of its rules, with the rule's configuration.
+// rule loads one of the tenant's rules, with its pack and configuration: in the jurisdiction
+// the rule ID names (GH-REG-01), else in the fallback activation's pack.
 func (s *Service) rule(ctx context.Context, scope tenancy.Scope, ruleID string) (library, *pack.Rule, RuleConfig, error) {
-	lib, err := s.load(ctx, scope)
+	return s.ruleIn(ctx, scope, JurisdictionOf(ruleID), ruleID)
+}
+
+// ruleFor is rule in a named jurisdiction, when one is given: an inherited rule (ATO-04) is in
+// Nigeria's pack and in every pack that inherits it, each configured on its own.
+func (s *Service) ruleFor(ctx context.Context, scope tenancy.Scope, jurisdiction, ruleID string) (library, *pack.Rule, RuleConfig, error) {
+	if jurisdiction == "" {
+		return s.rule(ctx, scope, ruleID)
+	}
+	return s.ruleIn(ctx, scope, jurisdiction, ruleID)
+}
+
+// placeholdersSet checks that a rule off until confirmed (off_reason, or settings the
+// institution must enter) is switched on only with every such setting entered.
+func placeholdersSet(def *pack.Rule, cur RuleConfig, in ConfigInput) error {
+	if in.Mode == ModeOff || cur.Mode != ModeOff {
+		return nil
+	}
+	var missing []string
+	for _, p := range def.Parameters {
+		if _, set := in.Settings[p.Name]; !set && p.Default == nil {
+			missing = append(missing, p.Name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: %s is off until its settings are entered: set %s first", ErrInvalidInput, def.ID, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
+// ruleIn loads one of the tenant's rules in a jurisdiction ("" is the fallback activation's),
+// with its pack and configuration.
+func (s *Service) ruleIn(ctx context.Context, scope tenancy.Scope, jurisdiction, ruleID string) (library, *pack.Rule, RuleConfig, error) {
+	lib, err := s.load(ctx, scope, jurisdiction)
 	if err != nil {
 		return library{}, nil, RuleConfig{}, err
 	}
@@ -176,8 +218,8 @@ func (s *Service) rule(ctx context.Context, scope tenancy.Scope, ruleID string) 
 	if c, ok := cur[ruleID]; ok {
 		v = &c
 	}
-	cfg := configOf(def, v)
-	pending, err := s.store.Changes(ctx, "pending", ruleID)
+	cfg := configOf(def, v, lib.profile)
+	pending, err := s.store.Changes(ctx, "pending", lib.pack.ID, ruleID)
 	if err != nil {
 		return library{}, nil, RuleConfig{}, err
 	}
@@ -194,7 +236,7 @@ func (s *Service) recordRule(ctx context.Context, action, ruleID string, meta ma
 }
 
 // Config returns a rule's configuration in the caller's environment. Requires compliance:read.
-func (s *Service) Config(ctx context.Context, ruleID string) (RuleConfig, error) {
+func (s *Service) Config(ctx context.Context, jurisdiction, ruleID string) (RuleConfig, error) {
 	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
 		return RuleConfig{}, err
 	}
@@ -204,7 +246,7 @@ func (s *Service) Config(ctx context.Context, ruleID string) (RuleConfig, error)
 	}
 	var out RuleConfig
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		_, _, out, err = s.rule(ctx, scope, ruleID)
+		_, _, out, err = s.ruleFor(ctx, scope, jurisdiction, ruleID)
 		return err
 	})
 	return out, err
@@ -213,18 +255,21 @@ func (s *Service) Config(ctx context.Context, ruleID string) (RuleConfig, error)
 // Configure sets a rule's mode and settings in the caller's environment: as a new version at
 // once, or, when a second person must agree (needsApproval), as a pending change. Audited.
 // Requires compliance:configure, held only by people.
-func (s *Service) Configure(ctx context.Context, ruleID string, in ConfigInput, now time.Time) (ConfigResult, error) {
+func (s *Service) Configure(ctx context.Context, jurisdiction, ruleID string, in ConfigInput, now time.Time) (ConfigResult, error) {
 	scope, err := person(ctx, authz.ComplianceConfigure)
 	if err != nil {
 		return ConfigResult{}, err
 	}
 	var out ConfigResult
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		lib, def, cur, err := s.rule(ctx, scope, ruleID)
+		lib, def, cur, err := s.ruleFor(ctx, scope, jurisdiction, ruleID)
 		if err != nil {
 			return err
 		}
 		if in, err = normalize(def, in); err != nil {
+			return err
+		}
+		if err := placeholdersSet(def, cur, in); err != nil {
 			return err
 		}
 		if in.Mode == cur.Mode && maps.Equal(in.Settings, cur.Settings) {
@@ -268,7 +313,7 @@ func (s *Service) Configure(ctx context.Context, ruleID string, in ConfigInput, 
 			}
 			return err
 		}
-		cfg := configOf(def, &v)
+		cfg := configOf(def, &v, nil)
 		out.Applied = &cfg
 		meta["version"] = v.Version
 		return s.recordRule(ctx, "pack_rule.configured", ruleID, meta)
@@ -278,7 +323,7 @@ func (s *Service) Configure(ctx context.Context, ruleID string, in ConfigInput, 
 
 // History returns a rule's configuration versions in the caller's environment, newest first.
 // Requires compliance:read.
-func (s *Service) History(ctx context.Context, ruleID string) ([]store.RuleVersion, error) {
+func (s *Service) History(ctx context.Context, jurisdiction, ruleID string) ([]store.RuleVersion, error) {
 	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
 		return nil, err
 	}
@@ -288,7 +333,7 @@ func (s *Service) History(ctx context.Context, ruleID string) ([]store.RuleVersi
 	}
 	var out []store.RuleVersion
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		lib, _, _, err := s.rule(ctx, scope, ruleID)
+		lib, _, _, err := s.ruleFor(ctx, scope, jurisdiction, ruleID)
 		if err != nil {
 			return err
 		}
@@ -300,8 +345,8 @@ func (s *Service) History(ctx context.Context, ruleID string) ([]store.RuleVersi
 
 // Rollback restores a rule's earlier version as its next one, through Configure (so a
 // rollback that could loosen a control in production also needs approval).
-func (s *Service) Rollback(ctx context.Context, ruleID string, version int, reason string, now time.Time) (ConfigResult, error) {
-	versions, err := s.History(ctx, ruleID)
+func (s *Service) Rollback(ctx context.Context, jurisdiction, ruleID string, version int, reason string, now time.Time) (ConfigResult, error) {
+	versions, err := s.History(ctx, jurisdiction, ruleID)
 	if err != nil {
 		return ConfigResult{}, err
 	}
@@ -310,7 +355,7 @@ func (s *Service) Rollback(ctx context.Context, ruleID string, version int, reas
 		return ConfigResult{}, fmt.Errorf("%w: %s has no version %d", ErrNotFound, ruleID, version)
 	}
 	v := versions[i]
-	return s.Configure(ctx, ruleID, ConfigInput{Mode: v.Mode, Settings: v.Settings, Reason: reason, RestoredFrom: &version}, now)
+	return s.Configure(ctx, jurisdiction, ruleID, ConfigInput{Mode: v.Mode, Settings: v.Settings, Reason: reason, RestoredFrom: &version}, now)
 }
 
 // Changes lists configuration changes in the caller's environment; status filters when set.
@@ -322,7 +367,7 @@ func (s *Service) Changes(ctx context.Context, status string) ([]store.RuleChang
 	var out []store.RuleChange
 	err := s.runner.Run(ctx, func(ctx context.Context) error {
 		var err error
-		out, err = s.store.Changes(ctx, status, "")
+		out, err = s.store.Changes(ctx, status, "", "")
 		return err
 	})
 	return out, err
@@ -345,7 +390,11 @@ func (s *Service) Approve(ctx context.Context, id uuid.UUID, note string, now ti
 		if c.ProposedBy == scope.Principal.ID {
 			return ErrOwnChange
 		}
-		_, _, cur, err := s.rule(ctx, scope, c.RuleID)
+		jurisdiction, err := s.jurisdictionOfPack(ctx, c.PackID)
+		if err != nil {
+			return err
+		}
+		_, _, cur, err := s.ruleIn(ctx, scope, jurisdiction, c.RuleID)
 		if err != nil {
 			return err
 		}
@@ -402,6 +451,20 @@ func (s *Service) Reject(ctx context.Context, id uuid.UUID, note string, now tim
 		})
 	})
 	return out, err
+}
+
+// jurisdictionOfPack returns the jurisdiction whose pack a change was made in.
+func (s *Service) jurisdictionOfPack(ctx context.Context, packID string) (string, error) {
+	list, err := s.store.Jurisdictions(ctx)
+	if err != nil {
+		return "", err
+	}
+	for _, j := range list {
+		if j.PackID == packID {
+			return j.Code, nil
+		}
+	}
+	return "", fmt.Errorf("%w: pack %s", ErrNotFound, packID)
 }
 
 func (s *Service) pending(ctx context.Context, id uuid.UUID) (store.RuleChange, error) {

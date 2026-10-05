@@ -22,7 +22,9 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/packs/gh"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/packs/ng"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/packs/rw"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 )
 
@@ -42,6 +44,21 @@ var (
 // LibraryHandlers are the compliance library operations of the public API.
 type LibraryHandlers interface {
 	GetCompliancePack(ctx context.Context, req apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error)
+	GetComplianceClockMatrix(ctx context.Context, req apigen.GetComplianceClockMatrixRequestObject) (apigen.GetComplianceClockMatrixResponseObject, error)
+	ExportComplianceLibrary(ctx context.Context, req apigen.ExportComplianceLibraryRequestObject) (apigen.ExportComplianceLibraryResponseObject, error)
+	ListComplianceJurisdictions(ctx context.Context, req apigen.ListComplianceJurisdictionsRequestObject) (apigen.ListComplianceJurisdictionsResponseObject, error)
+	ListComplianceActivations(ctx context.Context, req apigen.ListComplianceActivationsRequestObject) (apigen.ListComplianceActivationsResponseObject, error)
+	ListActiveComplianceRules(ctx context.Context, req apigen.ListActiveComplianceRulesRequestObject) (apigen.ListActiveComplianceRulesResponseObject, error)
+	CreateComplianceActivation(ctx context.Context, req apigen.CreateComplianceActivationRequestObject) (apigen.CreateComplianceActivationResponseObject, error)
+	UpdateComplianceActivation(ctx context.Context, req apigen.UpdateComplianceActivationRequestObject) (apigen.UpdateComplianceActivationResponseObject, error)
+	SetComplianceActivationStatus(ctx context.Context, req apigen.SetComplianceActivationStatusRequestObject) (apigen.SetComplianceActivationStatusResponseObject, error)
+	MakeComplianceActivationFallback(ctx context.Context, req apigen.MakeComplianceActivationFallbackRequestObject) (apigen.MakeComplianceActivationFallbackResponseObject, error)
+	GetComplianceActivationReadiness(ctx context.Context, req apigen.GetComplianceActivationReadinessRequestObject) (apigen.GetComplianceActivationReadinessResponseObject, error)
+	ListComplianceActivationChanges(ctx context.Context, req apigen.ListComplianceActivationChangesRequestObject) (apigen.ListComplianceActivationChangesResponseObject, error)
+	ApproveComplianceActivationChange(ctx context.Context, req apigen.ApproveComplianceActivationChangeRequestObject) (apigen.ApproveComplianceActivationChangeResponseObject, error)
+	RejectComplianceActivationChange(ctx context.Context, req apigen.RejectComplianceActivationChangeRequestObject) (apigen.RejectComplianceActivationChangeResponseObject, error)
+	VerifyComplianceGap(ctx context.Context, req apigen.VerifyComplianceGapRequestObject) (apigen.VerifyComplianceGapResponseObject, error)
+	ListCompliancePacks(ctx context.Context, req apigen.ListCompliancePacksRequestObject) (apigen.ListCompliancePacksResponseObject, error)
 	ListComplianceRules(ctx context.Context, req apigen.ListComplianceRulesRequestObject) (apigen.ListComplianceRulesResponseObject, error)
 	GetComplianceRule(ctx context.Context, req apigen.GetComplianceRuleRequestObject) (apigen.GetComplianceRuleResponseObject, error)
 	ListComplianceClocks(ctx context.Context, req apigen.ListComplianceClocksRequestObject) (apigen.ListComplianceClocksResponseObject, error)
@@ -83,8 +100,9 @@ func New(runner txn.Runner, rec audit.Recorder) *Module {
 // HTTPHandlers returns the compliance library handlers of the public API.
 func (m *Module) HTTPHandlers(clk clock.Clock) LibraryHandlers { return handler.New(m.svc, clk) }
 
-// BuiltInPacks returns the jurisdiction packs compiled into the binary.
-func BuiltInPacks() []fs.FS { return []fs.FS{ng.Files} }
+// BuiltInPacks returns the jurisdiction packs compiled into the binary, in load order: Ghana
+// and Rwanda reuse Nigerian rules, so Nigeria loads first (ADR-0007).
+func BuiltInPacks() []fs.FS { return []fs.FS{ng.Files, gh.Files, rw.Files} }
 
 // LoadPacks validates packs (normally BuiltInPacks) and stores every version not yet in the
 // database. pool must be connected as the schema owner (the application role can only read
@@ -95,8 +113,14 @@ func LoadPacks(ctx context.Context, pool Pool, packs []fs.FS, logger *slog.Logge
 
 // Evaluation of a tenant's pack by the risk engine.
 type (
-	// TenantPack is a tenant's pack compiled for evaluation; nil when it has no profile.
+	// TenantPack is one activation's pack compiled for evaluation.
 	TenantPack = service.TenantPack
+	// TenantPacks are a tenant's activations compiled for evaluation; nil without any.
+	TenantPacks = service.TenantPacks
+	// Resolution is which pack governs an event and why (ADR-0007).
+	Resolution = service.Resolution
+	// USDRate is the exchange rate a conversion used, recorded with the evaluation.
+	USDRate = service.USDRate
 	// Outcome is one triggered rule's evaluation.
 	Outcome = service.Outcome
 	// Window is one windowed aggregate a rule reads.
@@ -125,9 +149,19 @@ const (
 	ModeLive    = pack.ModeLive
 )
 
-// TenantPack returns the caller's tenant's pack compiled for evaluation, or nil without a
-// compliance profile. It runs in the caller's transaction.
-func (m *Module) TenantPack(ctx context.Context) (*TenantPack, error) { return m.svc.TenantPack(ctx) }
+// How an event's jurisdiction was resolved.
+const (
+	ResolvedBookingEntity = service.ResolvedBookingEntity
+	ResolvedFallback      = service.ResolvedFallback
+	ResolvedNone          = service.ResolvedNone
+	ResolvedInactive      = service.ResolvedInactive
+)
+
+// TenantPacks returns the caller's tenant's activations compiled for evaluation, or nil without
+// any. It runs in the caller's transaction.
+func (m *Module) TenantPacks(ctx context.Context) (*TenantPacks, error) {
+	return m.svc.TenantPacks(ctx)
+}
 
 // Candidates compiles one rule for a backtest: with settings (nil: the current configuration)
 // and with the environment's current configuration.

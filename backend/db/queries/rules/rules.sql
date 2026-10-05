@@ -19,7 +19,7 @@ FROM rule_packs WHERE id = @id AND version = @version;
 -- name: LatestPack :one
 SELECT id, version, jurisdiction, name, checksum, meta, loaded_at
 FROM rule_packs
-WHERE (sqlc.narg(jurisdiction)::text IS NULL OR jurisdiction = sqlc.narg(jurisdiction)::text)
+WHERE jurisdiction = @jurisdiction
 -- Versions compare as numbers ("2026.10.1" after "2026.9.0"), whatever order they were loaded in.
 ORDER BY string_to_array(version, '.')::int[] DESC
 LIMIT 1;
@@ -29,21 +29,120 @@ SELECT rule_id, definition, wording
 FROM pack_rules WHERE pack_id = @pack_id AND pack_version = @pack_version
 ORDER BY rule_id;
 
--- Compliance profiles. Row-level security limits them to the scope's tenant; every query also
--- names the tenant explicitly.
+-- Jurisdictions (reference data, ADR-0007).
 
--- name: GetCompliance :one
-SELECT tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by
-FROM tenant_compliance WHERE tenant_id = @tenant_id;
+-- name: ListJurisdictions :many
+SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions ORDER BY code;
 
--- name: UpsertCompliance :one
-INSERT INTO tenant_compliance (tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by)
-VALUES (@tenant_id, @pack_id, @pack_version, @licence_type, @capabilities, @updated_at, @updated_by)
-ON CONFLICT (tenant_id) DO UPDATE SET
-  pack_id = EXCLUDED.pack_id, pack_version = EXCLUDED.pack_version,
-  licence_type = EXCLUDED.licence_type, capabilities = EXCLUDED.capabilities,
-  updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
-RETURNING tenant_id, pack_id, pack_version, licence_type, capabilities, updated_at, updated_by;
+-- name: GetJurisdiction :one
+SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions WHERE code = @code;
+
+-- Jurisdiction activations (a tenant's compliance profile per country and booking entity).
+-- Row-level security limits them to the scope's tenant; every query also names the tenant.
+
+-- name: ListActivations :many
+SELECT id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+       capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+       updated_at, updated_by, day_starts_at
+FROM jurisdiction_activations WHERE tenant_id = @tenant_id
+ORDER BY fallback DESC, jurisdiction, booking_entity;
+
+-- name: UpdateFallbackActivation :one
+-- The compliance profile (PUT /compliance/profile) is the fallback activation.
+UPDATE jurisdiction_activations
+SET jurisdiction = @jurisdiction, pack_id = @pack_id, pack_version = @pack_version, licence_type = @licence_type,
+    capabilities = @capabilities, updated_at = @updated_at, updated_by = @updated_by
+WHERE tenant_id = @tenant_id AND fallback
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: InsertFallbackActivation :one
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
+  licence_type, capabilities, signal_default, activated_at, activated_by, updated_at, updated_by)
+VALUES (@id, @tenant_id, @jurisdiction, 'default', 'live', true, @pack_id, @pack_version,
+  @licence_type, @capabilities, 'pack', @updated_at::timestamptz, @updated_by::text, @updated_at::timestamptz, @updated_by::text)
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: InsertActivation :one
+-- A new country activation starts as a draft (Phase 4, ADR-0007).
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
+  licence_type, capabilities, signal_default, day_starts_at, rationale, updated_at, updated_by)
+VALUES (@id, @tenant_id, @jurisdiction, @booking_entity, 'draft', false, @pack_id, @pack_version,
+  @licence_type, @capabilities, 'pack', @day_starts_at, @rationale, @updated_at, @updated_by)
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: UpdateActivation :one
+UPDATE jurisdiction_activations
+SET licence_type = @licence_type, capabilities = @capabilities, day_starts_at = @day_starts_at,
+    updated_at = @updated_at, updated_by = @updated_by
+WHERE tenant_id = @tenant_id AND id = @id
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: SetActivationStatus :one
+-- Going live records who activated it, who approved it and why.
+UPDATE jurisdiction_activations
+SET status = @status, rationale = @rationale, updated_at = @updated_at, updated_by = @updated_by,
+    activated_at = CASE WHEN @status = 'live' THEN @updated_at ELSE activated_at END,
+    activated_by = CASE WHEN @status = 'live' THEN sqlc.narg(activated_by)::text ELSE activated_by END,
+    approved_by = CASE WHEN @status = 'live' THEN sqlc.narg(approved_by)::text ELSE approved_by END,
+    effective_from = CASE WHEN @status = 'live' AND effective_from IS NULL THEN @updated_at ELSE effective_from END
+WHERE tenant_id = @tenant_id AND id = @id
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: ClearFallback :exec
+UPDATE jurisdiction_activations SET fallback = false WHERE tenant_id = @tenant_id AND fallback;
+
+-- name: SetFallback :one
+UPDATE jurisdiction_activations SET fallback = true, updated_at = @updated_at, updated_by = @updated_by
+WHERE tenant_id = @tenant_id AND id = @id
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: InsertActivationChange :exec
+INSERT INTO activation_changes (tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state,
+  proposed_by, proposed_at)
+VALUES (@tenant_id, @id, @activation_id, @action, sqlc.narg(status_from), sqlc.narg(status_to), @details, @rationale, @state,
+  @proposed_by, @proposed_at);
+
+-- name: ListActivationChanges :many
+SELECT tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note
+FROM activation_changes
+WHERE tenant_id = @tenant_id
+  AND (sqlc.narg(activation_id)::uuid IS NULL OR activation_id = sqlc.narg(activation_id)::uuid)
+  AND (sqlc.narg(state)::text IS NULL OR state = sqlc.narg(state)::text)
+ORDER BY proposed_at DESC, id DESC
+LIMIT 200;
+
+-- name: GetActivationChange :one
+SELECT tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note
+FROM activation_changes WHERE tenant_id = @tenant_id AND id = @id FOR UPDATE;
+
+-- name: DecideActivationChange :exec
+UPDATE activation_changes SET state = @state, decided_by = @decided_by, decided_at = @decided_at,
+  decision_note = sqlc.narg(decision_note)
+WHERE tenant_id = @tenant_id AND id = @id AND state = 'pending';
+
+-- Gap verifications: an institution's check of an open question against the original text.
+
+-- name: InsertGapVerification :exec
+INSERT INTO gap_verifications (tenant_id, pack_id, gap_id, verified_by, verified_at, note, link)
+VALUES (@tenant_id, @pack_id, @gap_id, @verified_by, @verified_at, @note, sqlc.narg(link));
+
+-- name: ListGapVerifications :many
+SELECT tenant_id, pack_id, gap_id, verified_by, verified_at, note, link
+FROM gap_verifications WHERE tenant_id = @tenant_id AND pack_id = @pack_id ORDER BY gap_id;
 
 -- Rule configuration (per environment). Every query names the tenant and environment; row-level
 -- security limits them to the scope's.
@@ -81,6 +180,7 @@ SELECT id, pack_id, rule_id, base_version, mode, settings, reason, restored_from
 FROM pack_rule_changes
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id
   AND (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
+  AND (sqlc.narg(pack_id)::text IS NULL OR pack_id = sqlc.narg(pack_id)::text)
   AND (sqlc.narg(rule_id)::text IS NULL OR rule_id = sqlc.narg(rule_id)::text)
 ORDER BY proposed_at DESC
 LIMIT 200;
@@ -177,3 +277,25 @@ FOR UPDATE OF t;
 -- name: AccountScopes :many
 -- Every environment with accounts in the register; called outside any tenant scope.
 SELECT s.tenant_id::uuid AS tenant_id, s.environment_id::uuid AS environment_id FROM compliance_account_scopes() s;
+
+-- name: EnsureComplianceProfiles :execrows
+-- Gives every workspace without an activation the automatic one (migrations 00028 and 00029):
+-- Nigeria, as the stated fallback. Run by the pack loader as the owner, so workspaces created
+-- before any pack was loaded get one too.
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, pack_id, pack_version, licence_type, capabilities,
+                                      booking_entity, status, fallback, updated_at, updated_by, signal_default,
+                                      activated_at, activated_by)
+SELECT gen_random_uuid(), t.id, p.jurisdiction, p.id, p.version, 'other', '{}', 'default', 'live', true,
+       now(), 'system:default', 'off', now(), 'system:default'
+FROM tenants t
+CROSS JOIN LATERAL (
+  SELECT id, version, jurisdiction FROM rule_packs WHERE jurisdiction = 'NG'
+  ORDER BY string_to_array(version, '.')::int[] DESC LIMIT 1
+) p
+WHERE NOT EXISTS (SELECT 1 FROM jurisdiction_activations c WHERE c.tenant_id = t.id);
+
+-- name: LatestPacks :many
+-- The latest version of every jurisdiction's pack.
+SELECT DISTINCT ON (jurisdiction) id, version, jurisdiction, name, checksum, meta, loaded_at
+FROM rule_packs
+ORDER BY jurisdiction, string_to_array(version, '.')::int[] DESC;

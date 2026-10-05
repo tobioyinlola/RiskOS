@@ -103,7 +103,7 @@ func TestPackFlowsTravelAndVersions(t *testing.T) {
 		older["pack.json"].Data = []byte(strings.Replace(meta, `"version": "2026.10.1"`, `"version": "2026.9.0"`, 1))
 		// Loaded after the current version: "latest" compares versions, not load times.
 		require.NoError(t, rules.LoadPacks(t.Context(), shared.owner, []fs.FS{older}, shared.logger))
-		_, err := shared.owner.Exec(t.Context(), "UPDATE tenant_compliance SET pack_version = '2026.9.0' WHERE tenant_id = $1", a.id)
+		_, err := shared.owner.Exec(t.Context(), "UPDATE jurisdiction_activations SET pack_version = '2026.9.0' WHERE tenant_id = $1", a.id)
 		require.NoError(t, err)
 
 		p := decode[apigen.CompliancePack](t, s.call(t, http.MethodGet, "/api/v1/compliance/pack", a.testKey, nil))

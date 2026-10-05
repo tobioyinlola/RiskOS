@@ -21,17 +21,46 @@ async function audit(page: Page) {
   expect(summary, summary.join("\n")).toEqual([]);
 }
 
-test("the rules library and a rule", async ({ page }) => {
+test("preset rules, the rule builder and a rule", async ({ page }) => {
   const api = await mockApi(page);
   api.signedIn = true;
-  await page.goto("/compliance");
+  await page.goto("/rules?tab=presets");
+  await expect(page.getByRole("table", { name: "Preset rules" })).toBeVisible();
+  await audit(page);
+
+  await page.goto("/rules/new");
   await expect(
-    page.getByRole("heading", { level: 1, name: "Rules library" }),
+    page.getByRole("heading", { level: 1, name: "Create rule" }),
   ).toBeVisible();
+  await page
+    .getByLabel("Condition 1: what to check")
+    .selectOption("transaction.amount");
   await audit(page);
 
   await page.goto("/compliance/rules/REG-01");
   await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await audit(page);
+});
+
+test("another country: its rules, a rule, its deadlines and all countries", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  await page.goto("/rules?tab=presets&country=RW");
+  await expect(page.getByRole("table", { name: "Preset rules" })).toBeVisible();
+  await audit(page);
+
+  await page.goto("/compliance/rules/RW-REG-04?jurisdiction=RW");
+  await expect(page.getByRole("heading", { level: 1 })).toBeVisible();
+  await audit(page);
+
+  await page.goto("/rules?tab=references&country=RW");
+  await expect(page.getByRole("table", { name: "Deadlines" })).toBeVisible();
+  await audit(page);
+
+  await page.goto("/rules?tab=presets&country=ALL");
+  await expect(page.getByText("Africa/Kigali")).toBeVisible();
   await audit(page);
 });
 

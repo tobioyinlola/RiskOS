@@ -1,0 +1,1301 @@
+{
+  "id": "rw",
+  "jurisdiction": "RW",
+  "name": "Rwanda",
+  "version": "2026.10.2",
+  "currency": "RWF",
+  "timezone": "Africa/Kigali",
+  "library": "docs/compliance/GHANA_RWANDA_RULES_LIBRARY.md",
+  "groups": [
+    {
+      "id": "mandatory_controls",
+      "label": "Mandatory controls"
+    },
+    {
+      "id": "typology",
+      "label": "Typology and monitoring"
+    },
+    {
+      "id": "cybersecurity",
+      "label": "Cybersecurity"
+    },
+    {
+      "id": "governance",
+      "label": "Governance"
+    },
+    {
+      "id": "account_takeover",
+      "label": "Account takeover"
+    },
+    {
+      "id": "velocity",
+      "label": "Velocity and structuring"
+    },
+    {
+      "id": "behaviour",
+      "label": "Unusual behaviour"
+    },
+    {
+      "id": "cards",
+      "label": "Cards and e-commerce"
+    },
+    {
+      "id": "lending",
+      "label": "Digital lending"
+    }
+  ],
+  "licence_types": [
+    {
+      "id": "bank",
+      "label": "Bank"
+    },
+    {
+      "id": "mfi",
+      "label": "Microfinance institution"
+    },
+    {
+      "id": "insurer",
+      "label": "Insurer"
+    },
+    {
+      "id": "emi",
+      "label": "E-money issuer"
+    },
+    {
+      "id": "psp",
+      "label": "Payment service provider"
+    },
+    {
+      "id": "mto",
+      "label": "Remittance service provider"
+    },
+    {
+      "id": "forex_bureau",
+      "label": "Forex bureau"
+    },
+    {
+      "id": "securities",
+      "label": "Capital market intermediary"
+    },
+    {
+      "id": "digital_lender",
+      "label": "Digital lender"
+    },
+    {
+      "id": "vasp",
+      "label": "Virtual asset service provider"
+    },
+    {
+      "id": "telco",
+      "label": "Telecom operator"
+    },
+    {
+      "id": "other",
+      "label": "Other"
+    }
+  ],
+  "capabilities": [
+    {
+      "id": "bnr_regulated",
+      "label": "Regulated by the National Bank of Rwanda"
+    },
+    {
+      "id": "rura_licensed",
+      "label": "Licensed by RURA (telecom networks)"
+    }
+  ],
+  "sources": [
+    {
+      "id": "RS1",
+      "title": "RegAlert AML Rwanda listing",
+      "links": [
+        {
+          "title": "RegAlert",
+          "url": "https://regalert.today/topics/aml/RW"
+        }
+      ]
+    },
+    {
+      "id": "RS2",
+      "title": "ESAAMLG Rwanda follow-up report, August 2025",
+      "links": [
+        {
+          "title": "ESAAMLG",
+          "url": "https://www.esaamlg.org/reports/Rwanda%20FUR-August%202025.pdf"
+        }
+      ]
+    },
+    {
+      "id": "RS3",
+      "title": "Law No. 001/2025 (text)",
+      "links": [
+        {
+          "title": "RegAlert text of Law 001/2025",
+          "url": "https://regalert.today/document/195f62e1-4ddf-4323-86ae-c8a19628da31/text"
+        }
+      ]
+    },
+    {
+      "id": "RS4",
+      "title": "Law 028/2023 (text, superseded)",
+      "links": [
+        {
+          "title": "RegAlert text of Law 028/2023",
+          "url": "https://regalert.today/document/9e1e48ef-6e65-443d-859f-121cb0175664/text"
+        }
+      ]
+    },
+    {
+      "id": "RS5",
+      "title": "FIC Regulation 002/FIC/2021 on cross-border cash declaration",
+      "links": [
+        {
+          "title": "Laws.Africa",
+          "url": "https://commons.laws.africa/akn/rw/act/reg/2021/2/media/publication/rw-act-reg-2021-2-publication-document.pdf"
+        }
+      ]
+    },
+    {
+      "id": "RS6",
+      "title": "FATF second-round mutual evaluation, July 2024",
+      "links": [
+        {
+          "title": "FATF MER",
+          "url": "https://www.fatf-gafi.org/content/dam/fatf-gafi/fsrb-fur/Second%20Round%20MER%20of%20Rwanda-July%202024.pdf.coredownload.inline.pdf"
+        },
+        {
+          "title": "FATF MER page",
+          "url": "https://www.fatf-gafi.org/content/fatf-gafi/en/publications/Mutualevaluations/MER-Rwanda-2024.html"
+        }
+      ]
+    },
+    {
+      "id": "RS7",
+      "title": "FIC Law amendment",
+      "links": [
+        {
+          "title": "ENSafrica",
+          "url": "https://www.ensafrica.com/news/detail/10825/strengthening-rwandas-anti-financial-crime-de"
+        }
+      ]
+    },
+    {
+      "id": "RS8",
+      "title": "The 2019 laws (superseded)",
+      "links": [
+        {
+          "title": "Mondaq",
+          "url": "https://www.mondaq.com/government-public-sector/904928/a-snapshot-of-rwandas-tightened-financial-crimes-laws"
+        }
+      ]
+    },
+    {
+      "id": "RS9",
+      "title": "BNR Directive 02/2009",
+      "links": [
+        {
+          "title": "RegAlert",
+          "url": "https://regalert.today/document/ac08f2bf-f6ed-4c9c-b67e-fd5ba81b3992/text"
+        }
+      ]
+    },
+    {
+      "id": "RS10",
+      "title": "Payments regulations",
+      "links": [
+        {
+          "title": "RegAlert payments listing",
+          "url": "https://regalert.today/topics/payments/RW"
+        },
+        {
+          "title": "Digital Policy Alert on Regulation 54/2022",
+          "url": "https://digitalpolicyalert.org/event/26398-regulation-no-542022-governing-electronic-money-issuers-including-licensing-requirements-was-signed-by-the-governor-of-the-national-bank-of-rwanda"
+        }
+      ]
+    },
+    {
+      "id": "RS11",
+      "title": "BNR Regulation 54/2022 on e-money issuers",
+      "links": [
+        {
+          "title": "RegAlert",
+          "url": "https://regalert.today/document/regulation-no-54-2022-governing-electronic-money-issuers-ad07272a-4fa7-49b6-b9d1-5c2b5ed3b147/text"
+        },
+        {
+          "title": "BNR PDF",
+          "url": "https://www.bnr.rw/documents/Reg_governing_Emoney_issuers_2022.pdf"
+        }
+      ]
+    },
+    {
+      "id": "RS12",
+      "title": "eKash interoperability (BNR Directive 45/2026)",
+      "links": [
+        {
+          "title": "Streamline Feed",
+          "url": "https://streamlinefeed.co.ke/news/who-profits-from-rwanda-rwf-20-ekash-transaction-cap"
+        },
+        {
+          "title": "RBA",
+          "url": "https://rba.rw/a-fully-connected-rwanda-what-ekash-interoperability-means-for-the-future-of-financial-inclusion/"
+        }
+      ]
+    },
+    {
+      "id": "RS13",
+      "title": "Law No. 023/2026 on virtual assets",
+      "links": [
+        {
+          "title": "Andersen",
+          "url": "https://rw.andersen.com/dist/virtual-assets.html"
+        },
+        {
+          "title": "PwC Rwanda",
+          "url": "https://www.pwc.com/rw/en/assets/pdf/rwandas-new-virtual-law.pdf"
+        }
+      ]
+    },
+    {
+      "id": "RS14",
+      "title": "Law 058/2021 on data protection",
+      "links": [
+        {
+          "title": "DLA Piper",
+          "url": "https://dlapiperdataprotection.com/index.html?c=RW&t=law"
+        },
+        {
+          "title": "Hogan Lovells",
+          "url": "https://hlc.com/en/publications/key-features-of-the-new-rwandan-data-protection-law"
+        },
+        {
+          "title": "ConsentStack",
+          "url": "https://www.consentstack.io/regulations/rw-law058"
+        }
+      ]
+    },
+    {
+      "id": "RS15",
+      "title": "Law 60/2018 on cybercrimes",
+      "links": [
+        {
+          "title": "Cyber Crimes Law PDF",
+          "url": "https://e-ihuriro.rcsprwanda.org/wp-content/uploads/2023/05/Cyber_Crimes_Law.pdf"
+        }
+      ]
+    },
+    {
+      "id": "RS16",
+      "title": "NCSA strategy and minimum standards",
+      "links": [
+        {
+          "title": "National Cybersecurity Strategy 2024-2029",
+          "url": "https://digitalpolicyalert.org/event/26134-rwanda-released-the-national-cybersecurity-strategy-2024-2029"
+        },
+        {
+          "title": "NCSA minimum standards",
+          "url": "https://digitalpolicyalert.org/event/24887-adopted-ncsa-minimum-cybersecurity-standards-for-essential-service-providers-including-baseline-cybersecurity-requirements"
+        }
+      ]
+    },
+    {
+      "id": "RS17",
+      "title": "BNR Regulation 50/2022 on cyber security",
+      "links": [
+        {
+          "title": "RegAlert",
+          "url": "https://regalert.today/document/7eef4428-1ace-4cf6-828e-ca9f2c3f8cea/text"
+        },
+        {
+          "title": "Digital Policy Alert",
+          "url": "https://digitalpolicyalert.org/event/24884-adopted-national-bank-of-rwanda-regulation-on-cyber-security-in-regulated-institutions-no-502022-including-cyber-incidents-report-requirement"
+        }
+      ]
+    },
+    {
+      "id": "RS18",
+      "title": "BNR Directive 4230/2024-00037 on incident management",
+      "links": [
+        {
+          "title": "RegAlert",
+          "url": "https://regalert.today/document/0bc27f1a-18bd-4270-ae33-dd3c0d127976/text"
+        }
+      ]
+    },
+    {
+      "id": "RS19",
+      "title": "Law 061/2021 and Regulation 74/2023",
+      "links": [
+        {
+          "title": "Digital Policy Alert on Law 061/2021",
+          "url": "https://digitalpolicyalert.org/event/26394-law-no-0612021-governing-the-payment-system-including-licensing-requirements-enters-into-force"
+        },
+        {
+          "title": "RegAlert Regulation 74/2023",
+          "url": "https://regalert.today/document/8b1091a0-483f-4d9b-95cd-877b7e144839/text"
+        }
+      ]
+    },
+    {
+      "id": "RS20",
+      "title": "RURA Telecom Network Security Regulations",
+      "links": [
+        {
+          "title": "RURA",
+          "url": "https://rura.rw/fileadmin/Documents/docs/Regulations_Governing__Telecom_Network_Security.pdf"
+        }
+      ]
+    },
+    {
+      "id": "RS21",
+      "title": "RURA SIM registration (draft regulation, January 2023)",
+      "links": [
+        {
+          "title": "RURA draft",
+          "url": "https://www.rura.rw/fileadmin/Documents/ICT/Laws/Draft_Regulation_governing_SIM_cards_registration_for_January_2023.pdf"
+        },
+        {
+          "title": "Developing Telecoms",
+          "url": "https://developingtelecoms.com/telecom-business/telecom-regulation/11841-rwanda-tightens-sim-registration-to-curb-fraud.html"
+        }
+      ]
+    },
+    {
+      "id": "RS22",
+      "title": "NCSA incident reporting",
+      "links": [
+        {
+          "title": "NCSA",
+          "url": "https://www.cyber.gov.rw/report-incident/"
+        }
+      ]
+    },
+    {
+      "id": "RS23",
+      "title": "Digital fraud in Rwanda",
+      "links": [
+        {
+          "title": "New Times",
+          "url": "https://www.newtimes.co.rw/article/36384/news/technology/digital-fraud-in-rwanda-declines-below-global-average/amp"
+        },
+        {
+          "title": "AllAfrica, February 2026",
+          "url": "https://allafrica.com/stories/202602200031.html"
+        },
+        {
+          "title": "New Times, TransUnion survey",
+          "url": "https://www.newtimes.co.rw/article/37302/news/technology/digital-fraud-surge-threatens-trust-as-scammers-target-six-in-10-consumers"
+        }
+      ]
+    },
+    {
+      "id": "RS24",
+      "title": "Equity Bank Rwanda case",
+      "links": [
+        {
+          "title": "ITWeb Africa",
+          "url": "https://itweb.africa/article/cyber-fraud-storm-hits-equity-bank-rwanda-as-35-arrested/lwrKx73YR81qmg1o"
+        }
+      ]
+    },
+    {
+      "id": "RS25",
+      "title": "2024 National Risk Assessment",
+      "links": [
+        {
+          "title": "KT Press",
+          "url": "https://www.ktpress.rw/2025/07/how-rwf-93-billion-in-criminal-proceeds-flowed-through-rwandas-economy/"
+        },
+        {
+          "title": "2024 NRA",
+          "url": "https://icparwanda.com/wp-content/uploads/2025/05/2024-NRA-Report.pdf"
+        },
+        {
+          "title": "Zigram summary",
+          "url": "https://www.zigram.tech/?p=33516"
+        }
+      ]
+    },
+    {
+      "id": "RS26",
+      "title": "Remittance partner limits (not regulatory)",
+      "links": [
+        {
+          "title": "Tranglo",
+          "url": "https://www.tranglo.com/?p=9223"
+        }
+      ]
+    },
+    {
+      "id": "RS27",
+      "title": "Foreign exchange regulation",
+      "links": [
+        {
+          "title": "Andersen",
+          "url": "https://rw.andersen.com/dist/foreign-exchange-regulation.html"
+        }
+      ]
+    },
+    {
+      "id": "RS28",
+      "title": "SIM-box case, 2017",
+      "links": [
+        {
+          "title": "New Times",
+          "url": "https://www.newtimes.co.rw/article/146833/News/three-arrested-over-rwf1bn-sim-box-fraud-targeting-mtn-rwanda/amp"
+        }
+      ]
+    },
+    {
+      "id": "RS29",
+      "title": "BNR warning on pyramid schemes, 2019",
+      "links": [
+        {
+          "title": "Crowdfund Insider",
+          "url": "https://www.crowdfundinsider.com/2019/06/147945-rwandan-central-bank-issues-warning-against-pyramid-schemes-network-marketing-programs-and-scam-coins/"
+        }
+      ]
+    },
+    {
+      "id": "RS30",
+      "title": "PSP licence recategorisation",
+      "links": [
+        {
+          "title": "Mondaq",
+          "url": "https://mondaq.com/corporate-governance/1506808/rwandas-payment-service-providers-must-recategorise-licenses-by-18-september-2024-or-risk-license-revocation"
+        }
+      ]
+    },
+    {
+      "id": "RS32",
+      "title": "KYC and beneficial ownership listing",
+      "links": [
+        {
+          "title": "RegAlert KYC listing",
+          "url": "https://regalert.today/topics/kyc/RW"
+        }
+      ]
+    },
+    {
+      "id": "NG",
+      "title": "Nigeria rules library (parent rules)",
+      "links": []
+    },
+    {
+      "id": "GRLIB",
+      "title": "Ghana and Rwanda rules library, 4 October 2026 (the author's design)",
+      "links": []
+    }
+  ],
+  "clocks": [
+    {
+      "id": "tfs_freeze",
+      "duration": "24 hours",
+      "duty": "Freeze funds of a designated person: \"immediately\" means within 24 hours at the latest",
+      "applies_to": "Reporting entities (Law 001/2025 Arts 2(b) and 4)",
+      "requirement": "Case timer from receipt of the designation",
+      "sources": [
+        "RS3"
+      ],
+      "rules": [
+        "RW-REG-02",
+        "RW-REG-03"
+      ],
+      "hours": 24,
+      "kind": "legal",
+      "authority": "FIC"
+    },
+    {
+      "id": "str_filing",
+      "duration": "24 hours (design placeholder)",
+      "duty": "File a suspicious transaction report; Law 001/2025 Art 32 sets the duty but no deadline was found",
+      "applies_to": "Reporting entities",
+      "requirement": "Timer from the earliest recorded suspicion, labelled a design default until the Gazette text is read",
+      "sources": [
+        "RS3",
+        "RS6"
+      ],
+      "rules": [
+        "RW-REG-04"
+      ],
+      "hours": 24,
+      "kind": "design_placeholder",
+      "authority": "FIC"
+    },
+    {
+      "id": "ncsa_breach",
+      "duration": "48 hours",
+      "duty": "Notify the National Cyber Security Authority of a personal-data breach from awareness",
+      "applies_to": "Controllers and processors (Law 058/2021 Art 43)",
+      "requirement": "Breach workflow with a 48-hour countdown",
+      "sources": [
+        "RS14"
+      ],
+      "rules": [
+        "RW-SEC-04"
+      ],
+      "hours": 48,
+      "kind": "legal",
+      "authority": "NCSA"
+    },
+    {
+      "id": "bnr_incident",
+      "duration": "Not found",
+      "duty": "Report a cyber incident to the central bank (Regulation 50/2022 Art 21); the hour count was not found",
+      "applies_to": "BNR-regulated institutions",
+      "requirement": "Shown as not found until a person enters the supervisor's clock",
+      "sources": [
+        "RS17",
+        "RS18"
+      ],
+      "rules": [
+        "RW-SEC-03"
+      ],
+      "hours": null,
+      "kind": "not_found",
+      "authority": "BNR"
+    },
+    {
+      "id": "bnr_test_summary",
+      "duration": "15 days",
+      "duty": "Send the penetration test's executive summary to the central bank",
+      "applies_to": "BNR-regulated institutions (Regulation 50/2022 Art 10)",
+      "requirement": "Task after each test",
+      "sources": [
+        "RS17"
+      ],
+      "rules": [
+        "RW-SEC-01"
+      ],
+      "hours": 360,
+      "kind": "legal",
+      "authority": "BNR"
+    },
+    {
+      "id": "rura_critical",
+      "duration": "Immediately",
+      "duty": "Report critical and major telecom incidents to RURA immediately (no hour count)",
+      "applies_to": "Telecom licensees (RURA regulations Art 28)",
+      "requirement": "Incident record due at detection",
+      "sources": [
+        "RS20"
+      ],
+      "rules": [
+        "RW-SEC-05"
+      ],
+      "hours": 0,
+      "kind": "legal",
+      "authority": "RURA"
+    },
+    {
+      "id": "rura_moderate",
+      "duration": "Monthly",
+      "duty": "Report moderate telecom incidents to RURA monthly",
+      "applies_to": "Telecom licensees (RURA regulations Art 28)",
+      "requirement": "Monthly report task",
+      "sources": [
+        "RS20"
+      ],
+      "rules": [
+        "RW-SEC-05"
+      ],
+      "hours": 720,
+      "kind": "legal",
+      "authority": "RURA"
+    },
+    {
+      "id": "rura_remediation",
+      "duration": "3 months",
+      "duty": "Fix security deficiencies found in an audit",
+      "applies_to": "Telecom licensees",
+      "requirement": "Task per finding",
+      "sources": [
+        "RS20"
+      ],
+      "rules": [
+        "RW-SEC-06"
+      ],
+      "hours": 2160,
+      "kind": "legal",
+      "authority": "RURA"
+    },
+    {
+      "id": "rura_audit_report",
+      "duration": "30 days",
+      "duty": "File audit reports with RURA",
+      "applies_to": "Telecom licensees",
+      "requirement": "Task per audit",
+      "sources": [
+        "RS20"
+      ],
+      "rules": [
+        "RW-SEC-06"
+      ],
+      "hours": 720,
+      "kind": "legal",
+      "authority": "RURA"
+    },
+    {
+      "id": "ncsa_illegal_use",
+      "duration": "Immediately",
+      "duty": "Report illegal use of a computer system and preserve the evidence",
+      "applies_to": "Service providers (Law 60/2018 Arts 5-6)",
+      "requirement": "Incident record due at detection",
+      "sources": [
+        "RS15"
+      ],
+      "rules": [
+        "RW-SEC-15"
+      ],
+      "hours": 0,
+      "kind": "legal",
+      "authority": "NCSA"
+    },
+    {
+      "id": "rura_sim_swap_draft",
+      "duration": "48 hours (draft)",
+      "duty": "Report an illegal SIM swap under a draft RURA regulation whose adoption is unknown",
+      "applies_to": "Telecom operators",
+      "requirement": "Off until the regulation is confirmed",
+      "sources": [
+        "RS21"
+      ],
+      "rules": [
+        "RW-SEC-16"
+      ],
+      "hours": 48,
+      "kind": "legal",
+      "authority": "RURA"
+    },
+    {
+      "id": "alert_triage",
+      "duration": "4 hours (internal policy)",
+      "duty": "Triage a high-risk alert",
+      "applies_to": "Your institution",
+      "requirement": "Escalation when breached",
+      "sources": [
+        "GRLIB"
+      ],
+      "rules": [
+        "RW-GOV-09"
+      ],
+      "hours": 4,
+      "kind": "internal_policy"
+    },
+    {
+      "id": "str_decision",
+      "duration": "12 hours (internal policy)",
+      "duty": "Decide whether to file an STR, so a 24-hour clock is never at risk",
+      "applies_to": "Your institution",
+      "requirement": "Escalation when breached",
+      "sources": [
+        "GRLIB"
+      ],
+      "rules": [
+        "RW-GOV-09"
+      ],
+      "hours": 12,
+      "kind": "internal_policy"
+    }
+  ],
+  "gaps": [
+    {
+      "id": "C1",
+      "title": "Rwanda STR numeric deadline",
+      "detail": "Not found in any readable source; 2024 MER states no statutory timeframe",
+      "rules": [
+        "RW-REG-04"
+      ],
+      "sources": [
+        "RS3",
+        "RS6"
+      ],
+      "kind": "conflict",
+      "treatment": "RW-REG-04 ships with a 24-hour design placeholder, labelled \"threshold to be confirmed\""
+    },
+    {
+      "id": "C2",
+      "title": "Rwanda cash and wire report threshold",
+      "detail": "Not found; the RWF 10 million figure is from the brief only; 2024 MER does not mention CTR or wire reporting",
+      "rules": [
+        "RW-REG-05"
+      ],
+      "sources": [
+        "RS3",
+        "RS4",
+        "RS6"
+      ],
+      "kind": "conflict",
+      "treatment": "RW-REG-05 off, placeholder RWF 10,000,000 labelled as unconfirmed"
+    },
+    {
+      "id": "C3",
+      "title": "Rwanda retention",
+      "detail": "10 years (Art 21, ESAAMLG August 2025) versus 5 years (2024 MER, old law)",
+      "rules": [
+        "RW-GOV-01",
+        "RW-GOV-10"
+      ],
+      "sources": [
+        "RS2",
+        "RS6"
+      ],
+      "kind": "conflict",
+      "treatment": "10 years default; configurable; confirm in the Art 21 text"
+    },
+    {
+      "id": "C6",
+      "title": "Law 028/2023 superseded",
+      "detail": "Law 001/2025 replaces it; article numbers may have been renumbered",
+      "rules": [
+        "RW-REG-02",
+        "RW-REG-04",
+        "RW-REG-05",
+        "RW-REG-06",
+        "RW-GOV-01"
+      ],
+      "sources": [
+        "RS1",
+        "RS3",
+        "RS4"
+      ],
+      "kind": "conflict",
+      "treatment": "Rules cite 001/2025; 2023 article numbers appear only as predecessor references"
+    },
+    {
+      "id": "C7",
+      "title": "Law numbering (Rwanda)",
+      "detail": "Brief says 060/2021; sources show data protection is Law 058/2021, payment system is Law 061/2021 (14 October 2021)",
+      "rules": [
+        "RW-SEC-04",
+        "RW-SEC-07",
+        "RW-SEC-15"
+      ],
+      "sources": [
+        "RS14",
+        "RS15",
+        "RS19"
+      ],
+      "kind": "conflict",
+      "treatment": "Library uses 058/2021 and 061/2021; cybercrime is Law 60/2018, and no Law 026/2022 was found"
+    },
+    {
+      "id": "C8",
+      "title": "Data protection penalties",
+      "detail": "RWF 2 to 5 million or 1% of turnover (admin) and 5% (criminal) versus ConsentStack maximum RWF 5 million",
+      "rules": [],
+      "sources": [
+        "RS14"
+      ],
+      "kind": "conflict",
+      "treatment": "Not coded as thresholds; penalty register shows both"
+    },
+    {
+      "id": "C10",
+      "title": "BNR Directive 45/2026",
+      "detail": "Aggregator only; implementation 14 July 2026; RBA dates the directive 9 January 2026",
+      "rules": [
+        "RW-REG-07",
+        "RW-TM-12"
+      ],
+      "sources": [
+        "RS12"
+      ],
+      "kind": "conflict",
+      "treatment": "RW-REG-07 [Regulatory] but flagged \"verify before enabling\""
+    },
+    {
+      "id": "C17",
+      "title": "Virtual-asset licence categories (Rwanda)",
+      "detail": "PwC says 12; Andersen says nine \"primary\"",
+      "rules": [
+        "RW-GOV-07"
+      ],
+      "sources": [
+        "RS13"
+      ],
+      "kind": "conflict",
+      "treatment": "Not coded; categories pending regulations"
+    },
+    {
+      "id": "C18",
+      "title": "NRA outputs",
+      "detail": "575 bank STRs led to 11 ML cases and 2 convictions, versus 44 ML cases and 9 convictions in another summary; \"FRW 5 million\" crime-proceeds threshold has unclear context",
+      "rules": [],
+      "sources": [
+        "RS25"
+      ],
+      "kind": "conflict",
+      "treatment": "Not used in any rule"
+    },
+    {
+      "id": "C19",
+      "title": "Rwanda fraud trend",
+      "detail": "Headline says a 60% fall; figures imply 40%",
+      "rules": [],
+      "sources": [
+        "RS23"
+      ],
+      "kind": "conflict",
+      "treatment": "Not used in any rule"
+    },
+    {
+      "id": "U1",
+      "title": "Primary texts read through summaries",
+      "detail": "Law 001/2025 article numbers and Law 058/2021 article numbers (per summary, aggregator or one secondary source).",
+      "rules": [
+        "RW-REG-02",
+        "RW-REG-04",
+        "RW-REG-06",
+        "RW-SEC-04",
+        "RW-SEC-07"
+      ],
+      "sources": [
+        "RS3",
+        "RS14"
+      ],
+      "kind": "unverified",
+      "treatment": "Article numbers are shown as \"per map\" or \"per summary\"; confirm against the Gazette"
+    },
+    {
+      "id": "U2",
+      "title": "Reporting channel",
+      "detail": "No goAML registration was found for Rwanda.",
+      "rules": [
+        "RW-GOV-03"
+      ],
+      "sources": [
+        "RS6"
+      ],
+      "kind": "unverified",
+      "treatment": "The reporting channel is a setting"
+    },
+    {
+      "id": "U3",
+      "title": "Law 023/2026 details",
+      "detail": "Rwanda Law 023/2026 article numbers, Travel Rule threshold, capital and transition deadline.",
+      "rules": [
+        "RW-REG-13",
+        "RW-REG-14",
+        "RW-GOV-07"
+      ],
+      "sources": [
+        "RS13"
+      ],
+      "kind": "unverified",
+      "treatment": "Rules ship off with placeholders"
+    },
+    {
+      "id": "U4",
+      "title": "E-money and agent rules",
+      "detail": "Rwanda e-money and agent limits and KYC directive.",
+      "rules": [
+        "RW-REG-09",
+        "RW-TM-16"
+      ],
+      "sources": [
+        "RS11"
+      ],
+      "kind": "unverified",
+      "treatment": "Limits are issuer-defined settings"
+    },
+    {
+      "id": "U6",
+      "title": "FIC regulations and freezes",
+      "detail": "Whether FIC Regulation 002/FIC/2021 survives Law 001/2025; the Law 001/2025 freeze duration (Art 6); tipping-off penalty amounts; FIC and BNR red-flag lists (none found for Rwanda).",
+      "rules": [
+        "RW-REG-01",
+        "RW-REG-02",
+        "RW-GOV-02"
+      ],
+      "sources": [
+        "RS3",
+        "RS5"
+      ],
+      "kind": "unverified",
+      "treatment": "RW-REG-01 keeps a caveat; no red-flag list is assumed"
+    },
+    {
+      "id": "U7",
+      "title": "Central bank and RURA details",
+      "detail": "Rwanda BNR Reg 50/2022 Art 21 hour count and Art 25 amounts; Directive 4230/2024-00037 timelines; CII designation under NCSA; RURA SIM draft adoption; whether Directive 02/2009 is still current; whether the three-account cap is per issuer or across issuers.",
+      "rules": [
+        "RW-SEC-03",
+        "RW-SEC-16",
+        "RW-REG-08",
+        "RW-REG-09",
+        "RW-TM-03"
+      ],
+      "sources": [
+        "RS9",
+        "RS11",
+        "RS17",
+        "RS18",
+        "RS21"
+      ],
+      "kind": "unverified",
+      "treatment": "Those rules ship off or carry caveats"
+    },
+    {
+      "id": "U8",
+      "title": "Grey-list status",
+      "detail": "Rwanda grey-list status in October 2026 (not found either way); next ESAAMLG reporting dates.",
+      "rules": [],
+      "sources": [
+        "RS2",
+        "RS6"
+      ],
+      "kind": "unverified",
+      "treatment": "Not used in any rule"
+    },
+    {
+      "id": "U9",
+      "title": "Qualitative typology evidence",
+      "detail": "Typology evidence is qualitative for Rwanda agent clustering, real estate and loan apps.",
+      "rules": [
+        "RW-TM-16",
+        "RW-TM-18"
+      ],
+      "sources": [
+        "RS24",
+        "RS25"
+      ],
+      "kind": "unverified",
+      "treatment": "Those rules are marked off or flagged as the author's design"
+    },
+    {
+      "id": "U10",
+      "title": "Regulator sites unreadable",
+      "detail": "Fetched pages were model summaries and several regulator sites (bnr.rw, ncsa.gov.rw, rura.rw, esaamlg.org) were not readable directly.",
+      "rules": [],
+      "sources": [
+        "RS2",
+        "RS17",
+        "RS20"
+      ],
+      "kind": "unverified",
+      "treatment": "Every regulatory rule carries a caveat to confirm against the original"
+    }
+  ],
+  "glossary": [
+    {
+      "term": "FIC",
+      "expansion": "Financial Intelligence Centre",
+      "definition": "Rwanda's agency that receives suspicious transaction reports and leads on targeted financial sanctions."
+    },
+    {
+      "term": "BNR",
+      "expansion": "National Bank of Rwanda",
+      "definition": "Rwanda's central bank, which licenses and supervises banks, microfinance institutions, e-money issuers and payment service providers."
+    },
+    {
+      "term": "RURA",
+      "expansion": "Rwanda Utilities Regulatory Authority",
+      "definition": "The regulator of telecom networks, including SIM registration and network security."
+    },
+    {
+      "term": "CMA",
+      "expansion": "Capital Market Authority",
+      "definition": "The primary regulator of virtual-asset providers under Law 023/2026."
+    },
+    {
+      "term": "NCSA",
+      "expansion": "National Cyber Security Authority",
+      "definition": "Rwanda's cybersecurity and data protection authority: it registers data controllers and receives breach notices."
+    },
+    {
+      "term": "NIDA",
+      "expansion": "National Identification Agency",
+      "definition": "The agency that issues Rwandan national IDs and verifies them."
+    },
+    {
+      "term": "eKash",
+      "expansion": "",
+      "definition": "Rwanda's national system for sending money between banks and mobile-money wallets, run by RSwitch."
+    },
+    {
+      "term": "RSwitch",
+      "expansion": "",
+      "definition": "The company that runs Rwanda's national payment switch, including eKash."
+    },
+    {
+      "term": "Rw-CSIRT",
+      "expansion": "Rwanda Computer Security Incident Response Team",
+      "definition": "The national team that receives and helps handle cyber incidents."
+    },
+    {
+      "term": "TFS",
+      "expansion": "Targeted financial sanctions",
+      "definition": "Freezing the money of people and organisations named on sanctions lists, without warning them first. In Rwanda, within 24 hours."
+    },
+    {
+      "term": "STR",
+      "expansion": "Suspicious transaction report",
+      "definition": "A report to the FIC about activity that may be linked to crime. Its existence must not be revealed to the customer."
+    },
+    {
+      "term": "PEP",
+      "expansion": "Politically exposed person",
+      "definition": "Someone who holds or held an important public role, or their close family or associates."
+    },
+    {
+      "term": "EDD",
+      "expansion": "Enhanced due diligence",
+      "definition": "Deeper checks for higher-risk customers, such as where their money and wealth come from, and approval by a senior manager."
+    },
+    {
+      "term": "KYC",
+      "expansion": "Know your customer",
+      "definition": "The checks an institution makes to confirm who a customer is before and while serving them."
+    },
+    {
+      "term": "Beneficial owner",
+      "expansion": "",
+      "definition": "The real person who owns or controls a company, even through other companies."
+    },
+    {
+      "term": "SIM box",
+      "expansion": "",
+      "definition": "A device holding many SIM cards that routes international calls as local ones to avoid charges."
+    },
+    {
+      "term": "VASP",
+      "expansion": "Virtual asset service provider",
+      "definition": "A business that exchanges, holds or transfers crypto assets for customers."
+    },
+    {
+      "term": "Structuring",
+      "expansion": "",
+      "definition": "Splitting money into several smaller amounts to stay under a limit or a reporting threshold."
+    },
+    {
+      "term": "Mule account",
+      "expansion": "",
+      "definition": "An account used to receive and pass on stolen or criminal money, often owned by someone recruited or deceived."
+    }
+  ],
+  "penalties": [
+    {
+      "provision": "Targeted financial sanctions administrative fine (FIC Reg 001/FIC/2025 Arts 26-27)",
+      "penalty": "RWF 1,000,000 to RWF 10,000,000",
+      "sources": [
+        "RS2"
+      ]
+    },
+    {
+      "provision": "Terrorism financing (Art 57(1)); non-compliance with preventive measures",
+      "penalty": "20 to 25 years; 1 to 3 years",
+      "sources": [
+        "RS2"
+      ]
+    },
+    {
+      "provision": "Earlier regime (Laws 74 and 75/2019)",
+      "penalty": "Up to 25 years; fines up to 20 times the financed illegal activity (superseded)",
+      "sources": [
+        "RS8"
+      ]
+    },
+    {
+      "provision": "Law 058/2021 administrative (Art 53)",
+      "penalty": "RWF 2,000,000 to RWF 5,000,000 or 1% of global turnover; criminal up to 5% of annual turnover (Art 62); up to 10 years; cancellation of registration. ConsentStack lists a RWF 5,000,000 maximum: conflict",
+      "sources": [
+        "RS14"
+      ]
+    },
+    {
+      "provision": "Law 60/2018",
+      "penalty": "Unauthorised access 6 months to 2 years and RWF 1 to 2 million; malware 2 to 5 years; critical infrastructure 10 to 15 years and RWF 10 to 30 million",
+      "sources": [
+        "RS15"
+      ]
+    },
+    {
+      "provision": "Law 023/2026",
+      "penalty": "Unlicensed natural person RWF 30 to 50 million and 3 to 5 years; legal entity RWF 70 to 100 million; unlicensed issuance RWF 120 to 150 million; unapproved marketing RWF 15 to 20 million",
+      "sources": [
+        "RS13"
+      ]
+    },
+    {
+      "provision": "RURA Telecom Network Security Regulations",
+      "penalty": "RWF 1 to 5 million; RWF 500,000 per day for delayed compliance; RWF 500,000 to 1 million for late incident information; RWF 200,000 to 1 million for late audit submissions",
+      "sources": [
+        "RS20"
+      ]
+    },
+    {
+      "provision": "RURA SIM draft",
+      "penalty": "RWF 10,000,000 for illegal SIM swaps; RWF 2,500,000 per SIM for unauthorised use of subscriber data",
+      "sources": [
+        "RS21"
+      ]
+    },
+    {
+      "provision": "Foreign-currency pricing",
+      "penalty": "RWF 5 million first offence; RWF 10 million repeat",
+      "sources": [
+        "RS27"
+      ]
+    },
+    {
+      "provision": "BNR Reg 50/2022 Art 25; Reg 54/2022 Art 44",
+      "penalty": "Amounts not found",
+      "sources": [
+        "RS17",
+        "RS11"
+      ]
+    }
+  ],
+  "inherits": [
+    {
+      "pack": "ng",
+      "rule": "ATO-04"
+    },
+    {
+      "pack": "ng",
+      "rule": "ATO-05"
+    },
+    {
+      "pack": "ng",
+      "rule": "ATO-06"
+    },
+    {
+      "pack": "ng",
+      "rule": "VEL-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "VEL-05",
+      "overrides": {
+        "round_unit": {
+          "currency": "RWF",
+          "min": 1,
+          "max": 100000000,
+          "label": "Round amount unit, in francs (set by your institution)"
+        }
+      },
+      "note": "The round-amount unit is restated in francs."
+    },
+    {
+      "pack": "ng",
+      "rule": "VEL-06",
+      "overrides": {
+        "high_value": {
+          "currency": "RWF",
+          "min": 0,
+          "max": 100000000000,
+          "label": "High-value first payment at night, in francs (set by your institution)"
+        }
+      },
+      "note": "Night hours are Kigali time; the amount is restated in francs."
+    },
+    {
+      "pack": "ng",
+      "rule": "BEH-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "CNP-01",
+      "overrides": {
+        "tiny": {
+          "currency": "RWF",
+          "min": 1,
+          "max": 10000,
+          "label": "Tiny test payment, in francs (set by your institution)"
+        }
+      },
+      "note": "The tiny-payment amount is restated in francs."
+    },
+    {
+      "pack": "ng",
+      "rule": "CNP-02"
+    },
+    {
+      "pack": "ng",
+      "rule": "CNP-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "LEN-01",
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfi"
+      ],
+      "note": "No Rwandan digital-lending evidence was found: available, but unsupported by a local source."
+    },
+    {
+      "pack": "ng",
+      "rule": "LEN-03",
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfi"
+      ],
+      "note": "No Rwandan digital-lending evidence was found: available, but unsupported by a local source."
+    },
+    {
+      "pack": "ng",
+      "rule": "LEN-04",
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "mfi"
+      ],
+      "note": "No Rwandan digital-lending evidence was found: available, but unsupported by a local source."
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-02"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-05",
+      "overrides": {
+        "high_value": {
+          "currency": "RWF",
+          "min": 0,
+          "max": 100000000000,
+          "label": "High-value transaction, in francs (set by your institution)"
+        }
+      },
+      "note": "The high-value amount is restated in francs."
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-06"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-07"
+    },
+    {
+      "pack": "ng",
+      "rule": "SEC-11"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-01"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-02"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-03"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-04"
+    },
+    {
+      "pack": "ng",
+      "rule": "GOV-07"
+    }
+  ]
+}

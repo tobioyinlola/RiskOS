@@ -1,0 +1,411 @@
+{
+  "rules": [
+    {
+      "id": "RW-GOV-01",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-08"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "GOV-08"
+      },
+      "overrides": {
+        "retain_for": {
+          "default": 315360000,
+          "min": 315360000,
+          "label": "Shortest time records are kept after the relationship ends (10 years)"
+        }
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "RS2",
+        "RS6"
+      ],
+      "effective": {
+        "text": "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; records kept 10 years after the relationship ends (Art 21 per the ESAAMLG follow-up report)"
+      },
+      "verification": "conflicting",
+      "caveat": "The 2024 mutual evaluation says 5 years under the old law (C3); the stricter 10 years is the default. Confirm in the Art 21 text.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      }
+    },
+    {
+      "id": "RW-GOV-02",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-09"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "GOV-09"
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "RS3"
+      ],
+      "effective": {
+        "text": "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; non-disclosure in Art 34 (per map)"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      }
+    },
+    {
+      "id": "RW-GOV-03",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-06"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "GOV-06"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS6"
+      ],
+      "effective": {
+        "text": "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; no goAML use found for Rwanda"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No goAML use was found for Rwanda, so the reporting channel is a setting of your institution.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      }
+    },
+    {
+      "id": "RW-GOV-04",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "GOV-05"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS2",
+        "RS3"
+      ],
+      "effective": {
+        "text": "FIC Regulations 001/FIC/2025; Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "sanctions_list",
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "tfs_workflow"
+      },
+      "governance": {
+        "type": "workflow",
+        "uses": [
+          "freeze_within"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "freeze_within",
+          "label": "Time to complete the freeze workflow before it escalates to the board",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "RW-GOV-05",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "NCSA"
+      ],
+      "sources": [
+        "RS14"
+      ],
+      "effective": {
+        "text": "Law 058/2021 on the protection of personal data and privacy; in force 15 October 2021; Arts 29, 31 and 40 (per DLA Piper)"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "ncsa_registration"
+      },
+      "governance": {
+        "type": "job",
+        "schedule": "daily"
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-GOV-06",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "requires": [
+        "bnr_regulated"
+      ],
+      "sources": [
+        "RS17",
+        "RS18"
+      ],
+      "effective": {
+        "text": "BNR Regulation 50/2022 on cyber security in regulated institutions (2 June 2022); Arts 4, 5, 7, 17, 18 and 20"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "bnr_cyber_governance"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-GOV-07",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "CMA"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "RS13"
+      ],
+      "effective": {
+        "text": "Law No. 023/2026 on virtual assets; implementing regulations pending"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "Capital, deadlines and article numbers are not yet published.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "missing_cma_licence"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-GOV-08",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS25"
+      ],
+      "effective": {
+        "text": "2024 National Risk Assessment (Zigram summary)"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "customer_profile"
+      ],
+      "outcome": {
+        "reason": "sector_risk_ratings"
+      },
+      "governance": {
+        "type": "policy"
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-GOV-09",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "param"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GRLIB"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "internal_service_levels"
+      },
+      "governance": {
+        "type": "sla",
+        "uses": [
+          "triage_within",
+          "decide_within"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "triage_within",
+          "label": "Time to triage a high-risk alert",
+          "type": "duration",
+          "default": 14400,
+          "min": 3600,
+          "max": 86400
+        },
+        {
+          "name": "decide_within",
+          "label": "Time to decide whether to file an STR",
+          "type": "duration",
+          "default": 43200,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "RW-GOV-10",
+      "group": "governance",
+      "kind": "governance",
+      "status": "governance",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC",
+        "NCSA"
+      ],
+      "sources": [
+        "RS2",
+        "RS14",
+        "RS17"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "A design choice: confirm with Rwandan counsel.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "outcome": {
+        "reason": "retention_conflicts"
+      },
+      "governance": {
+        "type": "control",
+        "uses": [
+          "retain_for"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "retain_for",
+          "label": "Retention that wins over a deletion request (as in RW-GOV-01)",
+          "type": "duration",
+          "default": 315360000,
+          "min": 315360000,
+          "max": 630720000
+        }
+      ]
+    }
+  ]
+}

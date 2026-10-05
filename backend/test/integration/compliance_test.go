@@ -24,6 +24,8 @@ import (
 func TestComplianceLibrary(t *testing.T) {
 	s := newStack(t, 0)
 	a := s.createTenant(t, "Library")
+	// The library without a profile: applicability is unknown.
+	withoutCompliance(t, a.id)
 
 	r := s.call(t, http.MethodGet, "/api/v1/compliance/pack", a.testKey, nil)
 	require.Equal(t, http.StatusOK, r.status, r.String())
@@ -111,7 +113,9 @@ func TestComplianceLibrary(t *testing.T) {
 		clocks := decode[apigen.ComplianceClockList](t, s.call(t, http.MethodGet, "/api/v1/compliance/clocks", a.testKey, nil)).Data
 		assert.NotEmpty(t, clocks)
 		for _, c := range clocks {
-			assert.Positive(t, c.Hours, c.Id)
+			require.NotNil(t, c.Hours, c.Id)
+			assert.Positive(t, *c.Hours, c.Id)
+			assert.Equal(t, apigen.ComplianceClockKind("legal"), c.Kind, c.Id)
 		}
 		assert.NotEmpty(t, decode[apigen.ComplianceGapList](t, s.call(t, http.MethodGet, "/api/v1/compliance/gaps", a.testKey, nil)).Data)
 		assert.NotEmpty(t, decode[apigen.ComplianceTermList](t, s.call(t, http.MethodGet, "/api/v1/compliance/glossary", a.testKey, nil)).Data)
@@ -127,7 +131,15 @@ func TestComplianceProfile(t *testing.T) {
 	profile := map[string]any{"jurisdiction": "NG", "licence_type": "bank", "capabilities": []string{"instant_payments"}}
 
 	r := s.call(t, http.MethodGet, "/api/v1/compliance/profile", a.testKey, nil)
-	assert.Equal(t, http.StatusNotFound, r.status, "no profile yet: %s", r.String())
+	require.Equal(t, http.StatusOK, r.status, "every workspace has a profile from the start: %s", r.String())
+	auto := decode[apigen.ComplianceProfile](t, r)
+	assert.False(t, auto.Confirmed, "nobody has confirmed the institution type yet")
+	assert.Equal(t, "other", auto.LicenceType)
+	assert.Equal(t, "system:default", auto.UpdatedBy)
+	for id, want := range map[string]apigen.PackRuleMode{"REG-01": "live", "REG-16": "live", "ATO-01": "off", "VEL-01": "off"} {
+		got := decode[apigen.ComplianceRule](t, s.call(t, http.MethodGet, "/api/v1/compliance/rules/"+id, a.testKey, nil))
+		assert.Equal(t, want, got.Mode, "%s: legal controls start on, risk signals off until activated", id)
+	}
 	r = s.call(t, http.MethodPut, "/api/v1/compliance/profile", a.testKey, profile)
 	assert.Equal(t, http.StatusForbidden, r.status, "an API key cannot set the profile: %s", r.String())
 
@@ -163,7 +175,7 @@ func TestComplianceProfile(t *testing.T) {
 		for name, body := range map[string]map[string]any{
 			"unknown licence":    {"jurisdiction": "NG", "licence_type": "casino", "capabilities": []string{}},
 			"unknown capability": {"jurisdiction": "NG", "licence_type": "bank", "capabilities": []string{"teleport"}},
-			"no pack":            {"jurisdiction": "GH", "licence_type": "bank", "capabilities": []string{}},
+			"no pack":            {"jurisdiction": "KE", "licence_type": "bank", "capabilities": []string{}},
 			"bad jurisdiction":   {"jurisdiction": "Nigeria", "licence_type": "bank", "capabilities": []string{}},
 		} {
 			r := admin.b.do(t, http.MethodPut, "/api/v1/compliance/profile", body)
@@ -173,10 +185,10 @@ func TestComplianceProfile(t *testing.T) {
 
 	t.Run("another tenant never sees it", func(t *testing.T) {
 		r := s.call(t, http.MethodGet, "/api/v1/compliance/profile", b.testKey, nil)
-		assert.Equal(t, http.StatusNotFound, r.status, r.String())
-		for _, rule := range decode[apigen.ComplianceRuleList](t, s.call(t, http.MethodGet, "/api/v1/compliance/rules", b.testKey, nil)).Data {
-			assert.Nil(t, rule.Applicable, rule.Id)
-		}
+		require.Equal(t, http.StatusOK, r.status, r.String())
+		own := decode[apigen.ComplianceProfile](t, r)
+		assert.Equal(t, "other", own.LicenceType, "B sees its own automatic profile, not A's")
+		assert.False(t, own.Confirmed)
 	})
 
 	t.Run("roles", func(t *testing.T) {

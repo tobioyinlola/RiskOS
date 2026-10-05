@@ -214,12 +214,12 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 	// payments are remembered next to the payees, with the same hash, so a counterparty that both
 	// sent and received is recognized.
 	var senderRelated, toPriorSender *redis.BoolCmd
+	var newSender *redis.Cmd
 	if t := e.Transaction; t != nil && t.Direction == "credit" && e.Compliance != nil && e.Compliance.Refs["sender"] != "" {
 		sender := k.hash("ben", e.Compliance.Refs["sender"])
 		senderRelated = pipe.SIsMember(ctx, user+":ben", sender)
-		if write {
-			seen(user+":snd", sender)
-		}
+		// seen adds the sender in write mode and only asks in a dry run.
+		newSender = seen(user+":snd", sender)
 	}
 	if e.IsDebit() && e.BeneficiaryID() != "" {
 		toPriorSender = pipe.SIsMember(ctx, user+":snd", k.hash("ben", e.BeneficiaryID()))
@@ -320,6 +320,15 @@ func (s *FeatureStore) Observe(ctx context.Context, e features.Event, write bool
 			continue
 		}
 		*c.dst = n == 1
+	}
+	if newSender != nil {
+		n, err := newSender.Int64()
+		if err != nil {
+			degrade(domain.SourceHistory)
+		} else {
+			fresh := n == 1
+			v.NewSender = &fresh
+		}
 	}
 	for _, c := range []struct {
 		cmd *redis.BoolCmd

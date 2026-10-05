@@ -174,7 +174,9 @@ default, or STEP_UP) raise `risk` alerts asynchronously; see [ALERTS_AND_CASES.m
 Tenants add their own signals as rules (`/api/v1/rules`, scopes `rules:read` / `rules:write`).
 
 - **Conditions** are JSON: `{"all": [...]}`, `{"any": [...]}`, `{"not": ...}` and comparisons
-  `{"field", "op", "value"}` over a typed catalog of facts (`GET /api/v1/risk/catalog`): event
+  `{"field", "op", "value"}` over a typed catalog of facts (`GET /api/v1/risk/catalog`, which
+  also gives each fact a plain label, group, unit, allowed values and the event types that carry
+  it, for the console's no-code builder): event
   fields (`transaction.amount`, `context.country`, `login.outcome`, ...) and feature values
   (`feature.new_beneficiary`, `feature.account_txn_1h`, `feature.amount_to_mean_ratio`, ...).
   Operators: `eq ne gt gte lt lte in not_in` for numbers, `eq ne in not_in` for strings, `eq ne`
@@ -263,7 +265,54 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
   `compliance:write`, audited), rounded to the cent with the currency's own minor units. Without
   either, the rule is not evaluated.
 
+### Several jurisdictions
+
+A workspace has one activation per country and booking entity
+([ADR-0007](adr/ADR-0007-multi-jurisdiction.md)). Each event is judged by exactly one pack:
+
+1. the activation of the booking entity the event names (`compliance.booking_entity`);
+2. else the workspace's fallback activation (Nigeria for every workspace until changed);
+3. else none: `jurisdiction.resolved_by` is `unresolved`, and no pack is guessed. An entity whose
+   activation is in draft or suspended is `inactive`, and no other country's pack stands in.
+
+An activation in `shadow` runs every rule in shadow. The governing pack's time zone sets hours of
+the day (`txn.local_hour`, usual hours), and its licence type is the `institution.licence_type`
+fact. The decision, the stored evaluation and the evaluation's features record the jurisdiction,
+pack version and how it was resolved. Ghana and Rwanda reuse Nigerian rules in two ways: a
+"Param of X" rule names X as its template and states only its own settings, and inherited rules
+keep their Nigerian ID with amounts restated in the local currency. Rule configuration and
+pending changes are kept per pack, so ATO-04 in Ghana is configured apart from ATO-04 in Nigeria
+(`?jurisdiction=GH` on the configuration, history and rollback endpoints).
+
+**Activating a country.** A person with `compliance:configure` creates an activation as a draft
+(`POST /api/v1/compliance/activations`: booking entity, licence type, capabilities, the hour the
+business day starts, a rationale). A draft and a suspended activation judge no event; shadow runs
+every rule in shadow. Going live needs a passing readiness check
+(`GET …/activations/{id}/readiness`): every rule that applies and is not off has its required
+settings entered (blocking for regulatory controls, which would otherwise not be evaluated), and
+a US dollar threshold has a rate for the local currency or the events send `txn.amount_usd`
+(blocking for controls); open questions nobody has verified are warnings. Going live, leaving
+live, changing a live activation's settings and changing the fallback are proposed and apply when
+another person with `rules:approve` approves them; nobody approves their own change, and going
+live is checked for readiness again on approval. Every change, applied or proposed, is kept with
+its rationale (`GET /api/v1/compliance/activation-changes`) and audited.
+
+**Rules off until confirmed.** A rule off by default because a setting is not confirmed (a
+travel-rule minimum, GH-TM-23's wrong-transfer floor) is switched on only with those settings
+entered, and every change carries its reason.
+
+**Verified open questions.** A person can record that they checked an open question against the
+original text (`POST /api/v1/compliance/gaps/{gap_id}/verify`: a note and an optional link), once.
+The question and every rule it names show who verified it and when; it changes no setting.
+
 ### Configuration
+
+**Every workspace has a profile.** A workspace gets the automatic profile when it is created
+(migration 00028; existing workspaces through the migration and the pack loader): the Nigeria
+pack, licence type "other" and `confirmed: false` until a person saves it. Its regulatory
+controls start at their defaults (on, as the law requires) and every risk signal starts off until
+a compliance person activates it (`signal_default = off`). Profiles set up before keep the pack's
+defaults for signals (monitoring).
 
 Each environment can set a rule's mode (`live`, `shadow`, `off`) and its settings
 (`PUT /api/v1/compliance/rules/{rule_id}/config`, people with `compliance:configure`, a recent
@@ -325,10 +374,23 @@ queried from Postgres per event:
   a window holding one reads as unavailable for as long as it holds it, rather than undercounting.
 - Sums count only amounts in the event's currency. Dry runs and rule tests count the event
   without storing it; idempotent replays are not evaluated again.
+- **Calendar windows** ([ADR-0007](adr/ADR-0007-multi-jurisdiction.md)). An aggregate marked
+  `"calendar": "day"` or `"month"` runs from the start of the current local day or month in the
+  governing pack's time zone (Africa/Accra, Africa/Kigali, Africa/Lagos), from the hour the
+  activation's business day starts (`day_starts_at`, midnight unless set), to the event: a
+  wallet's daily limit (GH-REG-01) resets at the local day boundary, not 24 hours after each
+  payment. The window setting is then the history kept, at least the period (31 days for a
+  month); the length is worked out at the event's time, live and in backtests alike.
+- **Days over a threshold** (`days_over`, GH-TM-07's "80% of the daily limit on three days in a
+  week"): the number of local days in the window whose total in the event's currency reached the
+  rule's money setting times its ratio setting. Days are cut at the local business day boundary;
+  an unknown entry makes the window unavailable, as for every other function, and a threshold in
+  another currency than the event's is not compared.
 - While behavioural history warms up after a reset, windows and history facts are unavailable,
   so the rules on them are not evaluated.
 - The same round trip keeps each user's first activity, each account's last activity (400 days),
-  each user's largest amount per currency and the hours of the day (Lagos time) each user was
+  each user's largest amount per currency and the hours of the day (the governing pack's local
+  time) each user was
   active in: `customer.history_age`, `account.inactive_for` (unknown for an account RiskOS has not
   seen before, never "not dormant"), `history.amount_to_max` and `history.hour_usual` (true when
   the user was active in this hour before).
@@ -337,6 +399,14 @@ queried from Postgres per event:
 - Money flows (PON-01), in the first round trip because window filters use them: the senders of
   incoming payments are kept next to the payees, so `sender.related` says whether the user paid
   this sender before and `txn.to_prior_sender` whether a payment out goes to someone who paid in.
+  An incoming payment with a sender reference is `txn.from_new_sender` the first time the user
+  receives from that sender (and for a user RiskOS has not seen before); dry runs only ask.
+- **US dollar amounts.** A rule on `txn.amount_usd` uses the amount the event sends, else the
+  event's amount converted at the institution's rate for its currency
+  (`PUT /api/v1/compliance/fx-rates/{currency}`); the rate used (currency, US dollars per unit,
+  when it was set) is recorded with the evaluation as `txn.usd_rate`. Without a rate there is no
+  conversion and the rule is not evaluated (`fact:txn.amount_usd`), never compared in another
+  currency.
 - For data exports that send `export.rows`, a running mean of rows per export per user and per
   environment (about the last 500 exports): `export.rows_to_user_baseline` and
   `export.rows_to_tenant_baseline`, once a baseline has at least 5 exports.

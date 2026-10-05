@@ -10,11 +10,32 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
+
+const countEvaluationsSince = `-- name: CountEvaluationsSince :one
+SELECT count(*)::bigint FROM evaluations
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3 AND NOT dry_run
+`
+
+type CountEvaluationsSinceParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+}
+
+func (q *Queries) CountEvaluationsSince(ctx context.Context, arg CountEvaluationsSinceParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countEvaluationsSince, arg.TenantID, arg.EnvironmentID, arg.Since)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
 
 const getEvaluation = `-- name: GetEvaluation :one
 SELECT id, created_at, event_id, engine_version, risk_score, risk_level, decision, signals, degraded_signals, request_id,
-       controls, not_evaluated
+       controls, not_evaluated,
+       -- The jurisdiction that judged the event is kept with the features (ADR-0007).
+       COALESCE(features->'jurisdiction', 'null'::jsonb)::jsonb AS jurisdiction
 FROM evaluations
 WHERE tenant_id = $1 AND environment_id = $2 AND created_at = $3 AND id = $4
 `
@@ -39,6 +60,7 @@ type GetEvaluationRow struct {
 	RequestID       string
 	Controls        []byte
 	NotEvaluated    []byte
+	Jurisdiction    []byte
 }
 
 // created_at is derived from the id, so this reads exactly one partition.
@@ -63,6 +85,7 @@ func (q *Queries) GetEvaluation(ctx context.Context, arg GetEvaluationParams) (G
 		&i.RequestID,
 		&i.Controls,
 		&i.NotEvaluated,
+		&i.Jurisdiction,
 	)
 	return i, err
 }
@@ -193,6 +216,63 @@ func (q *Queries) PackReplays(ctx context.Context, arg PackReplaysParams) ([]Pac
 	return items, nil
 }
 
+const recentFacts = `-- name: RecentFacts :many
+SELECT id, event_id, created_at, (features->'facts')::jsonb AS facts, decision, risk_score
+FROM evaluations
+WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3 AND NOT dry_run
+ORDER BY created_at DESC
+LIMIT $4
+`
+
+type RecentFactsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	MaxRows       int32
+}
+
+type RecentFactsRow struct {
+	ID        uuid.UUID
+	EventID   *uuid.UUID
+	CreatedAt time.Time
+	Facts     []byte
+	Decision  string
+	RiskScore int16
+}
+
+// The newest evaluations' recorded facts, for trying a rule condition on them.
+func (q *Queries) RecentFacts(ctx context.Context, arg RecentFactsParams) ([]RecentFactsRow, error) {
+	rows, err := q.db.Query(ctx, recentFacts,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.MaxRows,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RecentFactsRow
+	for rows.Next() {
+		var i RecentFactsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.EventID,
+			&i.CreatedAt,
+			&i.Facts,
+			&i.Decision,
+			&i.RiskScore,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const restrictedSignals = `-- name: RestrictedSignals :many
 SELECT id, event_id, created_at, restricted_signals
 FROM evaluations
@@ -230,6 +310,68 @@ func (q *Queries) RestrictedSignals(ctx context.Context, arg RestrictedSignalsPa
 			&i.EventID,
 			&i.CreatedAt,
 			&i.RestrictedSignals,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const ruleMatchesByDay = `-- name: RuleMatchesByDay :many
+SELECT s.code::text AS code,
+       date_trunc('day', e.created_at AT TIME ZONE 'UTC')::date AS day,
+       count(*)::bigint AS matches,
+       max(e.created_at)::timestamptz AS last_at
+FROM evaluations e
+CROSS JOIN LATERAL (
+  SELECT x->>'code' AS code FROM jsonb_array_elements(e.signals) x
+  UNION ALL
+  SELECT x->>'code' AS code FROM jsonb_array_elements(e.shadow_signals) x
+) s
+WHERE e.tenant_id = $1 AND e.environment_id = $2
+  AND e.created_at >= $3 AND NOT e.dry_run
+  AND s.code = ANY($4::text[])
+GROUP BY s.code, date_trunc('day', e.created_at AT TIME ZONE 'UTC')::date
+`
+
+type RuleMatchesByDayParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	Codes         []string
+}
+
+type RuleMatchesByDayRow struct {
+	Code    string
+	Day     pgtype.Date
+	Matches int64
+	LastAt  time.Time
+}
+
+// Matches of the given signal codes (active and monitoring) per UTC day since a time.
+func (q *Queries) RuleMatchesByDay(ctx context.Context, arg RuleMatchesByDayParams) ([]RuleMatchesByDayRow, error) {
+	rows, err := q.db.Query(ctx, ruleMatchesByDay,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.Codes,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []RuleMatchesByDayRow
+	for rows.Next() {
+		var i RuleMatchesByDayRow
+		if err := rows.Scan(
+			&i.Code,
+			&i.Day,
+			&i.Matches,
+			&i.LastAt,
 		); err != nil {
 			return nil, err
 		}

@@ -1,10 +1,13 @@
 package handler
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
+	"maps"
+	"slices"
 	"strings"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
@@ -61,8 +64,12 @@ func optional(s string) *string {
 }
 
 // GetCompliancePack implements GET /api/v1/compliance/pack.
-func (h *Handlers) GetCompliancePack(ctx context.Context, _ apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+func (h *Handlers) GetCompliancePack(ctx context.Context, req apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error) {
+	jurisdiction := ""
+	if req.Params.Jurisdiction != nil {
+		jurisdiction = *req.Params.Jurisdiction
+	}
+	p, err := h.svc.Pack(ctx, jurisdiction)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -84,7 +91,16 @@ func (h *Handlers) GetCompliancePack(ctx context.Context, _ apigen.GetCompliance
 		}
 		sources[i] = apigen.ComplianceSource{Id: s.ID, Title: s.Title, Links: links}
 	}
+	penalties := make([]apigen.CompliancePenalty, len(p.Penalties))
+	for i, pen := range p.Penalties {
+		penalties[i] = apigen.CompliancePenalty{
+			Provision: pen.Provision, Penalty: pen.Penalty, Estimate: optional(pen.Estimate), Inference: pen.Inference,
+			Sources: list(pen.Sources),
+		}
+	}
+	locale := p.Locale()
 	return apigen.GetCompliancePack200JSONResponse{
+		Currency: optional(locale.Currency), Timezone: optional(locale.Timezone), Penalties: &penalties,
 		Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, LatestVersion: p.Latest, Checksum: p.Checksum,
 		LoadedAt: p.LoadedAt, Groups: groups, LicenceTypes: options(p.LicenceTypes),
 		Capabilities: options(p.Capabilities), Sources: sources,
@@ -125,7 +141,26 @@ func ruleToAPI(v *service.RuleView) (apigen.ComplianceRule, error) {
 			Decision: optional(v.Outcome.Decision), Severity: optional(v.Outcome.Severity), Tasks: tasks,
 		},
 		Parameters: params, Applicable: v.Applicable,
-		Mode: apigen.PackRuleMode(v.Config.Mode), ConfigVersion: v.Config.Version,
+		Mode: apigen.PackRuleMode(v.Config.Mode), ConfigVersion: v.Config.Version, Verifications: verificationsToAPI(v.Verified),
+		Jurisdiction: optional(v.Jurisdiction), InheritedFrom: optional(v.InheritedFrom), Basis: optional(v.Text.Basis),
+	}
+	if v.Provenance != "" {
+		p := apigen.ComplianceRuleProvenance(v.Provenance)
+		out.Provenance = &p
+	}
+	if v.OffReason != "" {
+		r := apigen.ComplianceRuleOffReason(v.OffReason)
+		out.OffReason = &r
+	}
+	if v.Lineage != nil {
+		out.Lineage = &apigen.ComplianceLineage{Kind: apigen.ComplianceLineageKind(v.Lineage.Kind), Of: list(v.Lineage.Of)}
+	}
+	if v.Template != nil {
+		out.Template = &v.Template.Rule
+	}
+	if len(v.Overrides) > 0 {
+		changes := slices.Sorted(maps.Keys(v.Overrides))
+		out.Changes = &changes
 	}
 	if v.Engineering {
 		raw, err := json.Marshal(v.Rule)
@@ -151,6 +186,7 @@ func (h *Handlers) ListComplianceRules(ctx context.Context, req apigen.ListCompl
 	}{
 		{&f.Group, req.Params.Group}, {&f.Regulator, req.Params.Regulator}, {&f.Query, req.Params.Q},
 		{&f.Kind, (*string)(req.Params.Kind)}, {&f.Verification, (*string)(req.Params.Verification)},
+		{&f.Jurisdiction, req.Params.Jurisdiction},
 	} {
 		if p.src != nil {
 			*p.dst = *p.src
@@ -171,7 +207,11 @@ func (h *Handlers) ListComplianceRules(ctx context.Context, req apigen.ListCompl
 
 // GetComplianceRule implements GET /api/v1/compliance/rules/{rule_id}.
 func (h *Handlers) GetComplianceRule(ctx context.Context, req apigen.GetComplianceRuleRequestObject) (apigen.GetComplianceRuleResponseObject, error) {
-	r, err := h.svc.Rule(ctx, req.RuleId)
+	jurisdiction := ""
+	if req.Params.Jurisdiction != nil {
+		jurisdiction = *req.Params.Jurisdiction
+	}
+	r, err := h.svc.Rule(ctx, jurisdiction, req.RuleId)
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -182,9 +222,17 @@ func (h *Handlers) GetComplianceRule(ctx context.Context, req apigen.GetComplian
 	return apigen.GetComplianceRule200JSONResponse(out), nil
 }
 
+// jurisdictionOf reads an optional jurisdiction parameter.
+func jurisdictionOf(p *string) string {
+	if p == nil {
+		return ""
+	}
+	return *p
+}
+
 // ListComplianceClocks implements GET /api/v1/compliance/clocks.
-func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListComplianceClocksRequestObject) (apigen.ListComplianceClocksResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+func (h *Handlers) ListComplianceClocks(ctx context.Context, req apigen.ListComplianceClocksRequestObject) (apigen.ListComplianceClocksResponseObject, error) {
+	p, err := h.svc.Pack(ctx, jurisdictionOf(req.Params.Jurisdiction))
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -192,28 +240,40 @@ func (h *Handlers) ListComplianceClocks(ctx context.Context, _ apigen.ListCompli
 	for i, c := range p.Clocks {
 		data[i] = apigen.ComplianceClock{
 			Id: c.ID, Duration: c.Duration, Duty: c.Duty, AppliesTo: c.AppliesTo, Requirement: c.Requirement,
-			Hours: c.Hours, Sources: list(c.Sources), Rules: list(c.Rules),
+			Hours: c.Hours, Kind: apigen.ComplianceClockKind(c.ClockKindOf()), Authority: optional(c.Authority),
+			Sources: list(c.Sources), Rules: list(c.Rules),
 		}
 	}
 	return apigen.ListComplianceClocks200JSONResponse{Data: data}, nil
 }
 
 // ListComplianceGaps implements GET /api/v1/compliance/gaps.
-func (h *Handlers) ListComplianceGaps(ctx context.Context, _ apigen.ListComplianceGapsRequestObject) (apigen.ListComplianceGapsResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+func (h *Handlers) ListComplianceGaps(ctx context.Context, req apigen.ListComplianceGapsRequestObject) (apigen.ListComplianceGapsResponseObject, error) {
+	p, err := h.svc.Pack(ctx, jurisdictionOf(req.Params.Jurisdiction))
 	if err != nil {
 		return nil, mapError(err)
 	}
 	data := make([]apigen.ComplianceGap, len(p.Gaps))
 	for i, g := range p.Gaps {
-		data[i] = apigen.ComplianceGap{Id: g.ID, Title: g.Title, Detail: g.Detail, Rules: list(g.Rules), Sources: list(g.Sources)}
+		data[i] = apigen.ComplianceGap{
+			Id: g.ID, Title: g.Title, Detail: g.Detail, Treatment: optional(g.Treatment),
+			Rules: list(g.Rules), Sources: list(g.Sources),
+		}
+		if g.Kind != "" {
+			k := apigen.ComplianceGapKind(g.Kind)
+			data[i].Kind = &k
+		}
+		if v, ok := p.Verified[g.ID]; ok {
+			gv := gapVerificationToAPI(v)
+			data[i].Verification = &gv
+		}
 	}
 	return apigen.ListComplianceGaps200JSONResponse{Data: data}, nil
 }
 
 // ListComplianceGlossary implements GET /api/v1/compliance/glossary.
-func (h *Handlers) ListComplianceGlossary(ctx context.Context, _ apigen.ListComplianceGlossaryRequestObject) (apigen.ListComplianceGlossaryResponseObject, error) {
-	p, err := h.svc.Pack(ctx)
+func (h *Handlers) ListComplianceGlossary(ctx context.Context, req apigen.ListComplianceGlossaryRequestObject) (apigen.ListComplianceGlossaryResponseObject, error) {
+	p, err := h.svc.Pack(ctx, jurisdictionOf(req.Params.Jurisdiction))
 	if err != nil {
 		return nil, mapError(err)
 	}
@@ -228,6 +288,7 @@ func profileToAPI(p service.Profile) apigen.ComplianceProfile {
 	return apigen.ComplianceProfile{
 		Jurisdiction: p.Jurisdiction, LicenceType: p.LicenceType, Capabilities: list(p.Capabilities),
 		PackId: p.PackID, PackVersion: p.PackVersion, UpdatedAt: p.UpdatedAt, UpdatedBy: p.UpdatedBy,
+		Confirmed: p.Confirmed,
 	}
 }
 
@@ -252,4 +313,108 @@ func (h *Handlers) PutComplianceProfile(ctx context.Context, req apigen.PutCompl
 		return nil, mapError(err)
 	}
 	return apigen.PutComplianceProfile200JSONResponse(profileToAPI(p)), nil
+}
+
+// ListCompliancePacks implements GET /api/v1/compliance/packs.
+func (h *Handlers) ListCompliancePacks(ctx context.Context, _ apigen.ListCompliancePacksRequestObject) (apigen.ListCompliancePacksResponseObject, error) {
+	packs, err := h.svc.Packs(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.CompliancePackSummary, len(packs))
+	for i, p := range packs {
+		data[i] = apigen.CompliancePackSummary{
+			Id: p.ID, Jurisdiction: p.Jurisdiction, Name: p.Name, Version: p.Version, Current: p.Current, Activated: &p.Activated,
+			Controls: p.Counts[pack.KindControl], Signals: p.Counts[pack.KindSignal], Governance: p.Counts[pack.KindGovernance],
+		}
+	}
+	return apigen.ListCompliancePacks200JSONResponse{Data: data}, nil
+}
+
+// ListComplianceJurisdictions implements GET /api/v1/compliance/jurisdictions.
+func (h *Handlers) ListComplianceJurisdictions(ctx context.Context, _ apigen.ListComplianceJurisdictionsRequestObject) (apigen.ListComplianceJurisdictionsResponseObject, error) {
+	js, err := h.svc.Jurisdictions(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.Jurisdiction, len(js))
+	for i, j := range js {
+		data[i] = apigen.Jurisdiction{
+			Code: j.Code, Name: j.Name, Currency: j.Currency, MinorUnit: int(j.MinorUnit), Timezone: j.Timezone,
+			Regulators: list(j.Regulators), Pack: j.PackID, Activated: j.Activated,
+		}
+	}
+	return apigen.ListComplianceJurisdictions200JSONResponse{Data: data}, nil
+}
+
+// ListComplianceActivations implements GET /api/v1/compliance/activations.
+func (h *Handlers) ListComplianceActivations(ctx context.Context, _ apigen.ListComplianceActivationsRequestObject) (apigen.ListComplianceActivationsResponseObject, error) {
+	acts, err := h.svc.Activations(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.JurisdictionActivation, len(acts))
+	for i, a := range acts {
+		data[i] = activationToAPI(a)
+	}
+	return apigen.ListComplianceActivations200JSONResponse{Data: data}, nil
+}
+
+// ListActiveComplianceRules implements GET /api/v1/compliance/active-rules.
+func (h *Handlers) ListActiveComplianceRules(ctx context.Context, req apigen.ListActiveComplianceRulesRequestObject) (apigen.ListActiveComplianceRulesResponseObject, error) {
+	jurisdiction := ""
+	if req.Params.Jurisdiction != nil {
+		jurisdiction = *req.Params.Jurisdiction
+	}
+	rules, err := h.svc.ActiveRules(ctx, jurisdiction)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.ActiveComplianceRule, len(rules))
+	for i, r := range rules {
+		data[i] = apigen.ActiveComplianceRule{
+			Rule: r.Rule.ID, Name: r.Rule.Text.Name, Kind: apigen.ComplianceRuleKind(r.Rule.Kind),
+			Jurisdiction: r.Jurisdiction, Pack: r.Pack, BookingEntity: r.BookingEntity,
+			Mode: apigen.ActiveComplianceRuleMode(r.Mode), Events: list(r.Rule.Trigger.Events),
+			Facts: list(r.Facts), Refs: list(r.Refs), UnsetSettings: list(r.UnsetSettings),
+		}
+		if r.Rule.Provenance != "" {
+			p := apigen.ActiveComplianceRuleProvenance(r.Rule.Provenance)
+			data[i].Provenance = &p
+		}
+	}
+	return apigen.ListActiveComplianceRules200JSONResponse{Data: data}, nil
+}
+
+// GetComplianceClockMatrix implements GET /api/v1/compliance/clock-matrix.
+func (h *Handlers) GetComplianceClockMatrix(ctx context.Context, _ apigen.GetComplianceClockMatrixRequestObject) (apigen.GetComplianceClockMatrixResponseObject, error) {
+	rows, err := h.svc.ClockMatrix(ctx)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	data := make([]apigen.ClockMatrixRow, len(rows))
+	for i, r := range rows {
+		data[i] = apigen.ClockMatrixRow{
+			Item: r.Item, Nigeria: r.Nigeria, Ghana: r.Ghana, Rwanda: r.Rwanda, WorkingDefault: r.WorkingDefault,
+		}
+	}
+	return apigen.GetComplianceClockMatrix200JSONResponse{Data: data}, nil
+}
+
+// ExportComplianceLibrary implements GET /api/v1/compliance/export.
+func (h *Handlers) ExportComplianceLibrary(ctx context.Context, req apigen.ExportComplianceLibraryRequestObject) (apigen.ExportComplianceLibraryResponseObject, error) {
+	format := string(req.Params.Format)
+	data, name, err := h.svc.Export(ctx, jurisdictionOf(req.Params.Jurisdiction), format, h.clock.Now())
+	if err != nil {
+		return nil, mapError(err)
+	}
+	headers := apigen.ExportComplianceLibrary200ResponseHeaders{ContentDisposition: new(`attachment; filename="` + name + `"`)}
+	if format == service.ExportPDF {
+		return apigen.ExportComplianceLibrary200ApplicationpdfResponse{
+			Body: bytes.NewReader(data), ContentLength: int64(len(data)), Headers: headers,
+		}, nil
+	}
+	return apigen.ExportComplianceLibrary200TextcsvResponse{
+		Body: bytes.NewReader(data), ContentLength: int64(len(data)), Headers: headers,
+	}, nil
 }

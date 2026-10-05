@@ -1,0 +1,3116 @@
+{
+  "rules": [
+    {
+      "id": "GH-TM-01",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "ATO-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "ATO-01"
+      },
+      "overrides": {
+        "floor": {
+          "currency": "GHS",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "label": "Smallest transfer that counts (suggested GHS 2,000)"
+        }
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS23",
+        "GS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-02",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "ATO-03"
+        ]
+      },
+      "regulators": [
+        "BoG",
+        "NCA"
+      ],
+      "sources": [
+        "GS23",
+        "GS35"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "telco",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "telco.sim_swap"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "exists",
+                    "event": "sim_reregistered",
+                    "window": "window",
+                    "by": "account"
+                  }
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "exists",
+                    "event": "device_reregistered",
+                    "window": "window",
+                    "by": "account"
+                  }
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "sim_swap",
+        "min_decision": "step_up",
+        "evidence": [
+          "telco.sim_swap"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "How long after a SIM or device change",
+          "type": "duration",
+          "default": 259200,
+          "min": 3600,
+          "max": 2592000
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer that counts (suggested GHS 2,000)",
+          "type": "money",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "GHS"
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-03",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "ATO-02"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "profile_change",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "profile.field"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "password",
+                      "pin",
+                      "phone",
+                      "email"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "credential_change_before_transfer",
+        "min_decision": "step_up",
+        "evidence": [
+          "profile.field"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "How long after a change",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "floor",
+          "label": "Smallest transfer that counts (suggested GHS 2,000)",
+          "type": "money",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "GHS"
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-04",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "BEH-02"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "BEH-02"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-05",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "VEL-02"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "VEL-02"
+      },
+      "overrides": {
+        "floor": {
+          "currency": "GHS",
+          "default": 500000,
+          "min": 0,
+          "max": 1000000000,
+          "label": "Smallest daily total that counts (suggested GHS 5,000 for retail wallets)"
+        }
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS34"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-06",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "VEL-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "VEL-01"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-07",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local",
+        "of": [
+          "VEL-04"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS8"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Fires on either test in the library: several debits just under the daily limit, or debits totalling 80% or more of the daily limit on three local days in a week (days counted in Accra).",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile",
+        "wallet_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "wallet_cash_out"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "mobile_money_wallet"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "minimum"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "count",
+                        "event": "transaction_any",
+                        "window": "window",
+                        "by": "account",
+                        "where": {
+                          "all": [
+                            {
+                              "left": {
+                                "fact": "txn.direction"
+                              },
+                              "op": "eq",
+                              "right": {
+                                "literal": "debit"
+                              }
+                            },
+                            {
+                              "all": [
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "gte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_low",
+                                      "of": {
+                                        "param": "daily_minimum"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "lte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_high",
+                                      "of": {
+                                        "param": "daily_minimum"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "transactions"
+                    }
+                  },
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "days_over",
+                        "event": "transaction_any",
+                        "window": "week",
+                        "by": "account",
+                        "field": "txn.amount",
+                        "over": "daily_minimum",
+                        "over_factor": "day_share",
+                        "where": {
+                          "left": {
+                            "fact": "txn.direction"
+                          },
+                          "op": "eq",
+                          "right": {
+                            "literal": "debit"
+                          }
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "days"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "medium"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "count",
+                        "event": "transaction_any",
+                        "window": "window",
+                        "by": "account",
+                        "where": {
+                          "all": [
+                            {
+                              "left": {
+                                "fact": "txn.direction"
+                              },
+                              "op": "eq",
+                              "right": {
+                                "literal": "debit"
+                              }
+                            },
+                            {
+                              "all": [
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "gte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_low",
+                                      "of": {
+                                        "param": "daily_medium"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "lte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_high",
+                                      "of": {
+                                        "param": "daily_medium"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "transactions"
+                    }
+                  },
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "days_over",
+                        "event": "transaction_any",
+                        "window": "week",
+                        "by": "account",
+                        "field": "txn.amount",
+                        "over": "daily_medium",
+                        "over_factor": "day_share",
+                        "where": {
+                          "left": {
+                            "fact": "txn.direction"
+                          },
+                          "op": "eq",
+                          "right": {
+                            "literal": "debit"
+                          }
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "days"
+                    }
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "wallet.kyc_tier"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": "enhanced"
+                }
+              },
+              {
+                "any": [
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "count",
+                        "event": "transaction_any",
+                        "window": "window",
+                        "by": "account",
+                        "where": {
+                          "all": [
+                            {
+                              "left": {
+                                "fact": "txn.direction"
+                              },
+                              "op": "eq",
+                              "right": {
+                                "literal": "debit"
+                              }
+                            },
+                            {
+                              "all": [
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "gte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_low",
+                                      "of": {
+                                        "param": "daily_enhanced"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "lte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_high",
+                                      "of": {
+                                        "param": "daily_enhanced"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "transactions"
+                    }
+                  },
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "days_over",
+                        "event": "transaction_any",
+                        "window": "week",
+                        "by": "account",
+                        "field": "txn.amount",
+                        "over": "daily_enhanced",
+                        "over_factor": "day_share",
+                        "where": {
+                          "left": {
+                            "fact": "txn.direction"
+                          },
+                          "op": "eq",
+                          "right": {
+                            "literal": "debit"
+                          }
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "days"
+                    }
+                  }
+                ]
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "wallet_limit_structuring",
+        "min_decision": "review",
+        "evidence": [
+          "limit",
+          "amounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "transactions",
+          "label": "Transactions just under the limit that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "band_low",
+          "label": "Lower edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 0.99
+        },
+        {
+          "name": "band_high",
+          "label": "Upper edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.999,
+          "min": 0.9,
+          "max": 0.9999
+        },
+        {
+          "name": "day_share",
+          "label": "Share of the daily limit that makes a heavy day",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "days",
+          "label": "Heavy days in the week that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 7
+        },
+        {
+          "name": "week",
+          "label": "Week the heavy days count over",
+          "type": "duration",
+          "default": 604800,
+          "min": 604800,
+          "max": 604800
+        },
+        {
+          "name": "daily_minimum",
+          "label": "Daily limit of a Minimum-tier wallet (as in GH-REG-01)",
+          "type": "money",
+          "default": 300000,
+          "min": 0,
+          "max": 300000,
+          "currency": "GHS"
+        },
+        {
+          "name": "daily_medium",
+          "label": "Daily limit of a Medium-tier wallet (as in GH-REG-01)",
+          "type": "money",
+          "default": 1500000,
+          "min": 0,
+          "max": 1500000,
+          "currency": "GHS"
+        },
+        {
+          "name": "daily_enhanced",
+          "label": "Daily limit of an Enhanced-tier wallet (as in GH-REG-01)",
+          "type": "money",
+          "default": 2500000,
+          "min": 0,
+          "max": 2500000,
+          "currency": "GHS"
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-08",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "VEL-04"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GS30",
+        "GS1"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "activation"
+      ],
+      "trigger": {
+        "events": [
+          "cash_deposit",
+          "cash_withdrawal"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "institution.licence_type"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "bank",
+                    "securities"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "count",
+                    "event": "cash_any",
+                    "window": "window",
+                    "by": "customer",
+                    "where": {
+                      "all": [
+                        {
+                          "left": {
+                            "fact": "txn.amount"
+                          },
+                          "op": "gte",
+                          "right": {
+                            "times": {
+                              "factor": "band_low",
+                              "of": {
+                                "param": "ctr_bank"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "left": {
+                            "fact": "txn.amount"
+                          },
+                          "op": "lte",
+                          "right": {
+                            "times": {
+                              "factor": "band_high",
+                              "of": {
+                                "param": "ctr_bank"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "gte",
+                "right": {
+                  "param": "deals"
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "institution.licence_type"
+                },
+                "op": "in",
+                "right": {
+                  "literal": [
+                    "sdi",
+                    "forex_bureau"
+                  ]
+                }
+              },
+              {
+                "left": {
+                  "agg": {
+                    "fn": "count",
+                    "event": "cash_any",
+                    "window": "window",
+                    "by": "customer",
+                    "where": {
+                      "all": [
+                        {
+                          "left": {
+                            "fact": "txn.amount"
+                          },
+                          "op": "gte",
+                          "right": {
+                            "times": {
+                              "factor": "band_low",
+                              "of": {
+                                "param": "ctr_sdi"
+                              }
+                            }
+                          }
+                        },
+                        {
+                          "left": {
+                            "fact": "txn.amount"
+                          },
+                          "op": "lte",
+                          "right": {
+                            "times": {
+                              "factor": "band_high",
+                              "of": {
+                                "param": "ctr_sdi"
+                              }
+                            }
+                          }
+                        }
+                      ]
+                    }
+                  }
+                },
+                "op": "gte",
+                "right": {
+                  "param": "deals"
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "ctr_structuring",
+        "min_decision": "review",
+        "evidence": [
+          "threshold",
+          "amounts",
+          "branches"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "deals",
+          "label": "Cash deals just under the line that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window (across branches and linked accounts)",
+          "type": "duration",
+          "default": 432000,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "band_low",
+          "label": "Lower edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 0.99
+        },
+        {
+          "name": "band_high",
+          "label": "Upper edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.999,
+          "min": 0.9,
+          "max": 0.9999
+        },
+        {
+          "name": "ctr_bank",
+          "label": "Cash reporting line, banks and securities firms (as in GH-REG-04)",
+          "type": "money",
+          "default": 5000000,
+          "min": 0,
+          "max": 5000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "ctr_sdi",
+          "label": "Cash reporting line, specialised deposit-taking institutions and forex bureaux (as in GH-REG-04)",
+          "type": "money",
+          "default": 2000000,
+          "min": 0,
+          "max": 2000000,
+          "currency": "GHS"
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-09",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-02"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-02"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28",
+        "GS35"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-10",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-01"
+      },
+      "overrides": {
+        "floor": {
+          "currency": "GHS",
+          "default": 200000,
+          "min": 0,
+          "max": 1000000000,
+          "label": "Smallest amount received that counts (suggested GHS 2,000)"
+        }
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28",
+        "GS34"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-11",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-03"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-03"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-12",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-08"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "atm_withdrawal",
+          "pos_purchase",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "left": {
+                    "fact": "txn.source"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "card",
+                      "p2p",
+                      "wallet"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.source"
+                      },
+                      "op": "in",
+                      "right": {
+                        "literal": [
+                          "card",
+                          "p2p",
+                          "wallet"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "rapid_cash_out"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 15,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 1800,
+          "min": 300,
+          "max": 21600
+        },
+        {
+          "name": "share",
+          "label": "Share of the money received that is cashed out",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-13",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-04"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-04"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-14",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-05"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "MUL-05"
+      },
+      "overrides": {
+        "large": {
+          "currency": "GHS",
+          "default": 500000,
+          "min": 0,
+          "max": 10000000000,
+          "label": "Large payment after dormancy (suggested GHS 5,000)"
+        }
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-15",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "MUL-06"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28",
+        "GS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "loan_application",
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "device",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "device_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "national_id",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "phone",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "activity_any",
+                "window": "window",
+                "by": "address",
+                "field": "account.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "identity_accounts"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "shared_identifiers",
+        "min_decision": "review",
+        "evidence": [
+          "shared_identifier",
+          "linked_accounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "device_accounts",
+          "label": "Accounts on one device that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "identity_accounts",
+          "label": "Accounts on one Ghana Card, phone or address that count",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 15552000,
+          "min": 604800,
+          "max": 31536000
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-16",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS34",
+        "NG"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No Ghana agent-float data was found; every number is a placeholder to calibrate on your agent network.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "agent_network"
+      ],
+      "trigger": {
+        "events": [
+          "agent_daily"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "agent.float_topup_to_peer_p95"
+            },
+            "op": "gt",
+            "right": {
+              "param": "float_peer_multiple"
+            }
+          },
+          {
+            "left": {
+              "fact": "agent.cycle_to_float"
+            },
+            "op": "gt",
+            "right": {
+              "param": "cycle_max"
+            }
+          },
+          {
+            "left": {
+              "fact": "agent.new_wallet_share"
+            },
+            "op": "gt",
+            "right": {
+              "param": "new_wallet_share_max"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "agent_float_anomaly",
+        "min_decision": "review",
+        "visibility": "compliance_only",
+        "evidence": [
+          "agent.id",
+          "float_metrics"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "float_peer_multiple",
+          "label": "Float top-ups above similar agents, as a multiple (to be set)",
+          "type": "ratio",
+          "default": null,
+          "min": 1,
+          "max": 50
+        },
+        {
+          "name": "cycle_max",
+          "label": "Cash cycled through the float, as a multiple of the float (to be set)",
+          "type": "ratio",
+          "default": null,
+          "min": 1,
+          "max": 100
+        },
+        {
+          "name": "new_wallet_share_max",
+          "label": "Share of an agent's customers that are new wallets (to be set)",
+          "type": "ratio",
+          "default": null,
+          "min": 0.05,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-17",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local",
+        "of": [
+          "INS-01"
+        ]
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28",
+        "GS29"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "staff_directory",
+        "peer_groups"
+      ],
+      "trigger": {
+        "events": [
+          "eod_reconciliation",
+          "staff_action"
+        ],
+        "scope": {
+          "left": {
+            "fact": "staff.role"
+          },
+          "op": "in",
+          "right": {
+            "literal": [
+              "teller",
+              "relationship_officer",
+              "direct_sales_agent"
+            ]
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "eod.cash_variance"
+            },
+            "op": "gt",
+            "right": {
+              "param": "variance_tolerance"
+            }
+          },
+          {
+            "left": {
+              "fact": "staff.dormant_account_debits"
+            },
+            "op": "gte",
+            "right": {
+              "param": "dormant_debits"
+            }
+          },
+          {
+            "left": {
+              "fact": "staff.overrides_above_peer_p95"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "insider_cash_suppression",
+        "min_decision": "review",
+        "visibility": "compliance_only",
+        "evidence": [
+          "staff.id",
+          "variance"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "variance_tolerance",
+          "label": "Cash difference tolerated at end of day",
+          "type": "money",
+          "default": 0,
+          "min": 0,
+          "max": 100000,
+          "currency": "GHS"
+        },
+        {
+          "name": "dormant_debits",
+          "label": "Staff debits of dormant accounts in 30 days that count",
+          "type": "count",
+          "default": 1,
+          "min": 1,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-18",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "GS30"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile",
+        "peer_groups",
+        "counterparty_tags"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_inbound",
+          "transfer_outbound"
+        ],
+        "scope": {
+          "left": {
+            "fact": "customer.segment"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "individual"
+          }
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "account.inflow_to_peer_p95"
+            },
+            "op": "gt",
+            "right": {
+              "param": "inflow_multiple"
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "agg": {
+                    "fn": "count",
+                    "event": "transaction_any",
+                    "window": "window",
+                    "by": "account",
+                    "where": {
+                      "left": {
+                        "fact": "counterparty.business"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": true
+                      }
+                    }
+                  }
+                },
+                "op": "gte",
+                "right": {
+                  "param": "business_transfers"
+                }
+              },
+              {
+                "left": {
+                  "fact": "txn.shareholder_loan"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "fact": "account.relatives_heavy_activity"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "personal_account_business_use",
+        "evidence": [
+          "turnover",
+          "counterparties"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "inflow_multiple",
+          "label": "Money received in 30 days, as a multiple of similar customers' 95th percentile",
+          "type": "ratio",
+          "default": 5,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "business_transfers",
+          "label": "Transfers with businesses in 30 days that count",
+          "type": "count",
+          "default": 5,
+          "min": 2,
+          "max": 500
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 2592000,
+          "min": 604800,
+          "max": 7776000
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-19",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GS31"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The FIC has published no galamsey red-flag list. Needs counterparty tags for gold buyers and aggregators, and an inflow amount your institution sets.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile",
+        "counterparty_tags"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_inbound",
+          "cash_withdrawal"
+        ],
+        "scope": {
+          "left": {
+            "fact": "customer.segment"
+          },
+          "op": "in",
+          "right": {
+            "literal": [
+              "individual",
+              "sme"
+            ]
+          }
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "counterparty.tag"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "gold_buyer",
+                      "gold_aggregator",
+                      "forex_bureau"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "gold_inflow_floor"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "cash_withdrawal",
+                "window": "cash_out_window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "cash_out_window",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "counterparty.tag"
+                      },
+                      "op": "in",
+                      "right": {
+                        "literal": [
+                          "gold_buyer",
+                          "gold_aggregator",
+                          "forex_bureau"
+                        ]
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "gold_trade_pattern",
+        "min_decision": "review",
+        "evidence": [
+          "counterparties",
+          "amounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "gold_inflow_floor",
+          "label": "Money from gold buyers in 7 days that counts (to be set)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 10000000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "cash_out_window",
+          "label": "Time to cash out after the money arrives",
+          "type": "duration",
+          "default": 172800,
+          "min": 3600,
+          "max": 604800
+        },
+        {
+          "name": "share",
+          "label": "Share of the money cashed out",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-20",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS32"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "lender_list",
+        "counterparty_tags"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "counterparty.on_unlicensed_lender_list"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "counterparty.tag"
+            },
+            "op": "eq",
+            "right": {
+              "literal": "unlicensed_lender"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "unlicensed_digital_lender",
+        "min_decision": "review",
+        "evidence": [
+          "counterparty",
+          "list_version"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 30,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-21",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "LEN-02"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "LEN-02"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "digital_lender",
+        "bank",
+        "sdi",
+        "mfb",
+        "emi"
+      ],
+      "sources": [
+        "GS32"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-22",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "PON-01"
+        ]
+      },
+      "template": {
+        "pack": "ng",
+        "rule": "PON-01"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS33"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      }
+    },
+    {
+      "id": "GH-TM-23",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS28",
+        "GS35"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No Ghana loss figures were found for wrong-transfer scams; the smallest credit that counts is a placeholder.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "all": [
+                    {
+                      "left": {
+                        "fact": "txn.from_new_sender"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": true
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "txn.amount"
+                      },
+                      "op": "gte",
+                      "right": {
+                        "param": "wrong_transfer_min"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.to_prior_sender"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "left": {
+                        "fact": "txn.from_new_sender"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": true
+                      }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "wrong_transfer_scam",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "wrong_transfer_min",
+          "label": "Smallest unexpected credit that counts (to be set)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000,
+          "currency": "GHS"
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 7200,
+          "min": 900,
+          "max": 86400
+        },
+        {
+          "name": "share",
+          "label": "Share of the credit sent on",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-24",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "BoG"
+      ],
+      "sources": [
+        "GS34"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Interoperable flows are small; this is a layering hint, not a sourced typology. The smallest inflow that counts is a placeholder.",
+      "defaults": {
+        "enabled": false,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ],
+        "scope": {
+          "left": {
+            "fact": "txn.rail"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "ghipss_interop"
+          }
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "account.age"
+            },
+            "op": "lt",
+            "right": {
+              "param": "new_wallet"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "txn.rail"
+                  },
+                  "op": "eq",
+                  "right": {
+                    "literal": "ghipss_interop"
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gt",
+            "right": {
+              "param": "floor"
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "medium",
+        "reason": "interoperability_pass_through"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 20,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "new_wallet",
+          "label": "How long a wallet counts as new",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 3600,
+          "min": 600,
+          "max": 86400
+        },
+        {
+          "name": "share",
+          "label": "Share sent to another network",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "floor",
+          "label": "Smallest amount received that counts (to be set)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "GHS"
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-25",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GS36"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The optional boost for an elderly overseas sender needs sender profiles and is not applied. Sums compare like currencies only: a foreign inflow in another currency leaves the rule not evaluated.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "exists",
+                "event": "transfer_international",
+                "window": "window",
+                "by": "account",
+                "where": {
+                  "all": [
+                    {
+                      "left": {
+                        "fact": "txn.direction"
+                      },
+                      "op": "eq",
+                      "right": {
+                        "literal": "credit"
+                      }
+                    },
+                    {
+                      "left": {
+                        "fact": "txn.amount_usd"
+                      },
+                      "op": "gte",
+                      "right": {
+                        "param": "foreign_inflow_min"
+                      }
+                    }
+                  ]
+                }
+              }
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "beneficiary.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "beneficiaries"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_international",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount",
+                    "where": {
+                      "all": [
+                        {
+                          "left": {
+                            "fact": "txn.direction"
+                          },
+                          "op": "eq",
+                          "right": {
+                            "literal": "credit"
+                          }
+                        },
+                        {
+                          "left": {
+                            "fact": "txn.amount_usd"
+                          },
+                          "op": "gte",
+                          "right": {
+                            "param": "foreign_inflow_min"
+                          }
+                        }
+                      ]
+                    }
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "romance_scam_proceeds",
+        "min_decision": "review",
+        "evidence": [
+          "inflow.sender",
+          "beneficiaries"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "foreign_inflow_min",
+          "label": "Foreign transfer that counts, from (US dollars)",
+          "type": "money",
+          "default": 100000,
+          "min": 0,
+          "max": 100000000,
+          "currency": "USD"
+        },
+        {
+          "name": "beneficiaries",
+          "label": "Ghanaian accounts it is sent on to",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 100
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 259200,
+          "min": 86400,
+          "max": 1209600
+        },
+        {
+          "name": "share",
+          "label": "Share sent on",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-26",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BoG"
+      ],
+      "applies_to": [
+        "forex_bureau"
+      ],
+      "sources": [
+        "GS9"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "forex_buy",
+          "forex_sell"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "count",
+            "event": "forex_any",
+            "window": "window",
+            "by": "customer",
+            "where": {
+              "all": [
+                {
+                  "left": {
+                    "fact": "txn.amount_usd"
+                  },
+                  "op": "gte",
+                  "right": {
+                    "times": {
+                      "factor": "band_low",
+                      "of": {
+                        "param": "edd_threshold"
+                      }
+                    }
+                  }
+                },
+                {
+                  "left": {
+                    "fact": "txn.amount_usd"
+                  },
+                  "op": "lte",
+                  "right": {
+                    "times": {
+                      "factor": "band_high",
+                      "of": {
+                        "param": "edd_threshold"
+                      }
+                    }
+                  }
+                }
+              ]
+            }
+          }
+        },
+        "op": "gte",
+        "right": {
+          "param": "deals"
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "forex_structuring",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "deals",
+          "label": "Deals just under the line that count",
+          "type": "count",
+          "default": 2,
+          "min": 2,
+          "max": 50
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "band_low",
+          "label": "Lower edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.9,
+          "min": 0.5,
+          "max": 0.99
+        },
+        {
+          "name": "band_high",
+          "label": "Upper edge of \"just under\"",
+          "type": "ratio",
+          "default": 0.999,
+          "min": 0.9,
+          "max": 0.9999
+        },
+        {
+          "name": "edd_threshold",
+          "label": "Enhanced-checks line (as in GH-REG-12)",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000,
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-27",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "GS38"
+      ],
+      "effective": {
+        "text": "Not regulation: a recommended starting rule from the Ghana and Rwanda library of 4 October 2026"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The FIC asks for risk-based heightened scrutiny, not blanket enhanced due diligence. Your institution keeps the FATF list current.",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "fatf_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_international"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "counterparty.fatf_monitored"
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "low",
+        "reason": "fatf_monitored_jurisdiction"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 10,
+          "min": 0,
+          "max": 50
+        }
+      ]
+    },
+    {
+      "id": "GH-TM-28",
+      "group": "typology",
+      "kind": "signal",
+      "status": "recommended",
+      "provenance": "my_design",
+      "lineage": {
+        "kind": "new_local",
+        "of": [
+          "CRY-01",
+          "CRY-08"
+        ]
+      },
+      "regulators": [
+        "BoG",
+        "SEC"
+      ],
+      "sources": [
+        "GS12",
+        "GS15"
+      ],
+      "effective": {
+        "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
+      },
+      "verification": "secondary_source_only",
+      "defaults": {
+        "enabled": true,
+        "mode": "shadow"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "counterparty_tags"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "agg": {
+                "fn": "distinct_count",
+                "event": "transfer_inbound",
+                "window": "window",
+                "by": "account",
+                "field": "sender.id"
+              }
+            },
+            "op": "gte",
+            "right": {
+              "param": "senders"
+            }
+          },
+          {
+            "left": {
+              "agg": {
+                "fn": "sum",
+                "event": "transfer_outbound",
+                "window": "window",
+                "by": "account",
+                "field": "txn.amount",
+                "where": {
+                  "left": {
+                    "fact": "counterparty.tag"
+                  },
+                  "op": "in",
+                  "right": {
+                    "literal": [
+                      "vasp",
+                      "p2p_crypto",
+                      "crypto_linked"
+                    ]
+                  }
+                }
+              }
+            },
+            "op": "gte",
+            "right": {
+              "times": {
+                "factor": "share",
+                "of": {
+                  "agg": {
+                    "fn": "sum",
+                    "event": "transfer_inbound",
+                    "window": "window",
+                    "by": "account",
+                    "field": "txn.amount"
+                  }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "weight": "weight",
+        "severity": "high",
+        "reason": "crypto_off_ramp",
+        "min_decision": "review"
+      },
+      "parameters": [
+        {
+          "name": "weight",
+          "label": "Points added to the risk score",
+          "type": "points",
+          "default": 25,
+          "min": 0,
+          "max": 50
+        },
+        {
+          "name": "senders",
+          "label": "Different senders that count",
+          "type": "count",
+          "default": 10,
+          "min": 3,
+          "max": 1000
+        },
+        {
+          "name": "window",
+          "label": "Time window",
+          "type": "duration",
+          "default": 604800,
+          "min": 86400,
+          "max": 2592000
+        },
+        {
+          "name": "share",
+          "label": "Share sent to crypto counterparties",
+          "type": "ratio",
+          "default": 0.7,
+          "min": 0.3,
+          "max": 1
+        }
+      ]
+    }
+  ]
+}

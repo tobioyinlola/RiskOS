@@ -1,23 +1,14 @@
 "use client";
 
 import Link from "next/link";
-import { useMemo, useState } from "react";
+import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
-import { Input, Select } from "@/components/ui/field";
-import {
-  KeyValues,
-  Status,
-  Tab,
-  TabList,
-  TabPanel,
-  Tabs,
-  Tag,
-} from "@/components/ui/misc";
-import { Metric, PageHeader, Panel, PanelHeader } from "@/components/ui/panel";
+import { Field, Input, Textarea } from "@/components/ui/field";
+import { KeyValues } from "@/components/ui/misc";
+import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
 import {
-  Empty,
   ErrorState,
   Loading,
   Notice,
@@ -25,39 +16,39 @@ import {
 } from "@/components/ui/states";
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
-import { ApiError, api, unwrap, type Schemas } from "@/lib/api/client";
+import { api, unwrap, type Schemas } from "@/lib/api/client";
+import { CLOCK_KIND } from "@/lib/compliance";
+import { formatTimestamp } from "@/lib/format";
 import {
-  defaultLabel,
-  MODE_LABEL,
-  KIND_LABEL,
-  matchesFilter,
-  NO_FILTER,
-  VERIFICATION,
-  type RuleFilter,
-} from "@/lib/compliance";
-import { formatCount } from "@/lib/format";
-import {
+  useClockMatrix,
   useComplianceClocks,
   useComplianceGaps,
   useComplianceGlossary,
-  useCompliancePack,
   useComplianceProfile,
   useComplianceChanges,
-  useComplianceRules,
+  useUserName,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
-import { FXRatesTab } from "./fx";
 import { ProfileDialog, profileSummary } from "./profile";
 
 type Pack = Schemas["CompliancePack"];
-type Rule = Schemas["ComplianceRule"];
 
-/** A rule ID linking to its page. */
-export function RuleLink({ id }: { id: string }) {
+/** A rule ID linking to its page, in its country when given. */
+export function RuleLink({
+  id,
+  jurisdiction,
+}: {
+  id: string;
+  jurisdiction?: string;
+}) {
   return (
     <Link
-      href={`/compliance/rules/${id}`}
+      href={
+        (jurisdiction
+          ? `/compliance/rules/${id}?jurisdiction=${jurisdiction}`
+          : `/compliance/rules/${id}`) as "/compliance"
+      }
       className="mono text-data text-accent hover:underline"
     >
       {id}
@@ -65,102 +56,8 @@ export function RuleLink({ id }: { id: string }) {
   );
 }
 
-/** Compliance → Rules library: the jurisdiction pack the workspace is on. */
-export function ComplianceLibrary() {
-  const pack = useCompliancePack();
-  if (pack.isLoading) {
-    return (
-      <>
-        <PageHeader title="Rules library" />
-        <Loading label="Loading the rules library" />
-      </>
-    );
-  }
-  if (pack.isError || !pack.data) {
-    const none = pack.error instanceof ApiError && pack.error.status === 404;
-    return (
-      <>
-        <PageHeader title="Rules library" />
-        {none ? (
-          <Panel>
-            <Empty title="No rule pack is loaded">
-              Rule packs are loaded when RiskOS is deployed. Ask your RiskOS
-              contact which jurisdictions are available.
-            </Empty>
-          </Panel>
-        ) : (
-          <ErrorState error={pack.error} />
-        )}
-      </>
-    );
-  }
-  return <Library pack={pack.data} />;
-}
-
-function Library({ pack }: { pack: Pack }) {
-  const gaps = useComplianceGaps();
-  return (
-    <>
-      <PageHeader
-        title="Rules library"
-        eyebrow={`${pack.name} · version ${pack.version}`}
-        description="Every rule in the pack, in the library's own words, with its legal source, when it took effect and how far its facts are confirmed. Where sources conflict, it says so."
-      />
-      <ProfileBar pack={pack} />
-      <NewerVersion pack={pack} />
-      <PendingApprovals />
-      <div className="mb-6 grid grid-cols-2 gap-4 lg:grid-cols-4">
-        <Metric
-          label="Regulatory controls"
-          value={String(pack.counts.controls)}
-        />
-        <Metric
-          label="Risk-scoring rules"
-          value={String(pack.counts.signals)}
-        />
-        <Metric
-          label="Governance presets"
-          value={String(pack.counts.governance)}
-        />
-        <Metric
-          label="Open questions"
-          value={gaps.data ? String(gaps.data.data.length) : "–"}
-        />
-      </div>
-      <Tabs defaultValue="rules">
-        <TabList aria-label="Library sections" className="mb-4">
-          <Tab value="rules">Rules</Tab>
-          <Tab value="clocks">Deadlines</Tab>
-          <Tab value="gaps">Open questions</Tab>
-          <Tab value="glossary">Glossary</Tab>
-          <Tab value="sources">Sources</Tab>
-          <Tab value="fx">Exchange rates</Tab>
-        </TabList>
-        <TabPanel value="rules">
-          <RulesTab pack={pack} />
-        </TabPanel>
-        <TabPanel value="clocks">
-          <ClocksTab />
-        </TabPanel>
-        <TabPanel value="gaps">
-          <GapsTab />
-        </TabPanel>
-        <TabPanel value="glossary">
-          <GlossaryTab />
-        </TabPanel>
-        <TabPanel value="fx">
-          <FXRatesTab />
-        </TabPanel>
-        <TabPanel value="sources">
-          <SourcesTab pack={pack} />
-        </TabPanel>
-      </Tabs>
-    </>
-  );
-}
-
 /** The workspace's licence type and capabilities, which decide what applies. */
-function ProfileBar({ pack }: { pack: Pack }) {
+export function ProfileBar({ pack }: { pack: Pack }) {
   const { can } = useSession();
   const profile = useComplianceProfile();
   const [open, setOpen] = useState(false);
@@ -171,7 +68,22 @@ function ProfileBar({ pack }: { pack: Pack }) {
   const p = profile.data;
   return (
     <div className="mb-5">
-      {p ? (
+      {p && !p.confirmed ? (
+        <Notice tone="warn">
+          <span className="flex flex-wrap items-center gap-3">
+            <span>
+              {writable
+                ? "Confirm what kind of institution you are, so the right rules apply. Until then RiskOS treats you as “Other”."
+                : "A compliance officer or administrator should confirm the institution type, so the right rules apply."}
+            </span>
+            {writable ? (
+              <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
+                Confirm institution type
+              </Button>
+            ) : null}
+          </span>
+        </Notice>
+      ) : p ? (
         <Panel className="flex flex-wrap items-center justify-between gap-3 px-5 py-4">
           <div>
             <p className="text-label text-text-muted">Your institution</p>
@@ -183,22 +95,7 @@ function ProfileBar({ pack }: { pack: Pack }) {
             </Button>
           ) : null}
         </Panel>
-      ) : (
-        <Notice tone="info">
-          <span className="flex flex-wrap items-center gap-3">
-            <span>
-              {writable
-                ? "Tell RiskOS what kind of institution you are to see which rules apply to you."
-                : "An administrator or compliance officer sets the institution's licence type, which decides which rules apply."}
-            </span>
-            {writable ? (
-              <Button size="sm" variant="primary" onClick={() => setOpen(true)}>
-                Set licence type
-              </Button>
-            ) : null}
-          </span>
-        </Notice>
-      )}
+      ) : null}
       {writable ? (
         <ProfileDialog
           open={open}
@@ -211,216 +108,41 @@ function ProfileBar({ pack }: { pack: Pack }) {
   );
 }
 
-function AppliesCell({ applicable }: { applicable: boolean | null }) {
-  if (applicable === null) return <span className="text-text-muted">–</span>;
-  return applicable ? (
-    <Status tone="ok">Applies</Status>
-  ) : (
-    <Status tone="off">Not for you</Status>
-  );
-}
-
-function RulesTab({ pack }: { pack: Pack }) {
-  const q = useComplianceRules();
-  const [f, setF] = useState<RuleFilter>(NO_FILTER);
-  const all = useMemo(() => q.data?.data ?? [], [q.data]);
-  const rules = useMemo(() => all.filter((r) => matchesFilter(r, f)), [all, f]);
-  const regulators = useMemo(
-    () => [...new Set(all.flatMap((r) => r.regulators))].sort(),
-    [all],
-  );
-  const hasProfile = all.some((r) => r.applicable !== null);
-  const groupLabel = (id: string) =>
-    pack.groups.find((g) => g.id === id)?.label ?? id;
-  const set = <K extends keyof RuleFilter>(k: K, v: RuleFilter[K]) =>
-    setF((cur) => ({ ...cur, [k]: v }));
-  const control = "h-control-sm text-body-sm";
-  return (
-    <>
-      <div className="mb-3 flex flex-wrap items-center gap-2">
-        <Input
-          type="search"
-          aria-label="Search rules"
-          placeholder="Search by ID or words"
-          className={`${control} w-60`}
-          value={f.query}
-          onChange={(e) => set("query", e.target.value)}
-        />
-        <Select
-          aria-label="Type"
-          className={`${control} w-48`}
-          value={f.kind}
-          onChange={(e) => set("kind", e.target.value as RuleFilter["kind"])}
-        >
-          <option value="">All types</option>
-          {(Object.keys(KIND_LABEL) as Rule["kind"][]).map((k) => (
-            <option key={k} value={k}>
-              {KIND_LABEL[k]}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Group"
-          className={`${control} w-52`}
-          value={f.group}
-          onChange={(e) => set("group", e.target.value)}
-        >
-          <option value="">All groups</option>
-          {pack.groups.map((g) => (
-            <option key={g.id} value={g.id}>
-              {g.label}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Regulator"
-          className={`${control} w-44`}
-          value={f.regulator}
-          onChange={(e) => set("regulator", e.target.value)}
-        >
-          <option value="">All regulators</option>
-          {regulators.map((r) => (
-            <option key={r} value={r}>
-              {r}
-            </option>
-          ))}
-        </Select>
-        <Select
-          aria-label="Verification"
-          className={`${control} w-48`}
-          value={f.verification}
-          onChange={(e) =>
-            set("verification", e.target.value as RuleFilter["verification"])
-          }
-        >
-          <option value="">Any verification</option>
-          {(Object.keys(VERIFICATION) as Rule["verification"][]).map((v) => (
-            <option key={v} value={v}>
-              {VERIFICATION[v].label}
-            </option>
-          ))}
-        </Select>
-        {hasProfile ? (
-          <label className="inline-flex items-center gap-2 text-body-sm text-text-secondary">
-            <input
-              type="checkbox"
-              className="size-4 accent-ink"
-              checked={f.applicableOnly}
-              onChange={(e) => set("applicableOnly", e.target.checked)}
-            />
-            Only rules that apply to us
-          </label>
-        ) : null}
-        <span
-          className="ml-auto text-label text-text-muted"
-          role="status"
-          aria-live="polite"
-        >
-          {q.data
-            ? `${formatCount(rules.length)} of ${formatCount(all.length)} rules`
-            : ""}
-        </span>
-      </div>
-      <Panel className="overflow-hidden">
-        <Table aria-label="Rules in the pack">
-          <thead>
-            <tr>
-              <Th>Rule</Th>
-              <Th>Type</Th>
-              <Th>Regulators</Th>
-              <Th>Verification</Th>
-              <Th>Mode</Th>
-              <Th>Applies</Th>
-            </tr>
-          </thead>
-          <tbody>
-            {q.isLoading ? <SkeletonRows columns={6} /> : null}
-            {rules.map((r) => (
-              <Tr key={r.id}>
-                <Td className="max-w-xl py-2.5">
-                  <div className="flex items-baseline gap-2">
-                    <RuleLink id={r.id} />
-                    <span className="font-medium text-text-primary">
-                      {r.name}
-                    </span>
-                  </div>
-                  <p className="line-clamp-2 text-body-sm text-text-secondary">
-                    {r.description}
-                  </p>
-                  <p className="text-label text-text-muted">
-                    {groupLabel(r.group)}
-                  </p>
-                </Td>
-                <Td>
-                  <Tag>{KIND_LABEL[r.kind]}</Tag>
-                </Td>
-                <Td className="text-body-sm text-text-secondary">
-                  {r.regulators.join(", ")}
-                </Td>
-                <Td>
-                  <StatusPill tone={VERIFICATION[r.verification].tone}>
-                    {VERIFICATION[r.verification].label}
-                  </StatusPill>
-                </Td>
-                <Td className="text-body-sm whitespace-nowrap">
-                  {MODE_LABEL[r.mode]}
-                  {r.config_version ? (
-                    <span className="block text-label text-text-muted">
-                      v{r.config_version}
-                    </span>
-                  ) : (
-                    <span className="block text-label text-text-muted">
-                      default ({defaultLabel(r.defaults)})
-                    </span>
-                  )}
-                </Td>
-                <Td>
-                  <AppliesCell applicable={r.applicable} />
-                </Td>
-              </Tr>
-            ))}
-          </tbody>
-        </Table>
-        {q.isError ? <ErrorState error={q.error} className="m-4" /> : null}
-        {q.isSuccess && rules.length === 0 ? (
-          <Empty
-            title="No rules match"
-            action={
-              <Button size="sm" onClick={() => setF(NO_FILTER)}>
-                Clear filters
-              </Button>
-            }
-          />
-        ) : null}
-      </Panel>
-    </>
-  );
-}
-
-function RuleLinks({ ids }: { ids: string[] }) {
+function RuleLinks({
+  ids,
+  jurisdiction,
+}: {
+  ids: string[];
+  jurisdiction?: string;
+}) {
   if (ids.length === 0) return <span className="text-text-muted">–</span>;
   return (
     <span className="flex flex-wrap gap-x-2">
       {ids.map((id) => (
-        <RuleLink key={id} id={id} />
+        <RuleLink key={id} id={id} jurisdiction={jurisdiction} />
       ))}
     </span>
   );
 }
 
-function ClocksTab() {
-  const q = useComplianceClocks();
+/**
+ * A country's deadlines, each labelled by what it rests on: a legal clock, internal policy, a
+ * design placeholder, or a legal deadline no readable source states (never shown as zero).
+ */
+export function ClocksTab({ jurisdiction }: { jurisdiction?: string }) {
+  const q = useComplianceClocks(jurisdiction);
   const clocks = q.data?.data ?? [];
   return (
     <Panel className="overflow-hidden">
       <PanelHeader
-        title="Legal deadlines"
-        legend="the timers reporting workflows run against"
+        title="Deadlines"
+        legend="legal clocks, internal policy and what is not yet known"
       />
-      <Table aria-label="Legal deadlines">
+      <Table aria-label="Deadlines">
         <thead>
           <tr>
             <Th>Deadline</Th>
+            <Th>What it is</Th>
             <Th>Duty</Th>
             <Th>Who</Th>
             <Th>Requirement</Th>
@@ -428,10 +150,22 @@ function ClocksTab() {
           </tr>
         </thead>
         <tbody>
-          {q.isLoading ? <SkeletonRows columns={5} rows={4} /> : null}
+          {q.isLoading ? <SkeletonRows columns={6} rows={4} /> : null}
           {clocks.map((c) => (
             <Tr key={c.id}>
-              <Td className="font-medium whitespace-nowrap">{c.duration}</Td>
+              <Td className="font-medium whitespace-nowrap">
+                {c.hours === null ? "Not found" : c.duration}
+                {c.authority ? (
+                  <span className="block text-label font-normal text-text-muted">
+                    to the {c.authority}
+                  </span>
+                ) : null}
+              </Td>
+              <Td className="whitespace-nowrap">
+                <StatusPill tone={CLOCK_KIND[c.kind].tone}>
+                  {CLOCK_KIND[c.kind].label}
+                </StatusPill>
+              </Td>
               <Td className="text-body-sm">{c.duty}</Td>
               <Td className="text-body-sm text-text-secondary">
                 {c.applies_to}
@@ -440,7 +174,7 @@ function ClocksTab() {
                 {c.requirement}
               </Td>
               <Td>
-                <RuleLinks ids={c.rules} />
+                <RuleLinks ids={c.rules} jurisdiction={jurisdiction} />
               </Td>
             </Tr>
           ))}
@@ -451,8 +185,17 @@ function ClocksTab() {
   );
 }
 
-function GapsTab() {
-  const q = useComplianceGaps();
+const GAP_KIND: Record<
+  NonNullable<Schemas["ComplianceGap"]["kind"]>,
+  { label: string; tone: "warning" | "neutral" }
+> = {
+  conflict: { label: "Sources conflict", tone: "warning" },
+  unverified: { label: "Not yet verified", tone: "neutral" },
+};
+
+/** A country's open questions: conflicts and unverified items, with how each is treated. */
+export function GapsTab({ jurisdiction }: { jurisdiction?: string }) {
+  const q = useComplianceGaps(jurisdiction);
   if (q.isLoading) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
   return (
@@ -464,14 +207,38 @@ function GapsTab() {
       </Notice>
       {(q.data?.data ?? []).map((g) => (
         <Panel key={g.id}>
-          <PanelHeader title={g.title} legend={g.id} />
+          <PanelHeader
+            title={g.title}
+            legend={g.id}
+            actions={
+              g.kind ? (
+                <StatusPill tone={GAP_KIND[g.kind].tone}>
+                  {GAP_KIND[g.kind].label}
+                </StatusPill>
+              ) : null
+            }
+          />
           <div className="flex flex-col gap-3 px-5 pb-5">
             <p className="max-w-prose text-body text-text-secondary">
               {g.detail}
             </p>
+            <GapVerification gap={g} jurisdiction={jurisdiction} />
             <KeyValues
               items={[
-                ["Rules", <RuleLinks key="r" ids={g.rules} />],
+                ...(g.treatment
+                  ? ([["Until it is settled", g.treatment]] as [
+                      string,
+                      string,
+                    ][])
+                  : []),
+                [
+                  "Rules",
+                  <RuleLinks
+                    key="r"
+                    ids={g.rules}
+                    jurisdiction={jurisdiction}
+                  />,
+                ],
                 ["Sources", g.sources.join(", ") || "–"],
               ]}
             />
@@ -482,8 +249,100 @@ function GapsTab() {
   );
 }
 
-function GlossaryTab() {
-  const q = useComplianceGlossary();
+/** The library's side-by-side comparison of Nigeria, Ghana and Rwanda, verbatim. */
+export function MatrixTab() {
+  const q = useClockMatrix();
+  return (
+    <Panel className="overflow-hidden">
+      <PanelHeader
+        title="Countries side by side"
+        legend="each event is judged by the country that governs it, not the strictest of the three"
+      />
+      <div className="overflow-x-auto">
+        <Table aria-label="Countries side by side">
+          <thead>
+            <tr>
+              <Th>Item</Th>
+              <Th>Nigeria</Th>
+              <Th>Ghana</Th>
+              <Th>Rwanda</Th>
+              <Th>Working default</Th>
+            </tr>
+          </thead>
+          <tbody>
+            {q.isLoading ? <SkeletonRows columns={5} rows={5} /> : null}
+            {(q.data?.data ?? []).map((r) => (
+              <Tr key={r.item}>
+                <Td className="font-medium">{r.item}</Td>
+                <Td className="py-2.5 text-body-sm">{r.nigeria}</Td>
+                <Td className="py-2.5 text-body-sm">{r.ghana}</Td>
+                <Td className="py-2.5 text-body-sm">{r.rwanda}</Td>
+                <Td className="py-2.5 text-body-sm text-text-secondary">
+                  {r.working_default}
+                </Td>
+              </Tr>
+            ))}
+          </tbody>
+        </Table>
+      </div>
+      {q.isError ? <ErrorState error={q.error} className="m-4" /> : null}
+    </Panel>
+  );
+}
+
+/** Download a country's library (or every country's) as CSV or PDF. Audited. */
+export function ExportLibrary({
+  jurisdiction,
+  name,
+}: {
+  jurisdiction?: string;
+  name: string;
+}) {
+  const download = useAction(async (format: "csv" | "pdf") => {
+    const res = await api().GET("/api/v1/compliance/export", {
+      params: {
+        query: { format, ...(jurisdiction ? { jurisdiction } : {}) },
+      },
+      parseAs: "blob",
+    });
+    const blob = unwrap(res) as unknown as Blob;
+    const disposition = res.response.headers.get("Content-Disposition") ?? "";
+    const file =
+      /filename="([^"]+)"/.exec(disposition)?.[1] ?? `riskos-rules.${format}`;
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = file;
+    a.click();
+    URL.revokeObjectURL(url);
+    return file;
+  });
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <span className="text-body-sm text-text-secondary">
+        Download {name}&apos;s rules:
+      </span>
+      <Button
+        size="sm"
+        disabled={download.busy}
+        onClick={() => void download.run("csv")}
+      >
+        Spreadsheet (CSV)
+      </Button>
+      <Button
+        size="sm"
+        disabled={download.busy}
+        onClick={() => void download.run("pdf")}
+      >
+        Document (PDF)
+      </Button>
+      {download.error ? <Notice tone="error">{download.error}</Notice> : null}
+    </div>
+  );
+}
+
+export function GlossaryTab({ jurisdiction }: { jurisdiction?: string }) {
+  const q = useComplianceGlossary(jurisdiction);
   if (q.isLoading) return <Loading />;
   if (q.isError) return <ErrorState error={q.error} />;
   return (
@@ -510,7 +369,7 @@ function GlossaryTab() {
   );
 }
 
-function SourcesTab({ pack }: { pack: Pack }) {
+export function SourcesTab({ pack }: { pack: Pack }) {
   return (
     <Panel>
       <ol className="divide-y divide-border-subtle">
@@ -546,7 +405,7 @@ function SourcesTab({ pack }: { pack: Pack }) {
 }
 
 /** Changes awaiting a second person in this environment. */
-function PendingApprovals() {
+export function PendingApprovals() {
   const { environment } = useSession();
   const q = useComplianceChanges("pending");
   const pending = q.data?.data ?? [];
@@ -571,7 +430,7 @@ function PendingApprovals() {
 }
 
 /** A newer pack version is loaded: saving the profile adopts it. */
-function NewerVersion({ pack }: { pack: Pack }) {
+export function NewerVersion({ pack }: { pack: Pack }) {
   const { can } = useSession();
   const profile = useComplianceProfile();
   const p = profile.data;
@@ -610,5 +469,113 @@ function NewerVersion({ pack }: { pack: Pack }) {
         </span>
       </Notice>
     </div>
+  );
+}
+
+/** Who checked an open question against the original text, or a form to record it. */
+function GapVerification({
+  gap,
+  jurisdiction,
+}: {
+  gap: Schemas["ComplianceGap"];
+  jurisdiction?: string;
+}) {
+  const { can } = useSession();
+  const userName = useUserName();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [link, setLink] = useState("");
+  const verify = useAction(
+    async () =>
+      unwrap(
+        await api().POST("/api/v1/compliance/gaps/{gap_id}/verify", {
+          params: {
+            path: { gap_id: gap.id },
+            query: jurisdiction ? { jurisdiction } : {},
+          },
+          body: link.trim() ? { note, link: link.trim() } : { note },
+        }),
+      ),
+    { invalidate: ["compliance"], onSuccess: () => setOpen(false) },
+  );
+  const v = gap.verification;
+  if (v)
+    return (
+      <Notice tone="ok">
+        <span className="font-medium">Verified against the original text</span>{" "}
+        by {userName(v.verified_by)} on {formatTimestamp(v.verified_at)}:{" "}
+        {v.note}
+        {v.link ? (
+          <>
+            {" "}
+            <a
+              href={v.link}
+              className="underline"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Source
+            </a>
+          </>
+        ) : null}
+      </Notice>
+    );
+  if (!can("compliance:configure")) return null;
+  if (!open)
+    return (
+      <div>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          Mark verified
+        </Button>
+      </div>
+    );
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-md border border-border-subtle p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (note.trim()) void verify.run();
+      }}
+    >
+      {verify.error ? <Notice tone="error">{verify.error}</Notice> : null}
+      <Field
+        label="What you checked"
+        hint="The original text you read and what it says. This does not change any rule's settings."
+      >
+        {(f) => (
+          <Textarea
+            {...f}
+            value={note}
+            maxLength={1000}
+            required
+            onChange={(e) => setNote(e.target.value)}
+          />
+        )}
+      </Field>
+      <Field label="Link to the original (optional)">
+        {(f) => (
+          <Input
+            {...f}
+            type="url"
+            value={link}
+            maxLength={500}
+            onChange={(e) => setLink(e.target.value)}
+          />
+        )}
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          size="sm"
+          variant="primary"
+          disabled={verify.busy || !note.trim()}
+        >
+          Record verification
+        </Button>
+        <Button type="button" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }

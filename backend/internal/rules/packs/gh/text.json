@@ -1,0 +1,478 @@
+{
+  "GH-GOV-01": {
+    "name": "Record keeping",
+    "description": "Customer identity files, transaction records and reports are kept 5 years (after the relationship ends, from the transaction, or from the report date). Payment-platform audit logs are kept 6 years.",
+    "action": "Deny deletion before the period ends",
+    "engineering_logic": "RULE GH-GOV-01 | type=control\nWHEN  record.delete_requested\nIF    ( record.type IN (customer_file) AND record.age \u003c tenant.cfg.gh_retention_years after relationship_end )\n   OR ( record.type IN (transaction, report) AND record.age \u003c tenant.cfg.gh_retention_years after (txn OR report_date) )\n      # default 5y; audit logs 6y under GH-SEC-11\nTHEN  deny_delete  reason=retention",
+    "basis": "[Regulatory]. Param of GOV-08. Default: On. Basis: GS3 (s.32, per summary); GS24"
+  },
+  "GH-GOV-02": {
+    "name": "No tipping off",
+    "description": "Nothing about an STR, a suspicion flag, an FIC order or a freeze appears in customer-facing screens, API responses, webhooks or exports. Failure to report carries 500-4,000 penalty units and up to 5 years in prison.",
+    "action": "Strip fields and log",
+    "engineering_logic": "RULE GH-GOV-02 | type=control\nWHEN  api.response OR webhook.send OR export.generate\nIF    payload CONTAINS (str.exists OR str.status OR fic_order OR flag.visibility = compliance_only)\nAND   recipient.role NOT IN (compliance_officer, mlro)\nTHEN  strip_fields  AND  log=audit",
+    "basis": "[Regulatory]. Param of GOV-09. Default: On. Basis: GS3 (s.38(4))"
+  },
+  "GH-GOV-03": {
+    "name": "Approved reporting to the FIC",
+    "description": "STRs, CTRs and electronic transfer reports are prepared by the system but a compliance officer approves before submission. The goAML channel is claimed by a vendor but not confirmed, so the channel is a tenant setting.",
+    "action": "Hold for approval",
+    "engineering_logic": "RULE GH-GOV-03 | type=workflow\nWHEN  report.draft_ready (STR, CTR, ECTR)\nIF    report.approved_by IN roles(compliance_officer)\nTHEN  allow_submit  via=tenant.cfg.fic_channel     # goAML not confirmed for Ghana\nELSE  hold_for_approval",
+    "basis": "[Regulatory]. Param of GOV-06. Default: On. Basis: GS11 (goAML claim, unverified)"
+  },
+  "GH-GOV-04": {
+    "name": "Customer review cycle",
+    "description": "Existing customers are reviewed at least every two years, with enhanced ongoing monitoring for PEPs.",
+    "action": "Create review tasks",
+    "engineering_logic": "RULE GH-GOV-04 | type=job | schedule=daily\nIF    customer.last_review_age \u003e= tenant.cfg.gh_review_cycle      # default 2y\nTHEN  task=periodic_review",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS2 (s.2.4.5)"
+  },
+  "GH-GOV-05": {
+    "name": "Annual testing and twice-yearly training",
+    "description": "The AML system is tested at least yearly and staff are trained at least twice a year.",
+    "action": "Readiness check",
+    "engineering_logic": "RULE GH-GOV-05 | type=job | schedule=daily\nIF    aml_system.last_tested \u003e 12mo OR staff.training_events_last_12mo \u003c 2\nTHEN  readiness=fail  reason=bog_guideline_testing_training",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS2 (ss.2.10, 2.3.3)"
+  },
+  "GH-GOV-06": {
+    "name": "Continuous screening and UN list drills",
+    "description": "Sanctions, PEP and adverse-media checks at onboarding and continuously, with periodic drills and quarterly reporting where E.I. 2 requires them.",
+    "action": "Run GH-REG-07 and GH-REG-08 for all parties",
+    "engineering_logic": "RULE GH-GOV-06 | type=control\nWHEN  customer.onboarded OR list.updated OR daily_job\nTHEN  run GH-REG-08 AND GH-REG-07 AND adverse_media_screen FOR customer, beneficial_owner, counterparty\nWHEN  quarter.end\nTHEN  task=sanctions_report_and_drill   # E.I. 2 per summary; verify recipient and format",
+    "basis": "[Regulatory]. Param of GOV-05. Default: On. Basis: GS7"
+  },
+  "GH-GOV-07": {
+    "name": "Forex bureau compliance calendar",
+    "description": "Forex bureaux file an annual audit by 30 April and a training submission by 31 December, and fix findings within 45 days.",
+    "action": "Calendar tasks",
+    "engineering_logic": "RULE GH-GOV-07 | type=calendar\nSCOPE tenant.type = forex_bureau\nWHEN  date = 30-Apr  THEN task=submit.annual_audit\nWHEN  date = 31-Dec  THEN task=submit.training_report\nWHEN  audit.finding_opened  THEN task=remediate  due=45d",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS9"
+  },
+  "GH-GOV-08": {
+    "name": "Data protection registration and impact assessments",
+    "description": "Register with the Data Protection Commission before processing and renew every 2 years; run an impact assessment for high-risk processing.",
+    "action": "Readiness check",
+    "engineering_logic": "RULE GH-GOV-08 | type=job | schedule=daily\nIF    tenant.dpc_registration.expiry \u003c now + 90d OR tenant.dpc_registration IS NULL\nTHEN  readiness=fail  reason=dpc_registration\nIF    processing.high_risk = true AND dpia.completed = false\nTHEN  readiness=fail  reason=dpia_missing",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS26"
+  },
+  "GH-GOV-09": {
+    "name": "Critical-infrastructure governance",
+    "description": "A designated critical information infrastructure owner appoints a cybersecurity officer, keeps a 24/7 contact for the CSA and undergoes regular compliance audits.",
+    "action": "Readiness check",
+    "engineering_logic": "RULE GH-GOV-09 | type=policy\nSCOPE tenant.cii_designated = true\nIF    tenant.cyber_officer IS NULL OR tenant.csa_24x7_contact IS NULL OR cii_audit.last_done \u003e tenant.cfg.cii_audit_cycle\nTHEN  readiness=fail  reason=cii_governance",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS19 (secondary)"
+  },
+  "GH-GOV-10": {
+    "name": "Digital credit provider licence check",
+    "description": "A digital lender cannot be activated without its Bank of Ghana licence under the September 2025 digital credit directive.",
+    "action": "Deny activation",
+    "engineering_logic": "RULE GH-GOV-10 | type=policy\nWHEN  tenant.activate\nIF    tenant.type = digital_lender AND tenant.bog_dcsp_licence IS NULL\nTHEN  deny_activate  reason=missing_bog_digital_credit_licence",
+    "basis": "[Regulatory]. Param of GOV-10. Default: On. Basis: GS32"
+  },
+  "GH-GOV-11": {
+    "name": "Virtual-asset provider licence status",
+    "description": "A virtual-asset tenant records its Bank of Ghana or SEC registration, licence or waiver. Licensing is not yet live, so the check ships off and VASPs are treated as accountable institutions meanwhile.",
+    "action": "Readiness check when enabled",
+    "engineering_logic": "RULE GH-GOV-11 | type=policy\nWHEN  tenant.activate\nSCOPE tenant.type = vasp AND tenant.cfg.gh_vasp_check_enabled = true\nIF    tenant.vasp_route NOT IN (registration, licence, waiver)\nTHEN  deny_activate  reason=missing_act1154_status      # disabled-by-default: operational licensing expected by 2027\nELSE  treat_as=accountable_institution  apply=GH-REG-04, GH-REG-05, GH-REG-06",
+    "basis": "[Regulatory]. New local. Default: Off (threshold to be confirmed). Basis: GS12, GS13, GS15"
+  },
+  "GH-GOV-12": {
+    "name": "Internal service levels",
+    "description": "Triage a high-risk alert within 4 hours and reach an STR decision within 12 hours, inside the 24-hour statutory clock.",
+    "action": "Escalate on breach",
+    "engineering_logic": "RULE GH-GOV-12 | type=sla\nWHEN  alert.created\nIF    alert.risk = high AND NOW - alert.created \u003e 4h AND alert.triaged = false   THEN escalate\nIF    alert.suspicion_recorded AND NOW - alert.suspicion_start_ts \u003e 12h AND alert.str_decision IS NULL   THEN escalate",
+    "basis": "[My design]. Param of Nigeria recommended SLAs. Default: On. Basis: My design"
+  },
+  "GH-GOV-13": {
+    "name": "Penalty exposure register",
+    "description": "Each regulatory rule shows its penalty in penalty units and a cedi estimate, so the board sees the cost of a missed duty. One penalty unit is GHS 12 per a GRA page; the effective date is unverified.",
+    "action": "Display only",
+    "engineering_logic": "RULE GH-GOV-13 | type=display\nTHEN  show(rule.penalty_units, rule.penalty_units * tenant.cfg.gh_penalty_unit_value)    # default GHS 12 (inference: GRA page citing Act 572)",
+    "basis": "[My design]. New local. Default: On. Basis: GS3, GS5, GS6, GS24"
+  },
+  "GH-REG-01": {
+    "name": "Wallet daily limit by KYC tier",
+    "description": "A mobile-money wallet moves more in a day than its KYC tier allows: Minimum GHS 3,000, Medium GHS 15,000, Enhanced GHS 25,000 (limits effective 1 March 2024).",
+    "action": "Hard: decline the transaction that would breach the limit",
+    "engineering_logic": "RULE GH-REG-01 | control=hard | action=decline\nWHEN  txn.type IN (wallet.send, wallet.cash_out, wallet.pay)\nSCOPE tenant.type IN (emi, bank, psp) AND account.type = mobile_money_wallet\nWINDOW 1d (calendar day, Africa/Accra) BY wallet.id\nIF    SUM(txn.amount) + txn.amount \u003e tenant.cfg.gh_tier_daily[wallet.kyc_tier]\n      # default Minimum GHS 3_000 | Medium GHS 15_000 | Enhanced GHS 25_000 (BoG via Telecoms Chamber, 1 Mar 2024)\n      # assumption: debits only count; direction scope to be confirmed with the operator guideline\nTHEN  decision=decline  reason=wallet_daily_limit",
+    "basis": "[Regulatory]. New local (Nigeria keeps tier limits as per-institution config). Default: On. Basis: GS8, GS10 (conflict note)"
+  },
+  "GH-REG-02": {
+    "name": "Wallet maximum balance by KYC tier",
+    "description": "A credit would push a wallet above the maximum balance for its tier: Minimum GHS 5,000, Medium GHS 40,000, Enhanced GHS 75,000.",
+    "action": "Hard: reject or hold the excess credit",
+    "engineering_logic": "RULE GH-REG-02 | control=hard | action=decline_credit\nWHEN  txn.type = wallet.credit\nSCOPE tenant.type IN (emi, bank, psp) AND account.type = mobile_money_wallet\nIF    wallet.balance + txn.amount \u003e tenant.cfg.gh_tier_balance[wallet.kyc_tier]\n      # default Minimum GHS 5_000 | Medium GHS 40_000 | Enhanced GHS 75_000\nTHEN  decision=decline_credit  reason=wallet_balance_cap  notify=sender_operator",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS8"
+  },
+  "GH-REG-03": {
+    "name": "Wallet monthly limit by KYC tier",
+    "description": "A Minimum-tier wallet moves more than GHS 10,000 in a month. Medium and Enhanced monthly caps could not be confirmed, so they are blank until the tenant enters them.",
+    "action": "Hard for Minimum tier; Medium and Enhanced skipped until configured",
+    "engineering_logic": "RULE GH-REG-03 | control=hard | action=decline\nWHEN  txn.type IN (wallet.send, wallet.cash_out, wallet.pay)\nSCOPE tenant.type IN (emi, bank, psp) AND account.type = mobile_money_wallet\nWINDOW 30d (calendar month, Africa/Accra) BY wallet.id\nIF    tenant.cfg.gh_tier_monthly[wallet.kyc_tier] IS NOT NULL\nAND   SUM(txn.amount) + txn.amount \u003e tenant.cfg.gh_tier_monthly[wallet.kyc_tier]\n      # default Minimum GHS 10_000 | Medium NULL | Enhanced NULL   # threshold to be confirmed; disabled-by-default for Medium and Enhanced\nTHEN  decision=decline  reason=wallet_monthly_limit",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS8; notes conflict (see section 7)"
+  },
+  "GH-REG-04": {
+    "name": "Cash transaction report (CTR)",
+    "description": "A cash deposit, withdrawal or payment reaches GHS 50,000 at a bank or securities firm, or GHS 20,000 at a specialised deposit-taking institution or forex bureau.",
+    "action": "Report: prepare a CTR for the FIC; due within 24 hours of the transaction (configurable)",
+    "engineering_logic": "RULE GH-REG-04 | control=hard | action=report\nWHEN  txn.type IN (cash.deposit, cash.withdrawal, cash.payment)\nSCOPE txn.domestic = true\nIF    txn.amount \u003e= tenant.cfg.gh_ctr[tenant.type]\n      # default bank, securities: GHS 50_000 | sdi, forex_bureau: GHS 20_000\n      # \u003e= used for safety; strict-or-equal wording not confirmed. Cash-only scope is an inference\nTHEN  task=report.CTR  due=tenant.cfg.gh_ctr_due          # default 24h after txn; FIC page says \"filed daily\"\n      to=FIC  channel=tenant.cfg.fic_channel  gov=GH-GOV-03",
+    "basis": "[Regulatory]. Param of REG-17 (different amounts and scope). Default: On. Basis: GS1, GS2, GS3, GS9; vendor conflict GS11"
+  },
+  "GH-REG-05": {
+    "name": "Electronic transfer report (cross-border)",
+    "description": "A cross-border transfer, in or out, of US$1,000 or more (or the cedi equivalent). Not US$10,000.",
+    "action": "Report: prepare an electronic currency transaction report for the FIC within 24 hours of the transfer",
+    "engineering_logic": "RULE GH-REG-05 | control=hard | action=report\nWHEN  txn.type IN (transfer.international.in, transfer.international.out)\nSCOPE tenant.type IN (bank, sdi, emi) AND tenant.cfg.ectr_reporter = true   # FIC page names commercial banks as reporters\nIF    txn.amount_usd_equiv \u003e= tenant.cfg.gh_ectr                            # default USD 1_000\nTHEN  task=report.ECTR  due=24h_after_txn  to=FIC  gov=GH-GOV-03",
+    "basis": "[Regulatory]. Param of REG-10 (threshold USD 1,000 instead of USD 10,000). Default: On. Basis: GS1, GS2 (s.2.9.2), GS3 (ss.40-42)"
+  },
+  "GH-REG-06": {
+    "name": "Suspicious transaction report (STR)",
+    "description": "A staff member or the system forms a suspicion. The STR is due within 24 hours, with no minimum amount. Telling the customer is a crime.",
+    "action": "Report: 24-hour filing clock to the FIC; block every customer-facing signal of the report",
+    "engineering_logic": "RULE GH-REG-06 | control=hard | action=report\nWHEN  alert.suspicion_recorded OR alert.suspicion_confirmed\nIF    alert.suspicion_start_ts IS NOT NULL          # clock starts at the earliest recorded suspicion (s.38 wording), not at analyst sign-off (BoG wording)\nTHEN  task=report.STR  due=tenant.cfg.gh_str_due   # default 24h from suspicion_start_ts; no minimum amount\n      to=FIC  gov=GH-GOV-02, GH-GOV-03",
+    "basis": "[Regulatory]. Param of REG-14 (24h clock; no 72h screening stage found in Ghana sources). Default: On. Basis: GS2 (s.2.8.2), GS3 (s.38)"
+  },
+  "GH-REG-07": {
+    "name": "Politically exposed person (PEP)",
+    "description": "The customer or an owner behind a company is a PEP. Senior management must approve the relationship; source of wealth is verified; PEP transactions are reported to the FIC.",
+    "action": "Hard: enhanced due diligence and senior approval; add transactions to the PEP report",
+    "engineering_logic": "RULE GH-REG-07 | control=hard | action=edd\nWHEN  customer.onboarded OR customer.periodic_review OR txn.created\nIF    customer.is_pep = true OR ANY(beneficial_owner.is_pep = true)\nTHEN  decision=review  require=edd,source_of_funds,source_of_wealth,senior_approval  reason=pep\n      add_to=pep_transaction_report  to=FIC  review_cycle=tenant.cfg.gh_pep_review      # default 2y",
+    "basis": "[Regulatory]. Param of REG-12 and REG-18. Default: On. Basis: GS2 (s.2.7.1, s.2.4.5), GS4 (s.49(2)(a)(ii))"
+  },
+  "GH-REG-08": {
+    "name": "Sanctions and UN freeze",
+    "description": "A name, ID or account matches the UN Security Council lists, Ghana designations or other configured lists. Freeze without prior notice and tell the FIC.",
+    "action": "Hard: block, freeze, open case, report; freeze service level is a placeholder",
+    "engineering_logic": "RULE GH-REG-08 | control=hard | action=block\nWHEN  txn.created OR customer.onboarded OR list.updated\nIF    screen(party.name, party.id, party.account) MATCHES lists(un_consolidated, gh_designations, tenant_lists)\n        USING fuzzy + transliteration  score \u003e= tenant.cfg.match_threshold\nAND   match.reviewed = confirmed OR tenant.cfg.auto_block_on_strong_match = true\nTHEN  decision=block  freeze=account  case=open  task=report.FIC  reason=sanctions_match\n      freeze_sla=tenant.cfg.gh_freeze_sla     # PLACEHOLDER 24h [My design]; E.I. 2 says freeze without prior notice, no hour count retrieved\n      gov=GH-GOV-02",
+    "basis": "[Regulatory]. Param of REG-11 (freeze clock placeholder). Default: On. Basis: GS7 (E.I. 2), GS3 (s.56)"
+  },
+  "GH-REG-09": {
+    "name": "Ghana Card identity at onboarding",
+    "description": "A customer is opened without a verified Ghana Card. Mandatory for forex bureaux; other tenants switch it on if their licence guideline requires it.",
+    "action": "Hard for forex bureaux; tenant toggle for others: block the account action",
+    "engineering_logic": "RULE GH-REG-09 | control=hard | action=block\nWHEN  account.open OR customer.onboarded OR kyc.refresh\nSCOPE tenant.type = forex_bureau OR tenant.cfg.require_ghana_card = true\nIF    identity.ghana_card_verified != true            # NIA verification result stored by the identity provider interface\nTHEN  decision=block  reason=ghana_card_not_verified  require=collect_ghana_card",
+    "basis": "[Regulatory]. Analogue of REG-06 and REG-16 (Ghana Card instead of BVN or NIN). Default: On. Basis: GS9; GS24 (s.35, ID types)"
+  },
+  "GH-REG-10": {
+    "name": "No anonymous or fictitious accounts",
+    "description": "An account is opened or kept without a verified, real identity behind it.",
+    "action": "Hard: block opening; restrict and review existing accounts",
+    "engineering_logic": "RULE GH-REG-10 | control=hard | action=block\nWHEN  account.open OR kyc.refresh OR daily_job\nIF    ANY OF ( kyc.identity_verified = false , customer.name IS NULL , account.nominal_holder = true AND beneficial_owner IS NULL )\nTHEN  decision=block  restrict=account  case=open  reason=anonymous_or_fictitious_account",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS4 (s.48(1)(a)); GS3"
+  },
+  "GH-REG-11": {
+    "name": "FIC suspension and freeze orders",
+    "description": "The FIC suspends a transaction (up to 7 working days) or freezes an account. The institution applies the hold, lets it expire on the right date and does not tip off the customer.",
+    "action": "Hard: hold with automatic expiry and audit entry",
+    "engineering_logic": "RULE GH-REG-11 | control=hard | action=hold\nWHEN  order.received\nSCOPE order.source = FIC AND order.type IN (suspension, freeze)\nTHEN  hold=transaction_or_account  hold_max=7_working_days  expire=auto  audit=log\n      visibility=compliance_only  gov=GH-GOV-02\n      # s.45 suspension up to 7 working days; s.56 freeze, court application within 7 working days (E.I. 2 summary says 48h: unresolved)",
+    "basis": "[Regulatory]. Analogue of the 72h NFIU stop order (Nigeria section 8). Default: On. Basis: GS3 (ss.45, 56, per summary)"
+  },
+  "GH-REG-12": {
+    "name": "Forex bureau high-value checks",
+    "description": "A forex bureau customer buys or sells US$10,000 or more. Enhanced due diligence and biometric verification are required. Cash above GHS 20,000 also triggers the CTR in GH-REG-04.",
+    "action": "Hard (forex bureaux only): require EDD and biometrics",
+    "engineering_logic": "RULE GH-REG-12 | control=hard | action=edd\nWHEN  txn.type IN (forex.buy, forex.sell)\nSCOPE tenant.type = forex_bureau\nIF    txn.amount_usd_equiv \u003e= tenant.cfg.gh_forex_edd        # default USD 10_000\nTHEN  decision=review  require=edd,biometric_verification,ghana_card  reason=forex_high_value",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS9"
+  },
+  "GH-REG-13": {
+    "name": "Virtual-asset Travel Rule data",
+    "description": "A virtual-asset transfer above the Travel Rule limit lacks sender or receiver details. The Ghana limit and data fields are not yet published, so the rule ships off.",
+    "action": "Hard when enabled: hold crediting or release",
+    "engineering_logic": "RULE GH-REG-13 | control=hard | action=hold\nWHEN  crypto.transfer\nSCOPE tenant.type = vasp AND tenant.cfg.gh_travel_rule_enabled = true\nIF    txn.amount_usd_equiv \u003e= tenant.cfg.gh_travel_rule_min      # PLACEHOLDER NULL: threshold to be confirmed; disabled-by-default\nAND   ANY OF ( originator.data_complete = false , beneficiary.data_complete = false )\nTHEN  decision=hold  reason=travel_rule_data_missing  link=CRY-13",
+    "basis": "[Industry practice]. Cross-reference CRY-13 (threshold not found). Default: Off (threshold to be confirmed). Basis: GS12, GS13, GS14, GS17 (secondary)"
+  },
+  "GH-SEC-01": {
+    "name": "Stolen-password testing (credential stuffing)",
+    "description": "Ten or more failed logins from one network address across five or more accounts in 5 minutes.",
+    "points": "30 points, block IP or challenge",
+    "engineering_logic": "RULE GH-SEC-01 | weight=30\nWHEN  auth.failure\nWINDOW 5m BY ip\nIF    COUNT(auth.failure) \u003e= 10 AND COUNT(DISTINCT account.id) \u003e= 5\nTHEN  signal=GH-SEC-01  action_hint=rate_limit_ip",
+    "basis": "[Industry practice]. Param of SEC-01. Default: On. Basis: GS23"
+  },
+  "GH-SEC-02": {
+    "name": "Approval-prompt flooding and OTP interception",
+    "description": "Five or more push or OTP prompts to one user in 10 minutes, or an OTP used from a different device than the one that requested it.",
+    "points": "25 points, pause prompts",
+    "engineering_logic": "RULE GH-SEC-02 | weight=25\nWHEN  mfa.prompt_sent OR otp.used\nWINDOW 10m BY account.id\nIF    COUNT(mfa.prompt_sent WHERE type IN (push, otp)) \u003e= 5\n   OR EXISTS(otp.used WHERE otp.requesting_device != otp.using_device)\nTHEN  signal=GH-SEC-02  action_hint=pause_prompts",
+    "basis": "[Industry practice]. Param of SEC-04 (OTP interception clause added). Default: On. Basis: GS35 (OTP interception)"
+  },
+  "GH-SEC-03": {
+    "name": "API key misuse",
+    "description": "A key is used from a new network or country, at five times its normal rate, or with many failed or not-found requests.",
+    "points": "30 points, throttle",
+    "engineering_logic": "RULE GH-SEC-03 | weight=30\nWHEN  api.request\nSCOPE auth.type = api_key\nIF    ANY OF ( request.network NOT IN key.known_networks , request.country NOT IN key.known_countries ,\n               RATE(request OVER 5m) \u003e 5 * key.baseline_rate ,\n               RATIO(status IN (400, 404) OVER 10m) \u003e tenant.cfg.probe_ratio )\nTHEN  signal=GH-SEC-03  action_hint=throttle_key",
+    "basis": "[Industry practice]. Param of SEC-08. Default: On. Basis: Nigeria library SEC-08"
+  },
+  "GH-SEC-04": {
+    "name": "Rights raised, then data exported",
+    "description": "A user's role is upgraded and they export data within the hour.",
+    "points": "30 points, alert and step-up",
+    "engineering_logic": "RULE GH-SEC-04 | weight=30\nWHEN  data.export\nWINDOW 1h BY user.id\nIF    EXISTS(user.role_changed)\nTHEN  signal=GH-SEC-04",
+    "basis": "[Industry practice]. Param of SEC-10. Default: On. Basis: GS26 (breach duty)"
+  },
+  "GH-SEC-05": {
+    "name": "Unusually large export",
+    "description": "An export far above the user's or institution's normal size. A large unexplained export may be a reportable personal-data breach.",
+    "points": "25 points, step-up and alert",
+    "engineering_logic": "RULE GH-SEC-05 | weight=25\nWHEN  data.export\nIF    export.rows \u003e 5 * BASELINE(export.rows BY user.id OVER 30d)\n   OR export.rows \u003e 5 * BASELINE(export.rows BY tenant.id OVER 30d)\nTHEN  signal=GH-SEC-05  link=GH-SEC-12",
+    "basis": "[Industry practice]. Param of SEC-12. Default: On. Basis: GS26"
+  },
+  "GH-SEC-06": {
+    "name": "Payee or payout details changed, then a large payment",
+    "description": "A supplier bank account, webhook address or payout destination is changed, then a high-value payment follows within 24 hours. Business-email fraud had 0% recovery in the GAB sample.",
+    "points": "30 points, review and hold",
+    "engineering_logic": "RULE GH-SEC-06 | weight=30 | action=review\nWHEN  txn.created\nWINDOW 24h BY customer.id OR merchant.id\nIF    EXISTS(config.changed WHERE field IN (webhook_url, payout_destination, bank_account, supplier_account))\nAND   txn.amount \u003e tenant.cfg.high_value             # suggested GHS 5_000 retail; GHS 50_000 for bank e-transfer tier\nTHEN  signal=GH-SEC-06  action_hint=hold_payout",
+    "basis": "[Industry practice]. Param of SEC-09. Default: On. Basis: GS29"
+  },
+  "GH-SEC-07": {
+    "name": "Staff access, then customer takeover",
+    "description": "Staff viewed or changed a customer's contact details or limits, then money leaves that customer's account within 24 hours.",
+    "points": "30 points, review (compliance only)",
+    "engineering_logic": "RULE GH-SEC-07 | weight=30 | action=review\nWHEN  txn.type = transfer.outbound\nWINDOW 24h BY customer.id\nIF    EXISTS(staff_action WHERE type IN (view_contact, change_contact, change_limits))\nTHEN  signal=GH-SEC-07  evidence=(staff.id, action, time)  visibility=compliance_only",
+    "basis": "[Industry practice]. Param of INS-02. Default: On. Basis: GS28, GS29 (insiders)"
+  },
+  "GH-SEC-08": {
+    "name": "CSA incident and vulnerability clocks",
+    "description": "If the institution is a designated critical information infrastructure owner, report significant incidents to the Cyber Security Authority within 24 hours of detection and disclose vulnerabilities within 72 hours.",
+    "action": "Legal clock: 24h incident, 72h vulnerability",
+    "engineering_logic": "RULE GH-SEC-08 | control=clock | action=report\nWHEN  incident.detected\nSCOPE tenant.cii_designated = true\nIF    incident.severity IN tenant.cfg.csa_significant_levels\nTHEN  task=notify.CSA  due=24h_from_detection  contact=24x7  gov=GH-GOV-09\nWHEN  vulnerability.confirmed\nSCOPE tenant.cii_designated = true\nTHEN  task=disclose.CSA  due=72h\n      # whether the clocks cover all financial institutions or only designated CII is unconfirmed (primary text of Act 1038 not retrieved)",
+    "basis": "[Regulatory]. Param of Nigeria section 8 incident clocks. Default: On. Basis: GS18, GS19 (secondary)"
+  },
+  "GH-SEC-09": {
+    "name": "Report to Bank of Ghana within 10 days",
+    "description": "A payment institution must report suspected or confirmed fraud, a security breach, a material service interruption or loss of confidential data to the Bank of Ghana within 10 days. A faster clock may exist in the 2026 cyber directive but was not found.",
+    "action": "Legal clock: 10 days outer limit; faster placeholder",
+    "engineering_logic": "RULE GH-SEC-09 | control=clock | action=report\nWHEN  incident.detected\nSCOPE tenant.type IN (emi, psp, payment_institution)\nIF    incident.type IN (fraud_suspected, fraud_confirmed, security_breach, material_service_interruption, confidential_data_loss)\nTHEN  task=report.BoG  due=MIN(10d, tenant.cfg.bog_cisd_clock)\n      # tenant.cfg.bog_cisd_clock default NULL: BoG CISD 2026 hour clock not found; threshold to be confirmed\n      # exposure: s.42(3) 500 penalty units plus 50 per day (about GHS 6,000 plus GHS 600 per day at GHS 12 per unit; inference)",
+    "basis": "[Regulatory]. New local (Nigeria clock is 24h to CBN). Default: On. Basis: GS24 (s.42(5), s.42(3)); GS25"
+  },
+  "GH-SEC-10": {
+    "name": "Outsourcing notice and SLA filing",
+    "description": "Before outsourcing a function, give the Bank of Ghana written notice; file the signed service agreement within 10 days of signing.",
+    "action": "Task with deadline",
+    "engineering_logic": "RULE GH-SEC-10 | control=clock | action=task\nWHEN  outsourcing.planned\nSCOPE tenant.type IN (emi, psp, payment_institution)\nTHEN  task=notify.BoG  due=before_signing\nWHEN  outsourcing.signed\nTHEN  task=submit.SLA_to_BoG  due=10d_after_signing",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS24 (s.38)"
+  },
+  "GH-SEC-11": {
+    "name": "Audit log completeness and 6-year retention",
+    "description": "Every user action on the payment platform must be logged and kept for at least 6 years. A gap or an early deletion raises an alert.",
+    "action": "Hard: deny delete; alert on gaps",
+    "engineering_logic": "RULE GH-SEC-11 | control=hard | action=deny\nWHEN  audit_log.integrity_job OR record.delete_requested\nIF    audit_log.coverage \u003c 100%  THEN alert=log_gap\nIF    record.type = audit_log AND record.age \u003c 6y THEN deny_delete reason=act987_log_retention",
+    "basis": "[Regulatory]. Stricter than GOV-08 (6 years for logs). Default: On. Basis: GS24 (ss.20, 34)"
+  },
+  "GH-SEC-12": {
+    "name": "Personal-data breach notice to the DPC",
+    "description": "Reasonable grounds to believe personal data was accessed or acquired by an unauthorised person. Notify the Data Protection Commission and affected people as soon as reasonably practicable. The law has no hour count; 72 hours is a design default.",
+    "action": "Task: notify DPC; internal clock 72h",
+    "engineering_logic": "RULE GH-SEC-12 | control=clock | action=report\nWHEN  breach.confirmed\nIF    breach.personal_data = true AND breach.unauthorised_access = true\nTHEN  task=notify.DPC  due=tenant.cfg.dpc_internal_clock       # default 72h [My design]; statute: as soon as reasonably practicable\n      task=notify.data_subjects  content=(nature, measures, likely_consequences)",
+    "basis": "[Regulatory]. Param of Nigeria NDPA 72h clock (Ghana statute has no hour count). Default: On. Basis: GS26"
+  },
+  "GH-SEC-13": {
+    "name": "Personal data leaving Ghana",
+    "description": "Personal data is sent abroad without recorded consent and safeguards. A Bank of Ghana approval requirement under the 2026 directive was reported by a vendor and is unconfirmed, so that part ships off.",
+    "action": "Flag; hold the transfer job",
+    "engineering_logic": "RULE GH-SEC-13 | control=hard | action=flag\nWHEN  data.transfer\nSCOPE destination.country != GH AND data.class = personal\nIF    NOT ( consent.recorded = true AND safeguards.recorded = true )\nTHEN  flag=cross_border_transfer  hold=transfer_job\nIF    tenant.cfg.cisd_bog_transfer_approval = true AND transfer.bog_approval IS NULL     # default false: threshold to be confirmed; disabled-by-default\nTHEN  hold=transfer_job  reason=bog_approval_missing",
+    "basis": "[Regulatory]. New local. Default: Off (threshold to be confirmed). Basis: GS26 (Templars); GS25 (Group-IB, vendor)"
+  },
+  "GH-SEC-14": {
+    "name": "Cybersecurity vendor licence check",
+    "description": "A penetration tester or security provider is used without a valid Cyber Security Authority licence. Unlicensed provision is unlawful and the CSA has enforced licensing from 31 January 2026.",
+    "action": "Block vendor onboarding",
+    "engineering_logic": "RULE GH-SEC-14 | control=hard | action=block\nWHEN  vendor.onboard OR vendor.annual_review\nSCOPE vendor.service = cybersecurity\nIF    vendor.csa_licence_status != valid\nTHEN  decision=block  reason=unlicensed_cybersecurity_provider",
+    "basis": "[Regulatory]. New local. Default: On. Basis: GS20"
+  },
+  "GH-TM-01": {
+    "name": "New device, new payee, then large transfer",
+    "description": "Within 30 minutes: a new device or app is linked, a new payee is added, and money is sent above the institution's minimum. Ghana has no found cap on new-device transfers like Nigeria's REG-01, so this only scores.",
+    "points": "30 points, review",
+    "engineering_logic": "RULE GH-TM-01 | weight=30 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 30m BY account.id\nIF    EXISTS(device.bound WHERE device.is_new = true)\nAND   EXISTS(beneficiary.added WHERE beneficiary.is_new = true)\nAND   txn.amount \u003e tenant.cfg.floor                     # suggested default GHS 2_000 (average MoMo ticket about GHS 528, Dec 2025)\nTHEN  signal=GH-TM-01  evidence=(device.id, beneficiary.id, times)",
+    "basis": "[Industry practice]. Param of ATO-01 (no Ghana equivalent of REG-01 found). Default: On. Basis: GS23, GS29 (modus operandi)"
+  },
+  "GH-TM-02": {
+    "name": "SIM swap, then transfer or cash-out",
+    "description": "The telco reports a SIM swap, or the SIM or device was re-registered in the last 72 hours, then money is sent or cashed out.",
+    "points": "25 points, step-up",
+    "engineering_logic": "RULE GH-TM-02 | weight=25 | action=step_up\nWHEN  txn.type IN (transfer.outbound, wallet.send, wallet.cash_out)\nIF    ANY OF ( telco.sim_swap_flag = true , EXISTS(sim.reregistered OVER tenant.cfg.sim_swap_window) , EXISTS(device.reregistered OVER tenant.cfg.sim_swap_window) )\n      # default window 72h\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=GH-TM-02  evidence=(swap_source, swap_time)",
+    "basis": "[Industry practice]. Param of ATO-03. Default: On. Basis: GS23, GS35"
+  },
+  "GH-TM-03": {
+    "name": "Credentials changed, then electronic transfer",
+    "description": "Password, PIN, phone or email changed in the last 24 hours, then an electronic transfer above the minimum. E-transfers were half of all bank fraud cases in the GAB sample.",
+    "points": "25 points, step-up",
+    "engineering_logic": "RULE GH-TM-03 | weight=25 | action=step_up\nWHEN  txn.type = transfer.outbound\nIF    ANY OF ( EXISTS(profile.password_changed OVER 24h) , EXISTS(profile.pin_changed OVER 24h) ,\n               EXISTS(profile.phone_changed OVER 24h) , EXISTS(profile.email_changed OVER 24h) )\nAND   txn.amount \u003e tenant.cfg.floor\nTHEN  signal=GH-TM-03  evidence=(change_type, change_time)",
+    "basis": "[Industry practice]. Param of ATO-02. Default: On. Basis: GS29"
+  },
+  "GH-TM-04": {
+    "name": "Impossible travel or new country",
+    "description": "A login or payment from a country the customer does not normally use (10 points), or two events too far apart to travel between in the time (20 points).",
+    "points": "10 or 20 points",
+    "engineering_logic": "RULE GH-TM-04 | weight=10 or 20\nWHEN  session.login OR txn.created\nIF    geo.country NOT IN profile.usual_countries THEN signal=GH-TM-04 weight=10\nIF    distance(geo, previous.geo) / time_between \u003e 900 km/h THEN signal=GH-TM-04 weight=20   # impossible travel",
+    "basis": "[Industry practice]. Param of BEH-02. Default: On. Basis: Nigeria library BEH-02"
+  },
+  "GH-TM-05": {
+    "name": "Sudden spike against the customer's own pattern",
+    "description": "Money sent in 24 hours is more than three times the customer's usual daily amount and above the institution's minimum.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-05 | weight=20\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 24h BY account.id\nIF    SUM(txn.amount) \u003e 3 * AVG(daily_outbound OVER 30d)\nAND   SUM(txn.amount) \u003e tenant.cfg.floor                 # suggested GHS 5_000 for retail wallets; tune per segment\nTHEN  signal=GH-TM-05  evidence=(sum_24h, avg_30d)",
+    "basis": "[Industry practice]. Param of VEL-02. Default: On. Basis: GS34 (average ticket)"
+  },
+  "GH-TM-06": {
+    "name": "Burst of transfers",
+    "description": "Five or more transfers out in 10 minutes.",
+    "points": "15 points",
+    "engineering_logic": "RULE GH-TM-06 | weight=15\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 10m BY account.id\nIF    COUNT(txn) \u003e= 5\nTHEN  signal=GH-TM-06  evidence=(count, window)",
+    "basis": "[Industry practice]. Param of VEL-01. Default: On. Basis: Nigeria library VEL-01"
+  },
+  "GH-TM-07": {
+    "name": "Splitting to stay under wallet-tier limits",
+    "description": "Three or more transactions in 24 hours each just under the wallet's daily limit, or the wallet uses 80% or more of its daily limit on three days in a week.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-07 | weight=25 | action=review\nWHEN  txn.type IN (wallet.send, wallet.cash_out)\nSCOPE account.type = mobile_money_wallet\nIF    ANY OF ( COUNT(txn WHERE txn.amount BETWEEN 0.90*L AND 0.999*L OVER 24h BY wallet.id) \u003e= 3 ,\n               COUNT(DISTINCT day WHERE SUM(txn.amount)/L \u003e= 0.80 OVER 7d BY wallet.id) \u003e= 3 )\n      WHERE L = tenant.cfg.gh_tier_daily[wallet.kyc_tier]\nTHEN  signal=GH-TM-07  evidence=(limit, amounts)",
+    "basis": "[My design]. New local (tier-limit variant of VEL-04). Default: On. Basis: GS8; inference only"
+  },
+  "GH-TM-08": {
+    "name": "Splitting cash to stay under the CTR line",
+    "description": "Three or more cash deposits or withdrawals within 5 days, each between 90% and 99.9% of the CTR amount, including across branches or linked accounts.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-08 | weight=25 | action=review\nWHEN  txn.type IN (cash.deposit, cash.withdrawal)\nWINDOW 5d BY customer.id INCLUDING linked_accounts, branches\nIF    COUNT(txn WHERE txn.amount BETWEEN 0.90*T AND 0.999*T) \u003e= 3\n      WHERE T = tenant.cfg.gh_ctr[tenant.type]            # GHS 50_000 or GHS 20_000; FIC publishes no separate band\nTHEN  signal=GH-TM-08  evidence=(threshold, amounts, branches)",
+    "basis": "[Industry practice]. Param of VEL-04 (5-day window, multi-branch aggregation). Default: On. Basis: GS30 (FIC typology), GS1"
+  },
+  "GH-TM-09": {
+    "name": "Many senders into one wallet",
+    "description": "Ten or more different senders pay one wallet or account in 24 hours (prize, romance or investment collections).",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-09 | weight=20\nWHEN  txn.type = transfer.inbound\nWINDOW 24h BY account.id\nIF    COUNT(DISTINCT sender.id) \u003e= 10\nTHEN  signal=GH-TM-09",
+    "basis": "[Industry practice]. Param of MUL-02. Default: On. Basis: GS28, GS35"
+  },
+  "GH-TM-10": {
+    "name": "Money passing straight through",
+    "description": "80% or more of money received leaves within 60 minutes.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-10 | weight=25 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 60m BY account.id\nIF    SUM(txn.amount WHERE direction=out) \u003e= 0.80 * SUM(txn.amount WHERE direction=in)\nAND   SUM(txn.amount WHERE direction=in) \u003e tenant.cfg.floor\nTHEN  signal=GH-TM-10  evidence=(in_sum, out_sum, ratio)",
+    "basis": "[Industry practice]. Param of MUL-01. Default: On. Basis: GS28, GS34"
+  },
+  "GH-TM-11": {
+    "name": "One payment split many ways",
+    "description": "One incoming payment is split among five or more recipients within 60 minutes.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-11 | weight=20\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 60m BY source_inflow.id\nIF    COUNT(DISTINCT beneficiary.id) \u003e= 5\nTHEN  signal=GH-TM-11",
+    "basis": "[Industry practice]. Param of MUL-03. Default: On. Basis: GS28"
+  },
+  "GH-TM-12": {
+    "name": "Quick cash-out after money arrives",
+    "description": "Money arrives by card or peer-to-peer and 70% or more is withdrawn at an ATM, POS or agent within 30 minutes.",
+    "points": "15 points",
+    "engineering_logic": "RULE GH-TM-12 | weight=15\nWHEN  txn.type IN (atm.withdrawal, pos.purchase, wallet.cash_out)\nWINDOW 30m BY account.id\nIF    EXISTS(inflow WHERE source IN (card, p2p, wallet))\nAND   txn.amount \u003e= 0.70 * inflow.amount\nTHEN  signal=GH-TM-12",
+    "basis": "[Industry practice]. Param of MUL-08 (agent cash-out added). Default: On. Basis: GS28"
+  },
+  "GH-TM-13": {
+    "name": "New account, big volume",
+    "description": "A wallet or account under 7 days old moves more than ten times what is normal for its KYC tier.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-13 | weight=20\nWHEN  txn.created\nSCOPE account.age \u003c 7d\nIF    SUM(txn.amount OVER account.age) \u003e 10 * kyc_tier.norm(account.kyc_tier)\nTHEN  signal=GH-TM-13  evidence=(volume, tier_norm)",
+    "basis": "[Industry practice]. Param of MUL-04. Default: On. Basis: GS28"
+  },
+  "GH-TM-14": {
+    "name": "Dormant account wakes up",
+    "description": "No activity for 90 days or more, then a large payment in or out.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-14 | weight=20\nWHEN  txn.created\nIF    account.days_since_last_activity \u003e= 90\nAND   txn.amount \u003e tenant.cfg.large_after_dormancy        # suggested GHS 5_000\nTHEN  signal=GH-TM-14",
+    "basis": "[Industry practice]. Param of MUL-05. Default: On. Basis: Nigeria library MUL-05"
+  },
+  "GH-TM-15": {
+    "name": "Shared Ghana Card, phone or device across wallets",
+    "description": "One device is used on three or more accounts, or one Ghana Card number, phone number or address appears on several accounts or applications.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-15 | weight=25 | action=review\nWHEN  account.created OR application.submitted OR txn.created\nIF    ANY OF ( COUNT(DISTINCT account.id BY device.id) \u003e= 3 ,\n               COUNT(DISTINCT account.id BY ghana_card_no) \u003e= 2 ,\n               COUNT(DISTINCT account.id BY phone) \u003e= 2 ,\n               COUNT(DISTINCT account.id BY address) \u003e= 2 )\nTHEN  signal=GH-TM-15  evidence=(shared_identifier, linked_accounts)",
+    "basis": "[Industry practice]. Param of MUL-06 (Ghana Card number added). Default: On. Basis: GS28, GS29"
+  },
+  "GH-TM-16": {
+    "name": "Agent float anomaly",
+    "description": "An agent's float top-ups or cash-in and cash-out cycling run far above similar agents, or many of the agent's customers are brand-new wallets. No Ghana float data was found, so every number is a placeholder.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-16 | weight=25 | action=review\nWHEN  agent.daily_job\nSCOPE agent.active = true\nIF    ANY OF ( agent.float_topup_24h \u003e tenant.cfg.float_peer_mult * peer_group.p95(float_topup_24h) ,\n               (agent.cash_in_24h + agent.cash_out_24h) / agent.float_balance \u003e tenant.cfg.float_cycle_max ,\n               agent.share_new_wallets_7d \u003e tenant.cfg.new_wallet_share_max )\n      # PLACEHOLDER values: threshold to be confirmed; disabled-by-default; calibrate on operator data\nTHEN  signal=GH-TM-16  evidence=(agent.id, float_metrics)  visibility=compliance_only",
+    "basis": "[My design]. New local. Default: Off (threshold to be confirmed). Basis: Nigeria library gap; GS34 (491,000 agents); no float source"
+  },
+  "GH-TM-17": {
+    "name": "Insider cash suppression",
+    "description": "A teller, relationship officer or sales agent records cash received but the deposit is not posted, end-of-day cash differs from the ledger, or staff debit dormant customer accounts. BoG reported GH¢40.7m cash-suppression risk in 2025.",
+    "points": "30 points, review (compliance only)",
+    "engineering_logic": "RULE GH-TM-17 | weight=30 | action=review\nWHEN  eod.reconciliation OR staff.txn\nSCOPE staff.role IN (teller, relationship_officer, direct_sales_agent)\nIF    ANY OF ( ABS(cash_received_recorded - cash_posted_to_ledger) \u003e tenant.cfg.variance_tolerance ,   # default GHS 0\n               COUNT(staff.initiated_debit WHERE account.dormant = true OVER 30d) \u003e= 1 ,\n               staff.manual_override_count OVER 30d \u003e peer_group.p95(manual_override_count) )\nTHEN  signal=GH-TM-17  visibility=compliance_only  evidence=(staff.id, variance)   # gov=GH-GOV-02",
+    "basis": "[Industry practice]. New local (extends INS-01). Default: On. Basis: GS28, GS29"
+  },
+  "GH-TM-18": {
+    "name": "Personal account used as a business account",
+    "description": "A personal account shows business-like turnover: repeated transfers with business accounts, funds from a shareholder labelled as loans or borrowing, or heavy activity in relatives' accounts. These are FIC tax-evasion red flags.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-18 | weight=20\nWHEN  daily_job\nSCOPE account.type = personal\nWINDOW 30d BY account.id\nIF    SUM(txn.amount WHERE direction=in) \u003e 5 * peer_group.p95(SUM OVER 30d)\nAND   ANY OF ( COUNT(txn WHERE counterparty.type = business) \u003e= tenant.cfg.pb_transfers_min ,   # default 5\n               COUNT(txn WHERE memo MATCHES (loan, borrow) AND counterparty.is_shareholder = true) \u003e= 1 ,\n               linked_relatives_accounts.volume \u003e tenant.cfg.relative_volume_floor )\nTHEN  signal=GH-TM-18  evidence=(turnover, counterparties)",
+    "basis": "[Industry practice]. New local. Default: On. Basis: GS30"
+  },
+  "GH-TM-19": {
+    "name": "Gold-trade pattern (galamsey)",
+    "description": "A personal or small-business account receives money from gold buyers, aggregators or forex bureaux and cashes out quickly. The FIC has published no galamsey red-flag list, so this needs a counterparty tag list and tenant values.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-19 | weight=25 | action=review\nWHEN  txn.type = transfer.inbound OR cash.withdrawal\nWINDOW 7d BY account.id\nSCOPE account.type IN (personal, sme)\nIF    SUM(txn.amount WHERE counterparty.tag IN (gold_buyer, gold_aggregator, forex_bureau)) \u003e= tenant.cfg.gold_inflow_floor\n      # PLACEHOLDER NULL: threshold to be confirmed; disabled-by-default\nAND   SUM(cash_out OVER 48h after inflow) \u003e= 0.70 * inflow\nTHEN  signal=GH-TM-19  evidence=(counterparties, amounts)",
+    "basis": "[My design]. New local. Default: Off (threshold to be confirmed). Basis: GS31 (Swissaid, gold share of exports); no FIC list"
+  },
+  "GH-TM-20": {
+    "name": "Payment to an unlicensed digital lender",
+    "description": "A payment goes to, or a borrower receives money from, a lender on the BoG list of unlicensed digital credit providers (20 named on 3 August 2026).",
+    "points": "30 points, review",
+    "engineering_logic": "RULE GH-TM-20 | weight=30 | action=review\nWHEN  txn.created\nIF    counterparty.name_or_id IN list.bog_unlicensed_digital_lenders\nOR    counterparty.tag = unlicensed_lender\nTHEN  signal=GH-TM-20  evidence=(counterparty, list_version)",
+    "basis": "[My design]. New local (list-based). Default: On. Basis: GS32"
+  },
+  "GH-TM-21": {
+    "name": "Borrow and cash out",
+    "description": "90% or more of a loan is moved out within 30 minutes of payout, or the borrower sends it to several numbers.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-21 | weight=20\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 30m BY account.id\nIF    EXISTS(loan.disbursement)\nAND   SUM(txn.amount) \u003e= 0.90 * loan.disbursement.amount\nTHEN  signal=GH-TM-21",
+    "basis": "[Industry practice]. Param of LEN-02. Default: On. Basis: GS32"
+  },
+  "GH-TM-22": {
+    "name": "Ponzi-style pooling",
+    "description": "Twenty or more unrelated senders pay one account in 7 days, and 30% or more of what it pays out goes to people who paid in earlier. Memos promising fixed or doubled returns add support.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-22 | weight=25 | action=review\nWHEN  txn.type = transfer.inbound\nWINDOW 7d BY account.id\nIF    COUNT(DISTINCT sender.id WHERE unrelated = true) \u003e= 20\nAND   SUM(outflow WHERE recipient IN prior_senders) \u003e= 0.30 * SUM(outflow)\nTHEN  signal=GH-TM-22  evidence=(senders, recycled_share, memo_flags)",
+    "basis": "[Industry practice]. Param of PON-01. Default: On. Basis: GS33"
+  },
+  "GH-TM-23": {
+    "name": "Wrong-transfer scam",
+    "description": "An unexpected credit from a first-time sender is followed within hours by a 'please send it back' payment to a different number. No Ghana loss figures were found, so this ships off.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-23 | weight=25 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 2h BY account.id\nIF    EXISTS(inflow WHERE sender.is_first_time = true AND inflow.amount \u003e= tenant.cfg.wrong_transfer_min)   # PLACEHOLDER, disabled-by-default\nAND   txn.beneficiary != inflow.sender\nAND   txn.amount \u003e= 0.80 * inflow.amount\nTHEN  signal=GH-TM-23",
+    "basis": "[My design]. New local. Default: Off (threshold to be confirmed). Basis: GS28, GS35 (social engineering); inference only"
+  },
+  "GH-TM-24": {
+    "name": "Cross-network pass-through (interoperability)",
+    "description": "A freshly funded wallet sends most of its money to another network through GhIPSS interoperability within an hour. Interoperable flows are small, so this is a layering hint, not a sourced typology.",
+    "points": "20 points",
+    "engineering_logic": "RULE GH-TM-24 | weight=20\nWHEN  txn.type = transfer.interoperable.out\nWINDOW 60m BY wallet.id\nIF    wallet.age \u003c 7d\nAND   SUM(txn.amount WHERE interoperable = true) \u003e= 0.80 * SUM(txn.amount WHERE direction=in)\nAND   SUM(txn.amount WHERE direction=in) \u003e tenant.cfg.floor\n      # threshold to be confirmed; disabled-by-default\nTHEN  signal=GH-TM-24",
+    "basis": "[My design]. New local. Default: Off (threshold to be confirmed). Basis: GS34; inference only"
+  },
+  "GH-TM-25": {
+    "name": "Romance-scam proceeds passed on",
+    "description": "A foreign transfer arrives and 70% or more is sent on to three or more Ghanaian accounts within 72 hours. Where the sender profile is known, an elderly overseas sender strengthens the signal.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-25 | weight=25 | action=review\nWHEN  txn.type = transfer.outbound\nWINDOW 72h BY account.id\nIF    EXISTS(inflow WHERE inflow.type = transfer.international.in AND inflow.amount_usd_equiv \u003e= tenant.cfg.gh_ectr)\nAND   COUNT(DISTINCT beneficiary.id) \u003e= 3\nAND   SUM(txn.amount) \u003e= 0.70 * inflow.amount\nTHEN  signal=GH-TM-25  evidence=(inflow.sender, beneficiaries)   # optional boost +5 if sender.age \u003e= 65",
+    "basis": "[Industry practice]. New local. Default: On. Basis: GS36 (EOCO, US DOJ)"
+  },
+  "GH-TM-26": {
+    "name": "Splitting forex deals under the US$10,000 line",
+    "description": "A forex bureau customer makes two or more deals within 7 days, each between 90% and 99.9% of US$10,000.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-26 | weight=25 | action=review\nWHEN  txn.type IN (forex.buy, forex.sell)\nSCOPE tenant.type = forex_bureau\nWINDOW 7d BY customer.id\nIF    COUNT(txn WHERE txn.amount_usd_equiv BETWEEN 0.90*tenant.cfg.gh_forex_edd AND 0.999*tenant.cfg.gh_forex_edd) \u003e= 2\nTHEN  signal=GH-TM-26",
+    "basis": "[My design]. New local (derived from the forex EDD trigger). Default: On. Basis: GS9; derivation is my design"
+  },
+  "GH-TM-27": {
+    "name": "Exposure to FATF-listed jurisdictions",
+    "description": "A cross-border transfer involves a country on the FATF increased-monitoring list. The FIC asks for risk-based heightened scrutiny, not blanket enhanced due diligence.",
+    "points": "10 points",
+    "engineering_logic": "RULE GH-TM-27 | weight=10\nWHEN  txn.type IN (transfer.international.in, transfer.international.out)\nIF    counterparty.country IN tenant.cfg.fatf_increased_monitoring_list     # list maintained by tenant; 23 jurisdictions at the time of the advisory\nTHEN  signal=GH-TM-27  require=risk_based_scrutiny   # not blanket EDD",
+    "basis": "[Industry practice]. New local. Default: On. Basis: GS38 (FIC advisory, 25 Aug 2025)"
+  },
+  "GH-TM-28": {
+    "name": "Mobile money to crypto off-ramp",
+    "description": "Many senders fund one wallet and 70% or more of it goes to crypto exchanges or peer-to-peer crypto counterparties within 7 days. Cross-reference CRY-01 and CRY-08.",
+    "points": "25 points, review",
+    "engineering_logic": "RULE GH-TM-28 | weight=25 | action=review\nWHEN  txn.type IN (transfer.outbound, wallet.send)\nWINDOW 7d BY account.id\nIF    COUNT(DISTINCT sender.id) \u003e= 10\nAND   SUM(txn.amount WHERE counterparty.tag IN (vasp, p2p_crypto, crypto_linked)) \u003e= 0.70 * SUM(txn.amount WHERE direction=in)\nTHEN  signal=GH-TM-28  link=CRY-01,CRY-08",
+    "basis": "[My design]. New local (cross-reference CRY-01, CRY-08). Default: On. Basis: GS12, GS15 (Act 1154 not yet operational)"
+  }
+}

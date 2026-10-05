@@ -59,7 +59,11 @@ evaluated, never treated as no risk.
   `device_reregistered` with `device_change`; the rest with `activity`. Without it, the kind is
   derived: a debit is `transfer_outbound` (`card_authorization` on the card channel), a credit
   `transfer_inbound`, a successful login `login` and `auth_success`, a failed one `auth_failure`.
-  Every event also counts as `activity_any`, and money movements as `transaction_any`.
+  Every event also counts as `activity_any`, and money movements as `transaction_any`; forex
+  deals also count as `forex_any`, cash deposits, withdrawals and payments as `cash_any`, and SIM
+  registrations and replacements as `sim_change`. The country packs add money kinds (`forex_buy`,
+  `forex_sell`, `wallet_cash_out`) and activity kinds (incidents, breaches, vendors, data
+  transfers, security reviews: the full list is `ComplianceEventKind` in the API reference).
 - **`facts`** are values from the customer's systems and providers, by catalog name
   (`device.rooted`, `telco.sim_swap`, `customer.type`, `screening.sanctions_score`...): `true` or
   `false`, a number at least 0 (durations in seconds; scores up to 100; hours up to 24), one of
@@ -69,9 +73,15 @@ evaluated, never treated as no risk.
   sent with an `actor.account_id` also updates the account register REG-16's daily check reads
   (whether the account has a BVN, never the BVN): send it on `account_opened` and whenever it
   changes ([WORKFLOW.md](compliance/WORKFLOW.md#tasks)).
+- **`booking_entity`** names the licensed entity that holds the customer relationship, as
+  activated in the workspace ([ADR-0007](adr/ADR-0007-multi-jurisdiction.md)). Its country's pack
+  judges the event; without it the workspace's fallback activation does, and with no fallback
+  the decision's `jurisdiction.resolved_by` is `unresolved` and no pack runs.
+- **`data_subject_country`** is the country of the person the data concerns, for
+  data-protection rules only (a Rwandan data subject on a Ghana-booked account).
 - **`refs`** are opaque references for the entities rules keep time windows for: `card`, `bvn`,
   `phone`, `address`, `loan`, `inflow`, `merchant`, `api_key`, `sender`, `reporter`,
-  `funding_source`. Never the value itself: a `bvn` of 11 digits or a `phone` that is a phone
+  `funding_source`, `national_id` (Ghana Card, NIDA), `agent`. Never the value itself: a `bvn` of 11 digits or a `phone` that is a phone
   number is refused with `422 SENSITIVE_DATA`, like card numbers anywhere.
 
 A kind that does not fit the event type, an unknown or computed fact, or a value of the wrong

@@ -3,6 +3,9 @@ package features
 import (
 	"crypto/sha256"
 	"encoding/base64"
+	"fmt"
+	"math"
+	"strings"
 	"time"
 )
 
@@ -21,12 +24,15 @@ type Replay struct {
 func replayEntities() []string {
 	return []string{
 		"account", "customer", "user", "device", "ip", "beneficiary", "network", "card", "bvn", "phone",
-		"address", "loan", "inflow", "merchant", "api_key",
+		"address", "loan", "inflow", "merchant", "api_key", "national_id", "agent",
 	}
 }
 
 func replayFields() []string {
-	return []string{"account.id", "beneficiary.id", "card.id", "sender.id", "reporter.id", "funding_source.id", "txn.amount"}
+	return []string{
+		"account.id", "beneficiary.id", "card.id", "sender.id", "reporter.id", "funding_source.id", "txn.amount",
+		"customer.id", "agent.id",
+	}
 }
 
 func digest(kind, value string) string {
@@ -86,8 +92,41 @@ func (m *MemoryWindows) Record(key, entity string, op WindowOp, r Replay) {
 	})
 }
 
+// daysOver counts the local days of the window whose total in currency reached a threshold, as
+// the Redis windows do for "days_over:<threshold>:<offset ms>".
+func (m *MemoryWindows) daysOver(key, entity, fn string, window time.Duration, at time.Time, currency string) WindowValue {
+	var threshold float64
+	var offset int64
+	if _, err := fmt.Sscanf(strings.TrimPrefix(fn, "days_over:"), "%f:%d", &threshold, &offset); err != nil {
+		return WindowValue{}
+	}
+	totals := map[int64]float64{}
+	for _, e := range m.entries[key+"|"+entity] {
+		if e.at.Before(at.Add(-window)) || e.at.After(at) {
+			continue
+		}
+		if e.unknown {
+			return WindowValue{}
+		}
+		if e.currency == currency {
+			day := int64(math.Floor(float64(e.at.UnixMilli()+offset) / 86_400_000))
+			totals[day] += float64(e.amount)
+		}
+	}
+	n := 0.0
+	for _, s := range totals {
+		if s >= threshold {
+			n++
+		}
+	}
+	return WindowValue{Value: n, OK: true}
+}
+
 // Value computes fn over the entity's window of the given length ending at at.
 func (m *MemoryWindows) Value(key, entity, fn string, window time.Duration, at time.Time, currency string) WindowValue {
+	if strings.HasPrefix(fn, "days_over:") {
+		return m.daysOver(key, entity, fn, window, at, currency)
+	}
 	count, sum := 0, 0.0
 	fields := map[string]int{}
 	per := map[string]map[string]bool{}

@@ -1,0 +1,1282 @@
+{
+  "rules": [
+    {
+      "id": "RW-REG-01",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-10"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS5"
+      ],
+      "effective": {
+        "text": "FIC Regulation 002/FIC/2021 (26 August 2021), Arts 4 and 9",
+        "date": "2021-08-26"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Not verified that Law 001/2025 left Regulation 002/FIC/2021 in force. Amounts not exceeding US$10,000 need no declaration. The US dollar amount uses the exchange rate your institution configures.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "cash_deposit",
+          "forex_buy"
+        ],
+        "scope": {
+          "left": {
+            "fact": "txn.cash_source"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "cross_border"
+          }
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "txn.amount_usd"
+            },
+            "op": "gt",
+            "right": {
+              "param": "declaration_threshold"
+            }
+          },
+          {
+            "left": {
+              "fact": "declaration.reference_present"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "flag",
+        "reason": "undeclared_cross_border_cash",
+        "tasks": [
+          {
+            "type": "case.open"
+          },
+          {
+            "type": "report.cross_border_cash",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "txn.amount_usd"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "declaration_threshold",
+          "label": "Foreign cash needing a declaration, above (US dollars)",
+          "type": "money",
+          "default": 1000000,
+          "min": 0,
+          "max": 1000000,
+          "currency": "USD"
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-02",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-11"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "RS3"
+      ],
+      "effective": {
+        "text": "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; \"immediately\" means within 24 hours (Arts 2(b) and 4)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Article map from an aggregator; the 2023 law allowed up to 3 working days. Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "sanctions_list"
+      ],
+      "trigger": {
+        "events": [
+          "designation_received",
+          "list_updated"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "screening.designation_match"
+        },
+        "op": "eq",
+        "right": {
+          "literal": true
+        }
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "tfs_freeze",
+        "tasks": [
+          {
+            "type": "freeze_account",
+            "due": "freeze_within"
+          },
+          {
+            "type": "report.sanctions",
+            "to": [
+              "FIC"
+            ]
+          },
+          {
+            "type": "case.open"
+          }
+        ],
+        "evidence": [
+          "screening.designation_match"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "freeze_within",
+          "label": "Time to freeze after the designation is received",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-03",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-11"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS2"
+      ],
+      "effective": {
+        "text": "FIC Regulations 001/FIC/2025 (15 January 2025), Arts 26-27",
+        "date": "2025-01-15"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Needs a sanctions list provider with fuzzy and transliteration-aware matching. Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "sanctions_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out",
+          "customer_onboarded",
+          "list_updated"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "screening.sanctions_score"
+            },
+            "op": "gte",
+            "right": {
+              "param": "match_threshold"
+            }
+          },
+          {
+            "any": [
+              {
+                "left": {
+                  "fact": "screening.sanctions_confirmed"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "param": "auto_block_strong_match"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": 1
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "tfs_match",
+        "tasks": [
+          {
+            "type": "freeze_account",
+            "due": "freeze_within"
+          },
+          {
+            "type": "case.open"
+          },
+          {
+            "type": "report.sanctions",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "screening.sanctions_score"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "match_threshold",
+          "label": "Similarity score that counts as a match",
+          "type": "score",
+          "default": 90,
+          "min": 70,
+          "max": 100
+        },
+        {
+          "name": "auto_block_strong_match",
+          "label": "Block a strong match before a person confirms it",
+          "type": "flag",
+          "default": 0,
+          "min": 0,
+          "max": 1
+        },
+        {
+          "name": "freeze_within",
+          "label": "Time to freeze after the designation is received",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-04",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-14"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "RS3",
+        "RS6"
+      ],
+      "effective": {
+        "text": "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; reporting duty in Art 32, non-disclosure in Art 34 (per map)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The duty to report is in force; its deadline was not found in any readable source (C1). The 24-hour clock is a design placeholder, not a statutory number.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "workflow"
+      ],
+      "trigger": {
+        "events": [
+          "suspicion_recorded"
+        ]
+      },
+      "outcome": {
+        "reason": "str_clock",
+        "tasks": [
+          {
+            "type": "report.STR",
+            "on": "suspicion_recorded",
+            "due": "str_due",
+            "to": [
+              "FIC"
+            ]
+          }
+        ]
+      },
+      "parameters": [
+        {
+          "name": "str_due",
+          "label": "Time to file after suspicion is first recorded (design placeholder)",
+          "type": "duration",
+          "default": 86400,
+          "min": 3600,
+          "max": 259200
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-05",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-17"
+        ]
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS4",
+        "RS3"
+      ],
+      "effective": {
+        "text": "Law 028/2023 Art 31 (superseded); no amount found in Law 001/2025"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "No reporting amount was found (C2). The RWF 10,000,000 placeholder comes from the brief, not a source; enter the confirmed amount and deadline before switching this on.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events"
+      ],
+      "trigger": {
+        "events": [
+          "cash_deposit",
+          "cash_withdrawal",
+          "cash_payment",
+          "transfer_international"
+        ]
+      },
+      "condition": {
+        "left": {
+          "fact": "txn.amount"
+        },
+        "op": "gte",
+        "right": {
+          "param": "ctr_threshold"
+        }
+      },
+      "outcome": {
+        "reason": "currency_transaction_report",
+        "tasks": [
+          {
+            "type": "report.CTR",
+            "due": "ctr_due",
+            "to": [
+              "FIC"
+            ]
+          }
+        ],
+        "evidence": [
+          "txn.amount"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ctr_threshold",
+          "label": "Cash and wire transfers reported from (placeholder, not confirmed)",
+          "type": "money",
+          "default": 10000000,
+          "min": 0,
+          "max": 1000000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "ctr_due",
+          "label": "Time to report (to be set)",
+          "type": "duration",
+          "default": null,
+          "min": 3600,
+          "max": 2592000
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-06",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "param",
+        "of": [
+          "REG-12"
+        ]
+      },
+      "regulators": [
+        "FIC",
+        "law"
+      ],
+      "sources": [
+        "RS2",
+        "RS3"
+      ],
+      "effective": {
+        "text": "Law No. 001/2025 of 22 January 2025 on money laundering, terrorism and proliferation financing; in force; PEPs in Art 22 (per map)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Needs a PEP list provider. Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "pep_list"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out",
+          "customer_onboarded",
+          "customer_review"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "customer.is_pep"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          },
+          {
+            "left": {
+              "fact": "customer.has_pep_owner"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "pep",
+        "tasks": [
+          {
+            "type": "edd"
+          },
+          {
+            "type": "source_of_funds"
+          },
+          {
+            "type": "source_of_wealth"
+          },
+          {
+            "type": "senior_approval"
+          }
+        ],
+        "evidence": [
+          "customer.is_pep",
+          "customer.has_pep_owner"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-REG-07",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "applies_to": [
+        "bank",
+        "emi",
+        "psp"
+      ],
+      "sources": [
+        "RS12"
+      ],
+      "effective": {
+        "text": "BNR Directive 45/2026; eKash interoperable P2P live from 14 July 2026",
+        "date": "2026-07-14"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "From a news aggregator only; the directive's text was not seen (C10). Verify before relying on it in production. Your institution may set a lower cap.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound"
+        ],
+        "scope": {
+          "left": {
+            "fact": "txn.rail"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "ekash"
+          }
+        }
+      },
+      "branches": [
+        {
+          "condition": {
+            "left": {
+              "fact": "txn.amount"
+            },
+            "op": "gt",
+            "right": {
+              "param": "ekash_cap"
+            }
+          },
+          "decision": "decline",
+          "label": "Above the eKash cap"
+        },
+        {
+          "condition": {
+            "left": {
+              "fact": "txn.fee"
+            },
+            "op": "gt",
+            "right": {
+              "param": "fee_max"
+            }
+          },
+          "decision": "flag",
+          "label": "Fee above the ceiling"
+        }
+      ],
+      "outcome": {
+        "reason": "ekash_limits",
+        "evidence": [
+          "txn.amount",
+          "txn.fee"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "ekash_cap",
+          "label": "Largest eKash transfer",
+          "type": "money",
+          "default": 10000000,
+          "min": 0,
+          "max": 10000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "fee_max",
+          "label": "Largest fee on an eKash transfer",
+          "type": "money",
+          "default": 20,
+          "min": 0,
+          "max": 20,
+          "currency": "RWF"
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-08",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-07",
+          "REG-09"
+        ]
+      },
+      "off_reason": "verify_first",
+      "regulators": [
+        "BNR"
+      ],
+      "applies_to": [
+        "bank"
+      ],
+      "sources": [
+        "RS9"
+      ],
+      "effective": {
+        "text": "BNR Directive 02/2009; may no longer apply"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "A 2009 directive; confirm it is still current before switching this on. Exceptions a bank authorises are reported to the central bank weekly. Counted over the calendar day in Kigali, from the hour the bank's day starts.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "history",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "cash_withdrawal"
+        ]
+      },
+      "condition": {
+        "left": {
+          "agg": {
+            "fn": "sum",
+            "event": "cash_withdrawal",
+            "window": "day",
+            "by": "customer",
+            "field": "txn.amount",
+            "calendar": "day"
+          }
+        },
+        "op": "gt",
+        "right": {
+          "param": "cash_ceiling"
+        }
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "daily_cash_ceiling",
+        "unless": {
+          "left": {
+            "fact": "exception.authorised_by_bank"
+          },
+          "op": "eq",
+          "right": {
+            "literal": true
+          }
+        },
+        "evidence": [
+          "txn.amount"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "cash_ceiling",
+          "label": "Most cash a customer can withdraw in a day",
+          "type": "money",
+          "default": 5000000,
+          "min": 0,
+          "max": 5000000,
+          "currency": "RWF"
+        },
+        {
+          "name": "day",
+          "label": "The day the ceiling counts over",
+          "type": "duration",
+          "default": 86400,
+          "min": 86400,
+          "max": 86400
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-09",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "applies_to": [
+        "emi"
+      ],
+      "sources": [
+        "RS11"
+      ],
+      "effective": {
+        "text": "BNR Regulation 54/2022 on e-money issuers, Art 9"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Whether the three-account cap is per issuer or across issuers is not confirmed; RiskOS counts the accounts at your institution.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened"
+        ],
+        "scope": {
+          "left": {
+            "fact": "account.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "e_money_account"
+          }
+        }
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "customer.emoney_accounts"
+            },
+            "op": "gte",
+            "right": {
+              "param": "max_accounts"
+            }
+          },
+          {
+            "left": {
+              "fact": "customer.bnr_authorisation"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "max_emoney_accounts",
+        "evidence": [
+          "customer.emoney_accounts"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "max_accounts",
+          "label": "E-money accounts a customer may hold without central bank authorisation",
+          "type": "count",
+          "default": 3,
+          "min": 1,
+          "max": 3
+        }
+      ]
+    },
+    {
+      "id": "RW-REG-10",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-06"
+        ]
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "sources": [
+        "RS11"
+      ],
+      "effective": {
+        "text": "BNR Regulation 54/2022 on e-money issuers, Art 9"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "identity",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "account_opened",
+          "customer_review"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "identity.nida_verified"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "customer.name_missing"
+            },
+            "op": "eq",
+            "right": {
+              "literal": true
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "block",
+        "reason": "nida_verification_missing",
+        "evidence": [
+          "identity.nida_verified"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-REG-11",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "analogue",
+        "of": [
+          "REG-03"
+        ]
+      },
+      "regulators": [
+        "BNR"
+      ],
+      "applies_to": [
+        "emi"
+      ],
+      "sources": [
+        "RS11"
+      ],
+      "effective": {
+        "text": "BNR Regulation 54/2022 on e-money issuers, Art 10"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Read from an aggregator or one secondary source, not the Gazette text; confirm the article numbers, amounts and dates against the original before relying on them.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ],
+        "scope": {
+          "left": {
+            "fact": "event.channel"
+          },
+          "op": "in",
+          "right": {
+            "literal": [
+              "mobile_app",
+              "web",
+              "ussd"
+            ]
+          }
+        }
+      },
+      "condition": {
+        "left": {
+          "fact": "txn.auth_method"
+        },
+        "op": "eq",
+        "right": {
+          "literal": "none"
+        }
+      },
+      "outcome": {
+        "decision": "decline",
+        "reason": "no_customer_authentication",
+        "evidence": [
+          "txn.auth_method"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-REG-12",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local",
+        "of": [
+          "GOV-01"
+        ]
+      },
+      "regulators": [
+        "FIC"
+      ],
+      "sources": [
+        "RS4",
+        "RS32"
+      ],
+      "effective": {
+        "text": "FIC Guidelines 001/2023 on beneficial ownership (21 November 2023)"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "The ownership share that makes someone a beneficial owner was not found; your institution sets it in its onboarding checks.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "customer_onboarded",
+          "customer_review"
+        ],
+        "scope": {
+          "left": {
+            "fact": "customer.type"
+          },
+          "op": "eq",
+          "right": {
+            "literal": "corporate"
+          }
+        }
+      },
+      "condition": {
+        "any": [
+          {
+            "left": {
+              "fact": "beneficial_owner.identified"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          },
+          {
+            "left": {
+              "fact": "beneficial_owner.documents_complete"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "beneficial_owner_missing",
+        "evidence": [
+          "beneficial_owner.identified"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-REG-13",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "regulatory",
+      "lineage": {
+        "kind": "new_local"
+      },
+      "regulators": [
+        "CMA",
+        "BNR"
+      ],
+      "sources": [
+        "RS13"
+      ],
+      "effective": {
+        "text": "Law No. 023/2026 on virtual assets; effective 28 May 2026",
+        "date": "2026-05-28"
+      },
+      "verification": "secondary_source_only",
+      "caveat": "Implementing regulations are pending and the law's article numbers were not found. Your institution loads the licence register.",
+      "defaults": {
+        "enabled": true,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "counterparty_tags",
+        "customer_profile"
+      ],
+      "trigger": {
+        "events": [
+          "transfer_outbound",
+          "transfer_inbound",
+          "transfer_international",
+          "cash_payment",
+          "cash_withdrawal",
+          "cash_deposit",
+          "atm_withdrawal",
+          "pos_purchase",
+          "card_authorization",
+          "crypto_purchase",
+          "crypto_withdrawal",
+          "crypto_transfer",
+          "loan_disbursement",
+          "loan_repayment",
+          "forex_buy",
+          "forex_sell",
+          "wallet_cash_out"
+        ]
+      },
+      "condition": {
+        "any": [
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "counterparty.is_vasp"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "fact": "counterparty.vasp_licensed"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              }
+            ]
+          },
+          {
+            "all": [
+              {
+                "left": {
+                  "fact": "merchant.accepts_virtual_assets"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": true
+                }
+              },
+              {
+                "left": {
+                  "fact": "merchant.va_authorised"
+                },
+                "op": "eq",
+                "right": {
+                  "literal": false
+                }
+              }
+            ]
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "review",
+        "reason": "unlicensed_virtual_asset_activity",
+        "hints": [
+          "hold_and_review"
+        ]
+      },
+      "parameters": []
+    },
+    {
+      "id": "RW-REG-14",
+      "group": "mandatory_controls",
+      "kind": "control",
+      "status": "regulatory",
+      "provenance": "industry_practice",
+      "lineage": {
+        "kind": "cross_reference",
+        "of": [
+          "CRY-13"
+        ]
+      },
+      "off_reason": "threshold_to_be_confirmed",
+      "regulators": [
+        "CMA"
+      ],
+      "applies_to": [
+        "vasp"
+      ],
+      "sources": [
+        "RS13"
+      ],
+      "effective": {
+        "text": "Law No. 023/2026 refers to the Travel Rule; no threshold found"
+      },
+      "verification": "awaiting_regulator",
+      "caveat": "No Travel Rule threshold was found for Rwanda. Enter the threshold and the longest hold before switching this on.",
+      "defaults": {
+        "enabled": false,
+        "mode": "live"
+      },
+      "inputs": [
+        "events",
+        "fx_rates"
+      ],
+      "trigger": {
+        "events": [
+          "crypto_transfer"
+        ]
+      },
+      "condition": {
+        "all": [
+          {
+            "left": {
+              "fact": "txn.amount_usd"
+            },
+            "op": "gte",
+            "right": {
+              "param": "travel_rule_min"
+            }
+          },
+          {
+            "left": {
+              "fact": "crypto.travel_rule_complete"
+            },
+            "op": "eq",
+            "right": {
+              "literal": false
+            }
+          }
+        ]
+      },
+      "outcome": {
+        "decision": "hold",
+        "hold": "hold_max",
+        "reason": "travel_rule_data_missing",
+        "evidence": [
+          "crypto.travel_rule_complete"
+        ]
+      },
+      "parameters": [
+        {
+          "name": "travel_rule_min",
+          "label": "Transfers needing sender and receiver details, from (threshold to be confirmed)",
+          "type": "money",
+          "default": null,
+          "min": 0,
+          "max": 100000000,
+          "currency": "USD"
+        },
+        {
+          "name": "hold_max",
+          "label": "Longest hold while details are collected (to be set)",
+          "type": "duration",
+          "default": null,
+          "min": 3600,
+          "max": 604800
+        }
+      ]
+    }
+  ]
+}
