@@ -113,7 +113,7 @@ test("the work queue, its panels and a report", async ({ page }) => {
     .getByRole("button", { name: "Open" })
     .click();
   await expect(page.getByRole("dialog")).toHaveAccessibleDescription(
-    /Required by REG-14 for customer usr_4812/,
+    /Required by REG-14 \(NG\) for customer usr_4812/,
   );
   await audit(page);
 });

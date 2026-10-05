@@ -149,6 +149,24 @@ export default function Page() {
           later hour), so send each event&apos;s real <C>occurred_at</C>.
         </li>
         <li>
+          <strong>Duties owed to a person follow them.</strong> Send{" "}
+          <C>compliance.data_subject_country</C> on data-protection events. A
+          breach of a Rwandan&apos;s data booked in Ghana is judged by Ghana,
+          and Rwanda&apos;s 48-hour notice to the NCSA (RW-SEC-04) runs beside
+          it when you have activated Rwanda: the decision&apos;s{" "}
+          <C>jurisdiction.data_subject_pack</C> says so, and the control carries{" "}
+          <C>jurisdiction: &quot;RW&quot;</C>.
+        </li>
+        <li>
+          <strong>Some clocks count working days.</strong> Ghana&apos;s FIC
+          suspension holds for up to 7 working days: the control carries{" "}
+          <C>hold_until</C>, the close of the 7th working day, skipping weekends
+          and the public holidays your team enters in the console (or{" "}
+          <C>POST /api/v1/compliance/jurisdictions/GH/holidays</C>). Release the
+          hold then. The control is shown as <C>compliance_review</C>: never
+          tell the customer why funds are held.
+        </li>
+        <li>
           <strong>US dollar thresholds need a rate.</strong> Send{" "}
           <C>txn.amount_usd</C>, or set a rate for the currency (
           <C>PUT /api/v1/compliance/fx-rates/GHS</C>). The rate used is kept
@@ -176,6 +194,31 @@ export default function Page() {
 → "jurisdiction": { "jurisdiction": "GH", "pack": "gh@2026.10.1",
                     "resolved_by": "booking_entity", "booking_entity": "gh-bank" },
   "controls": [{ "rule": "GH-REG-04", "tasks": ["report.CTR"], ... }]`}
+      />
+
+      <H3>Before deleting a record</H3>
+      <P>
+        Ask first: <C>POST /api/v1/compliance/retention/check</C> with the
+        record type, your reference for it, when its retention started and why
+        it is to be deleted. A record younger than the longest retention any of
+        your countries requires is refused (Rwanda&apos;s 10 years beat
+        Ghana&apos;s and Nigeria&apos;s 5), with the rule and country that
+        require it; every answer is audited.{" "}
+        <C>GET /api/v1/compliance/retention</C> lists the periods in force.
+      </P>
+      <Code
+        label="Check a deletion"
+        code={`POST /api/v1/compliance/retention/check
+{
+  "record_type": "customer_file",
+  "record_ref": "cust_42",
+  "since": "2020-03-01T00:00:00Z",
+  "reason": "data_subject_request"
+}
+
+→ { "allowed": false, "retain_until": "2030-02-27T00:00:00Z",
+    "period": { "record_type": "customer_file", "days": 3650,
+                "rule": { "jurisdiction": "RW", "rule": "RW-GOV-01", ... } } }`}
       />
 
       <H2>Every active rule, for your integration</H2>

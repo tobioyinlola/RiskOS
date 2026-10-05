@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const accountScopes = `-- name: AccountScopes :many
@@ -103,6 +104,82 @@ UPDATE jurisdiction_activations SET fallback = false WHERE tenant_id = $1 AND fa
 func (q *Queries) ClearFallback(ctx context.Context, tenantID uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearFallback, tenantID)
 	return err
+}
+
+const crossBorderTasks = `-- name: CrossBorderTasks :many
+SELECT t.tenant_id, t.environment_id, t.id, t.kind, t.rule_id, t.evaluation_id, t.event_id, t.case_id, t.subject_ref, t.sensitive, t.status, t.due_at, t.report, t.created_at, t.created_by, t.updated_at, t.approved_by, t.approved_at, t.closed_by, t.closed_at, t.close_note, t.filing_ref, t.account_ref, t.jurisdiction, t.event_jurisdiction, t.authority FROM compliance_tasks t
+WHERE t.tenant_id = $1 AND t.environment_id = $2
+  AND ($3::boolean OR NOT t.sensitive)
+  AND t.event_id IN (
+    SELECT c.event_id FROM compliance_tasks c
+    WHERE c.tenant_id = $1 AND c.environment_id = $2
+      AND c.event_jurisdiction IS NOT NULL AND c.event_jurisdiction <> c.jurisdiction
+      AND ($3::boolean OR NOT c.sensitive)
+    GROUP BY c.event_id
+    ORDER BY max(c.created_at) DESC
+    LIMIT $4)
+ORDER BY t.created_at DESC, t.id
+`
+
+type CrossBorderTasksParams struct {
+	TenantID         uuid.UUID
+	EnvironmentID    uuid.UUID
+	IncludeSensitive bool
+	EventLimit       int32
+}
+
+// Every task of the latest events that started a clock in a country other than the one that
+// governed them. Sensitive tasks (and events known only through them) only when asked.
+func (q *Queries) CrossBorderTasks(ctx context.Context, arg CrossBorderTasksParams) ([]ComplianceTask, error) {
+	rows, err := q.db.Query(ctx, crossBorderTasks,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.IncludeSensitive,
+		arg.EventLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ComplianceTask
+	for rows.Next() {
+		var i ComplianceTask
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.EnvironmentID,
+			&i.ID,
+			&i.Kind,
+			&i.RuleID,
+			&i.EvaluationID,
+			&i.EventID,
+			&i.CaseID,
+			&i.SubjectRef,
+			&i.Sensitive,
+			&i.Status,
+			&i.DueAt,
+			&i.Report,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.UpdatedAt,
+			&i.ApprovedBy,
+			&i.ApprovedAt,
+			&i.ClosedBy,
+			&i.ClosedAt,
+			&i.CloseNote,
+			&i.FilingRef,
+			&i.AccountRef,
+			&i.Jurisdiction,
+			&i.EventJurisdiction,
+			&i.Authority,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const currentRuleVersions = `-- name: CurrentRuleVersions :many
@@ -233,6 +310,24 @@ type DeleteFXRateParams struct {
 
 func (q *Queries) DeleteFXRate(ctx context.Context, arg DeleteFXRateParams) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteFXRate, arg.TenantID, arg.Currency)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteHoliday = `-- name: DeleteHoliday :execrows
+DELETE FROM jurisdiction_holidays WHERE tenant_id = $1 AND jurisdiction = $2 AND day = $3
+`
+
+type DeleteHolidayParams struct {
+	TenantID     uuid.UUID
+	Jurisdiction string
+	Day          pgtype.Date
+}
+
+func (q *Queries) DeleteHoliday(ctx context.Context, arg DeleteHolidayParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteHoliday, arg.TenantID, arg.Jurisdiction, arg.Day)
 	if err != nil {
 		return 0, err
 	}
@@ -436,7 +531,7 @@ func (q *Queries) GetRuleChange(ctx context.Context, arg GetRuleChangeParams) (G
 }
 
 const getTask = `-- name: GetTask :one
-SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref, account_ref FROM compliance_tasks
+SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref, account_ref, jurisdiction, event_jurisdiction, authority FROM compliance_tasks
 WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
 FOR UPDATE
 `
@@ -474,6 +569,9 @@ func (q *Queries) GetTask(ctx context.Context, arg GetTaskParams) (ComplianceTas
 		&i.CloseNote,
 		&i.FilingRef,
 		&i.AccountRef,
+		&i.Jurisdiction,
+		&i.EventJurisdiction,
+		&i.Authority,
 	)
 	return i, err
 }
@@ -715,6 +813,36 @@ func (q *Queries) InsertGapVerification(ctx context.Context, arg InsertGapVerifi
 	return err
 }
 
+const insertHoliday = `-- name: InsertHoliday :execrows
+INSERT INTO jurisdiction_holidays (tenant_id, jurisdiction, day, name, created_at, created_by)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT DO NOTHING
+`
+
+type InsertHolidayParams struct {
+	TenantID     uuid.UUID
+	Jurisdiction string
+	Day          pgtype.Date
+	Name         string
+	CreatedAt    time.Time
+	CreatedBy    string
+}
+
+func (q *Queries) InsertHoliday(ctx context.Context, arg InsertHolidayParams) (int64, error) {
+	result, err := q.db.Exec(ctx, insertHoliday,
+		arg.TenantID,
+		arg.Jurisdiction,
+		arg.Day,
+		arg.Name,
+		arg.CreatedAt,
+		arg.CreatedBy,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const insertPack = `-- name: InsertPack :exec
 INSERT INTO rule_packs (id, version, jurisdiction, name, checksum, meta)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -846,28 +974,33 @@ func (q *Queries) InsertRuleVersion(ctx context.Context, arg InsertRuleVersionPa
 const insertTask = `-- name: InsertTask :execrows
 
 INSERT INTO compliance_tasks (tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id,
-  subject_ref, account_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
+  subject_ref, account_ref, sensitive, status, due_at, report, created_at, created_by, updated_at,
+  jurisdiction, event_jurisdiction, authority)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-  $9, $10, $11, 'open', $12, $13, $14, $15, $14)
+  $9, $10, $11, 'open', $12, $13, $14, $15, $14,
+  $16, $17, $18)
 ON CONFLICT DO NOTHING
 `
 
 type InsertTaskParams struct {
-	TenantID      uuid.UUID
-	EnvironmentID uuid.UUID
-	ID            uuid.UUID
-	Kind          string
-	RuleID        string
-	EvaluationID  *uuid.UUID
-	EventID       *uuid.UUID
-	CaseID        *uuid.UUID
-	SubjectRef    *string
-	AccountRef    *string
-	Sensitive     bool
-	DueAt         *time.Time
-	Report        []byte
-	CreatedAt     time.Time
-	CreatedBy     string
+	TenantID          uuid.UUID
+	EnvironmentID     uuid.UUID
+	ID                uuid.UUID
+	Kind              string
+	RuleID            string
+	EvaluationID      *uuid.UUID
+	EventID           *uuid.UUID
+	CaseID            *uuid.UUID
+	SubjectRef        *string
+	AccountRef        *string
+	Sensitive         bool
+	DueAt             *time.Time
+	Report            []byte
+	CreatedAt         time.Time
+	CreatedBy         string
+	Jurisdiction      string
+	EventJurisdiction *string
+	Authority         *string
 }
 
 // Compliance tasks (per environment).
@@ -888,6 +1021,9 @@ func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (int64, 
 		arg.Report,
 		arg.CreatedAt,
 		arg.CreatedBy,
+		arg.Jurisdiction,
+		arg.EventJurisdiction,
+		arg.Authority,
 	)
 	if err != nil {
 		return 0, err
@@ -1117,6 +1253,46 @@ func (q *Queries) ListGapVerifications(ctx context.Context, arg ListGapVerificat
 	return items, nil
 }
 
+const listHolidays = `-- name: ListHolidays :many
+
+SELECT tenant_id, jurisdiction, day, name, created_at, created_by FROM jurisdiction_holidays
+WHERE tenant_id = $1 AND ($2::text IS NULL OR jurisdiction = $2::text)
+ORDER BY jurisdiction, day
+`
+
+type ListHolidaysParams struct {
+	TenantID     uuid.UUID
+	Jurisdiction *string
+}
+
+// Public holidays of the countries a tenant operates in (working-day clocks).
+func (q *Queries) ListHolidays(ctx context.Context, arg ListHolidaysParams) ([]JurisdictionHoliday, error) {
+	rows, err := q.db.Query(ctx, listHolidays, arg.TenantID, arg.Jurisdiction)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []JurisdictionHoliday
+	for rows.Next() {
+		var i JurisdictionHoliday
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.Jurisdiction,
+			&i.Day,
+			&i.Name,
+			&i.CreatedAt,
+			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listJurisdictions = `-- name: ListJurisdictions :many
 
 SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM jurisdictions ORDER BY code
@@ -1269,10 +1445,11 @@ func (q *Queries) ListRuleChanges(ctx context.Context, arg ListRuleChangesParams
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref, account_ref FROM compliance_tasks
+SELECT tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id, subject_ref, sensitive, status, due_at, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref, account_ref, jurisdiction, event_jurisdiction, authority FROM compliance_tasks
 WHERE tenant_id = $1 AND environment_id = $2
   AND ($3::text IS NULL OR status = $3::text)
-  AND ($4::boolean OR NOT sensitive)
+  AND ($4::text IS NULL OR jurisdiction = $4::text)
+  AND ($5::boolean OR NOT sensitive)
 ORDER BY (status IN ('open', 'approved')) DESC, due_at NULLS LAST, created_at DESC
 LIMIT 500
 `
@@ -1281,6 +1458,7 @@ type ListTasksParams struct {
 	TenantID         uuid.UUID
 	EnvironmentID    uuid.UUID
 	Status           *string
+	Jurisdiction     *string
 	IncludeSensitive bool
 }
 
@@ -1289,6 +1467,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]Complia
 		arg.TenantID,
 		arg.EnvironmentID,
 		arg.Status,
+		arg.Jurisdiction,
 		arg.IncludeSensitive,
 	)
 	if err != nil {
@@ -1322,6 +1501,9 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]Complia
 			&i.CloseNote,
 			&i.FilingRef,
 			&i.AccountRef,
+			&i.Jurisdiction,
+			&i.EventJurisdiction,
+			&i.Authority,
 		); err != nil {
 			return nil, err
 		}
@@ -1334,7 +1516,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]Complia
 }
 
 const openTasksOfAccountsWithBVN = `-- name: OpenTasksOfAccountsWithBVN :many
-SELECT t.tenant_id, t.environment_id, t.id, t.kind, t.rule_id, t.evaluation_id, t.event_id, t.case_id, t.subject_ref, t.sensitive, t.status, t.due_at, t.report, t.created_at, t.created_by, t.updated_at, t.approved_by, t.approved_at, t.closed_by, t.closed_at, t.close_note, t.filing_ref, t.account_ref FROM compliance_tasks t
+SELECT t.tenant_id, t.environment_id, t.id, t.kind, t.rule_id, t.evaluation_id, t.event_id, t.case_id, t.subject_ref, t.sensitive, t.status, t.due_at, t.report, t.created_at, t.created_by, t.updated_at, t.approved_by, t.approved_at, t.closed_by, t.closed_at, t.close_note, t.filing_ref, t.account_ref, t.jurisdiction, t.event_jurisdiction, t.authority FROM compliance_tasks t
 JOIN compliance_accounts a ON a.tenant_id = t.tenant_id AND a.environment_id = t.environment_id
   AND a.account_ref = t.account_ref
 WHERE t.tenant_id = $1 AND t.environment_id = $2 AND t.rule_id = $3 AND t.kind = $4
@@ -1392,6 +1574,9 @@ func (q *Queries) OpenTasksOfAccountsWithBVN(ctx context.Context, arg OpenTasksO
 			&i.CloseNote,
 			&i.FilingRef,
 			&i.AccountRef,
+			&i.Jurisdiction,
+			&i.EventJurisdiction,
+			&i.Authority,
 		); err != nil {
 			return nil, err
 		}
@@ -1665,6 +1850,66 @@ func (q *Queries) TaskCaseIDs(ctx context.Context, arg TaskCaseIDsParams) ([]uui
 			return nil, err
 		}
 		items = append(items, case_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const taskLoad = `-- name: TaskLoad :many
+SELECT jurisdiction, rule_id, count(*)::int AS running,
+  (count(*) FILTER (WHERE due_at < $1::timestamptz))::int AS overdue,
+  (count(*) FILTER (WHERE due_at >= $1::timestamptz AND due_at < $1::timestamptz + interval '24 hours'))::int AS due_soon
+FROM compliance_tasks
+WHERE tenant_id = $2 AND environment_id = $3 AND status IN ('open', 'approved')
+  AND ($4::boolean OR NOT sensitive)
+GROUP BY jurisdiction, rule_id
+ORDER BY jurisdiction, rule_id
+`
+
+type TaskLoadParams struct {
+	Now              time.Time
+	TenantID         uuid.UUID
+	EnvironmentID    uuid.UUID
+	IncludeSensitive bool
+}
+
+type TaskLoadRow struct {
+	Jurisdiction string
+	RuleID       string
+	Running      int32
+	Overdue      int32
+	DueSoon      int32
+}
+
+// Tasks still running (open or approved, not yet filed) by country and rule: how many, how many
+// past their deadline at @now, and how many due within the next day. Sensitive ones only when
+// asked (GOV-09: not even a count of suspicious transaction reports otherwise).
+func (q *Queries) TaskLoad(ctx context.Context, arg TaskLoadParams) ([]TaskLoadRow, error) {
+	rows, err := q.db.Query(ctx, taskLoad,
+		arg.Now,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.IncludeSensitive,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TaskLoadRow
+	for rows.Next() {
+		var i TaskLoadRow
+		if err := rows.Scan(
+			&i.Jurisdiction,
+			&i.RuleID,
+			&i.Running,
+			&i.Overdue,
+			&i.DueSoon,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

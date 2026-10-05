@@ -76,6 +76,16 @@ type storedFeatures struct {
 	Pack *storedPack `json:"pack,omitempty"`
 	// Jurisdiction is which country's pack judged the event (ADR-0007).
 	Jurisdiction *domain.JurisdictionResolution `json:"jurisdiction,omitempty"`
+	// DataSubjectPack is what the data subject's country's duties saw (RW-SEC-04), when they ran.
+	DataSubjectPack *storedPack `json:"data_subject_pack,omitempty"`
+}
+
+// dataSubjectCountry is the country of the person an event's data is about, when it says.
+func dataSubjectCountry(e features.Event) string {
+	if e.Compliance == nil {
+		return ""
+	}
+	return e.Compliance.DataSubjectCountry
 }
 
 // storedPack records a rule pack evaluation: the pack version, the event's kinds, the facts the
@@ -127,6 +137,25 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			out.Shadow = append(out.Shadow, pk.Shadow...)
 			out.RuleVersions = append(out.RuleVersions, "pack:"+pk.Ref)
 		}
+		// Duties owed to the person the data is about follow them across borders (RW-SEC-04 for
+		// a Rwandan data subject of a Ghana-booked event): the data subject's country runs those
+		// rules, under its own settings, beside the governing pack. Never guessed: without an
+		// activation there, nothing runs and the resolution says so.
+		var subject *engine.PackOutput
+		if c := dataSubjectCountry(ev); cfg.packs != nil && c != "" && (governing == nil || c != governing.Jurisdiction) {
+			jurisdiction.DataSubjectCountry = c
+			if sp := cfg.packs.ForDataSubject(c); sp != nil {
+				jurisdiction.DataSubjectPack = sp.Ref
+				so := s.engine.EvaluatePack(ctx, ev, out.Values, sp, write, in.EventKey)
+				subject = &so
+				pk.Controls = append(pk.Controls, so.Controls...)
+				pk.RestrictedControls = append(pk.RestrictedControls, so.RestrictedControls...)
+				pk.Restricted = append(pk.Restricted, so.Restricted...)
+				pk.NotEvaluated = append(pk.NotEvaluated, so.NotEvaluated...)
+				pk.Floors = append(pk.Floors, so.Floors...)
+				out.RuleVersions = append(out.RuleVersions, "pack:"+so.Ref)
+			}
+		}
 		denied := cfg.deny.Match(denyRefs(ev))
 		for _, m := range denied {
 			out.Signals = append(out.Signals, m.Signal())
@@ -154,7 +183,8 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 			ID: id, CreatedAt: ids.Time(id), EventID: in.EventID, EngineVersion: engine.Version,
 			Score: score, Level: level, Decision: policy.Decision,
 			Controls: pk.Controls, NotEvaluated: pk.NotEvaluated, Restricted: pk.Restricted, Jurisdiction: jurisdiction,
-			Signals: nonNil(out.Signals), DegradedSignals: nonNilStrings(out.Degraded), RequestID: in.RequestID,
+			RestrictedControls: pk.RestrictedControls,
+			Signals:            nonNil(out.Signals), DegradedSignals: nonNilStrings(out.Degraded), RequestID: in.RequestID,
 			WarmingSignals: nonNilStrings(out.Warming),
 			PolicyReasons:  nonNilStrings(policy.Reasons), ShadowSignals: nonNil(out.Shadow),
 			RuleVersions: nonNilStrings(out.RuleVersions),
@@ -174,6 +204,9 @@ func (s *Service) Evaluate(ctx context.Context, in domain.Input) (domain.Result,
 		record := storedFeatures{Facts: out.Facts, Jurisdiction: jurisdiction}
 		if governing != nil {
 			record.Pack = &storedPack{Ref: pk.Ref, Kinds: pk.Kinds, Facts: pk.Facts, Seen: pk.Seen, Replay: &pk.Replay}
+		}
+		if subject != nil {
+			record.DataSubjectPack = &storedPack{Ref: subject.Ref, Kinds: subject.Kinds, Facts: subject.Facts, Seen: subject.Seen}
 		}
 		if !write {
 			// A dry run's event is stored nowhere else; an ingested event is in events.

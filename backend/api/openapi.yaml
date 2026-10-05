@@ -2850,6 +2850,249 @@ paths:
           $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/jurisdictions/{jurisdiction}/holidays:
+    parameters:
+      - name: jurisdiction
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[A-Z]{2}$"
+    get:
+      operationId: listComplianceHolidays
+      tags: [compliance]
+      summary: A country's public holidays
+      description: |
+        Requires `compliance:read`. The public holidays the workspace entered for a country, by
+        date. Working-day clocks (GH-REG-11's 7 working days) skip them, with Saturdays and
+        Sundays. RiskOS ships no holiday dates: they are gazetted year by year.
+      responses:
+        "200":
+          description: The holidays.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/Holiday"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: addComplianceHoliday
+      tags: [compliance]
+      summary: Enter a public holiday
+      description: |
+        Requires `compliance:configure` (people only). Working-day clocks of the country skip the
+        date from the next evaluation; deadlines already set are not moved. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [date, name]
+              properties:
+                date:
+                  type: string
+                  format: date
+                name:
+                  type: string
+                  minLength: 1
+                  maxLength: 100
+      responses:
+        "201":
+          description: The holiday.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Holiday"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/jurisdictions/{jurisdiction}/holidays/{date}:
+    parameters:
+      - name: jurisdiction
+        in: path
+        required: true
+        schema:
+          type: string
+          pattern: "^[A-Z]{2}$"
+      - name: date
+        in: path
+        required: true
+        schema:
+          type: string
+          format: date
+    delete:
+      operationId: deleteComplianceHoliday
+      tags: [compliance]
+      summary: Remove a public holiday entered by mistake
+      description: Requires `compliance:configure` (people only). Audited.
+      responses:
+        "204":
+          description: Removed.
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/clock-load:
+    get:
+      operationId: getComplianceClockLoad
+      tags: [compliance]
+      summary: Work running against each legal clock
+      description: |
+        Requires `compliance:read`. For every clock of the countries the workspace has activated,
+        the compliance tasks running against it in this environment (open or approved, not yet
+        filed or done): how many, how many past their deadline, and how many due within 24 hours.
+        `unclocked` counts running tasks of rules no clock lists. Suspicious transaction reports
+        and compliance-only work count only for `compliance:sensitive` (GOV-09);
+        `sensitive_hidden` says when they were left out.
+      responses:
+        "200":
+          description: The load.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClockLoad"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/cross-border:
+    get:
+      operationId: listComplianceCrossBorder
+      tags: [compliance]
+      summary: Events that started a clock in another country
+      description: |
+        Requires `compliance:read`. The latest 100 events that started a clock in a country other
+        than the one that governed them (a duty that follows the data subject: RW-SEC-04 for a
+        Rwandan data subject of a Ghana-booked breach), newest first, with every task they
+        started. Suspicious transaction reports, and events known only through one, only for
+        `compliance:sensitive` (GOV-09).
+      responses:
+        "200":
+          description: The events.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/CrossBorderEvent"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/retention:
+    get:
+      operationId: getComplianceRetention
+      tags: [compliance]
+      summary: Retention in force across countries
+      description: |
+        Requires `compliance:read`. For each record type, the longest minimum retention any country
+        the workspace has activated (draft activations aside) requires, the rule that sets it, and
+        every rule considered: GOV-08 and its country versions (GH-GOV-01, RW-GOV-01), RW-GOV-10,
+        and GH-SEC-11 for audit logs. Rules switched off in this environment are not counted.
+      responses:
+        "200":
+          description: The periods.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/RetentionPeriod"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/retention/check:
+    post:
+      operationId: checkComplianceDeletion
+      tags: [compliance]
+      summary: Ask whether a record may be deleted
+      description: |
+        Requires `compliance:read` (an API key may hold it, for a disposal job). Refused while the
+        record is younger than the longest retention in force for its type, whatever asked for
+        the deletion: the longer legal duty wins over a data-protection request or a disposal
+        policy (RW-GOV-10). Every answer is audited (`compliance.deletion_denied` names the rule
+        and country that required the record be kept). RiskOS deletes nothing itself.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [record_type, record_ref, since, reason]
+              properties:
+                record_type:
+                  $ref: "#/components/schemas/RecordType"
+                record_ref:
+                  type: string
+                  minLength: 1
+                  maxLength: 128
+                  description: Your reference for the record (never personal data).
+                since:
+                  type: string
+                  format: date-time
+                  description: When retention started (the relationship's end for a customer file; the transaction or report date otherwise).
+                reason:
+                  type: string
+                  enum: [data_subject_request, disposal_policy]
+      responses:
+        "200":
+          description: The verdict.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DeletionVerdict"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/activations:
     get:
       operationId: listComplianceActivations
@@ -3836,6 +4079,13 @@ paths:
           required: false
           schema:
             $ref: "#/components/schemas/ComplianceTaskStatus"
+        - name: jurisdiction
+          in: query
+          required: false
+          description: Only this country's tasks (escalations and unreported fraud are Nigerian duties, listed for Nigeria only).
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       responses:
         "200":
           description: The queue.
@@ -4132,9 +4382,10 @@ paths:
       summary: Confirm suspicion on a case
       description: |
         Requires `compliance:sensitive` (compliance officers) and, in the console, a recent second
-        factor. Opens a suspicious transaction report for the case, due within REG-14's `str_due`
-        (24 hours by default) from now. Nothing about it is visible outside compliance roles
-        (GOV-09). Audited.
+        factor. Opens a suspicious transaction report for the case to the country's authority, due
+        within its rule's deadline from now: REG-14's `str_due` to the NFIU (24 hours by default),
+        GH-REG-06 to Ghana's FIC (24 hours), RW-REG-04 to Rwanda's FIC (a 24-hour design
+        placeholder). Nothing about it is visible outside compliance roles (GOV-09). Audited.
       requestBody:
         required: true
         content:
@@ -4151,6 +4402,10 @@ paths:
                   type: string
                   maxLength: 4000
                   description: The first lines of the report's narrative.
+                jurisdiction:
+                  type: string
+                  pattern: "^[A-Z]{2}$"
+                  description: The country the report is owed to; the fallback activation's when absent.
       responses:
         "201":
           description: The report, a draft.
@@ -4971,11 +5226,22 @@ components:
     ComplianceTask:
       type: object
       additionalProperties: false
-      required: [id, kind, rule, status, sensitive, due_at, overdue, subject_ref, account_ref, evaluation_id, event_id, case_id, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref]
+      required: [id, kind, rule, jurisdiction, event_jurisdiction, authority, status, sensitive, due_at, overdue, subject_ref, account_ref, evaluation_id, event_id, case_id, report, created_at, created_by, updated_at, approved_by, approved_at, closed_by, closed_at, close_note, filing_ref]
       properties:
         id:
           type: string
           example: ctk_01j9x2k7m3q4r5s6t7v8w9x0yz
+        jurisdiction:
+          type: string
+          description: The country whose rule requires the work (its deadline, its authority).
+        event_jurisdiction:
+          type: string
+          nullable: true
+          description: The country that governed the event; differs from `jurisdiction` when a duty follows the data subject.
+        authority:
+          type: string
+          nullable: true
+          description: The body a report goes to (NFIU, FIC, NCSA), when the rule names one.
         kind:
           type: string
           description: report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, report.industry_fraud, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account.
@@ -4985,7 +5251,7 @@ components:
           $ref: "#/components/schemas/ComplianceTaskStatus"
         sensitive:
           type: boolean
-          description: A suspicious transaction report, seen only by compliance officers.
+          description: A suspicious transaction report or compliance-only work (an FIC order), seen only by compliance officers.
         due_at:
           type: string
           format: date-time
@@ -5402,7 +5668,7 @@ components:
           description: |
             The unit. money is in minor units of `currency`; duration is in seconds; hour is an hour of
             the day in Africa/Lagos time; flag is 0 or 1.
-          enum: [money, duration, count, ratio, points, percent, speed, hour, score, flag]
+          enum: [money, duration, count, ratio, points, percent, speed, hour, score, flag, working_days]
         currency:
           type: string
         default:
@@ -5769,7 +6035,7 @@ components:
                 type: boolean
               kind:
                 type: string
-                enum: [licence, setting, fx_rate, open_question]
+                enum: [licence, setting, fx_rate, open_question, holidays]
               rule:
                 type: string
               message:
@@ -5970,6 +6236,138 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ComplianceRule"
+    Holiday:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, date, name, created_at, created_by]
+      properties:
+        jurisdiction:
+          type: string
+        date:
+          type: string
+          format: date
+        name:
+          type: string
+        created_at:
+          type: string
+          format: date-time
+        created_by:
+          type: string
+    ClockLoad:
+      type: object
+      additionalProperties: false
+      required: [data, unclocked, sensitive_hidden]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClockLoadRow"
+        unclocked:
+          type: array
+          items:
+            $ref: "#/components/schemas/RuleLoad"
+        sensitive_hidden:
+          type: boolean
+          description: Suspicious transaction reports and compliance-only work were left out of the counts (GOV-09).
+    ClockLoadRow:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, clock, running, overdue, due_soon]
+      properties:
+        jurisdiction:
+          type: string
+        clock:
+          $ref: "#/components/schemas/ComplianceClock"
+        running:
+          type: integer
+          description: Tasks open or approved, not yet filed or done.
+        overdue:
+          type: integer
+        due_soon:
+          type: integer
+          description: Due within the next 24 hours.
+    RuleLoad:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, rule, running, overdue, due_soon]
+      properties:
+        jurisdiction:
+          type: string
+        rule:
+          type: string
+        running:
+          type: integer
+        overdue:
+          type: integer
+        due_soon:
+          type: integer
+    CrossBorderEvent:
+      type: object
+      additionalProperties: false
+      required: [event_id, booked_in, countries, tasks]
+      properties:
+        event_id:
+          type: string
+        booked_in:
+          type: string
+          description: The country that governed the event.
+        countries:
+          type: array
+          description: Every country the event started a clock in, and the one that governed it.
+          items:
+            type: string
+        tasks:
+          type: array
+          items:
+            $ref: "#/components/schemas/ComplianceTask"
+    RecordType:
+      type: string
+      enum: [customer_file, transaction, report, audit_log, other]
+    RetentionRule:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, rule, name, setting, days]
+      properties:
+        jurisdiction:
+          type: string
+        rule:
+          type: string
+        name:
+          type: string
+        setting:
+          type: string
+        days:
+          type: integer
+    RetentionPeriod:
+      type: object
+      additionalProperties: false
+      required: [record_type, days, rule, considered]
+      properties:
+        record_type:
+          $ref: "#/components/schemas/RecordType"
+        days:
+          type: integer
+          description: The longest minimum retention, in days; 0 when no rule sets one.
+        rule:
+          nullable: true
+          allOf:
+            - $ref: "#/components/schemas/RetentionRule"
+        considered:
+          type: array
+          items:
+            $ref: "#/components/schemas/RetentionRule"
+    DeletionVerdict:
+      type: object
+      additionalProperties: false
+      required: [allowed, retain_until, period]
+      properties:
+        allowed:
+          type: boolean
+        retain_until:
+          type: string
+          format: date-time
+        period:
+          $ref: "#/components/schemas/RetentionPeriod"
     ComplianceClock:
       type: object
       additionalProperties: false
@@ -5990,7 +6388,11 @@ components:
           nullable: true
           description: |
             The deadline in hours; 0 means immediately. Null when the law sets a deadline no readable
-            source states (`kind` not_found): shown as "not found", never as zero.
+            source states (`kind` not_found): shown as "not found", never as zero; and for a
+            working-day clock, which has `working_days` instead.
+        working_days:
+          type: integer
+          description: A deadline counted in the country's working days (weekends and the public holidays the workspace entered are skipped).
         kind:
           $ref: "#/components/schemas/ComplianceClockKind"
         authority:
@@ -7869,6 +8271,14 @@ components:
           enum: [booking_entity, fallback, unresolved, inactive]
         booking_entity:
           type: string
+        data_subject_country:
+          type: string
+          description: The event's `compliance.data_subject_country`, when it differs from the governing country.
+        data_subject_pack:
+          type: string
+          description: |
+            The pack whose duties owed to the data subject (RW-SEC-04) ran beside the governing pack;
+            absent when the workspace has no activation in the data subject's country.
     ControlResult:
       type: object
       additionalProperties: false
@@ -7898,8 +8308,17 @@ components:
           type: integer
           format: int64
           description: The longest the funds may be held.
+        hold_until:
+          type: string
+          format: date-time
+          description: |
+            When the hold ends: the event time plus `hold_seconds`, or, for a hold counted in working
+            days (GH-REG-11), the close of the last working day in the country's calendar.
         branch:
           type: string
+        jurisdiction:
+          type: string
+          description: The country whose pack the control belongs to (the data subject's for RW-SEC-04 on another country's event).
         exemption_unknown:
           type: boolean
           description: The control applied because its exemption could not be checked.

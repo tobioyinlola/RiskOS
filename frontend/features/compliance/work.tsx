@@ -18,9 +18,10 @@ import {
 import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
-import { formatDue, isReport, TASK_LABEL } from "@/lib/compliance";
+import { flag, formatDue, isReport, TASK_LABEL } from "@/lib/compliance";
 import { formatAmount, formatTimestamp } from "@/lib/format";
 import {
+  useActivations,
   useComplianceTasks,
   useRestrictedSignals,
   useUserName,
@@ -76,7 +77,12 @@ const text = (v: unknown) => (typeof v === "string" ? v : "");
 export function WorkQueue() {
   const { can } = useSession();
   const [status, setStatus] = useState<Status | "">("open");
-  const q = useComplianceTasks(status || undefined);
+  const [country, setCountry] = useState("");
+  const q = useComplianceTasks(status || undefined, country || undefined);
+  const acts = useActivations();
+  const countries = [
+    ...new Set((acts.data?.data ?? []).map((a) => a.jurisdiction)),
+  ];
   const [open, setOpen] = useState<Task>();
   const sensitive = can("compliance:sensitive");
   const tasks = q.data?.data ?? [];
@@ -110,6 +116,21 @@ export function WorkQueue() {
             </option>
           ))}
         </Select>
+        {countries.length > 1 ? (
+          <Select
+            aria-label="Country"
+            className="h-control-sm w-48 text-body-sm"
+            value={country}
+            onChange={(e) => setCountry(e.target.value)}
+          >
+            <option value="">All countries</option>
+            {countries.map((c) => (
+              <option key={c} value={c}>
+                {c}
+              </option>
+            ))}
+          </Select>
+        ) : null}
       </div>
       <Panel className="mb-5 overflow-hidden">
         <Table aria-label="Compliance tasks">
@@ -131,8 +152,14 @@ export function WorkQueue() {
                     {TASK_LABEL[t.kind] ?? t.kind}
                   </span>
                   <span className="block text-label text-text-muted">
-                    <RuleLink id={t.rule} />
+                    <span aria-hidden>{flag(t.jurisdiction)} </span>
+                    <RuleLink id={t.rule} jurisdiction={t.jurisdiction} />
+                    {t.authority ? ` · to the ${t.authority}` : ""}
                     {t.sensitive ? " · compliance only" : ""}
+                    {t.event_jurisdiction &&
+                    t.event_jurisdiction !== t.jurisdiction
+                      ? ` · data subject in ${t.jurisdiction}, booked in ${t.event_jurisdiction}`
+                      : ""}
                   </span>
                 </Td>
                 <Td className="mono text-data">
@@ -348,6 +375,17 @@ function ReportView({ task }: { task: Task }) {
   );
 }
 
+/** Where an approved report is filed: RiskOS never submits it. */
+function filingHint(task: Task): string {
+  if (task.kind === "report.industry_fraud")
+    return "Report it to the industry fraud channel (NIBSS), then record the reference it gave.";
+  if (task.authority === "NFIU")
+    return "Enter the report in the NFIU\u2019s goAML portal, then record the reference it gave.";
+  if (task.authority === "FIC")
+    return `Submit it to ${task.jurisdiction === "GH" ? "Ghana" : task.jurisdiction === "RW" ? "Rwanda" : task.jurisdiction}\u2019s FIC through the channel your institution uses (goAML use there is not confirmed), then record the reference it gave.`;
+  return `Submit it to ${task.authority ? `the ${task.authority}` : "the regulator"}, then record the reference it gave.`;
+}
+
 /** One task: edit a draft report, approve, file, export, or close. */
 function TaskDialog({
   task: initial,
@@ -456,7 +494,7 @@ function TaskDialog({
       open
       onOpenChange={(o) => (o ? undefined : onClose())}
       title={TASK_LABEL[task.kind] ?? task.kind}
-      description={`Required by ${task.rule}${task.subject_ref ? ` for customer ${task.subject_ref}` : ""}. ${STATUS[task.status].label}${task.approved_by ? `, approved by ${userName(task.approved_by)}` : ""}${task.filing_ref ? `, filed as ${task.filing_ref}` : ""}.`}
+      description={`Required by ${task.rule} (${task.jurisdiction})${task.subject_ref ? ` for customer ${task.subject_ref}` : ""}. ${STATUS[task.status].label}${task.approved_by ? `, approved by ${userName(task.approved_by)}` : ""}${task.filing_ref ? `, filed as ${task.filing_ref}` : ""}.`}
       className="max-h-[90vh] max-w-xl overflow-y-auto"
     >
       <div className="flex flex-col gap-4">
@@ -540,9 +578,7 @@ function TaskDialog({
         {report && task.status === "approved" && writable ? (
           <div className="flex flex-col gap-3 rounded-md border border-border-subtle p-3">
             <p className="text-body-sm text-text-secondary">
-              {task.kind === "report.industry_fraud"
-                ? "Report it to the industry fraud channel (NIBSS), then record the reference it gave."
-                : "Enter the report in the regulator\u2019s portal (goAML for the NFIU), then record the reference it gave."}
+              {filingHint(task)}
             </p>
             <div className="flex flex-wrap items-end gap-2">
               <Button

@@ -254,6 +254,9 @@ export function task(
     closed_at: null,
     close_note: null,
     filing_ref: null,
+    jurisdiction: "NG",
+    event_jurisdiction: null as string | null,
+    authority: (kind === "report.STR" ? "NFIU" : null) as string | null,
     ...extra,
   };
 }

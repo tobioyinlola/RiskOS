@@ -17,6 +17,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/interp"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/workdays"
 )
 
 // Task statuses.
@@ -99,8 +100,11 @@ type TaskControl struct {
 	Tasks []string `json:"tasks"`
 	// Branch is the variant of the control that applied: its tasks may have their own deadlines.
 	Branch string `json:"branch,omitempty"`
-	// Jurisdiction is the country whose pack judged the event ("" for the fallback).
+	// Jurisdiction is the country whose pack the control belongs to ("" for the fallback): the
+	// governing country's, or the data subject's for a duty that follows the person.
 	Jurisdiction string `json:"jurisdiction,omitempty"`
+	// Restricted marks a compliance-only control (GH-REG-11): its tasks are sensitive.
+	Restricted bool `json:"restricted,omitempty"`
 }
 
 // TasksInput is what a decision requires of the institution.
@@ -115,27 +119,60 @@ type TasksInput struct {
 	Amount     int64
 	Currency   string
 	Controls   []TaskControl
+	// EventJurisdiction is the country that governed the event ("" when none did).
+	EventJurisdiction string
 }
 
-// taskDue resolves a task's deadline from its rule's setting in this environment: the task of
-// the branch that applied, if it has its own tasks, else the outcome's.
-func taskDue(def *pack.Rule, cfg RuleConfig, kind, branch string, from time.Time) *time.Time {
-	list := def.Outcome.Tasks
+// ruleTasks are the tasks a rule sets: the branch's that applied, if it has its own, else the
+// outcome's.
+func ruleTasks(def *pack.Rule, branch string) []pack.Task {
 	if i := slices.IndexFunc(def.Branches, func(b pack.Branch) bool { return b.Label == branch }); i >= 0 && len(def.Branches[i].Tasks) > 0 {
-		list = def.Branches[i].Tasks
+		return def.Branches[i].Tasks
 	}
-	for _, t := range list {
+	return def.Outcome.Tasks
+}
+
+// taskDue resolves a task's deadline from its rule's setting in this environment: a duration
+// from from, or a number of working days in the jurisdiction's calendar (the close of the last
+// one).
+func taskDue(def *pack.Rule, cfg RuleConfig, kind, branch string, from time.Time, cal workdays.Calendar) *time.Time {
+	for _, t := range ruleTasks(def, branch) {
 		if t.Type != kind || t.Due == "" {
 			continue
 		}
-		v, ok := interp.Compile(def, cfg.Settings).Param(t.Due)
+		r := interp.Compile(def, cfg.Settings)
+		v, ok := r.Param(t.Due)
 		if !ok {
 			return nil
 		}
 		due := from.Add(time.Duration(v) * time.Second)
+		if r.ParamType(t.Due) == pack.ParamWorkingDays {
+			due = cal.End(from, int(v))
+		}
 		return &due
 	}
 	return nil
+}
+
+// taskAuthority is the body a task's report goes to (NFIU, FIC, NCSA), when its rule names one.
+func taskAuthority(def *pack.Rule, kind, branch string) *string {
+	for _, t := range ruleTasks(def, branch) {
+		if t.Type == kind && len(t.To) > 0 {
+			return &t.To[0]
+		}
+	}
+	return nil
+}
+
+// strRule is a pack's suspicious transaction report rule: the one whose task is a report.STR
+// (REG-14, GH-REG-06, RW-REG-04).
+func strRule(p *pack.Pack) (string, bool) {
+	for i := range p.Rules {
+		if slices.ContainsFunc(p.Rules[i].Outcome.Tasks, func(t pack.Task) bool { return t.Type == kindSTR }) {
+			return p.Rules[i].ID, true
+		}
+	}
+	return "", false
 }
 
 func (s *Service) recordTask(ctx context.Context, action string, t store.Task) error {
@@ -173,21 +210,33 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 			}
 		}
 		for _, c := range in.Controls {
-			_, def, cfg, err := s.ruleIn(ctx, scope, c.Jurisdiction, c.Rule)
+			lib, def, cfg, err := s.ruleIn(ctx, scope, c.Jurisdiction, c.Rule)
 			if errors.Is(err, ErrNotFound) {
 				continue
 			}
 			if err != nil {
 				return err
 			}
+			cal, err := s.calendar(ctx, lib.pack.Pack)
+			if err != nil {
+				return err
+			}
+			// No tipping off: a compliance-only control's work (GH-REG-11's case on an FIC order)
+			// is seen by compliance officers only, like a suspicious transaction report.
+			restricted := c.Restricted || def.Outcome.Visibility == "compliance_only"
 			for _, kind := range c.Tasks {
 				if !TrackedTask(kind) {
 					continue
 				}
 				t := store.Task{
 					ID: ids.NewV7(), Kind: kind, RuleID: c.Rule, EvaluationID: &in.EvaluationID, EventID: &in.EventID,
-					Sensitive: kind == kindSTR, Status: TaskOpen, DueAt: taskDue(def, cfg, kind, c.Branch, in.OccurredAt),
+					Sensitive: kind == kindSTR || restricted, Status: TaskOpen,
+					DueAt:  taskDue(def, cfg, kind, c.Branch, in.OccurredAt, cal),
 					Report: map[string]any{}, CreatedAt: now, CreatedBy: systemTaskAuthor,
+					Jurisdiction: lib.pack.Jurisdiction, Authority: taskAuthority(def, kind, c.Branch),
+				}
+				if in.EventJurisdiction != "" {
+					t.EventJurisdiction = &in.EventJurisdiction
 				}
 				if in.SubjectRef != "" {
 					t.SubjectRef = &in.SubjectRef
@@ -214,9 +263,10 @@ func (s *Service) CreateTasks(ctx context.Context, in TasksInput, now time.Time)
 }
 
 // ConfirmSuspicion records that a compliance officer confirmed suspicion on a case: it opens a
-// suspicious transaction report with its legal deadline (REG-14's str_due from now). Requires
-// compliance:sensitive (GOV-09).
-func (s *Service) ConfirmSuspicion(ctx context.Context, caseID uuid.UUID, note string, now time.Time) (store.Task, error) {
+// suspicious transaction report for a country ("" for the fallback activation's) with that
+// country's legal deadline from now (REG-14's str_due to the NFIU, GH-REG-06's 24 hours to
+// Ghana's FIC). Requires compliance:sensitive (GOV-09).
+func (s *Service) ConfirmSuspicion(ctx context.Context, caseID uuid.UUID, jurisdiction, note string, now time.Time) (store.Task, error) {
 	scope, err := person(ctx, authz.ComplianceSensitive)
 	if err != nil {
 		return store.Task{}, err
@@ -230,14 +280,26 @@ func (s *Service) ConfirmSuspicion(ctx context.Context, caseID uuid.UUID, note s
 		if err != nil {
 			return err
 		}
-		_, def, cfg, err := s.rule(ctx, scope, ruleSTR)
+		lib, err := s.load(ctx, scope, jurisdiction)
+		if err != nil {
+			return err
+		}
+		id, ok := strRule(lib.pack.Pack)
+		if !ok {
+			return fmt.Errorf("%w: %s has no suspicious transaction report rule", ErrNotFound, lib.pack.Name)
+		}
+		lib, def, cfg, err := s.ruleIn(ctx, scope, jurisdiction, id)
+		if err != nil {
+			return err
+		}
+		cal, err := s.calendar(ctx, lib.pack.Pack)
 		if err != nil {
 			return err
 		}
 		t := store.Task{
-			ID: ids.NewV7(), Kind: kindSTR, RuleID: ruleSTR, CaseID: &caseID, Sensitive: true, Status: TaskOpen,
-			DueAt: taskDue(def, cfg, kindSTR, "", now), Report: map[string]any{}, CreatedAt: now,
-			CreatedBy: scope.Principal.ID,
+			ID: ids.NewV7(), Kind: kindSTR, RuleID: id, CaseID: &caseID, Sensitive: true, Status: TaskOpen,
+			DueAt: taskDue(def, cfg, kindSTR, "", now, cal), Report: map[string]any{}, CreatedAt: now,
+			CreatedBy: scope.Principal.ID, Jurisdiction: lib.pack.Jurisdiction, Authority: taskAuthority(def, kindSTR, ""),
 		}
 		if n := strings.TrimSpace(note); n != "" {
 			t.Report["narrative"] = n
@@ -273,11 +335,12 @@ type Queue struct {
 // queueLimit bounds the escalations and unreported cases the queue lists.
 const queueLimit = 200
 
-// Queue lists the environment's compliance tasks (suspicious transaction reports only for
-// compliance:sensitive); for callers who read alerts, the alerts past REG-14's screening deadline
-// and the high or critical ones past GOV-11's response target; and for callers who read cases,
-// the confirmed-fraud cases not yet reported (GOV-12). Requires compliance:read.
-func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queue, error) {
+// Queue lists the environment's compliance tasks of a country ("" for every country; suspicious
+// transaction reports only for compliance:sensitive); for callers who read alerts, the alerts
+// past REG-14's screening deadline and the high or critical ones past GOV-11's response target;
+// and for callers who read cases, the confirmed-fraud cases not yet reported (GOV-12). Those are
+// Nigerian duties, listed for that country only. Requires compliance:read.
+func (s *Service) Queue(ctx context.Context, status, jurisdiction string, now time.Time) (Queue, error) {
 	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
 		return Queue{}, err
 	}
@@ -290,7 +353,7 @@ func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queu
 	readsCases := authz.Require(ctx, authz.CasesRead) == nil
 	var out Queue
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		if out.Tasks, err = s.store.Tasks(ctx, status, sensitive); err != nil {
+		if out.Tasks, err = s.store.Tasks(ctx, status, jurisdiction, sensitive); err != nil {
 			return err
 		}
 		if status != "" && status != TaskOpen {
@@ -301,7 +364,7 @@ func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queu
 				rule, param string
 				urgent      bool
 			}{{ruleSTR, screenDueParam, false}, {ruleFraudResponse, respondParam, true}} {
-				late, err := s.lateAlerts(ctx, scope, d.rule, d.param, d.urgent, now)
+				late, err := s.lateAlerts(ctx, scope, jurisdiction, d.rule, d.param, d.urgent, now)
 				if err != nil {
 					return err
 				}
@@ -309,7 +372,7 @@ func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queu
 			}
 		}
 		if s.cases != nil && readsCases {
-			if out.Unreported, err = s.unreported(ctx, scope); err != nil {
+			if out.Unreported, err = s.unreported(ctx, scope, jurisdiction); err != nil {
 				return err
 			}
 		}
@@ -319,10 +382,11 @@ func (s *Service) Queue(ctx context.Context, status string, now time.Time) (Queu
 }
 
 // lateAlerts returns the alerts still open past the deadline the rule's setting param gives,
-// only high and critical ones when urgent. Nothing when the rule is off or does not apply.
-func (s *Service) lateAlerts(ctx context.Context, scope tenancy.Scope, rule, param string, urgent bool, now time.Time) ([]Escalation, error) {
-	_, def, cfg, err := s.rule(ctx, scope, rule)
-	if errors.Is(err, ErrNotFound) || (err == nil && cfg.Mode == ModeOff) {
+// only high and critical ones when urgent. Nothing when the rule is off, does not apply, or is
+// not of the country asked for ("" for any).
+func (s *Service) lateAlerts(ctx context.Context, scope tenancy.Scope, jurisdiction, rule, param string, urgent bool, now time.Time) ([]Escalation, error) {
+	lib, def, cfg, err := s.rule(ctx, scope, rule)
+	if errors.Is(err, ErrNotFound) || (err == nil && (cfg.Mode == ModeOff || !ofJurisdiction(lib, jurisdiction))) {
 		return nil, nil
 	}
 	if err != nil {
@@ -347,11 +411,17 @@ func (s *Service) lateAlerts(ctx context.Context, scope tenancy.Scope, rule, par
 	return out, nil
 }
 
+// ofJurisdiction reports whether a library is of the country asked for ("" for any).
+func ofJurisdiction(lib library, jurisdiction string) bool {
+	return jurisdiction == "" || lib.pack.Jurisdiction == jurisdiction
+}
+
 // unreported returns the confirmed-fraud cases without an industry fraud report that was not
-// dismissed (GOV-12). Nothing when the rule is off or does not apply.
-func (s *Service) unreported(ctx context.Context, scope tenancy.Scope) ([]FraudCase, error) {
-	_, _, cfg, err := s.rule(ctx, scope, ruleFraudReport)
-	if errors.Is(err, ErrNotFound) || (err == nil && cfg.Mode == ModeOff) {
+// dismissed (GOV-12). Nothing when the rule is off, does not apply, or is not of the country
+// asked for ("" for any).
+func (s *Service) unreported(ctx context.Context, scope tenancy.Scope, jurisdiction string) ([]FraudCase, error) {
+	lib, _, cfg, err := s.rule(ctx, scope, ruleFraudReport)
+	if errors.Is(err, ErrNotFound) || (err == nil && (cfg.Mode == ModeOff || !ofJurisdiction(lib, jurisdiction))) {
 		return nil, nil
 	}
 	if err != nil {
@@ -387,7 +457,8 @@ func (s *Service) PrepareFraudReport(ctx context.Context, caseID uuid.UUID, now 
 	}
 	var out store.Task
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		if _, _, _, err := s.rule(ctx, scope, ruleFraudReport); err != nil {
+		lib, def, _, err := s.rule(ctx, scope, ruleFraudReport)
+		if err != nil {
 			return err
 		}
 		c, err := s.cases.FraudCase(ctx, caseID)
@@ -402,7 +473,8 @@ func (s *Service) PrepareFraudReport(ctx context.Context, caseID uuid.UUID, now 
 			Report: map[string]any{
 				"category": "fraud", "case_title": c.Title, "confirmed_at": c.ResolvedAt.UTC().Format(time.RFC3339),
 			},
-			CreatedAt: now, CreatedBy: scope.Principal.ID,
+			CreatedAt: now, CreatedBy: scope.Principal.ID, Jurisdiction: lib.pack.Jurisdiction,
+			Authority: taskAuthority(def, kindIndustryReport, ""),
 		}
 		if c.Note != "" {
 			t.Report["narrative"] = c.Note
@@ -467,10 +539,14 @@ func (s *Service) DailyCheck(ctx context.Context, now time.Time) (DailyResult, e
 
 // dailyBatch handles one batch of the daily check and returns the size of its larger half.
 func (s *Service) dailyBatch(ctx context.Context, scope tenancy.Scope, now time.Time, res *DailyResult) (int, error) {
-	_, def, cfg, err := s.rule(ctx, scope, ruleNoBVN)
+	lib, def, cfg, err := s.rule(ctx, scope, ruleNoBVN)
 	if errors.Is(err, ErrNotFound) || (err == nil && cfg.Mode != ModeLive) {
 		return 0, nil
 	}
+	if err != nil {
+		return 0, err
+	}
+	cal, err := s.calendar(ctx, lib.pack.Pack)
 	if err != nil {
 		return 0, err
 	}
@@ -481,8 +557,8 @@ func (s *Service) dailyBatch(ctx context.Context, scope tenancy.Scope, now time.
 	for _, a := range accounts {
 		t := store.Task{
 			ID: ids.NewV7(), Kind: kindCloseAccount, RuleID: ruleNoBVN, SubjectRef: a.SubjectRef, AccountRef: &a.Ref,
-			Status: TaskOpen, DueAt: taskDue(def, cfg, kindCloseAccount, "", a.FirstSeenAt), Report: map[string]any{},
-			CreatedAt: now, CreatedBy: systemTaskAuthor,
+			Status: TaskOpen, DueAt: taskDue(def, cfg, kindCloseAccount, "", a.FirstSeenAt, cal), Report: map[string]any{},
+			CreatedAt: now, CreatedBy: systemTaskAuthor, Jurisdiction: lib.pack.Jurisdiction,
 		}
 		created, err := s.store.InsertTask(ctx, t)
 		if err != nil {
@@ -612,9 +688,13 @@ func (s *Service) EditReport(ctx context.Context, id uuid.UUID, f ReportFields, 
 }
 
 // strProblems returns why goAML would reject a suspicious transaction report (REG-19), through
-// the pack rule itself.
+// the pack rule itself. A report to a country whose pack has no goAML check (Ghana's and
+// Rwanda's FIC: goAML use is unconfirmed, GH-GOV-03 and RW-GOV-03) has none.
 func (s *Service) strProblems(ctx context.Context, scope tenancy.Scope, t store.Task) ([]string, error) {
-	_, def, cfg, err := s.rule(ctx, scope, ruleSTRCheck)
+	_, def, cfg, err := s.ruleIn(ctx, scope, t.Jurisdiction, ruleSTRCheck)
+	if errors.Is(err, ErrNotFound) {
+		return nil, nil
+	}
 	if err != nil {
 		return nil, err
 	}

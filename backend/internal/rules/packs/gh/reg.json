@@ -1420,7 +1420,7 @@
         "text": "Act 1044 ss.45 and 56 (per summary)"
       },
       "verification": "conflicting",
-      "caveat": "The FIC may suspend a transaction for up to 7 working days. RiskOS counts the hold in calendar time until working-day clocks arrive, so the default covers 7 working days across a weekend; check the order's own expiry. The court application period is 7 working days in the Act summary and 48 hours in the E.I. 2 summary (C13).",
+      "caveat": "The FIC may suspend a transaction for up to 7 working days: the hold ends at the close of the 7th working day after the order, skipping weekends and the Ghana public holidays the institution entered; check the order's own expiry. The court application period is 7 working days in the Act summary and 48 hours in the E.I. 2 summary (C13).",
       "defaults": {
         "enabled": true,
         "mode": "live"
@@ -1472,11 +1472,11 @@
       "parameters": [
         {
           "name": "hold_max",
-          "label": "Longest hold under an FIC suspension (7 working days, in calendar time)",
-          "type": "duration",
-          "default": 950400,
-          "min": 604800,
-          "max": 1209600
+          "label": "Longest hold under an FIC suspension",
+          "type": "working_days",
+          "default": 7,
+          "min": 1,
+          "max": 7
         }
       ]
     },

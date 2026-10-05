@@ -19,7 +19,8 @@ func taskToAPI(t store.Task, now time.Time) apigen.ComplianceTask {
 		Overdue:    t.DueAt != nil && now.After(*t.DueAt) && (t.Status == service.TaskOpen || t.Status == service.TaskApproved),
 		SubjectRef: t.SubjectRef, AccountRef: t.AccountRef, Report: t.Report, CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy, UpdatedAt: t.UpdatedAt,
 		ApprovedBy: t.ApprovedBy, ApprovedAt: t.ApprovedAt, ClosedBy: t.ClosedBy, ClosedAt: t.ClosedAt,
-		CloseNote: t.CloseNote, FilingRef: t.FilingRef,
+		CloseNote: t.CloseNote, FilingRef: t.FilingRef, Jurisdiction: t.Jurisdiction,
+		EventJurisdiction: t.EventJurisdiction, Authority: t.Authority,
 	}
 	if out.Report == nil {
 		out.Report = map[string]any{}
@@ -51,7 +52,7 @@ func (h *Handlers) ListComplianceTasks(ctx context.Context, req apigen.ListCompl
 		status = string(*req.Params.Status)
 	}
 	now := h.clock.Now()
-	q, err := h.svc.Queue(ctx, status, now)
+	q, err := h.svc.Queue(ctx, status, jurisdictionOf(req.Params.Jurisdiction), now)
 	if err != nil {
 		return nil, configError(err)
 	}
@@ -188,7 +189,7 @@ func (h *Handlers) ConfirmSuspicion(ctx context.Context, req apigen.ConfirmSuspi
 	if req.Body.Note != nil {
 		note = *req.Body.Note
 	}
-	t, err := h.svc.ConfirmSuspicion(ctx, caseID, note, h.clock.Now())
+	t, err := h.svc.ConfirmSuspicion(ctx, caseID, jurisdictionOf(req.Body.Jurisdiction), note, h.clock.Now())
 	if err != nil {
 		return nil, configError(err)
 	}

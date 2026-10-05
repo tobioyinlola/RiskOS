@@ -108,6 +108,12 @@ func TestValidatorRejects(t *testing.T) {
 		"a wrong kind for the prefix": {func(t *testing.T, r map[string]any) {
 			r["kind"] = "control"
 		}, "kind and status must be signal and recommended"},
+		"working days outside 1 to 60": {func(t *testing.T, r map[string]any) {
+			r["parameters"] = append(list(t, r["parameters"]), map[string]any{"name": "days", "label": "Days", "type": "working_days", "default": 0, "min": 0, "max": 5})
+		}, "working days are 1 to 60"},
+		"a signal that follows the data subject": {func(t *testing.T, r map[string]any) {
+			r["follows_data_subject"] = true
+		}, "only a control (a legal clock) follows the data subject"},
 	}
 	for name, tc := range cases {
 		t.Run(name, func(t *testing.T) {

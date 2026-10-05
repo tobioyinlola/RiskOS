@@ -78,7 +78,12 @@ evaluated, never treated as no risk.
   judges the event; without it the workspace's fallback activation does, and with no fallback
   the decision's `jurisdiction.resolved_by` is `unresolved` and no pack runs.
 - **`data_subject_country`** is the country of the person the data concerns, for
-  data-protection rules only (a Rwandan data subject on a Ghana-booked account).
+  data-protection rules only (a Rwandan data subject on a Ghana-booked account). When it differs
+  from the governing country and the workspace has activated that country, the rules owed to the
+  person wherever the event was booked run too, under that country's settings: RW-SEC-04's
+  48-hour notice to Rwanda's NCSA on a Ghana-booked `breach_confirmed`. The decision's
+  `jurisdiction.data_subject_pack` names the pack that ran; without an activation there nothing
+  runs and nothing is guessed.
 - **`refs`** are opaque references for the entities rules keep time windows for: `card`, `bvn`,
   `phone`, `address`, `loan`, `inflow`, `merchant`, `api_key`, `sender`, `reporter`,
   `funding_source`, `national_id` (Ghana Card, NIDA), `agent`. Never the value itself: a `bvn` of 11 digits or a `phone` that is a phone

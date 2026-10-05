@@ -42,13 +42,13 @@ import {
 } from "@/lib/rule-builder";
 import { useSession } from "@/lib/session";
 
+import { DeadlinesMatrix } from "../compliance/clocks";
 import { FXRatesTab } from "../compliance/fx";
 import {
   ClocksTab,
   ExportLibrary,
   GapsTab,
   GlossaryTab,
-  MatrixTab,
   NewerVersion,
   PendingApprovals,
   ProfileBar,
@@ -171,7 +171,7 @@ export function RulesHome() {
               {all ? (
                 <div className="flex flex-col gap-4">
                   <ExportLibrary name="every country" />
-                  <MatrixTab />
+                  <DeadlinesMatrix />
                 </div>
               ) : shown.data ? (
                 <References pack={shown.data} jurisdiction={country} />
@@ -216,7 +216,7 @@ function References({
         <GapsTab jurisdiction={jurisdiction} />
       </TabPanel>
       <TabPanel value="matrix">
-        <MatrixTab />
+        <DeadlinesMatrix />
       </TabPanel>
       <TabPanel value="glossary">
         <GlossaryTab jurisdiction={jurisdiction} />

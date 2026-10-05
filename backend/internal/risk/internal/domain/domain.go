@@ -171,9 +171,13 @@ type Result struct {
 	NotEvaluated []NotEvaluated
 	// Jurisdiction is which country's pack judged the event (ADR-0007); nil without activations.
 	Jurisdiction *JurisdictionResolution
-	// Restricted are compliance-only signals as they fired (GOV-09). Stored, never returned
-	// with the evaluation: only compliance roles read them, through the compliance API.
+	// Restricted are compliance-only signals and controls as they fired (GOV-09). Stored, never
+	// returned with the evaluation: only compliance roles read them, through the compliance API.
 	Restricted []Signal
+	// RestrictedControls are compliance-only controls as they fired (GH-REG-11's FIC order):
+	// Controls holds them masked. Not stored here (Restricted names them); the caller records
+	// the compliance work they require in the same transaction.
+	RestrictedControls []Control
 	// RaiseAlert is set when the decision reaches the environment's alert threshold. Not stored:
 	// the caller acts on it in the same transaction (dry runs never raise alerts).
 	RaiseAlert bool
@@ -186,6 +190,11 @@ type JurisdictionResolution struct {
 	// ResolvedBy is booking_entity, fallback, unresolved or inactive.
 	ResolvedBy    string `json:"resolved_by"`
 	BookingEntity string `json:"booking_entity,omitempty"`
+	// DataSubjectCountry is the event's compliance.data_subject_country when it differs from
+	// the governing country; DataSubjectPack the pack whose data-subject duties (RW-SEC-04) ran
+	// for it, empty when the tenant has no activation there.
+	DataSubjectCountry string `json:"data_subject_country,omitempty"`
+	DataSubjectPack    string `json:"data_subject_pack,omitempty"`
 }
 
 // Control is a regulatory control of the workspace's rule pack that applied to an event.
@@ -203,7 +212,13 @@ type Control struct {
 	// applied.
 	FeePercent  float64 `json:"fee_percent,omitempty"`
 	HoldSeconds int64   `json:"hold_seconds,omitempty"`
-	Branch      string  `json:"branch,omitempty"`
+	// HoldUntil is when a hold ends: the event time plus HoldSeconds, or the close of the last
+	// working day of a hold counted in working days (GH-REG-11).
+	HoldUntil *time.Time `json:"hold_until,omitempty"`
+	Branch    string     `json:"branch,omitempty"`
+	// Jurisdiction is the country whose pack the control belongs to: the governing one, or the
+	// data subject's for a duty that follows the person (RW-SEC-04).
+	Jurisdiction string `json:"jurisdiction,omitempty"`
 	// ExemptionUnknown is set when the control applied because its exemption could not be
 	// checked (the legal limit applies until it is shown).
 	ExemptionUnknown bool `json:"exemption_unknown,omitempty"`

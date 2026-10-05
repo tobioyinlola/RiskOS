@@ -238,13 +238,17 @@ func (h *Handlers) ListComplianceClocks(ctx context.Context, req apigen.ListComp
 	}
 	data := make([]apigen.ComplianceClock, len(p.Clocks))
 	for i, c := range p.Clocks {
-		data[i] = apigen.ComplianceClock{
-			Id: c.ID, Duration: c.Duration, Duty: c.Duty, AppliesTo: c.AppliesTo, Requirement: c.Requirement,
-			Hours: c.Hours, Kind: apigen.ComplianceClockKind(c.ClockKindOf()), Authority: optional(c.Authority),
-			Sources: list(c.Sources), Rules: list(c.Rules),
-		}
+		data[i] = clockToAPI(c)
 	}
 	return apigen.ListComplianceClocks200JSONResponse{Data: data}, nil
+}
+
+func clockToAPI(c pack.Clock) apigen.ComplianceClock {
+	return apigen.ComplianceClock{
+		Id: c.ID, Duration: c.Duration, Duty: c.Duty, AppliesTo: c.AppliesTo, Requirement: c.Requirement,
+		Hours: c.Hours, WorkingDays: c.WorkingDays, Kind: apigen.ComplianceClockKind(c.ClockKindOf()),
+		Authority: optional(c.Authority), Sources: list(c.Sources), Rules: list(c.Rules),
+	}
 }
 
 // ListComplianceGaps implements GET /api/v1/compliance/gaps.

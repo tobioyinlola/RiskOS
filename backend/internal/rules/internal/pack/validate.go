@@ -100,9 +100,11 @@ func Validate(p *Pack) error {
 		switch k := c.ClockKindOf(); {
 		case !oneOf(string(k), string(ClockLegal), string(ClockPolicy), string(ClockPlaceholder), string(ClockNotFound)):
 			fail("clocks.%s: unknown kind %q", c.ID, k)
-		case k == ClockNotFound && c.Hours != nil:
+		case k == ClockNotFound && (c.Hours != nil || c.WorkingDays != nil):
 			fail("clocks.%s: a clock that was not found has no hours (it is never shown as zero)", c.ID)
-		case k != ClockNotFound && (c.Hours == nil || *c.Hours < 0):
+		case c.WorkingDays != nil && (c.Hours != nil || *c.WorkingDays < 1):
+			fail("clocks.%s: a working-day clock has at least one working day and no hours", c.ID)
+		case k != ClockNotFound && c.WorkingDays == nil && (c.Hours == nil || *c.Hours < 0):
 			fail("clocks.%s: hours are required (0 means immediately)", c.ID)
 		}
 	}
@@ -328,6 +330,10 @@ func (v *ruleValidator) parameters() {
 			if lo < 0 || hi > 1 {
 				v.errf("%s: a flag is 0 or 1", path)
 			}
+		case ParamWorkingDays:
+			if lo < 1 || hi > 60 {
+				v.errf("%s: working days are 1 to 60", path)
+			}
 		case ParamHour:
 			if lo < 0 || hi > 24 {
 				v.errf("%s: an hour is 0 to 24", path)
@@ -369,6 +375,13 @@ func (v *ruleValidator) param(name, path string) (Parameter, bool) {
 func (v *ruleValidator) paramOfType(name, path string, t ParamType) {
 	if p, ok := v.param(name, path); ok && p.Type != t {
 		v.errf("%s: parameter %q must be of type %s", path, name, t)
+	}
+}
+
+// deadlineParam checks a parameter holding a deadline: a duration, or working days.
+func (v *ruleValidator) deadlineParam(name, path string) {
+	if p, ok := v.param(name, path); ok && p.Type != ParamDuration && p.Type != ParamWorkingDays {
+		v.errf("%s: parameter %q must be of type %s or %s", path, name, ParamDuration, ParamWorkingDays)
 	}
 }
 
@@ -457,6 +470,9 @@ func (v *ruleValidator) evaluated() {
 	if o.Unless != nil {
 		v.cond(*o.Unless, "outcome.unless", 1)
 	}
+	if r.FollowsDataSubject && r.Kind != KindControl {
+		v.errf("follows_data_subject: only a control (a legal clock) follows the data subject")
+	}
 	switch r.Kind {
 	case KindControl:
 		v.control()
@@ -474,7 +490,7 @@ func (v *ruleValidator) tasks(list []Task, path string) bool {
 			v.errf("%s: unknown task %q", path, t.Type)
 		}
 		if t.Due != "" {
-			v.paramOfType(t.Due, path+".due", ParamDuration)
+			v.deadlineParam(t.Due, path+".due")
 		}
 		if t.On != "" {
 			if _, ok := Events[t.On]; !ok {
@@ -501,7 +517,7 @@ func (v *ruleValidator) control() {
 	}
 	switch o.Decision {
 	case "hold":
-		v.paramOfType(o.Hold, "outcome.hold", ParamDuration)
+		v.deadlineParam(o.Hold, "outcome.hold")
 	case "fee":
 		if o.Fee != "" {
 			v.paramOfType(o.Fee, "outcome.fee", ParamPercent)

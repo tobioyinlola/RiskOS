@@ -154,7 +154,9 @@ export function ClocksTab({ jurisdiction }: { jurisdiction?: string }) {
           {clocks.map((c) => (
             <Tr key={c.id}>
               <Td className="font-medium whitespace-nowrap">
-                {c.hours === null ? "Not found" : c.duration}
+                {c.hours === null && c.working_days === undefined
+                  ? "Not found"
+                  : c.duration}
                 {c.authority ? (
                   <span className="block text-label font-normal text-text-muted">
                     to the {c.authority}
@@ -250,7 +252,7 @@ export function GapsTab({ jurisdiction }: { jurisdiction?: string }) {
 }
 
 /** The library's side-by-side comparison of Nigeria, Ghana and Rwanda, verbatim. */
-export function MatrixTab() {
+export function CountriesSideBySide() {
   const q = useClockMatrix();
   return (
     <Panel className="overflow-hidden">

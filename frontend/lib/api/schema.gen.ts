@@ -1584,6 +1584,154 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/compliance/jurisdictions/{jurisdiction}/holidays": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jurisdiction: string;
+            };
+            cookie?: never;
+        };
+        /**
+         * A country's public holidays
+         * @description Requires `compliance:read`. The public holidays the workspace entered for a country, by
+         *     date. Working-day clocks (GH-REG-11's 7 working days) skip them, with Saturdays and
+         *     Sundays. RiskOS ships no holiday dates: they are gazetted year by year.
+         */
+        get: operations["listComplianceHolidays"];
+        put?: never;
+        /**
+         * Enter a public holiday
+         * @description Requires `compliance:configure` (people only). Working-day clocks of the country skip the
+         *     date from the next evaluation; deadlines already set are not moved. Audited.
+         */
+        post: operations["addComplianceHoliday"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/jurisdictions/{jurisdiction}/holidays/{date}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jurisdiction: string;
+                date: string;
+            };
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Remove a public holiday entered by mistake
+         * @description Requires `compliance:configure` (people only). Audited.
+         */
+        delete: operations["deleteComplianceHoliday"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/clock-load": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Work running against each legal clock
+         * @description Requires `compliance:read`. For every clock of the countries the workspace has activated,
+         *     the compliance tasks running against it in this environment (open or approved, not yet
+         *     filed or done): how many, how many past their deadline, and how many due within 24 hours.
+         *     `unclocked` counts running tasks of rules no clock lists. Suspicious transaction reports
+         *     and compliance-only work count only for `compliance:sensitive` (GOV-09);
+         *     `sensitive_hidden` says when they were left out.
+         */
+        get: operations["getComplianceClockLoad"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/cross-border": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Events that started a clock in another country
+         * @description Requires `compliance:read`. The latest 100 events that started a clock in a country other
+         *     than the one that governed them (a duty that follows the data subject: RW-SEC-04 for a
+         *     Rwandan data subject of a Ghana-booked breach), newest first, with every task they
+         *     started. Suspicious transaction reports, and events known only through one, only for
+         *     `compliance:sensitive` (GOV-09).
+         */
+        get: operations["listComplianceCrossBorder"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/retention": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Retention in force across countries
+         * @description Requires `compliance:read`. For each record type, the longest minimum retention any country
+         *     the workspace has activated (draft activations aside) requires, the rule that sets it, and
+         *     every rule considered: GOV-08 and its country versions (GH-GOV-01, RW-GOV-01), RW-GOV-10,
+         *     and GH-SEC-11 for audit logs. Rules switched off in this environment are not counted.
+         */
+        get: operations["getComplianceRetention"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/compliance/retention/check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask whether a record may be deleted
+         * @description Requires `compliance:read` (an API key may hold it, for a disposal job). Refused while the
+         *     record is younger than the longest retention in force for its type, whatever asked for
+         *     the deletion: the longer legal duty wins over a data-protection request or a disposal
+         *     policy (RW-GOV-10). Every answer is audited (`compliance.deletion_denied` names the rule
+         *     and country that required the record be kept). RiskOS deletes nothing itself.
+         */
+        post: operations["checkComplianceDeletion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/v1/compliance/activations": {
         parameters: {
             query?: never;
@@ -2241,9 +2389,10 @@ export interface paths {
         /**
          * Confirm suspicion on a case
          * @description Requires `compliance:sensitive` (compliance officers) and, in the console, a recent second
-         *     factor. Opens a suspicious transaction report for the case, due within REG-14's `str_due`
-         *     (24 hours by default) from now. Nothing about it is visible outside compliance roles
-         *     (GOV-09). Audited.
+         *     factor. Opens a suspicious transaction report for the case to the country's authority, due
+         *     within its rule's deadline from now: REG-14's `str_due` to the NFIU (24 hours by default),
+         *     GH-REG-06 to Ghana's FIC (24 hours), RW-REG-04 to Rwanda's FIC (a 24-hour design
+         *     placeholder). Nothing about it is visible outside compliance roles (GOV-09). Audited.
          */
         post: operations["confirmSuspicion"];
         delete?: never;
@@ -2627,11 +2776,17 @@ export interface components {
         ComplianceTask: {
             /** @example ctk_01j9x2k7m3q4r5s6t7v8w9x0yz */
             id: string;
+            /** @description The country whose rule requires the work (its deadline, its authority). */
+            jurisdiction: string;
+            /** @description The country that governed the event; differs from `jurisdiction` when a duty follows the data subject. */
+            event_jurisdiction: string | null;
+            /** @description The body a report goes to (NFIU, FIC, NCSA), when the rule names one. */
+            authority: string | null;
             /** @description report.STR, report.CTR, report.FTR, report.PEP_monthly, report.sanctions, report.industry_fraud, case.open, edd, source_of_funds, source_of_wealth, senior_approval, freeze_account or close_account. */
             kind: string;
             rule: string;
             status: components["schemas"]["ComplianceTaskStatus"];
-            /** @description A suspicious transaction report, seen only by compliance officers. */
+            /** @description A suspicious transaction report or compliance-only work (an FIC order), seen only by compliance officers. */
             sensitive: boolean;
             /** Format: date-time */
             due_at: string | null;
@@ -2842,7 +2997,7 @@ export interface components {
              *     the day in Africa/Lagos time; flag is 0 or 1.
              * @enum {string}
              */
-            type: "money" | "duration" | "count" | "ratio" | "points" | "percent" | "speed" | "hour" | "score" | "flag";
+            type: "money" | "duration" | "count" | "ratio" | "points" | "percent" | "speed" | "hour" | "score" | "flag" | "working_days";
             currency?: string;
             /**
              * Format: double
@@ -3040,7 +3195,7 @@ export interface components {
             items: {
                 blocking: boolean;
                 /** @enum {string} */
-                kind: "licence" | "setting" | "fx_rate" | "open_question";
+                kind: "licence" | "setting" | "fx_rate" | "open_question" | "holidays";
                 rule?: string;
                 message: string;
             }[];
@@ -3149,6 +3304,67 @@ export interface components {
         ComplianceRuleList: {
             data: components["schemas"]["ComplianceRule"][];
         };
+        Holiday: {
+            jurisdiction: string;
+            /** Format: date */
+            date: string;
+            name: string;
+            /** Format: date-time */
+            created_at: string;
+            created_by: string;
+        };
+        ClockLoad: {
+            data: components["schemas"]["ClockLoadRow"][];
+            unclocked: components["schemas"]["RuleLoad"][];
+            /** @description Suspicious transaction reports and compliance-only work were left out of the counts (GOV-09). */
+            sensitive_hidden: boolean;
+        };
+        ClockLoadRow: {
+            jurisdiction: string;
+            clock: components["schemas"]["ComplianceClock"];
+            /** @description Tasks open or approved, not yet filed or done. */
+            running: number;
+            overdue: number;
+            /** @description Due within the next 24 hours. */
+            due_soon: number;
+        };
+        RuleLoad: {
+            jurisdiction: string;
+            rule: string;
+            running: number;
+            overdue: number;
+            due_soon: number;
+        };
+        CrossBorderEvent: {
+            event_id: string;
+            /** @description The country that governed the event. */
+            booked_in: string;
+            /** @description Every country the event started a clock in, and the one that governed it. */
+            countries: string[];
+            tasks: components["schemas"]["ComplianceTask"][];
+        };
+        /** @enum {string} */
+        RecordType: "customer_file" | "transaction" | "report" | "audit_log" | "other";
+        RetentionRule: {
+            jurisdiction: string;
+            rule: string;
+            name: string;
+            setting: string;
+            days: number;
+        };
+        RetentionPeriod: {
+            record_type: components["schemas"]["RecordType"];
+            /** @description The longest minimum retention, in days; 0 when no rule sets one. */
+            days: number;
+            rule: components["schemas"]["RetentionRule"] | null;
+            considered: components["schemas"]["RetentionRule"][];
+        };
+        DeletionVerdict: {
+            allowed: boolean;
+            /** Format: date-time */
+            retain_until: string;
+            period: components["schemas"]["RetentionPeriod"];
+        };
         ComplianceClock: {
             id: string;
             duration: string;
@@ -3157,9 +3373,12 @@ export interface components {
             requirement: string;
             /**
              * @description The deadline in hours; 0 means immediately. Null when the law sets a deadline no readable
-             *     source states (`kind` not_found): shown as "not found", never as zero.
+             *     source states (`kind` not_found): shown as "not found", never as zero; and for a
+             *     working-day clock, which has `working_days` instead.
              */
             hours: number | null;
+            /** @description A deadline counted in the country's working days (weekends and the public holidays the workspace entered are skipped). */
+            working_days?: number;
             kind: components["schemas"]["ComplianceClockKind"];
             /** @description The body the clock runs against (FIC, BoG, NCSA), when the library names one. */
             authority?: string;
@@ -4167,6 +4386,13 @@ export interface components {
             /** @enum {string} */
             resolved_by: "booking_entity" | "fallback" | "unresolved" | "inactive";
             booking_entity?: string;
+            /** @description The event's `compliance.data_subject_country`, when it differs from the governing country. */
+            data_subject_country?: string;
+            /**
+             * @description The pack whose duties owed to the data subject (RW-SEC-04) ran beside the governing pack;
+             *     absent when the workspace has no activation in the data subject's country.
+             */
+            data_subject_pack?: string;
         };
         ControlResult: {
             /** @example REG-01 */
@@ -4185,7 +4411,15 @@ export interface components {
              * @description The longest the funds may be held.
              */
             hold_seconds?: number;
+            /**
+             * Format: date-time
+             * @description When the hold ends: the event time plus `hold_seconds`, or, for a hold counted in working
+             *     days (GH-REG-11), the close of the last working day in the country's calendar.
+             */
+            hold_until?: string;
             branch?: string;
+            /** @description The country whose pack the control belongs to (the data subject's for RW-SEC-04 on another country's event). */
+            jurisdiction?: string;
             /** @description The control applied because its exemption could not be checked. */
             exemption_unknown: boolean;
         };
@@ -7119,6 +7353,206 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
+    listComplianceHolidays: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jurisdiction: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The holidays. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["Holiday"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    addComplianceHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jurisdiction: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    /** Format: date */
+                    date: string;
+                    name: string;
+                };
+            };
+        };
+        responses: {
+            /** @description The holiday. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Holiday"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    deleteComplianceHoliday: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                jurisdiction: string;
+                date: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceClockLoad: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The load. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ClockLoad"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listComplianceCrossBorder: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The events. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["CrossBorderEvent"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getComplianceRetention: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The periods. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": {
+                        data: components["schemas"]["RetentionPeriod"][];
+                    };
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    checkComplianceDeletion: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": {
+                    record_type: components["schemas"]["RecordType"];
+                    /** @description Your reference for the record (never personal data). */
+                    record_ref: string;
+                    /**
+                     * Format: date-time
+                     * @description When retention started (the relationship's end for a customer file; the transaction or report date otherwise).
+                     */
+                    since: string;
+                    /** @enum {string} */
+                    reason: "data_subject_request" | "disposal_policy";
+                };
+            };
+        };
+        responses: {
+            /** @description The verdict. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeletionVerdict"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
     listComplianceActivations: {
         parameters: {
             query?: never;
@@ -7888,6 +8322,8 @@ export interface operations {
         parameters: {
             query?: {
                 status?: components["schemas"]["ComplianceTaskStatus"];
+                /** @description Only this country's tasks (escalations and unreported fraud are Nigerian duties, listed for Nigeria only). */
+                jurisdiction?: string;
             };
             header?: never;
             path?: never;
@@ -8138,6 +8574,8 @@ export interface operations {
                     case_id: string;
                     /** @description The first lines of the report's narrative. */
                     note?: string;
+                    /** @description The country the report is owed to; the fallback activation's when absent. */
+                    jurisdiction?: string;
                 };
             };
         };

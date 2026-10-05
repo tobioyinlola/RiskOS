@@ -310,7 +310,7 @@ func (s *Service) SetActivationStatus(ctx context.Context, id uuid.UUID, status,
 			return fmt.Errorf("%w: the fallback activation cannot be put in %s; make another activation the fallback first", ErrConflict, status)
 		}
 		if status == StatusLive {
-			if err := s.mustBeReady(ctx, scope, a); err != nil {
+			if err := s.mustBeReady(ctx, scope, a, now); err != nil {
 				return err
 			}
 		}
@@ -421,7 +421,7 @@ func (s *Service) applyChange(ctx context.Context, scope tenancy.Scope, a store.
 			return fmt.Errorf("%w: the activation changed since the proposal; propose again", ErrConflict)
 		}
 		if *c.StatusTo == StatusLive {
-			if err := s.mustBeReady(ctx, scope, a); err != nil {
+			if err := s.mustBeReady(ctx, scope, a, now); err != nil {
 				return err
 			}
 		}
@@ -437,8 +437,8 @@ func (s *Service) applyChange(ctx context.Context, scope tenancy.Scope, a store.
 	return fmt.Errorf("%w: unknown change %s", ErrInvalidInput, c.Action)
 }
 
-func (s *Service) mustBeReady(ctx context.Context, scope tenancy.Scope, a store.Activation) error {
-	r, err := s.readiness(ctx, scope, a)
+func (s *Service) mustBeReady(ctx context.Context, scope tenancy.Scope, a store.Activation, now time.Time) error {
+	r, err := s.readiness(ctx, scope, a, now)
 	if err != nil {
 		return err
 	}
@@ -456,7 +456,7 @@ func (s *Service) mustBeReady(ctx context.Context, scope tenancy.Scope, a store.
 
 // ActivationReadiness checks what must be settled before an activation goes live, in the
 // caller's environment. Requires compliance:read.
-func (s *Service) ActivationReadiness(ctx context.Context, id uuid.UUID) (Readiness, error) {
+func (s *Service) ActivationReadiness(ctx context.Context, id uuid.UUID, now time.Time) (Readiness, error) {
 	scope, err := readScope(ctx)
 	if err != nil {
 		return Readiness{}, err
@@ -467,7 +467,7 @@ func (s *Service) ActivationReadiness(ctx context.Context, id uuid.UUID) (Readin
 		if err != nil {
 			return err
 		}
-		out, err = s.readiness(ctx, scope, a)
+		out, err = s.readiness(ctx, scope, a, now)
 		return err
 	})
 	return out, err
@@ -477,7 +477,7 @@ func (s *Service) ActivationReadiness(ctx context.Context, id uuid.UUID) (Readin
 // environment: settings the institution must enter (blocking for regulatory controls, which
 // would otherwise not be evaluated), a missing exchange rate for a US dollar threshold
 // (blocking for controls), and open questions in the library nobody has verified (warnings).
-func (s *Service) readiness(ctx context.Context, scope tenancy.Scope, a store.Activation) (Readiness, error) {
+func (s *Service) readiness(ctx context.Context, scope tenancy.Scope, a store.Activation, now time.Time) (Readiness, error) {
 	rec, err := s.store.Pack(ctx, a.PackID, a.PackVersion)
 	if err != nil {
 		return Readiness{}, err
@@ -536,6 +536,13 @@ func (s *Service) readiness(ctx context.Context, scope tenancy.Scope, a store.Ac
 				Message: fmt.Sprintf("%s: set a %s to US dollar rate, or send txn.amount_usd, for its dollar threshold", def.ID, currency),
 			})
 		}
+	}
+	holidays, err := s.store.Holidays(ctx, p.Jurisdiction)
+	if err != nil {
+		return Readiness{}, err
+	}
+	if it := holidayCheck(p, running, holidays, now); it != nil {
+		items = append(items, *it)
 	}
 	for _, g := range p.Gaps {
 		if _, ok := verified[g.ID]; ok {

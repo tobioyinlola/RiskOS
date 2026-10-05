@@ -100,6 +100,12 @@ state only what the code and these documents establish; change them with the beh
 | GET | `/api/v1/compliance/clock-matrix` | The library's comparison of the countries' legal clocks and thresholds, verbatim (`compliance:read`) |
 | GET | `/api/v1/compliance/export` | A country's rule library (`?jurisdiction=`, or every country) as `format=csv` or `pdf`, with settings in use, provenance, caveats and sources; audited (`compliance:read`) |
 | GET | `/api/v1/compliance/active-rules` | Every pack rule running in the environment, with the events, facts and refs to send and the settings still unset; `?jurisdiction=` (`compliance:read`) |
+| GET, POST | `/api/v1/compliance/jurisdictions/{jurisdiction}/holidays` | A country's public holidays, which working-day clocks skip with weekends; adding one needs `compliance:configure` (people only), audited |
+| DELETE | `/api/v1/compliance/jurisdictions/{jurisdiction}/holidays/{date}` | Remove a holiday entered by mistake (`compliance:configure`), audited |
+| GET | `/api/v1/compliance/clock-load` | For every clock of the activated countries, the tasks running against it now: running, overdue, due within 24 hours; compliance-only work counted for `compliance:sensitive` only |
+| GET | `/api/v1/compliance/cross-border` | The latest 100 events that started a clock outside the country that governed them, with their tasks (`compliance:read`) |
+| GET | `/api/v1/compliance/retention` | Per record type, the longest retention any activated country requires and the rule that sets it (`compliance:read`) |
+| POST | `/api/v1/compliance/retention/check` | May this record be deleted now? Refused while younger than that retention (RW-GOV-10); every answer audited (`compliance:read`) |
 
 Contract changes, all additive except one: events take `compliance.booking_entity`,
 `compliance.data_subject_country`, refs `national_id` and `agent`, and new kinds; decisions carry
@@ -110,6 +116,15 @@ Contract changes, all additive except one: events take `compliance.booking_entit
 `penalties`; clocks, gaps and the glossary take `?jurisdiction=`. **Breaking:** a clock's `hours` may be
 null (a legal deadline no readable source states, `kind` not_found) and is 0 for "immediately";
 clients that read it as a number must handle both.
+
+Phase 5 contract changes, all additive: a clock may be counted in `working_days` (its `hours` is
+then null; GH-REG-11's FIC suspension); controls carry `jurisdiction` and `hold_until`; the
+decision's `jurisdiction` carries `data_subject_country` and `data_subject_pack` when a duty that
+follows the data subject ran; tasks carry `jurisdiction`, `event_jurisdiction` and `authority`,
+and the queue takes `?jurisdiction=`; `POST /compliance/suspicion` takes `jurisdiction`; a
+setting may be of type `working_days`; readiness items may be of kind `holidays`. A
+compliance-only control (GH-REG-11) now appears in decisions as `compliance_review`, like
+compliance-only signals: its decision and hold stand, its rule, reason and tasks are not shown.
 
 ## Conventions (in force)
 

@@ -119,9 +119,12 @@ var countryCases = map[string][]tc{ //nolint:gochecknoglobals // test table
 		{name: "identity check missing", kinds: []string{"account_opened"},
 			facts: F{"event.kind": "account_opened", "customer.name_missing": false, "account.nominal_holder_without_owner": false}, want: notEv},
 	},
+	// s.45: suspension up to 7 working days, counted in the working-day calendar.
 	"GH-REG-11": {
-		{name: "FIC freeze order", facts: F{"order.source": "FIC", "order.type": "freeze"}, want: fired},
-		{name: "FIC suspension order", facts: F{"order.source": "FIC", "order.type": "suspension"}, want: fired},
+		{name: "FIC freeze order", facts: F{"order.source": "FIC", "order.type": "freeze"}, want: fired, holdDays: 7},
+		{name: "FIC suspension order", facts: F{"order.source": "FIC", "order.type": "suspension"}, want: fired, holdDays: 7},
+		{name: "FIC suspension, shorter hold set", facts: F{"order.source": "FIC", "order.type": "suspension"},
+			params: map[string]float64{"hold_max": 3}, want: fired, holdDays: 3},
 		{name: "FIC information request", facts: F{"order.source": "FIC", "order.type": "information_request"}, want: clr},
 		{name: "order from elsewhere", facts: F{"order.source": "court"}, want: notApp},
 	},
@@ -397,6 +400,10 @@ func TestCountryRulesFromTheLibrary(t *testing.T) {
 				}
 				if c.branch != "" {
 					assert.Equal(t, c.branch, res.Branch)
+				}
+				if c.holdDays != 0 {
+					assert.Equal(t, c.holdDays, res.HoldWorkingDays)
+					assert.Zero(t, res.Hold, "a hold in working days has no fixed seconds")
 				}
 				assert.Equal(t, c.exemptionUnknown, res.ExemptionUnknown)
 			})
