@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useState } from "react";
 
 import { Button } from "@/components/ui/button";
+import { Field, Input, Textarea } from "@/components/ui/field";
 import { KeyValues } from "@/components/ui/misc";
 import { Panel, PanelHeader } from "@/components/ui/panel";
 import { StatusPill } from "@/components/ui/pill";
@@ -17,6 +18,7 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { CLOCK_KIND } from "@/lib/compliance";
+import { formatTimestamp } from "@/lib/format";
 import {
   useClockMatrix,
   useComplianceClocks,
@@ -24,6 +26,7 @@ import {
   useComplianceGlossary,
   useComplianceProfile,
   useComplianceChanges,
+  useUserName,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
@@ -219,6 +222,7 @@ export function GapsTab({ jurisdiction }: { jurisdiction?: string }) {
             <p className="max-w-prose text-body text-text-secondary">
               {g.detail}
             </p>
+            <GapVerification gap={g} jurisdiction={jurisdiction} />
             <KeyValues
               items={[
                 ...(g.treatment
@@ -465,5 +469,113 @@ export function NewerVersion({ pack }: { pack: Pack }) {
         </span>
       </Notice>
     </div>
+  );
+}
+
+/** Who checked an open question against the original text, or a form to record it. */
+function GapVerification({
+  gap,
+  jurisdiction,
+}: {
+  gap: Schemas["ComplianceGap"];
+  jurisdiction?: string;
+}) {
+  const { can } = useSession();
+  const userName = useUserName();
+  const [open, setOpen] = useState(false);
+  const [note, setNote] = useState("");
+  const [link, setLink] = useState("");
+  const verify = useAction(
+    async () =>
+      unwrap(
+        await api().POST("/api/v1/compliance/gaps/{gap_id}/verify", {
+          params: {
+            path: { gap_id: gap.id },
+            query: jurisdiction ? { jurisdiction } : {},
+          },
+          body: link.trim() ? { note, link: link.trim() } : { note },
+        }),
+      ),
+    { invalidate: ["compliance"], onSuccess: () => setOpen(false) },
+  );
+  const v = gap.verification;
+  if (v)
+    return (
+      <Notice tone="ok">
+        <span className="font-medium">Verified against the original text</span>{" "}
+        by {userName(v.verified_by)} on {formatTimestamp(v.verified_at)}:{" "}
+        {v.note}
+        {v.link ? (
+          <>
+            {" "}
+            <a
+              href={v.link}
+              className="underline"
+              target="_blank"
+              rel="noreferrer noopener"
+            >
+              Source
+            </a>
+          </>
+        ) : null}
+      </Notice>
+    );
+  if (!can("compliance:configure")) return null;
+  if (!open)
+    return (
+      <div>
+        <Button size="sm" onClick={() => setOpen(true)}>
+          Mark verified
+        </Button>
+      </div>
+    );
+  return (
+    <form
+      className="flex flex-col gap-3 rounded-md border border-border-subtle p-3"
+      onSubmit={(e) => {
+        e.preventDefault();
+        if (note.trim()) void verify.run();
+      }}
+    >
+      {verify.error ? <Notice tone="error">{verify.error}</Notice> : null}
+      <Field
+        label="What you checked"
+        hint="The original text you read and what it says. This does not change any rule's settings."
+      >
+        {(f) => (
+          <Textarea
+            {...f}
+            value={note}
+            maxLength={1000}
+            required
+            onChange={(e) => setNote(e.target.value)}
+          />
+        )}
+      </Field>
+      <Field label="Link to the original (optional)">
+        {(f) => (
+          <Input
+            {...f}
+            type="url"
+            value={link}
+            maxLength={500}
+            onChange={(e) => setLink(e.target.value)}
+          />
+        )}
+      </Field>
+      <div className="flex gap-2">
+        <Button
+          type="submit"
+          size="sm"
+          variant="primary"
+          disabled={verify.busy || !note.trim()}
+        >
+          Record verification
+        </Button>
+        <Button type="button" size="sm" onClick={() => setOpen(false)}>
+          Cancel
+        </Button>
+      </div>
+    </form>
   );
 }

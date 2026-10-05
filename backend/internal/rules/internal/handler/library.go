@@ -13,7 +13,6 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
-	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/service"
 )
@@ -142,7 +141,7 @@ func ruleToAPI(v *service.RuleView) (apigen.ComplianceRule, error) {
 			Decision: optional(v.Outcome.Decision), Severity: optional(v.Outcome.Severity), Tasks: tasks,
 		},
 		Parameters: params, Applicable: v.Applicable,
-		Mode: apigen.PackRuleMode(v.Config.Mode), ConfigVersion: v.Config.Version,
+		Mode: apigen.PackRuleMode(v.Config.Mode), ConfigVersion: v.Config.Version, Verifications: verificationsToAPI(v.Verified),
 		Jurisdiction: optional(v.Jurisdiction), InheritedFrom: optional(v.InheritedFrom), Basis: optional(v.Text.Basis),
 	}
 	if v.Provenance != "" {
@@ -264,6 +263,10 @@ func (h *Handlers) ListComplianceGaps(ctx context.Context, req apigen.ListCompli
 			k := apigen.ComplianceGapKind(g.Kind)
 			data[i].Kind = &k
 		}
+		if v, ok := p.Verified[g.ID]; ok {
+			gv := gapVerificationToAPI(v)
+			data[i].Verification = &gv
+		}
 	}
 	return apigen.ListComplianceGaps200JSONResponse{Data: data}, nil
 }
@@ -352,12 +355,7 @@ func (h *Handlers) ListComplianceActivations(ctx context.Context, _ apigen.ListC
 	}
 	data := make([]apigen.JurisdictionActivation, len(acts))
 	for i, a := range acts {
-		data[i] = apigen.JurisdictionActivation{
-			Id: ids.Format(ids.PrefixActivation, a.ID), Jurisdiction: a.Jurisdiction, BookingEntity: a.BookingEntity,
-			Status: apigen.JurisdictionActivationStatus(a.Status), Fallback: a.Fallback, Pack: a.PackID + "@" + a.PackVersion,
-			LicenceType: a.LicenceType, Capabilities: list(a.Capabilities), EffectiveFrom: a.EffectiveFrom,
-			ActivatedAt: a.ActivatedAt, UpdatedAt: a.UpdatedAt,
-		}
+		data[i] = activationToAPI(a)
 	}
 	return apigen.ListComplianceActivations200JSONResponse{Data: data}, nil
 }

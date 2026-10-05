@@ -89,6 +89,14 @@ state only what the code and these documents establish; change them with the beh
 |---|---|---|
 | GET | `/api/v1/compliance/jurisdictions` | The countries with a rule pack: currency, time zone, regulators, and whether the workspace activated each (`compliance:read`) |
 | GET | `/api/v1/compliance/activations` | The workspace's activations per country and booking entity, the fallback first (`compliance:read`) |
+| POST | `/api/v1/compliance/activations` | Activate a country for a booking entity, as a draft (`compliance:configure`, people only) |
+| PATCH | `/api/v1/compliance/activations/{activation_id}` | Licence type, capabilities, business day start; proposed (202) on a live activation |
+| POST | `/api/v1/compliance/activations/{activation_id}/status` | Draft, shadow, live or suspended with a rationale; going live and leaving live are proposed (202) |
+| POST | `/api/v1/compliance/activations/{activation_id}/fallback` | Make it the fallback; proposed (202) |
+| GET | `/api/v1/compliance/activations/{activation_id}/readiness` | What blocks going live, and warnings (`compliance:read`) |
+| GET | `/api/v1/compliance/activation-changes` | Activation history and changes awaiting approval; `?activation_id=`, `?state=` |
+| POST | `/api/v1/compliance/activation-changes/{change_id}/approve`, `/reject` | Decide a pending change (`rules:approve`, another person) |
+| POST | `/api/v1/compliance/gaps/{gap_id}/verify` | Record that an open question was checked against the original text; `?jurisdiction=` |
 | GET | `/api/v1/compliance/clock-matrix` | The library's comparison of the countries' legal clocks and thresholds, verbatim (`compliance:read`) |
 | GET | `/api/v1/compliance/export` | A country's rule library (`?jurisdiction=`, or every country) as `format=csv` or `pdf`, with settings in use, provenance, caveats and sources; audited (`compliance:read`) |
 | GET | `/api/v1/compliance/active-rules` | Every pack rule running in the environment, with the events, facts and refs to send and the settings still unset; `?jurisdiction=` (`compliance:read`) |

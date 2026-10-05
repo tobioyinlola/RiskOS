@@ -117,6 +117,8 @@ type PackView struct {
 	// Latest is the newest loaded version of the pack's jurisdiction: saving the compliance
 	// profile adopts it.
 	Latest string
+	// Verified are the open questions the tenant has checked against the original text, by ID.
+	Verified map[string]store.GapVerification
 }
 
 // Profile is a tenant's compliance profile: its fallback activation (ADR-0007).
@@ -145,6 +147,8 @@ type RuleView struct {
 	Engineering bool
 	// Config is the rule's configuration in the caller's environment.
 	Config RuleConfig
+	// Verified are the tenant's verifications of the open questions that name the rule.
+	Verified []store.GapVerification
 }
 
 // Value returns a setting's value in the caller's environment: configured, else the default;
@@ -240,6 +244,9 @@ func (s *Service) load(ctx context.Context, tenant tenancy.Scope, jurisdiction s
 		return library{}, err
 	}
 	lib.pack = PackView{Pack: p, LoadedAt: rec.LoadedAt, Latest: p.Version}
+	if lib.pack.Verified, err = s.store.GapVerifications(ctx, tenant.TenantID, p.ID); err != nil {
+		return library{}, err
+	}
 	if latest, err := s.store.LatestPack(ctx, p.Jurisdiction); err == nil {
 		lib.pack.Latest = latest.Version
 	} else if !errors.Is(err, store.ErrNotFound) {
@@ -384,6 +391,11 @@ func (lib *library) view(r *pack.Rule, engineering bool) RuleView {
 	}
 	if !engineering {
 		v.Text.EngineeringLogic = ""
+	}
+	for _, g := range lib.pack.Gaps {
+		if gv, ok := lib.pack.Verified[g.ID]; ok && slices.Contains(g.Rules, r.ID) {
+			v.Verified = append(v.Verified, gv)
+		}
 	}
 	return v
 }

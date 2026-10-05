@@ -1,5 +1,6 @@
 "use client";
 
+import { ActiveCountryRules, CountryActivations } from "./activations";
 import Link from "next/link";
 import { useRouter, useSearchParams } from "next/navigation";
 
@@ -152,12 +153,16 @@ export function RulesHome() {
               ) : shown.isError ? (
                 <ErrorState error={shown.error} />
               ) : (
-                <PresetRules country={country} fallback={fallback} />
+                <>
+                  {country ? <CountryActivations country={country} /> : null}
+                  <PresetRules country={country} fallback={fallback} />
+                </>
               )}
             </TabPanel>
           ) : null}
           {tabs.includes("custom") ? (
             <TabPanel value="custom">
+              {compliance ? <ActiveCountryRules /> : null}
               <CustomRules />
             </TabPanel>
           ) : null}

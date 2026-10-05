@@ -12,6 +12,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ActivationChange struct {
+	TenantID     uuid.UUID
+	ID           uuid.UUID
+	ActivationID uuid.UUID
+	Action       string
+	StatusFrom   *string
+	StatusTo     *string
+	Details      []byte
+	Rationale    string
+	State        string
+	ProposedBy   string
+	ProposedAt   time.Time
+	DecidedBy    *string
+	DecidedAt    *time.Time
+	DecisionNote *string
+}
+
 type Alert struct {
 	TenantID        uuid.UUID
 	EnvironmentID   uuid.UUID
@@ -282,6 +299,16 @@ type FeatureStoreState struct {
 	KeyFingerprint string
 	StartedAt      time.Time
 	ResetAt        *time.Time
+}
+
+type GapVerification struct {
+	TenantID   uuid.UUID
+	PackID     string
+	GapID      string
+	VerifiedBy string
+	VerifiedAt time.Time
+	Note       string
+	Link       *string
 }
 
 type GoogleLogin struct {

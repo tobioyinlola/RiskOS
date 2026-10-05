@@ -281,7 +281,29 @@ fact. The decision, the stored evaluation and the evaluation's features record t
 pack version and how it was resolved. Ghana and Rwanda reuse Nigerian rules in two ways: a
 "Param of X" rule names X as its template and states only its own settings, and inherited rules
 keep their Nigerian ID with amounts restated in the local currency. Rule configuration and
-pending changes are kept per pack, so ATO-04 in Ghana is configured apart from ATO-04 in Nigeria.
+pending changes are kept per pack, so ATO-04 in Ghana is configured apart from ATO-04 in Nigeria
+(`?jurisdiction=GH` on the configuration, history and rollback endpoints).
+
+**Activating a country.** A person with `compliance:configure` creates an activation as a draft
+(`POST /api/v1/compliance/activations`: booking entity, licence type, capabilities, the hour the
+business day starts, a rationale). A draft and a suspended activation judge no event; shadow runs
+every rule in shadow. Going live needs a passing readiness check
+(`GET …/activations/{id}/readiness`): every rule that applies and is not off has its required
+settings entered (blocking for regulatory controls, which would otherwise not be evaluated), and
+a US dollar threshold has a rate for the local currency or the events send `txn.amount_usd`
+(blocking for controls); open questions nobody has verified are warnings. Going live, leaving
+live, changing a live activation's settings and changing the fallback are proposed and apply when
+another person with `rules:approve` approves them; nobody approves their own change, and going
+live is checked for readiness again on approval. Every change, applied or proposed, is kept with
+its rationale (`GET /api/v1/compliance/activation-changes`) and audited.
+
+**Rules off until confirmed.** A rule off by default because a setting is not confirmed (a
+travel-rule minimum, GH-TM-23's wrong-transfer floor) is switched on only with those settings
+entered, and every change carries its reason.
+
+**Verified open questions.** A person can record that they checked an open question against the
+original text (`POST /api/v1/compliance/gaps/{gap_id}/verify`: a note and an optional link), once.
+The question and every rule it names show who verified it and when; it changes no setting.
 
 ### Configuration
 

@@ -24,12 +24,13 @@ import {
   VERIFICATION,
   wordingHeadings,
 } from "@/lib/compliance";
-import { humanize } from "@/lib/format";
+import { formatTimestamp, humanize } from "@/lib/format";
 import {
   useActivations,
   useComplianceConfig,
   useCompliancePack,
   useComplianceRule,
+  useUserName,
 } from "@/lib/queries";
 import { useSession } from "@/lib/session";
 
@@ -108,18 +109,20 @@ function RuleView({
     pack.groups.find((g) => g.id === rule.group)?.label ?? rule.group;
   const verification = VERIFICATION[rule.verification];
   const { can, environment } = useSession();
-  const config = useComplianceConfig(rule.id);
+  const config = useComplianceConfig(rule.id, rule.jurisdiction);
   const [editing, setEditing] = useState(false);
   const [message, setMessage] = useState<string>();
   const pending = config.data?.pending ?? null;
   const acts = useActivations();
+  const userName = useUserName();
   const fallback = acts.data?.data.find((a) => a.fallback)?.jurisdiction;
-  // Settings are changed here for the default country's rules; another country's arrive with
-  // its activation.
+  // Settings are changed for the rules of every country the workspace has activated.
   const configurable =
     can("compliance:configure") &&
     rule.applicable !== null &&
-    rule.jurisdiction === fallback;
+    (acts.data?.data ?? []).some(
+      (a) => a.jurisdiction === (rule.jurisdiction ?? fallback),
+    );
   return (
     <>
       <PageHeader
@@ -149,6 +152,34 @@ function RuleView({
       {pending ? (
         <div className="mb-5">
           <PendingChange rule={rule} change={pending} />
+        </div>
+      ) : null}
+      {rule.verifications?.length ? (
+        <div className="mb-5">
+          <Notice tone="ok">
+            {rule.verifications.map((v) => (
+              <span key={v.gap} className="block">
+                <span className="font-medium">
+                  {v.gap} verified against the original text
+                </span>{" "}
+                by {userName(v.verified_by)} on {formatTimestamp(v.verified_at)}
+                : {v.note}
+                {v.link ? (
+                  <>
+                    {" "}
+                    <a
+                      href={v.link}
+                      className="underline"
+                      target="_blank"
+                      rel="noreferrer noopener"
+                    >
+                      Source
+                    </a>
+                  </>
+                ) : null}
+              </span>
+            ))}
+          </Notice>
         </div>
       ) : null}
       {rule.caveat ? (

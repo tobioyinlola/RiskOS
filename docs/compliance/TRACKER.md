@@ -8,10 +8,6 @@ leaves this list in the commit that resolves it.
 
 | Item | Phase |
 |---|---|
-| Activation wizard: readiness check, maker-checker for live, rationale, change history; the business day's start hour (`day_starts_at`, midnight today); a setting to drop or change the fallback; `jurisdiction` on the configuration endpoints (inherited IDs resolve to the fallback today), so another country's rules are configured on their own pages | 4 |
-| Marking an open question verified against the original text (who, when, a link or note), updating the badge on every rule it names | 4 |
-| Activated countries' rules listed under Your rules next to the institution's own | 4 |
-| Enabling a rule that is off until confirmed requires its placeholder settings and a rationale | 4 |
 | Working-day clocks (GH-REG-11 holds 11 calendar days by default) | 5 |
 | Data-subject clocks: RW-SEC-04 for a Rwandan data subject on a Ghana-booked event (`data_subject_country`) | 5 |
 | Live counts of items running against each clock in the deadlines matrix; the cross-border view (events that touched more than one jurisdiction and the clocks they started) | 5 |

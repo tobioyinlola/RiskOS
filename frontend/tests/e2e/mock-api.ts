@@ -1,6 +1,7 @@
 import type { Page, Route } from "@playwright/test";
 
 import {
+  ACTIVE_RULES,
   applies,
   CLOCKS,
   ENGINEERING,
@@ -131,6 +132,10 @@ export interface MockApi {
   /** Pack rule configuration by "<environment>/<rule>", and changes awaiting approval. */
   ruleConfigs: Record<string, MockRuleConfig>;
   ruleChanges: MockRuleChange[];
+  /** Country activations and their changes (phase 4 of ADR-0007). */
+  activations: Record<string, unknown>[];
+  activationChanges: Record<string, unknown>[];
+  gapVerifications: Record<string, Record<string, unknown>>;
   /** Compliance tasks (ReturnType<typeof task>). */
   tasks: ReturnType<typeof task>[];
   /** Alerts past a deadline of the pack, and confirmed fraud not yet reported. */
@@ -415,6 +420,9 @@ export async function mockApi(page: Page): Promise<MockApi> {
     rules: [],
     ruleConfigs: {},
     ruleChanges: [],
+    activations: ACTIVATIONS.map((a) => ({ ...a })),
+    activationChanges: [],
+    gapVerifications: {},
     fxRates: {},
     tasks: [],
     escalations: [],
@@ -764,6 +772,80 @@ export async function mockApi(page: Page): Promise<MockApi> {
       state.tasks.push(t);
       return json(route, t, 201);
     }
+    const activation = path.match(
+      /^\/compliance\/activations\/([^/]+)\/(status|fallback|readiness)$/,
+    );
+    if (activation) {
+      const a = state.activations.find((x) => x.id === activation[1]);
+      if (!a) return error(route, 404, "NOT_FOUND", "No such activation.");
+      if (activation[2] === "readiness") {
+        const ready = Boolean(state.fxRates.RWF);
+        return json(route, {
+          ready,
+          items: ready
+            ? []
+            : [
+                {
+                  blocking: true,
+                  kind: "fx_rate",
+                  rule: "RW-REG-01",
+                  message:
+                    "RW-REG-01: set a RWF to US dollar rate, or send txn.amount_usd, for its dollar threshold",
+                },
+              ],
+        });
+      }
+      const to = String(body?.status ?? "");
+      const change = {
+        id: `jch_${state.activationChanges.length + 1}`,
+        activation_id: a.id,
+        action: activation[2] === "fallback" ? "fallback" : "status",
+        status_from: activation[2] === "fallback" ? undefined : a.status,
+        status_to: activation[2] === "fallback" ? undefined : to,
+        details: {},
+        rationale: String(body?.rationale),
+        proposed_by: "usr_admin",
+        proposed_at: NOW,
+        state: "applied",
+      };
+      if (
+        activation[2] === "fallback" ||
+        to === "live" ||
+        a.status === "live"
+      ) {
+        change.state = "pending";
+        state.activationChanges.unshift(change);
+        return json(route, change, 202);
+      }
+      a.status = to;
+      state.activationChanges.unshift(change);
+      return json(route, a);
+    }
+    const activationDecision = path.match(
+      /^\/compliance\/activation-changes\/([^/]+)\/(approve|reject)$/,
+    );
+    if (activationDecision) {
+      const c = state.activationChanges.find(
+        (x) => x.id === activationDecision[1],
+      );
+      if (!c) return error(route, 404, "NOT_FOUND", "No such change.");
+      c.state = activationDecision[2] === "approve" ? "approved" : "rejected";
+      c.decided_by = "usr_officer";
+      c.decided_at = NOW;
+      return json(route, c);
+    }
+    const verify = path.match(/^\/compliance\/gaps\/([^/]+)\/verify$/);
+    if (verify) {
+      const v = {
+        gap: verify[1],
+        verified_by: "usr_admin",
+        verified_at: NOW,
+        note: String(body?.note),
+        ...(body?.link ? { link: String(body.link) } : {}),
+      };
+      state.gapVerifications[verify[1]!] = v;
+      return json(route, v, 201);
+    }
     const fx = path.match(/^\/compliance\/fx-rates\/([A-Z]{3})$/);
     if (fx) {
       const code = fx[1]!;
@@ -809,8 +891,47 @@ export async function mockApi(page: Page): Promise<MockApi> {
         });
       case "/compliance/jurisdictions":
         return json(route, { data: JURISDICTIONS });
-      case "/compliance/activations":
-        return json(route, { data: ACTIVATIONS });
+      case "/compliance/activations": {
+        if (method === "POST") {
+          if (
+            state.activations.some(
+              (a) => a.booking_entity === body?.booking_entity,
+            )
+          )
+            return error(route, 409, "CONFLICT", "Already activated.");
+          const a = {
+            id: `jac_${String(body?.booking_entity)}`,
+            jurisdiction: String(body?.jurisdiction),
+            booking_entity: String(body?.booking_entity),
+            status: "draft",
+            fallback: false,
+            pack: `${String(body?.jurisdiction).toLowerCase()}@2026.10.2`,
+            licence_type: String(body?.licence_type),
+            capabilities: (body?.capabilities as string[]) ?? [],
+            day_starts_at: Number(body?.day_starts_at ?? 0),
+            rationale: String(body?.rationale),
+            updated_at: NOW,
+          };
+          state.activations.push(a);
+          state.activationChanges.unshift({
+            id: `jch_${state.activationChanges.length + 1}`,
+            activation_id: a.id,
+            action: "create",
+            status_to: "draft",
+            details: {},
+            rationale: a.rationale,
+            proposed_by: "usr_admin",
+            proposed_at: NOW,
+            state: "applied",
+          });
+          return json(route, a, 201);
+        }
+        return json(route, { data: state.activations });
+      }
+      case "/compliance/activation-changes":
+        return json(route, { data: state.activationChanges });
+      case "/compliance/active-rules":
+        return json(route, { data: ACTIVE_RULES });
       case "/compliance/clock-matrix":
         return json(route, { data: CLOCK_MATRIX });
       case "/compliance/export":
@@ -871,7 +992,13 @@ export async function mockApi(page: Page): Promise<MockApi> {
       case "/compliance/clocks":
         return json(route, { data: rwanda ? RW_CLOCKS : CLOCKS });
       case "/compliance/gaps":
-        return json(route, { data: rwanda ? RW_GAPS : GAPS });
+        return json(route, {
+          data: (rwanda ? RW_GAPS : GAPS).map((g) =>
+            state.gapVerifications[g.id]
+              ? { ...g, verification: state.gapVerifications[g.id] }
+              : g,
+          ),
+        });
       case "/compliance/glossary":
         return json(route, { data: rwanda ? RW_GLOSSARY : GLOSSARY });
       case "/compliance/profile": {

@@ -38,12 +38,12 @@ func TestEveryTenantTableIsIsolated(t *testing.T) {
 		assert.True(t, rls && policies > 0, "%s holds tenant data without row-level security and a policy", name)
 	}
 	require.NoError(t, rows.Err())
-	for _, name := range []string{"compliance_tasks", "compliance_accounts", "pack_rule_versions", "pack_rule_changes", "compliance_fx_rates", "jurisdiction_activations"} {
+	for _, name := range []string{"compliance_tasks", "compliance_accounts", "pack_rule_versions", "pack_rule_changes", "compliance_fx_rates", "jurisdiction_activations", "activation_changes", "gap_verifications"} {
 		assert.True(t, seen[name], "%s is checked", name)
 	}
 
 	// Compliance work and the audit trail are never deleted by the application.
-	for _, table := range []string{"compliance_tasks", "audit_log", "pack_rule_changes", "pack_rule_versions"} {
+	for _, table := range []string{"compliance_tasks", "audit_log", "pack_rule_changes", "pack_rule_versions", "activation_changes", "gap_verifications"} {
 		var canDelete bool
 		require.NoError(t, shared.owner.QueryRow(t.Context(),
 			"SELECT has_table_privilege('riskos_app', $1, 'DELETE')", table).Scan(&canDelete))

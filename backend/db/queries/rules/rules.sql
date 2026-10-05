@@ -66,6 +66,84 @@ RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id
           capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
           updated_at, updated_by, day_starts_at;
 
+-- name: InsertActivation :one
+-- A new country activation starts as a draft (Phase 4, ADR-0007).
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
+  licence_type, capabilities, signal_default, day_starts_at, rationale, updated_at, updated_by)
+VALUES (@id, @tenant_id, @jurisdiction, @booking_entity, 'draft', false, @pack_id, @pack_version,
+  @licence_type, @capabilities, 'pack', @day_starts_at, @rationale, @updated_at, @updated_by)
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: UpdateActivation :one
+UPDATE jurisdiction_activations
+SET licence_type = @licence_type, capabilities = @capabilities, day_starts_at = @day_starts_at,
+    updated_at = @updated_at, updated_by = @updated_by
+WHERE tenant_id = @tenant_id AND id = @id
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: SetActivationStatus :one
+-- Going live records who activated it, who approved it and why.
+UPDATE jurisdiction_activations
+SET status = @status, rationale = @rationale, updated_at = @updated_at, updated_by = @updated_by,
+    activated_at = CASE WHEN @status = 'live' THEN @updated_at ELSE activated_at END,
+    activated_by = CASE WHEN @status = 'live' THEN sqlc.narg(activated_by)::text ELSE activated_by END,
+    approved_by = CASE WHEN @status = 'live' THEN sqlc.narg(approved_by)::text ELSE approved_by END,
+    effective_from = CASE WHEN @status = 'live' AND effective_from IS NULL THEN @updated_at ELSE effective_from END
+WHERE tenant_id = @tenant_id AND id = @id
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: ClearFallback :exec
+UPDATE jurisdiction_activations SET fallback = false WHERE tenant_id = @tenant_id AND fallback;
+
+-- name: SetFallback :one
+UPDATE jurisdiction_activations SET fallback = true, updated_at = @updated_at, updated_by = @updated_by
+WHERE tenant_id = @tenant_id AND id = @id
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at;
+
+-- name: InsertActivationChange :exec
+INSERT INTO activation_changes (tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state,
+  proposed_by, proposed_at)
+VALUES (@tenant_id, @id, @activation_id, @action, sqlc.narg(status_from), sqlc.narg(status_to), @details, @rationale, @state,
+  @proposed_by, @proposed_at);
+
+-- name: ListActivationChanges :many
+SELECT tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note
+FROM activation_changes
+WHERE tenant_id = @tenant_id
+  AND (sqlc.narg(activation_id)::uuid IS NULL OR activation_id = sqlc.narg(activation_id)::uuid)
+  AND (sqlc.narg(state)::text IS NULL OR state = sqlc.narg(state)::text)
+ORDER BY proposed_at DESC, id DESC
+LIMIT 200;
+
+-- name: GetActivationChange :one
+SELECT tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note
+FROM activation_changes WHERE tenant_id = @tenant_id AND id = @id FOR UPDATE;
+
+-- name: DecideActivationChange :exec
+UPDATE activation_changes SET state = @state, decided_by = @decided_by, decided_at = @decided_at,
+  decision_note = sqlc.narg(decision_note)
+WHERE tenant_id = @tenant_id AND id = @id AND state = 'pending';
+
+-- Gap verifications: an institution's check of an open question against the original text.
+
+-- name: InsertGapVerification :exec
+INSERT INTO gap_verifications (tenant_id, pack_id, gap_id, verified_by, verified_at, note, link)
+VALUES (@tenant_id, @pack_id, @gap_id, @verified_by, @verified_at, @note, sqlc.narg(link));
+
+-- name: ListGapVerifications :many
+SELECT tenant_id, pack_id, gap_id, verified_by, verified_at, note, link
+FROM gap_verifications WHERE tenant_id = @tenant_id AND pack_id = @pack_id ORDER BY gap_id;
+
 -- Rule configuration (per environment). Every query names the tenant and environment; row-level
 -- security limits them to the scope's.
 

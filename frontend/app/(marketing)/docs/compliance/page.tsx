@@ -117,6 +117,10 @@ export default function Page() {
         in is an <em>activation</em>: a jurisdiction, a booking entity (the
         licensed entity that holds the customer relationship), its licence type
         and a status. <C>GET /api/v1/compliance/activations</C> lists them.
+        Activations are created in the console (Rules, Preset rules, pick a
+        country) or with <C>POST /api/v1/compliance/activations</C>: a draft
+        first, then monitoring (every rule in shadow), then live once the
+        readiness check passes and a second person approves it.
       </P>
       <UL>
         <li>

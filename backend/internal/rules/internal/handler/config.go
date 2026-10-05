@@ -61,7 +61,7 @@ func configToAPI(c service.RuleConfig) apigen.PackRuleConfig {
 
 // GetPackRuleConfig implements GET /api/v1/compliance/rules/{rule_id}/config.
 func (h *Handlers) GetPackRuleConfig(ctx context.Context, req apigen.GetPackRuleConfigRequestObject) (apigen.GetPackRuleConfigResponseObject, error) {
-	c, err := h.svc.Config(ctx, req.RuleId)
+	c, err := h.svc.Config(ctx, jurisdictionOf(req.Params.Jurisdiction), req.RuleId)
 	if err != nil {
 		return nil, configError(err)
 	}
@@ -73,7 +73,7 @@ func (h *Handlers) PutPackRuleConfig(ctx context.Context, req apigen.PutPackRule
 	if req.Body == nil {
 		return nil, httpx.InvalidRequest("A request body is required.", nil)
 	}
-	res, err := h.svc.Configure(ctx, req.RuleId, service.ConfigInput{
+	res, err := h.svc.Configure(ctx, jurisdictionOf(req.Params.Jurisdiction), req.RuleId, service.ConfigInput{
 		Mode: string(req.Body.Mode), Settings: req.Body.Settings, Reason: req.Body.Reason,
 	}, h.clock.Now())
 	if err != nil {
@@ -87,7 +87,7 @@ func (h *Handlers) PutPackRuleConfig(ctx context.Context, req apigen.PutPackRule
 
 // ListPackRuleVersions implements GET /api/v1/compliance/rules/{rule_id}/history.
 func (h *Handlers) ListPackRuleVersions(ctx context.Context, req apigen.ListPackRuleVersionsRequestObject) (apigen.ListPackRuleVersionsResponseObject, error) {
-	vs, err := h.svc.History(ctx, req.RuleId)
+	vs, err := h.svc.History(ctx, jurisdictionOf(req.Params.Jurisdiction), req.RuleId)
 	if err != nil {
 		return nil, configError(err)
 	}
@@ -109,7 +109,7 @@ func (h *Handlers) RollbackPackRule(ctx context.Context, req apigen.RollbackPack
 	if req.Body == nil {
 		return nil, httpx.InvalidRequest("A request body is required.", nil)
 	}
-	res, err := h.svc.Rollback(ctx, req.RuleId, req.Body.Version, req.Body.Reason, h.clock.Now())
+	res, err := h.svc.Rollback(ctx, jurisdictionOf(req.Params.Jurisdiction), req.RuleId, req.Body.Version, req.Body.Reason, h.clock.Now())
 	if err != nil {
 		return nil, configError(err)
 	}

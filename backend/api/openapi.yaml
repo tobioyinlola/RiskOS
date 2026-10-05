@@ -2879,6 +2879,399 @@ paths:
           $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: createComplianceActivation
+      tags: [compliance]
+      summary: Activate a country for a booking entity (as a draft)
+      description: |
+        Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+        Creates a draft activation on the country's latest pack: a draft judges no event. Move it
+        to shadow, then live, with `POST /compliance/activations/{activation_id}/status`. Audited.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivationRequest"
+      responses:
+        "201":
+          description: The draft activation.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JurisdictionActivation"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activations/{activation_id}:
+    patch:
+      operationId: updateComplianceActivation
+      tags: [compliance]
+      summary: Change an activation's licence type, capabilities or business day start
+      description: |
+        Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+        Applied at once, except on a live activation, where another person approves it. Audited.
+      parameters:
+        - name: activation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ActivationUpdate"
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JurisdictionActivation"
+        "202":
+          description: Proposed; applies when another person with `rules:approve` approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activations/{activation_id}/status:
+    post:
+      operationId: setComplianceActivationStatus
+      tags: [compliance]
+      summary: Move an activation to draft, shadow, live or suspended
+      description: |
+        Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+        Going live needs a passing readiness check (409 lists what blocks it). Going live and
+        leaving live are proposed (202) and apply when another person with `rules:approve`
+        approves them; draft, shadow and suspended move at once otherwise. Audited.
+      parameters:
+        - name: activation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [status, rationale]
+              properties:
+                status:
+                  type: string
+                  enum: [draft, shadow, live, suspended]
+                rationale:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JurisdictionActivation"
+        "202":
+          description: Proposed; applies when another person with `rules:approve` approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activations/{activation_id}/fallback:
+    post:
+      operationId: makeComplianceActivationFallback
+      tags: [compliance]
+      summary: Make an activation the fallback
+      description: |
+        Requires `compliance:configure` (people only) and, in the console, a recent second factor.
+        The fallback judges events that name no booking entity. Changing it is proposed (202) and
+        applies when another person with `rules:approve` approves it. Audited.
+      parameters:
+        - name: activation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/Rationale"
+      responses:
+        "200":
+          description: Applied at once.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/JurisdictionActivation"
+        "202":
+          description: Proposed; applies when another person with `rules:approve` approves it.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activations/{activation_id}/readiness:
+    get:
+      operationId: getComplianceActivationReadiness
+      tags: [compliance]
+      summary: What must be settled before an activation goes live
+      description: |
+        Requires `compliance:read`. For the rules that apply to the activation and are not off in
+        this environment: settings the institution must enter, a missing exchange rate for a US
+        dollar threshold (blocking for controls) and open questions nobody has verified (warnings).
+      parameters:
+        - name: activation_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      responses:
+        "200":
+          description: The readiness check.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationReadiness"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activation-changes:
+    get:
+      operationId: listComplianceActivationChanges
+      tags: [compliance]
+      summary: Activation changes (history and pending approvals)
+      description: Requires `compliance:read`. Newest first; at most 200.
+      parameters:
+        - name: activation_id
+          in: query
+          required: false
+          schema:
+            type: string
+            maxLength: 64
+        - name: state
+          in: query
+          required: false
+          schema:
+            type: string
+            enum: [applied, pending, approved, rejected]
+      responses:
+        "200":
+          description: The changes.
+          content:
+            application/json:
+              schema:
+                type: object
+                additionalProperties: false
+                required: [data]
+                properties:
+                  data:
+                    type: array
+                    items:
+                      $ref: "#/components/schemas/ActivationChange"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activation-changes/{change_id}/approve:
+    post:
+      operationId: approveComplianceActivationChange
+      tags: [compliance]
+      summary: Approve a pending activation change
+      description: |
+        Requires `rules:approve` (people only) and, in the console, a recent second factor. Nobody
+        approves their own change; going live is checked for readiness again. Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionNote"
+      responses:
+        "200":
+          description: The approved change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/activation-changes/{change_id}/reject:
+    post:
+      operationId: rejectComplianceActivationChange
+      tags: [compliance]
+      summary: Reject a pending activation change
+      description: Requires `rules:approve` (people only). Nobody rejects their own change. Audited.
+      parameters:
+        - name: change_id
+          in: path
+          required: true
+          schema:
+            type: string
+            maxLength: 64
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DecisionNote"
+      responses:
+        "200":
+          description: The rejected change.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ActivationChange"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/v1/compliance/gaps/{gap_id}/verify:
+    post:
+      operationId: verifyComplianceGap
+      tags: [compliance]
+      summary: Record that an open question was checked against the original text
+      description: |
+        Requires `compliance:configure` (people only). Records who checked it, when, a note and an
+        optional link; the rules it names show the verification. It does not change any rule:
+        settings stay as configured. Once only. Audited.
+      parameters:
+        - name: gap_id
+          in: path
+          required: true
+          schema:
+            type: string
+            pattern: "^[A-Za-z0-9._-]{1,32}$"
+        - name: jurisdiction
+          in: query
+          required: false
+          description: The country whose pack the question is in; without it, the fallback's.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              additionalProperties: false
+              required: [note]
+              properties:
+                note:
+                  type: string
+                  minLength: 1
+                  maxLength: 1000
+                link:
+                  type: string
+                  maxLength: 500
+                  description: Where the original text is (http or https).
+      responses:
+        "201":
+          description: The verification.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/GapVerification"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/v1/compliance/active-rules:
     get:
       operationId: listActiveComplianceRules
@@ -3079,6 +3472,13 @@ paths:
           schema:
             type: string
             pattern: "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
+        - name: jurisdiction
+          in: query
+          required: false
+          description: The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       responses:
         "200":
           description: The configuration.
@@ -3112,6 +3512,13 @@ paths:
           schema:
             type: string
             pattern: "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
+        - name: jurisdiction
+          in: query
+          required: false
+          description: The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       requestBody:
         required: true
         content:
@@ -3156,6 +3563,13 @@ paths:
           schema:
             type: string
             pattern: "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
+        - name: jurisdiction
+          in: query
+          required: false
+          description: The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       responses:
         "200":
           description: The versions.
@@ -3186,6 +3600,13 @@ paths:
           schema:
             type: string
             pattern: "^([A-Z]{3}|[A-Z]{2}-(REG|TM|SEC|GOV))-[0-9]{2}$"
+        - name: jurisdiction
+          in: query
+          required: false
+          description: The country whose pack the rule is in (an inherited rule such as ATO-04 is in several); without it, the country its ID names, else the fallback's.
+          schema:
+            type: string
+            pattern: "^[A-Z]{2}$"
       requestBody:
         required: true
         content:
@@ -5112,6 +5533,11 @@ components:
         config_version:
           type: integer
           description: The rule's configuration version in this environment; 0 means the library's defaults.
+        verifications:
+          type: array
+          description: The workspace's checks, against the original text, of the open questions that name this rule.
+          items:
+            $ref: "#/components/schemas/GapVerification"
         jurisdiction:
           type: string
           description: The country of the pack the rule is in.
@@ -5211,9 +5637,159 @@ components:
         activated_at:
           type: string
           format: date-time
+        activated_by:
+          type: string
+          description: Who proposed going live.
+        approved_by:
+          type: string
+          description: Who approved going live.
+        rationale:
+          type: string
+        day_starts_at:
+          type: integer
+          description: The hour (local time) the business day starts, for daily and monthly limits.
         updated_at:
           type: string
           format: date-time
+    ActivationRequest:
+      type: object
+      additionalProperties: false
+      required: [jurisdiction, booking_entity, licence_type, rationale]
+      properties:
+        jurisdiction:
+          type: string
+          pattern: "^[A-Z]{2}$"
+        booking_entity:
+          type: string
+          pattern: "^[A-Za-z0-9._:-]{1,64}$"
+          description: The licensed entity events will name in `compliance.booking_entity`.
+        licence_type:
+          type: string
+        capabilities:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 64
+        day_starts_at:
+          type: integer
+          minimum: 0
+          maximum: 23
+          description: The hour (local time) the business day starts, for daily and monthly limits. Midnight by default.
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    ActivationUpdate:
+      type: object
+      additionalProperties: false
+      required: [licence_type, capabilities, day_starts_at, rationale]
+      properties:
+        licence_type:
+          type: string
+        capabilities:
+          type: array
+          maxItems: 50
+          items:
+            type: string
+            maxLength: 64
+        day_starts_at:
+          type: integer
+          minimum: 0
+          maximum: 23
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    Rationale:
+      type: object
+      additionalProperties: false
+      required: [rationale]
+      properties:
+        rationale:
+          type: string
+          minLength: 1
+          maxLength: 1000
+    ActivationChange:
+      type: object
+      additionalProperties: false
+      required: [id, activation_id, action, rationale, state, proposed_by, proposed_at, details]
+      properties:
+        id:
+          type: string
+          example: jch_01j9x2k7m3q4r5s6t7v8w9x0yz
+        activation_id:
+          type: string
+        action:
+          type: string
+          enum: [create, update, status, fallback]
+        status_from:
+          type: string
+          enum: [draft, shadow, live, suspended]
+        status_to:
+          type: string
+          enum: [draft, shadow, live, suspended]
+        details:
+          type: object
+          additionalProperties: true
+          description: An update's new values (licence_type, capabilities, day_starts_at).
+        rationale:
+          type: string
+        state:
+          type: string
+          enum: [applied, pending, approved, rejected]
+        proposed_by:
+          type: string
+        proposed_at:
+          type: string
+          format: date-time
+        decided_by:
+          type: string
+        decided_at:
+          type: string
+          format: date-time
+        decision_note:
+          type: string
+    ActivationReadiness:
+      type: object
+      additionalProperties: false
+      required: [ready, items]
+      properties:
+        ready:
+          type: boolean
+          description: True when nothing blocks going live.
+        items:
+          type: array
+          items:
+            type: object
+            additionalProperties: false
+            required: [blocking, kind, message]
+            properties:
+              blocking:
+                type: boolean
+              kind:
+                type: string
+                enum: [licence, setting, fx_rate, open_question]
+              rule:
+                type: string
+              message:
+                type: string
+    GapVerification:
+      type: object
+      additionalProperties: false
+      required: [gap, verified_by, verified_at, note]
+      properties:
+        gap:
+          type: string
+        verified_by:
+          type: string
+        verified_at:
+          type: string
+          format: date-time
+        note:
+          type: string
+        link:
+          type: string
     ActiveComplianceRule:
       type: object
       additionalProperties: false
@@ -5462,6 +6038,8 @@ components:
         treatment:
           type: string
           description: How the library handles it until a person settles it.
+        verification:
+          $ref: "#/components/schemas/GapVerification"
         rules:
           type: array
           items:

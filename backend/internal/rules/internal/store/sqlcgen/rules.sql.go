@@ -96,6 +96,15 @@ func (q *Queries) AccountsWithoutTask(ctx context.Context, arg AccountsWithoutTa
 	return items, nil
 }
 
+const clearFallback = `-- name: ClearFallback :exec
+UPDATE jurisdiction_activations SET fallback = false WHERE tenant_id = $1 AND fallback
+`
+
+func (q *Queries) ClearFallback(ctx context.Context, tenantID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, clearFallback, tenantID)
+	return err
+}
+
 const currentRuleVersions = `-- name: CurrentRuleVersions :many
 
 SELECT DISTINCT ON (rule_id) rule_id, version, mode, settings, reason, created_at, created_by, change_id, restored_from
@@ -152,6 +161,33 @@ func (q *Queries) CurrentRuleVersions(ctx context.Context, arg CurrentRuleVersio
 		return nil, err
 	}
 	return items, nil
+}
+
+const decideActivationChange = `-- name: DecideActivationChange :exec
+UPDATE activation_changes SET state = $1, decided_by = $2, decided_at = $3,
+  decision_note = $4
+WHERE tenant_id = $5 AND id = $6 AND state = 'pending'
+`
+
+type DecideActivationChangeParams struct {
+	State        string
+	DecidedBy    *string
+	DecidedAt    *time.Time
+	DecisionNote *string
+	TenantID     uuid.UUID
+	ID           uuid.UUID
+}
+
+func (q *Queries) DecideActivationChange(ctx context.Context, arg DecideActivationChangeParams) error {
+	_, err := q.db.Exec(ctx, decideActivationChange,
+		arg.State,
+		arg.DecidedBy,
+		arg.DecidedAt,
+		arg.DecisionNote,
+		arg.TenantID,
+		arg.ID,
+	)
+	return err
 }
 
 const decideRuleChange = `-- name: DecideRuleChange :exec
@@ -265,6 +301,39 @@ func (q *Queries) FXRates(ctx context.Context, tenantID uuid.UUID) ([]FXRatesRow
 		return nil, err
 	}
 	return items, nil
+}
+
+const getActivationChange = `-- name: GetActivationChange :one
+SELECT tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note
+FROM activation_changes WHERE tenant_id = $1 AND id = $2 FOR UPDATE
+`
+
+type GetActivationChangeParams struct {
+	TenantID uuid.UUID
+	ID       uuid.UUID
+}
+
+func (q *Queries) GetActivationChange(ctx context.Context, arg GetActivationChangeParams) (ActivationChange, error) {
+	row := q.db.QueryRow(ctx, getActivationChange, arg.TenantID, arg.ID)
+	var i ActivationChange
+	err := row.Scan(
+		&i.TenantID,
+		&i.ID,
+		&i.ActivationID,
+		&i.Action,
+		&i.StatusFrom,
+		&i.StatusTo,
+		&i.Details,
+		&i.Rationale,
+		&i.State,
+		&i.ProposedBy,
+		&i.ProposedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+	)
+	return i, err
 }
 
 const getJurisdiction = `-- name: GetJurisdiction :one
@@ -409,6 +478,132 @@ func (q *Queries) GetTask(ctx context.Context, arg GetTaskParams) (ComplianceTas
 	return i, err
 }
 
+const insertActivation = `-- name: InsertActivation :one
+INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
+  licence_type, capabilities, signal_default, day_starts_at, rationale, updated_at, updated_by)
+VALUES ($1, $2, $3, $4, 'draft', false, $5, $6,
+  $7, $8, 'pack', $9, $10, $11, $12)
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at
+`
+
+type InsertActivationParams struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	DayStartsAt   int16
+	Rationale     *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+}
+
+type InsertActivationRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	DayStartsAt   int16
+}
+
+// A new country activation starts as a draft (Phase 4, ADR-0007).
+func (q *Queries) InsertActivation(ctx context.Context, arg InsertActivationParams) (InsertActivationRow, error) {
+	row := q.db.QueryRow(ctx, insertActivation,
+		arg.ID,
+		arg.TenantID,
+		arg.Jurisdiction,
+		arg.BookingEntity,
+		arg.PackID,
+		arg.PackVersion,
+		arg.LicenceType,
+		arg.Capabilities,
+		arg.DayStartsAt,
+		arg.Rationale,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+	)
+	var i InsertActivationRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Jurisdiction,
+		&i.BookingEntity,
+		&i.Status,
+		&i.Fallback,
+		&i.PackID,
+		&i.PackVersion,
+		&i.LicenceType,
+		&i.Capabilities,
+		&i.SignalDefault,
+		&i.EffectiveFrom,
+		&i.ActivatedAt,
+		&i.ActivatedBy,
+		&i.Rationale,
+		&i.ApprovedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.DayStartsAt,
+	)
+	return i, err
+}
+
+const insertActivationChange = `-- name: InsertActivationChange :exec
+INSERT INTO activation_changes (tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state,
+  proposed_by, proposed_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9,
+  $10, $11)
+`
+
+type InsertActivationChangeParams struct {
+	TenantID     uuid.UUID
+	ID           uuid.UUID
+	ActivationID uuid.UUID
+	Action       string
+	StatusFrom   *string
+	StatusTo     *string
+	Details      []byte
+	Rationale    string
+	State        string
+	ProposedBy   string
+	ProposedAt   time.Time
+}
+
+func (q *Queries) InsertActivationChange(ctx context.Context, arg InsertActivationChangeParams) error {
+	_, err := q.db.Exec(ctx, insertActivationChange,
+		arg.TenantID,
+		arg.ID,
+		arg.ActivationID,
+		arg.Action,
+		arg.StatusFrom,
+		arg.StatusTo,
+		arg.Details,
+		arg.Rationale,
+		arg.State,
+		arg.ProposedBy,
+		arg.ProposedAt,
+	)
+	return err
+}
+
 const insertFallbackActivation = `-- name: InsertFallbackActivation :one
 INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
   licence_type, capabilities, signal_default, activated_at, activated_by, updated_at, updated_by)
@@ -488,6 +683,36 @@ func (q *Queries) InsertFallbackActivation(ctx context.Context, arg InsertFallba
 		&i.DayStartsAt,
 	)
 	return i, err
+}
+
+const insertGapVerification = `-- name: InsertGapVerification :exec
+
+INSERT INTO gap_verifications (tenant_id, pack_id, gap_id, verified_by, verified_at, note, link)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type InsertGapVerificationParams struct {
+	TenantID   uuid.UUID
+	PackID     string
+	GapID      string
+	VerifiedBy string
+	VerifiedAt time.Time
+	Note       string
+	Link       *string
+}
+
+// Gap verifications: an institution's check of an open question against the original text.
+func (q *Queries) InsertGapVerification(ctx context.Context, arg InsertGapVerificationParams) error {
+	_, err := q.db.Exec(ctx, insertGapVerification,
+		arg.TenantID,
+		arg.PackID,
+		arg.GapID,
+		arg.VerifiedBy,
+		arg.VerifiedAt,
+		arg.Note,
+		arg.Link,
+	)
+	return err
 }
 
 const insertPack = `-- name: InsertPack :exec
@@ -729,6 +954,58 @@ func (q *Queries) LatestPacks(ctx context.Context) ([]RulePack, error) {
 	return items, nil
 }
 
+const listActivationChanges = `-- name: ListActivationChanges :many
+SELECT tenant_id, id, activation_id, action, status_from, status_to, details, rationale, state, proposed_by, proposed_at,
+       decided_by, decided_at, decision_note
+FROM activation_changes
+WHERE tenant_id = $1
+  AND ($2::uuid IS NULL OR activation_id = $2::uuid)
+  AND ($3::text IS NULL OR state = $3::text)
+ORDER BY proposed_at DESC, id DESC
+LIMIT 200
+`
+
+type ListActivationChangesParams struct {
+	TenantID     uuid.UUID
+	ActivationID *uuid.UUID
+	State        *string
+}
+
+func (q *Queries) ListActivationChanges(ctx context.Context, arg ListActivationChangesParams) ([]ActivationChange, error) {
+	rows, err := q.db.Query(ctx, listActivationChanges, arg.TenantID, arg.ActivationID, arg.State)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ActivationChange
+	for rows.Next() {
+		var i ActivationChange
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.ID,
+			&i.ActivationID,
+			&i.Action,
+			&i.StatusFrom,
+			&i.StatusTo,
+			&i.Details,
+			&i.Rationale,
+			&i.State,
+			&i.ProposedBy,
+			&i.ProposedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.DecisionNote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listActivations = `-- name: ListActivations :many
 
 SELECT id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
@@ -791,6 +1068,44 @@ func (q *Queries) ListActivations(ctx context.Context, tenantID uuid.UUID) ([]Li
 			&i.UpdatedAt,
 			&i.UpdatedBy,
 			&i.DayStartsAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listGapVerifications = `-- name: ListGapVerifications :many
+SELECT tenant_id, pack_id, gap_id, verified_by, verified_at, note, link
+FROM gap_verifications WHERE tenant_id = $1 AND pack_id = $2 ORDER BY gap_id
+`
+
+type ListGapVerificationsParams struct {
+	TenantID uuid.UUID
+	PackID   string
+}
+
+func (q *Queries) ListGapVerifications(ctx context.Context, arg ListGapVerificationsParams) ([]GapVerification, error) {
+	rows, err := q.db.Query(ctx, listGapVerifications, arg.TenantID, arg.PackID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GapVerification
+	for rows.Next() {
+		var i GapVerification
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.PackID,
+			&i.GapID,
+			&i.VerifiedBy,
+			&i.VerifiedAt,
+			&i.Note,
+			&i.Link,
 		); err != nil {
 			return nil, err
 		}
@@ -1166,6 +1481,158 @@ func (q *Queries) RuleVersions(ctx context.Context, arg RuleVersionsParams) ([]R
 	return items, nil
 }
 
+const setActivationStatus = `-- name: SetActivationStatus :one
+UPDATE jurisdiction_activations
+SET status = $1, rationale = $2, updated_at = $3, updated_by = $4,
+    activated_at = CASE WHEN $1 = 'live' THEN $3 ELSE activated_at END,
+    activated_by = CASE WHEN $1 = 'live' THEN $5::text ELSE activated_by END,
+    approved_by = CASE WHEN $1 = 'live' THEN $6::text ELSE approved_by END,
+    effective_from = CASE WHEN $1 = 'live' AND effective_from IS NULL THEN $3 ELSE effective_from END
+WHERE tenant_id = $7 AND id = $8
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at
+`
+
+type SetActivationStatusParams struct {
+	Status      string
+	Rationale   *string
+	UpdatedAt   time.Time
+	UpdatedBy   string
+	ActivatedBy *string
+	ApprovedBy  *string
+	TenantID    uuid.UUID
+	ID          uuid.UUID
+}
+
+type SetActivationStatusRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	DayStartsAt   int16
+}
+
+// Going live records who activated it, who approved it and why.
+func (q *Queries) SetActivationStatus(ctx context.Context, arg SetActivationStatusParams) (SetActivationStatusRow, error) {
+	row := q.db.QueryRow(ctx, setActivationStatus,
+		arg.Status,
+		arg.Rationale,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+		arg.ActivatedBy,
+		arg.ApprovedBy,
+		arg.TenantID,
+		arg.ID,
+	)
+	var i SetActivationStatusRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Jurisdiction,
+		&i.BookingEntity,
+		&i.Status,
+		&i.Fallback,
+		&i.PackID,
+		&i.PackVersion,
+		&i.LicenceType,
+		&i.Capabilities,
+		&i.SignalDefault,
+		&i.EffectiveFrom,
+		&i.ActivatedAt,
+		&i.ActivatedBy,
+		&i.Rationale,
+		&i.ApprovedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.DayStartsAt,
+	)
+	return i, err
+}
+
+const setFallback = `-- name: SetFallback :one
+UPDATE jurisdiction_activations SET fallback = true, updated_at = $1, updated_by = $2
+WHERE tenant_id = $3 AND id = $4
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at
+`
+
+type SetFallbackParams struct {
+	UpdatedAt time.Time
+	UpdatedBy string
+	TenantID  uuid.UUID
+	ID        uuid.UUID
+}
+
+type SetFallbackRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	DayStartsAt   int16
+}
+
+func (q *Queries) SetFallback(ctx context.Context, arg SetFallbackParams) (SetFallbackRow, error) {
+	row := q.db.QueryRow(ctx, setFallback,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+		arg.TenantID,
+		arg.ID,
+	)
+	var i SetFallbackRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Jurisdiction,
+		&i.BookingEntity,
+		&i.Status,
+		&i.Fallback,
+		&i.PackID,
+		&i.PackVersion,
+		&i.LicenceType,
+		&i.Capabilities,
+		&i.SignalDefault,
+		&i.EffectiveFrom,
+		&i.ActivatedAt,
+		&i.ActivatedBy,
+		&i.Rationale,
+		&i.ApprovedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.DayStartsAt,
+	)
+	return i, err
+}
+
 const taskCaseIDs = `-- name: TaskCaseIDs :many
 SELECT DISTINCT case_id::uuid FROM compliance_tasks
 WHERE tenant_id = $1 AND environment_id = $2 AND rule_id = $3 AND kind = $4
@@ -1203,6 +1670,83 @@ func (q *Queries) TaskCaseIDs(ctx context.Context, arg TaskCaseIDsParams) ([]uui
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateActivation = `-- name: UpdateActivation :one
+UPDATE jurisdiction_activations
+SET licence_type = $1, capabilities = $2, day_starts_at = $3,
+    updated_at = $4, updated_by = $5
+WHERE tenant_id = $6 AND id = $7
+RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
+          capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
+          updated_at, updated_by, day_starts_at
+`
+
+type UpdateActivationParams struct {
+	LicenceType  string
+	Capabilities []string
+	DayStartsAt  int16
+	UpdatedAt    time.Time
+	UpdatedBy    string
+	TenantID     uuid.UUID
+	ID           uuid.UUID
+}
+
+type UpdateActivationRow struct {
+	ID            uuid.UUID
+	TenantID      uuid.UUID
+	Jurisdiction  string
+	BookingEntity string
+	Status        string
+	Fallback      bool
+	PackID        string
+	PackVersion   string
+	LicenceType   string
+	Capabilities  []string
+	SignalDefault string
+	EffectiveFrom *time.Time
+	ActivatedAt   *time.Time
+	ActivatedBy   *string
+	Rationale     *string
+	ApprovedBy    *string
+	UpdatedAt     time.Time
+	UpdatedBy     string
+	DayStartsAt   int16
+}
+
+func (q *Queries) UpdateActivation(ctx context.Context, arg UpdateActivationParams) (UpdateActivationRow, error) {
+	row := q.db.QueryRow(ctx, updateActivation,
+		arg.LicenceType,
+		arg.Capabilities,
+		arg.DayStartsAt,
+		arg.UpdatedAt,
+		arg.UpdatedBy,
+		arg.TenantID,
+		arg.ID,
+	)
+	var i UpdateActivationRow
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Jurisdiction,
+		&i.BookingEntity,
+		&i.Status,
+		&i.Fallback,
+		&i.PackID,
+		&i.PackVersion,
+		&i.LicenceType,
+		&i.Capabilities,
+		&i.SignalDefault,
+		&i.EffectiveFrom,
+		&i.ActivatedAt,
+		&i.ActivatedBy,
+		&i.Rationale,
+		&i.ApprovedBy,
+		&i.UpdatedAt,
+		&i.UpdatedBy,
+		&i.DayStartsAt,
+	)
+	return i, err
 }
 
 const updateFallbackActivation = `-- name: UpdateFallbackActivation :one

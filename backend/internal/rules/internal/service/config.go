@@ -171,6 +171,33 @@ func (s *Service) rule(ctx context.Context, scope tenancy.Scope, ruleID string) 
 	return s.ruleIn(ctx, scope, JurisdictionOf(ruleID), ruleID)
 }
 
+// ruleFor is rule in a named jurisdiction, when one is given: an inherited rule (ATO-04) is in
+// Nigeria's pack and in every pack that inherits it, each configured on its own.
+func (s *Service) ruleFor(ctx context.Context, scope tenancy.Scope, jurisdiction, ruleID string) (library, *pack.Rule, RuleConfig, error) {
+	if jurisdiction == "" {
+		return s.rule(ctx, scope, ruleID)
+	}
+	return s.ruleIn(ctx, scope, jurisdiction, ruleID)
+}
+
+// placeholdersSet checks that a rule off until confirmed (off_reason, or settings the
+// institution must enter) is switched on only with every such setting entered.
+func placeholdersSet(def *pack.Rule, cur RuleConfig, in ConfigInput) error {
+	if in.Mode == ModeOff || cur.Mode != ModeOff {
+		return nil
+	}
+	var missing []string
+	for _, p := range def.Parameters {
+		if _, set := in.Settings[p.Name]; !set && p.Default == nil {
+			missing = append(missing, p.Name)
+		}
+	}
+	if len(missing) > 0 {
+		return fmt.Errorf("%w: %s is off until its settings are entered: set %s first", ErrInvalidInput, def.ID, strings.Join(missing, ", "))
+	}
+	return nil
+}
+
 // ruleIn loads one of the tenant's rules in a jurisdiction ("" is the fallback activation's),
 // with its pack and configuration.
 func (s *Service) ruleIn(ctx context.Context, scope tenancy.Scope, jurisdiction, ruleID string) (library, *pack.Rule, RuleConfig, error) {
@@ -209,7 +236,7 @@ func (s *Service) recordRule(ctx context.Context, action, ruleID string, meta ma
 }
 
 // Config returns a rule's configuration in the caller's environment. Requires compliance:read.
-func (s *Service) Config(ctx context.Context, ruleID string) (RuleConfig, error) {
+func (s *Service) Config(ctx context.Context, jurisdiction, ruleID string) (RuleConfig, error) {
 	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
 		return RuleConfig{}, err
 	}
@@ -219,7 +246,7 @@ func (s *Service) Config(ctx context.Context, ruleID string) (RuleConfig, error)
 	}
 	var out RuleConfig
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		_, _, out, err = s.rule(ctx, scope, ruleID)
+		_, _, out, err = s.ruleFor(ctx, scope, jurisdiction, ruleID)
 		return err
 	})
 	return out, err
@@ -228,18 +255,21 @@ func (s *Service) Config(ctx context.Context, ruleID string) (RuleConfig, error)
 // Configure sets a rule's mode and settings in the caller's environment: as a new version at
 // once, or, when a second person must agree (needsApproval), as a pending change. Audited.
 // Requires compliance:configure, held only by people.
-func (s *Service) Configure(ctx context.Context, ruleID string, in ConfigInput, now time.Time) (ConfigResult, error) {
+func (s *Service) Configure(ctx context.Context, jurisdiction, ruleID string, in ConfigInput, now time.Time) (ConfigResult, error) {
 	scope, err := person(ctx, authz.ComplianceConfigure)
 	if err != nil {
 		return ConfigResult{}, err
 	}
 	var out ConfigResult
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		lib, def, cur, err := s.rule(ctx, scope, ruleID)
+		lib, def, cur, err := s.ruleFor(ctx, scope, jurisdiction, ruleID)
 		if err != nil {
 			return err
 		}
 		if in, err = normalize(def, in); err != nil {
+			return err
+		}
+		if err := placeholdersSet(def, cur, in); err != nil {
 			return err
 		}
 		if in.Mode == cur.Mode && maps.Equal(in.Settings, cur.Settings) {
@@ -293,7 +323,7 @@ func (s *Service) Configure(ctx context.Context, ruleID string, in ConfigInput, 
 
 // History returns a rule's configuration versions in the caller's environment, newest first.
 // Requires compliance:read.
-func (s *Service) History(ctx context.Context, ruleID string) ([]store.RuleVersion, error) {
+func (s *Service) History(ctx context.Context, jurisdiction, ruleID string) ([]store.RuleVersion, error) {
 	if err := authz.Require(ctx, authz.ComplianceRead); err != nil {
 		return nil, err
 	}
@@ -303,7 +333,7 @@ func (s *Service) History(ctx context.Context, ruleID string) ([]store.RuleVersi
 	}
 	var out []store.RuleVersion
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
-		lib, _, _, err := s.rule(ctx, scope, ruleID)
+		lib, _, _, err := s.ruleFor(ctx, scope, jurisdiction, ruleID)
 		if err != nil {
 			return err
 		}
@@ -315,8 +345,8 @@ func (s *Service) History(ctx context.Context, ruleID string) ([]store.RuleVersi
 
 // Rollback restores a rule's earlier version as its next one, through Configure (so a
 // rollback that could loosen a control in production also needs approval).
-func (s *Service) Rollback(ctx context.Context, ruleID string, version int, reason string, now time.Time) (ConfigResult, error) {
-	versions, err := s.History(ctx, ruleID)
+func (s *Service) Rollback(ctx context.Context, jurisdiction, ruleID string, version int, reason string, now time.Time) (ConfigResult, error) {
+	versions, err := s.History(ctx, jurisdiction, ruleID)
 	if err != nil {
 		return ConfigResult{}, err
 	}
@@ -325,7 +355,7 @@ func (s *Service) Rollback(ctx context.Context, ruleID string, version int, reas
 		return ConfigResult{}, fmt.Errorf("%w: %s has no version %d", ErrNotFound, ruleID, version)
 	}
 	v := versions[i]
-	return s.Configure(ctx, ruleID, ConfigInput{Mode: v.Mode, Settings: v.Settings, Reason: reason, RestoredFrom: &version}, now)
+	return s.Configure(ctx, jurisdiction, ruleID, ConfigInput{Mode: v.Mode, Settings: v.Settings, Reason: reason, RestoredFrom: &version}, now)
 }
 
 // Changes lists configuration changes in the caller's environment; status filters when set.

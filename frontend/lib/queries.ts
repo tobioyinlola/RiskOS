@@ -551,31 +551,81 @@ export function useComplianceProfile() {
   });
 }
 
-/** A rule's configuration in the current environment, with any change awaiting approval. */
-export function useComplianceConfig(ruleId: string) {
-  const key = useKey("compliance", "config", ruleId);
+/**
+ * A rule's configuration in the current environment, with any change awaiting approval, in a
+ * country's pack (an inherited rule such as ATO-04 is configured apart in each country).
+ */
+export function useComplianceConfig(ruleId: string, jurisdiction?: string) {
+  const key = useKey("compliance", "config", ruleId, jurisdiction ?? "own");
   return useQuery({
     queryKey: key,
     queryFn: async () =>
       unwrap(
         await api().GET("/api/v1/compliance/rules/{rule_id}/config", {
-          params: { path: { rule_id: ruleId } },
+          params: {
+            path: { rule_id: ruleId },
+            ...byCountry(jurisdiction).params,
+          },
         }),
       ),
   });
 }
 
 /** A rule's configuration versions in the current environment, newest first. */
-export function useComplianceHistory(ruleId: string) {
-  const key = useKey("compliance", "history", ruleId);
+export function useComplianceHistory(ruleId: string, jurisdiction?: string) {
+  const key = useKey("compliance", "history", ruleId, jurisdiction ?? "own");
   return useQuery({
     queryKey: key,
     queryFn: async () =>
       unwrap(
         await api().GET("/api/v1/compliance/rules/{rule_id}/history", {
-          params: { path: { rule_id: ruleId } },
+          params: {
+            path: { rule_id: ruleId },
+            ...byCountry(jurisdiction).params,
+          },
         }),
       ),
+  });
+}
+
+/** Activation changes: each activation's history and those awaiting approval. */
+export function useActivationChanges(
+  state?: Schemas["ActivationChange"]["state"],
+) {
+  return useQuery({
+    queryKey: ["compliance", "activation-changes", state ?? "all"],
+    queryFn: async () =>
+      unwrap(
+        await api().GET("/api/v1/compliance/activation-changes", {
+          params: { query: state ? { state } : {} },
+        }),
+      ),
+  });
+}
+
+/** What must be settled before an activation goes live, in the current environment. */
+export function useActivationReadiness(id: string | undefined) {
+  const key = useKey("compliance", "readiness", id ?? "");
+  return useQuery({
+    queryKey: key,
+    enabled: !!id,
+    queryFn: async () =>
+      unwrap(
+        await api().GET(
+          "/api/v1/compliance/activations/{activation_id}/readiness",
+          { params: { path: { activation_id: id! } } },
+        ),
+      ),
+  });
+}
+
+/** Every rule running for the workspace's live and shadow activations. */
+export function useActiveRules() {
+  const key = useKey("compliance", "active-rules");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/active-rules")),
   });
 }
 

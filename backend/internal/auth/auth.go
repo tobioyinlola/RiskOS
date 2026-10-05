@@ -267,7 +267,8 @@ func ReauthOperations() []string {
 		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember", "PutSSO", "DeleteSSO",
 		"PutComplianceProfile", "PutPackRuleConfig", "RollbackPackRule", "ApprovePackRuleChange",
 		"PutComplianceFXRate", "DeleteComplianceFXRate", "ApproveComplianceReport", "FileComplianceReport",
-		"ConfirmSuspicion",
+		"ConfirmSuspicion", "CreateComplianceActivation", "UpdateComplianceActivation", "SetComplianceActivationStatus",
+		"MakeComplianceActivationFallback", "ApproveComplianceActivationChange",
 	}
 }
 

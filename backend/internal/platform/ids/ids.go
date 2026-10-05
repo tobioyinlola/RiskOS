@@ -66,6 +66,8 @@ const (
 	PrefixPackChange      = "pch"
 	PrefixComplianceTask  = "ctk"
 	PrefixActivation      = "jac"
+	// PrefixActivationChange identifies a change to a country activation.
+	PrefixActivationChange = "jch"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

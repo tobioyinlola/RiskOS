@@ -498,3 +498,33 @@ export const ACTIVATIONS = [
     updated_at: NOW,
   },
 ];
+
+/** The rules running for the workspace's activations (GET /compliance/active-rules). */
+export const ACTIVE_RULES = [
+  {
+    rule: "REG-01",
+    name: "New device transfer cap",
+    kind: "control",
+    jurisdiction: "NG",
+    pack: "ng@2026.10.0",
+    booking_entity: "default",
+    mode: "live",
+    events: ["transfer_outbound"],
+    facts: ["txn.amount"],
+    refs: [],
+    unset_settings: [],
+  },
+  {
+    rule: "RW-REG-05",
+    name: "Cash transaction report",
+    kind: "control",
+    jurisdiction: "RW",
+    pack: "rw@2026.10.2",
+    booking_entity: "rw-bank",
+    mode: "shadow",
+    events: ["cash_deposit"],
+    facts: ["txn.amount"],
+    refs: [],
+    unset_settings: ["ctr_due"],
+  },
+];
