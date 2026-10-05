@@ -460,8 +460,8 @@ type Times struct {
 
 // Aggregate is a windowed aggregation over one entity's events.
 type Aggregate struct {
-	// Fn is count, sum, daily_avg, distinct_count, distinct_count_once, max_distinct_per_value
-	// or exists.
+	// Fn is count, sum, daily_avg, distinct_count, distinct_count_once, max_distinct_per_value,
+	// exists or days_over.
 	Fn string `json:"fn"`
 	// Event is the event kind aggregated over.
 	Event string `json:"event"`
@@ -470,8 +470,23 @@ type Aggregate struct {
 	// Per, for max_distinct_per_value, is the fact whose equal values are grouped.
 	Per   string `json:"per,omitempty"`
 	Where *Cond  `json:"where,omitempty"`
-	// Window is the parameter holding the window.
+	// Window is the parameter holding the window. For a calendar window it is the history
+	// kept, at least the period.
 	Window string `json:"window"`
 	// By is the entity the window is kept for.
 	By string `json:"by"`
+	// Calendar, when set (day or month), makes the window run from the start of the current
+	// local day or month in the jurisdiction's time zone, from the activation's day boundary,
+	// instead of a rolling period (ADR-0007).
+	Calendar string `json:"calendar,omitempty"`
+	// Over and OverFactor, for days_over, are the money parameter and the ratio parameter whose
+	// product is the daily total a day must reach to count ("80% of the daily limit").
+	Over       string `json:"over,omitempty"`
+	OverFactor string `json:"over_factor,omitempty"`
 }
+
+// Calendar periods.
+const (
+	CalendarDay   = "day"
+	CalendarMonth = "month"
+)

@@ -695,7 +695,7 @@
         "text": "BNR Directive 02/2009; may no longer apply"
       },
       "verification": "secondary_source_only",
-      "caveat": "A 2009 directive; confirm it is still current before switching this on. Exceptions a bank authorises are reported to the central bank weekly.",
+      "caveat": "A 2009 directive; confirm it is still current before switching this on. Exceptions a bank authorises are reported to the central bank weekly. Counted over the calendar day in Kigali, from the hour the bank's day starts.",
       "defaults": {
         "enabled": false,
         "mode": "live"
@@ -717,7 +717,8 @@
             "event": "cash_withdrawal",
             "window": "day",
             "by": "customer",
-            "field": "txn.amount"
+            "field": "txn.amount",
+            "calendar": "day"
           }
         },
         "op": "gt",

@@ -24,14 +24,68 @@ type TenantPack struct {
 	Location     *time.Location
 	// LicenceType is the activation's institution type (the institution.licence_type fact).
 	LicenceType string
-	rules       []tenantRule
-	// rates are the institution's exchange rates: US dollars per one unit of a currency.
-	rates map[string]float64
+	// DayStart is the hour a business day starts, for calendar windows.
+	DayStart int
+	rules    []tenantRule
+	// rates are the institution's exchange rates: US dollars per one unit of a currency; ratesAt
+	// when each was set.
+	rates   map[string]float64
+	ratesAt map[string]time.Time
 }
 
 // AmountUSD converts an amount to US dollars with the institution's rates; ok is false without
 // a rate for its currency.
 func (p *TenantPack) AmountUSD(m interp.Money) (interp.Money, bool) { return ToUSD(m, p.rates) }
+
+// USDRate is the rate a conversion used, recorded with the evaluation (ADR-0007): US dollars per
+// one unit of Currency, as set at AsOf.
+type USDRate struct {
+	Currency   string    `json:"currency"`
+	USDPerUnit float64   `json:"usd_per_unit"`
+	AsOf       time.Time `json:"as_of"`
+}
+
+// RateFor returns the rate for a currency; ok is false without one.
+func (p *TenantPack) RateFor(currency string) (USDRate, bool) {
+	r, ok := p.rates[currency]
+	if !ok {
+		return USDRate{}, false
+	}
+	return USDRate{Currency: currency, USDPerUnit: r, AsOf: p.ratesAt[currency]}, true
+}
+
+// Query returns the aggregation and window to ask a window store for, for an event at at. A
+// calendar window runs from the start of the current local day or month (from the day
+// boundary) to the event; days_over carries its threshold and the offset of the local day, as
+// "days_over:<threshold>:<offset ms>".
+func (p *TenantPack) Query(ref interp.AggRef, at time.Time) (fn string, window time.Duration) {
+	fn, window = ref.Fn, time.Duration(ref.Window)*time.Second
+	loc := p.Location
+	if loc == nil {
+		loc = time.UTC
+	}
+	local := at.In(loc)
+	switch ref.Calendar {
+	case pack.CalendarDay:
+		start := time.Date(local.Year(), local.Month(), local.Day(), p.DayStart, 0, 0, 0, loc)
+		if local.Before(start) {
+			start = start.AddDate(0, 0, -1)
+		}
+		window = at.Sub(start)
+	case pack.CalendarMonth:
+		start := time.Date(local.Year(), local.Month(), 1, p.DayStart, 0, 0, 0, loc)
+		if local.Before(start) {
+			start = start.AddDate(0, -1, 0)
+		}
+		window = at.Sub(start)
+	}
+	if ref.Fn == "days_over" {
+		_, offset := local.Zone()
+		ms := int64(offset)*1000 - int64(p.DayStart)*3_600_000
+		fn = fmt.Sprintf("days_over:%.0f:%d", ref.Over, ms)
+	}
+	return fn, window
+}
 
 type tenantRule struct {
 	r    *interp.Rule
@@ -117,9 +171,9 @@ func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 		if err != nil {
 			return err
 		}
-		usd := map[string]float64{}
+		usd, at := map[string]float64{}, map[string]time.Time{}
 		for _, r := range rates {
-			usd[r.Currency] = r.USDPerUnit
+			usd[r.Currency], at[r.Currency] = r.USDPerUnit, r.UpdatedAt
 		}
 		out = &TenantPacks{byEntity: map[string]*TenantPack{}, inactive: map[string]bool{}}
 		for i := range acts {
@@ -128,7 +182,7 @@ func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 				out.inactive[a.BookingEntity] = true
 				continue
 			}
-			p, err := s.compile(ctx, a, usd)
+			p, err := s.compile(ctx, a, usd, at)
 			if err != nil {
 				return err
 			}
@@ -143,7 +197,7 @@ func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 }
 
 // compile compiles one activation's pack with the environment's configuration.
-func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[string]float64) (*TenantPack, error) {
+func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[string]float64, at map[string]time.Time) (*TenantPack, error) {
 	rec, err := s.store.Pack(ctx, a.PackID, a.PackVersion)
 	if err != nil {
 		return nil, err
@@ -161,7 +215,8 @@ func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[stri
 		return nil, fmt.Errorf("pack %s: %w", p.ID, err)
 	}
 	out := &TenantPack{
-		Ref: p.ID + "@" + p.Version, Jurisdiction: p.Jurisdiction, Location: loc, LicenceType: a.LicenceType, rates: usd,
+		Ref: p.ID + "@" + p.Version, Jurisdiction: p.Jurisdiction, Location: loc, LicenceType: a.LicenceType,
+		DayStart: int(a.DayStartsAt), rates: usd, ratesAt: at,
 	}
 	for i := range p.Rules {
 		def := &p.Rules[i]
@@ -270,8 +325,19 @@ func (s *Service) Candidates(ctx context.Context, ruleID string, settings map[st
 			return fmt.Errorf("%w: %s is a workflow, not an event rule; it cannot be backtested", ErrInvalidInput, ruleID)
 		}
 		ref := lib.pack.ID + "@" + lib.pack.Version
+		loc, err := time.LoadLocation(lib.pack.Locale().Timezone)
+		if err != nil {
+			return fmt.Errorf("pack %s: %w", lib.pack.ID, err)
+		}
+		licence, dayStart := "", 0
+		if a := lib.profile; a != nil {
+			licence, dayStart = a.LicenceType, int(a.DayStartsAt)
+		}
 		one := func(settings map[string]float64) *TenantPack {
-			return &TenantPack{Ref: ref, rules: []tenantRule{{r: interp.Compile(def, settings), mode: pack.ModeLive}}}
+			return &TenantPack{
+				Ref: ref, Jurisdiction: lib.pack.Jurisdiction, Location: loc, LicenceType: licence, DayStart: dayStart,
+				rules: []tenantRule{{r: interp.Compile(def, settings), mode: pack.ModeLive}},
+			}
 		}
 		current, candidate = one(cur.Settings), one(cur.Settings)
 		if settings != nil {

@@ -320,6 +320,7 @@ type JurisdictionActivation struct {
 	ActivatedBy   *string
 	Rationale     *string
 	ApprovedBy    *string
+	DayStartsAt   int16
 }
 
 type PackRule struct {

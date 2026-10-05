@@ -408,7 +408,7 @@
         "text": "Not regulation: the library author's design (4 October 2026); numbers are starting values to calibrate in shadow mode"
       },
       "verification": "secondary_source_only",
-      "caveat": "The second test in the library (80% or more of the daily limit on three days in a week) needs daily buckets and arrives with calendar windows.",
+      "caveat": "Fires on either test in the library: several debits just under the daily limit, or debits totalling 80% or more of the daily limit on three local days in a week (days counted in Accra).",
       "defaults": {
         "enabled": true,
         "mode": "shadow"
@@ -448,15 +448,77 @@
                 }
               },
               {
-                "left": {
-                  "agg": {
-                    "fn": "count",
-                    "event": "transaction_any",
-                    "window": "window",
-                    "by": "account",
-                    "where": {
-                      "all": [
-                        {
+                "any": [
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "count",
+                        "event": "transaction_any",
+                        "window": "window",
+                        "by": "account",
+                        "where": {
+                          "all": [
+                            {
+                              "left": {
+                                "fact": "txn.direction"
+                              },
+                              "op": "eq",
+                              "right": {
+                                "literal": "debit"
+                              }
+                            },
+                            {
+                              "all": [
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "gte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_low",
+                                      "of": {
+                                        "param": "daily_minimum"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "lte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_high",
+                                      "of": {
+                                        "param": "daily_minimum"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "transactions"
+                    }
+                  },
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "days_over",
+                        "event": "transaction_any",
+                        "window": "week",
+                        "by": "account",
+                        "field": "txn.amount",
+                        "over": "daily_minimum",
+                        "over_factor": "day_share",
+                        "where": {
                           "left": {
                             "fact": "txn.direction"
                           },
@@ -464,47 +526,15 @@
                           "right": {
                             "literal": "debit"
                           }
-                        },
-                        {
-                          "all": [
-                            {
-                              "left": {
-                                "fact": "txn.amount"
-                              },
-                              "op": "gte",
-                              "right": {
-                                "times": {
-                                  "factor": "band_low",
-                                  "of": {
-                                    "param": "daily_minimum"
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "left": {
-                                "fact": "txn.amount"
-                              },
-                              "op": "lte",
-                              "right": {
-                                "times": {
-                                  "factor": "band_high",
-                                  "of": {
-                                    "param": "daily_minimum"
-                                  }
-                                }
-                              }
-                            }
-                          ]
                         }
-                      ]
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "days"
                     }
                   }
-                },
-                "op": "gte",
-                "right": {
-                  "param": "transactions"
-                }
+                ]
               }
             ]
           },
@@ -520,15 +550,77 @@
                 }
               },
               {
-                "left": {
-                  "agg": {
-                    "fn": "count",
-                    "event": "transaction_any",
-                    "window": "window",
-                    "by": "account",
-                    "where": {
-                      "all": [
-                        {
+                "any": [
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "count",
+                        "event": "transaction_any",
+                        "window": "window",
+                        "by": "account",
+                        "where": {
+                          "all": [
+                            {
+                              "left": {
+                                "fact": "txn.direction"
+                              },
+                              "op": "eq",
+                              "right": {
+                                "literal": "debit"
+                              }
+                            },
+                            {
+                              "all": [
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "gte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_low",
+                                      "of": {
+                                        "param": "daily_medium"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "lte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_high",
+                                      "of": {
+                                        "param": "daily_medium"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "transactions"
+                    }
+                  },
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "days_over",
+                        "event": "transaction_any",
+                        "window": "week",
+                        "by": "account",
+                        "field": "txn.amount",
+                        "over": "daily_medium",
+                        "over_factor": "day_share",
+                        "where": {
                           "left": {
                             "fact": "txn.direction"
                           },
@@ -536,47 +628,15 @@
                           "right": {
                             "literal": "debit"
                           }
-                        },
-                        {
-                          "all": [
-                            {
-                              "left": {
-                                "fact": "txn.amount"
-                              },
-                              "op": "gte",
-                              "right": {
-                                "times": {
-                                  "factor": "band_low",
-                                  "of": {
-                                    "param": "daily_medium"
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "left": {
-                                "fact": "txn.amount"
-                              },
-                              "op": "lte",
-                              "right": {
-                                "times": {
-                                  "factor": "band_high",
-                                  "of": {
-                                    "param": "daily_medium"
-                                  }
-                                }
-                              }
-                            }
-                          ]
                         }
-                      ]
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "days"
                     }
                   }
-                },
-                "op": "gte",
-                "right": {
-                  "param": "transactions"
-                }
+                ]
               }
             ]
           },
@@ -592,15 +652,77 @@
                 }
               },
               {
-                "left": {
-                  "agg": {
-                    "fn": "count",
-                    "event": "transaction_any",
-                    "window": "window",
-                    "by": "account",
-                    "where": {
-                      "all": [
-                        {
+                "any": [
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "count",
+                        "event": "transaction_any",
+                        "window": "window",
+                        "by": "account",
+                        "where": {
+                          "all": [
+                            {
+                              "left": {
+                                "fact": "txn.direction"
+                              },
+                              "op": "eq",
+                              "right": {
+                                "literal": "debit"
+                              }
+                            },
+                            {
+                              "all": [
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "gte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_low",
+                                      "of": {
+                                        "param": "daily_enhanced"
+                                      }
+                                    }
+                                  }
+                                },
+                                {
+                                  "left": {
+                                    "fact": "txn.amount"
+                                  },
+                                  "op": "lte",
+                                  "right": {
+                                    "times": {
+                                      "factor": "band_high",
+                                      "of": {
+                                        "param": "daily_enhanced"
+                                      }
+                                    }
+                                  }
+                                }
+                              ]
+                            }
+                          ]
+                        }
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "transactions"
+                    }
+                  },
+                  {
+                    "left": {
+                      "agg": {
+                        "fn": "days_over",
+                        "event": "transaction_any",
+                        "window": "week",
+                        "by": "account",
+                        "field": "txn.amount",
+                        "over": "daily_enhanced",
+                        "over_factor": "day_share",
+                        "where": {
                           "left": {
                             "fact": "txn.direction"
                           },
@@ -608,47 +730,15 @@
                           "right": {
                             "literal": "debit"
                           }
-                        },
-                        {
-                          "all": [
-                            {
-                              "left": {
-                                "fact": "txn.amount"
-                              },
-                              "op": "gte",
-                              "right": {
-                                "times": {
-                                  "factor": "band_low",
-                                  "of": {
-                                    "param": "daily_enhanced"
-                                  }
-                                }
-                              }
-                            },
-                            {
-                              "left": {
-                                "fact": "txn.amount"
-                              },
-                              "op": "lte",
-                              "right": {
-                                "times": {
-                                  "factor": "band_high",
-                                  "of": {
-                                    "param": "daily_enhanced"
-                                  }
-                                }
-                              }
-                            }
-                          ]
                         }
-                      ]
+                      }
+                    },
+                    "op": "gte",
+                    "right": {
+                      "param": "days"
                     }
                   }
-                },
-                "op": "gte",
-                "right": {
-                  "param": "transactions"
-                }
+                ]
               }
             ]
           }
@@ -704,6 +794,30 @@
           "default": 0.999,
           "min": 0.9,
           "max": 0.9999
+        },
+        {
+          "name": "day_share",
+          "label": "Share of the daily limit that makes a heavy day",
+          "type": "ratio",
+          "default": 0.8,
+          "min": 0.5,
+          "max": 1
+        },
+        {
+          "name": "days",
+          "label": "Heavy days in the week that count",
+          "type": "count",
+          "default": 3,
+          "min": 2,
+          "max": 7
+        },
+        {
+          "name": "week",
+          "label": "Week the heavy days count over",
+          "type": "duration",
+          "default": 604800,
+          "min": 604800,
+          "max": 604800
         },
         {
           "name": "daily_minimum",

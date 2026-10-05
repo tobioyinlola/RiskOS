@@ -75,6 +75,10 @@ func TestWindowsMatchBacktest(t *testing.T) {
 		{Fn: "exists", Window: 10 * time.Minute}, {Fn: "daily_avg", Window: 24 * time.Hour},
 		{Fn: "distinct_count", Window: 24 * time.Hour}, {Fn: "distinct_count", Window: 3 * time.Hour},
 		{Fn: "distinct_count_once", Window: 24 * time.Hour}, {Fn: "max_distinct_per_value", Window: 24 * time.Hour},
+		// Days whose total reached a threshold, by UTC days, Kigali days and Kigali days starting
+		// at 06:00 (ADR-0007).
+		{Fn: "days_over:100000000:0", Window: 48 * time.Hour}, {Fn: "days_over:100000000:7200000", Window: 48 * time.Hour},
+		{Fn: "days_over:150000000:-14400000", Window: 30 * time.Hour},
 	}
 	rng := &xorshift{s: 2026}
 	base := time.Date(2026, 10, 1, 0, 0, 0, 0, time.UTC)

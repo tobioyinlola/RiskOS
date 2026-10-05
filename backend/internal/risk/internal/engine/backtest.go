@@ -1,8 +1,6 @@
 package engine
 
 import (
-	"time"
-
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk/internal/features"
 	rulepack "github.com/tobioyinlola/RiskOS/backend/internal/rules"
 )
@@ -27,6 +25,7 @@ type Tally struct {
 type memoryAggs struct {
 	m *features.MemoryWindows
 	r features.Replay
+	p *rulepack.TenantPack
 }
 
 func (a memoryAggs) Value(ref rulepack.Window) (any, bool) {
@@ -34,7 +33,11 @@ func (a memoryAggs) Value(ref rulepack.Window) (any, bool) {
 	if entity == "" {
 		return nil, false
 	}
-	v := a.m.Value(ref.Key, entity, ref.Fn, time.Duration(ref.Window)*time.Second, a.r.At, a.r.Currency)
+	if ref.Fn == "days_over" && a.r.Currency != ref.OverCurrency {
+		return nil, false
+	}
+	fn, window := a.p.Query(ref, a.r.At)
+	v := a.m.Value(ref.Key, entity, fn, window, a.r.At, a.r.Currency)
 	if !v.OK {
 		return nil, false
 	}
@@ -73,7 +76,7 @@ func Backtest(p *rulepack.TenantPack, events []ReplayEvent) Tally {
 			}
 			m.Record(ref.Key, entity, op, ev.Replay)
 		}
-		outcomes := p.Evaluate(rulepack.Env{Kinds: ev.Kinds, Facts: ev.Facts, Aggs: memoryAggs{m: m, r: ev.Replay}})
+		outcomes := p.Evaluate(rulepack.Env{Kinds: ev.Kinds, Facts: ev.Facts, Aggs: memoryAggs{m: m, r: ev.Replay, p: p}})
 		for _, o := range outcomes {
 			t.Triggered++
 			switch o.Status {

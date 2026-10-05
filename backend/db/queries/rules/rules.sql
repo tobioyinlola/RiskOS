@@ -19,7 +19,7 @@ FROM rule_packs WHERE id = @id AND version = @version;
 -- name: LatestPack :one
 SELECT id, version, jurisdiction, name, checksum, meta, loaded_at
 FROM rule_packs
-WHERE (sqlc.narg(jurisdiction)::text IS NULL OR jurisdiction = sqlc.narg(jurisdiction)::text)
+WHERE jurisdiction = @jurisdiction
 -- Versions compare as numbers ("2026.10.1" after "2026.9.0"), whatever order they were loaded in.
 ORDER BY string_to_array(version, '.')::int[] DESC
 LIMIT 1;
@@ -43,7 +43,7 @@ SELECT code, name, currency, minor_unit, timezone, regulators, pack_id FROM juri
 -- name: ListActivations :many
 SELECT id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
        capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
-       updated_at, updated_by
+       updated_at, updated_by, day_starts_at
 FROM jurisdiction_activations WHERE tenant_id = @tenant_id
 ORDER BY fallback DESC, jurisdiction, booking_entity;
 
@@ -55,7 +55,7 @@ SET jurisdiction = @jurisdiction, pack_id = @pack_id, pack_version = @pack_versi
 WHERE tenant_id = @tenant_id AND fallback
 RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
           capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
-          updated_at, updated_by;
+          updated_at, updated_by, day_starts_at;
 
 -- name: InsertFallbackActivation :one
 INSERT INTO jurisdiction_activations (id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version,
@@ -64,7 +64,7 @@ VALUES (@id, @tenant_id, @jurisdiction, 'default', 'live', true, @pack_id, @pack
   @licence_type, @capabilities, 'pack', @updated_at::timestamptz, @updated_by::text, @updated_at::timestamptz, @updated_by::text)
 RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
           capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
-          updated_at, updated_by;
+          updated_at, updated_by, day_starts_at;
 
 -- Rule configuration (per environment). Every query names the tenant and environment; row-level
 -- security limits them to the scope's.

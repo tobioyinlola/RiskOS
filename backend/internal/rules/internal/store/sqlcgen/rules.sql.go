@@ -416,7 +416,7 @@ VALUES ($1, $2, $3, 'default', 'live', true, $4, $5,
   $6, $7, 'pack', $8::timestamptz, $9::text, $8::timestamptz, $9::text)
 RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
           capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
-          updated_at, updated_by
+          updated_at, updated_by, day_starts_at
 `
 
 type InsertFallbackActivationParams struct {
@@ -450,6 +450,7 @@ type InsertFallbackActivationRow struct {
 	ApprovedBy    *string
 	UpdatedAt     time.Time
 	UpdatedBy     string
+	DayStartsAt   int16
 }
 
 func (q *Queries) InsertFallbackActivation(ctx context.Context, arg InsertFallbackActivationParams) (InsertFallbackActivationRow, error) {
@@ -484,6 +485,7 @@ func (q *Queries) InsertFallbackActivation(ctx context.Context, arg InsertFallba
 		&i.ApprovedBy,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.DayStartsAt,
 	)
 	return i, err
 }
@@ -671,13 +673,13 @@ func (q *Queries) InsertTask(ctx context.Context, arg InsertTaskParams) (int64, 
 const latestPack = `-- name: LatestPack :one
 SELECT id, version, jurisdiction, name, checksum, meta, loaded_at
 FROM rule_packs
-WHERE ($1::text IS NULL OR jurisdiction = $1::text)
+WHERE jurisdiction = $1
 ORDER BY string_to_array(version, '.')::int[] DESC
 LIMIT 1
 `
 
 // Versions compare as numbers ("2026.10.1" after "2026.9.0"), whatever order they were loaded in.
-func (q *Queries) LatestPack(ctx context.Context, jurisdiction *string) (RulePack, error) {
+func (q *Queries) LatestPack(ctx context.Context, jurisdiction string) (RulePack, error) {
 	row := q.db.QueryRow(ctx, latestPack, jurisdiction)
 	var i RulePack
 	err := row.Scan(
@@ -731,7 +733,7 @@ const listActivations = `-- name: ListActivations :many
 
 SELECT id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
        capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
-       updated_at, updated_by
+       updated_at, updated_by, day_starts_at
 FROM jurisdiction_activations WHERE tenant_id = $1
 ORDER BY fallback DESC, jurisdiction, booking_entity
 `
@@ -755,6 +757,7 @@ type ListActivationsRow struct {
 	ApprovedBy    *string
 	UpdatedAt     time.Time
 	UpdatedBy     string
+	DayStartsAt   int16
 }
 
 // Jurisdiction activations (a tenant's compliance profile per country and booking entity).
@@ -787,6 +790,7 @@ func (q *Queries) ListActivations(ctx context.Context, tenantID uuid.UUID) ([]Li
 			&i.ApprovedBy,
 			&i.UpdatedAt,
 			&i.UpdatedBy,
+			&i.DayStartsAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1208,7 +1212,7 @@ SET jurisdiction = $1, pack_id = $2, pack_version = $3, licence_type = $4,
 WHERE tenant_id = $8 AND fallback
 RETURNING id, tenant_id, jurisdiction, booking_entity, status, fallback, pack_id, pack_version, licence_type,
           capabilities, signal_default, effective_from, activated_at, activated_by, rationale, approved_by,
-          updated_at, updated_by
+          updated_at, updated_by, day_starts_at
 `
 
 type UpdateFallbackActivationParams struct {
@@ -1241,6 +1245,7 @@ type UpdateFallbackActivationRow struct {
 	ApprovedBy    *string
 	UpdatedAt     time.Time
 	UpdatedBy     string
+	DayStartsAt   int16
 }
 
 // The compliance profile (PUT /compliance/profile) is the fallback activation.
@@ -1275,6 +1280,7 @@ func (q *Queries) UpdateFallbackActivation(ctx context.Context, arg UpdateFallba
 		&i.ApprovedBy,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.DayStartsAt,
 	)
 	return i, err
 }

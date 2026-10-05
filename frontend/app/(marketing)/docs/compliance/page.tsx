@@ -138,6 +138,19 @@ export default function Page() {
           found (<C>booking_entity</C>, <C>fallback</C>, <C>unresolved</C>, or{" "}
           <C>inactive</C> for an activation in draft or suspended).
         </li>
+        <li>
+          <strong>Daily and monthly limits follow the local calendar.</strong> A
+          wallet&apos;s daily limit counts from the start of the business day in
+          the country&apos;s time zone (midnight unless your activation sets a
+          later hour), so send each event&apos;s real <C>occurred_at</C>.
+        </li>
+        <li>
+          <strong>US dollar thresholds need a rate.</strong> Send{" "}
+          <C>txn.amount_usd</C>, or set a rate for the currency (
+          <C>PUT /api/v1/compliance/fx-rates/GHS</C>). The rate used is kept
+          with the evaluation; without one the rule is reported as not
+          evaluated, never guessed.
+        </li>
       </UL>
       <Code
         label="A Ghana-booked cash deposit"

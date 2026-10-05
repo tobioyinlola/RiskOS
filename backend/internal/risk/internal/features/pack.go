@@ -109,6 +109,9 @@ func PackFacts(e Event, v Values, p Activity, loc *time.Location) rulepack.Facts
 	if v.ToPriorSender != nil {
 		f["txn.to_prior_sender"] = *v.ToPriorSender
 	}
+	if v.NewSender != nil {
+		f["txn.from_new_sender"] = v.NewUser || *v.NewSender
+	}
 	if e.Context.Country != "" && !v.NewUser {
 		f["geo.country_usual"] = !v.NewCountry
 	}

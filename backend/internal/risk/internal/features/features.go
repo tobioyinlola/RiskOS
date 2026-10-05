@@ -138,8 +138,11 @@ type Values struct {
 	// SenderRelated (an incoming payment) says whether the user paid this sender before;
 	// ToPriorSender (a payment out) whether this payee paid the user before. Nil when the event
 	// has no sender or payee.
-	SenderRelated         *bool
-	ToPriorSender         *bool
+	SenderRelated *bool
+	ToPriorSender *bool
+	// NewSender (an incoming payment with a sender reference) says whether the user has not
+	// received from this sender before (GH-TM-23's unexpected credit).
+	NewSender             *bool
 	AccountTxn1m          int64
 	AccountTxn1h          int64
 	AccountTxn24h         int64

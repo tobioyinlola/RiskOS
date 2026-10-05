@@ -61,5 +61,7 @@ resolves them.
 
 - Clients that switch on clock hours must handle null and 0 (API changelog).
 - Events without a booking entity keep the Nigeria behaviour until a tenant changes its fallback.
-- Several rules read facts RiskOS derives from the event (`txn.direction`, `event.kind`) or
-  windows not yet calendar-based; the tracker lists what each later phase completes.
+- Several rules read facts RiskOS derives from the event (`txn.direction`, `event.kind`,
+  `txn.from_new_sender`). Calendar windows (a local day or month from the activation's
+  `day_starts_at`) and `days_over` are computed the same way live (Redis) and in backtests; the
+  tracker lists what each later phase completes.

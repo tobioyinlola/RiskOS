@@ -181,6 +181,8 @@ var AggFns = map[string]struct { //nolint:gochecknoglobals // fixed vocabulary
 	"distinct_count":         {FactID, FactCount},
 	"distinct_count_once":    {FactID, FactCount},
 	"max_distinct_per_value": {FactID, FactCount},
+	// days_over counts the local days of the window whose total of the field reached a threshold.
+	"days_over": {FactMoney, FactCount},
 }
 
 // Decisions a control may set (ADR-0006).

@@ -352,10 +352,23 @@ queried from Postgres per event:
   a window holding one reads as unavailable for as long as it holds it, rather than undercounting.
 - Sums count only amounts in the event's currency. Dry runs and rule tests count the event
   without storing it; idempotent replays are not evaluated again.
+- **Calendar windows** ([ADR-0007](adr/ADR-0007-multi-jurisdiction.md)). An aggregate marked
+  `"calendar": "day"` or `"month"` runs from the start of the current local day or month in the
+  governing pack's time zone (Africa/Accra, Africa/Kigali, Africa/Lagos), from the hour the
+  activation's business day starts (`day_starts_at`, midnight unless set), to the event: a
+  wallet's daily limit (GH-REG-01) resets at the local day boundary, not 24 hours after each
+  payment. The window setting is then the history kept, at least the period (31 days for a
+  month); the length is worked out at the event's time, live and in backtests alike.
+- **Days over a threshold** (`days_over`, GH-TM-07's "80% of the daily limit on three days in a
+  week"): the number of local days in the window whose total in the event's currency reached the
+  rule's money setting times its ratio setting. Days are cut at the local business day boundary;
+  an unknown entry makes the window unavailable, as for every other function, and a threshold in
+  another currency than the event's is not compared.
 - While behavioural history warms up after a reset, windows and history facts are unavailable,
   so the rules on them are not evaluated.
 - The same round trip keeps each user's first activity, each account's last activity (400 days),
-  each user's largest amount per currency and the hours of the day (Lagos time) each user was
+  each user's largest amount per currency and the hours of the day (the governing pack's local
+  time) each user was
   active in: `customer.history_age`, `account.inactive_for` (unknown for an account RiskOS has not
   seen before, never "not dormant"), `history.amount_to_max` and `history.hour_usual` (true when
   the user was active in this hour before).
@@ -364,6 +377,14 @@ queried from Postgres per event:
 - Money flows (PON-01), in the first round trip because window filters use them: the senders of
   incoming payments are kept next to the payees, so `sender.related` says whether the user paid
   this sender before and `txn.to_prior_sender` whether a payment out goes to someone who paid in.
+  An incoming payment with a sender reference is `txn.from_new_sender` the first time the user
+  receives from that sender (and for a user RiskOS has not seen before); dry runs only ask.
+- **US dollar amounts.** A rule on `txn.amount_usd` uses the amount the event sends, else the
+  event's amount converted at the institution's rate for its currency
+  (`PUT /api/v1/compliance/fx-rates/{currency}`); the rate used (currency, US dollars per unit,
+  when it was set) is recorded with the evaluation as `txn.usd_rate`. Without a rate there is no
+  conversion and the rule is not evaluated (`fact:txn.amount_usd`), never compared in another
+  currency.
 - For data exports that send `export.rows`, a running mean of rows per export per user and per
   environment (about the last 500 exports): `export.rows_to_user_baseline` and
   `export.rows_to_tenant_baseline`, once a baseline has at least 5 exports.

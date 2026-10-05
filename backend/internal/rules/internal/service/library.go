@@ -202,6 +202,10 @@ func activationIn(acts []store.Activation, jurisdiction string) *store.Activatio
 	return out
 }
 
+// DefaultJurisdiction is the jurisdiction every workspace starts with as its fallback
+// (migrations 00028 and 00029): the library a workspace with no fallback activation reads.
+const DefaultJurisdiction = "NG"
+
 // load returns a jurisdiction's library for the tenant ("" is the fallback activation's): the
 // pack version its activation is on, or the jurisdiction's latest pack read-only without one.
 // It must run inside the runner.
@@ -216,7 +220,11 @@ func (s *Service) load(ctx context.Context, tenant tenancy.Scope, jurisdiction s
 		lib.profile = a
 		rec, err = s.store.Pack(ctx, a.PackID, a.PackVersion)
 	} else {
-		rec, err = s.store.LatestPack(ctx, jurisdiction)
+		j := jurisdiction
+		if j == "" {
+			j = DefaultJurisdiction
+		}
+		rec, err = s.store.LatestPack(ctx, j)
 	}
 	if errors.Is(err, store.ErrNotFound) {
 		if jurisdiction != "" {

@@ -112,18 +112,14 @@ func (Store) Pack(ctx context.Context, id, version string) (PackRecord, error) {
 	return packRecord(r), nil
 }
 
-// LatestPack returns the most recently loaded pack version, of jurisdiction when it is not
-// empty, without its rules.
+// LatestPack returns a jurisdiction's latest pack version, without its rules. Packs of different
+// countries are never compared: their versions are unrelated.
 func (Store) LatestPack(ctx context.Context, jurisdiction string) (PackRecord, error) {
 	q, err := queries(ctx)
 	if err != nil {
 		return PackRecord{}, err
 	}
-	var j *string
-	if jurisdiction != "" {
-		j = &jurisdiction
-	}
-	r, err := q.LatestPack(ctx, j)
+	r, err := q.LatestPack(ctx, jurisdiction)
 	if errors.Is(err, pgx.ErrNoRows) {
 		return PackRecord{}, ErrNotFound
 	}
@@ -196,6 +192,8 @@ type Activation struct {
 	ApprovedBy    *string
 	UpdatedAt     time.Time
 	UpdatedBy     string
+	// DayStartsAt is the hour a business day starts in the jurisdiction (calendar windows).
+	DayStartsAt int16
 }
 
 // Jurisdiction is a row of the jurisdictions reference table.

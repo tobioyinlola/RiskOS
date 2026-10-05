@@ -650,7 +650,36 @@ func (v *ruleValidator) agg(a Aggregate, path string, depth int) operandType {
 	if a.Where != nil {
 		v.cond(*a.Where, path+".where", depth+1)
 	}
+	v.calendar(a, path)
+	switch {
+	case (a.Fn == "days_over") != (a.Over != ""):
+		v.errf("%s: over is used by days_over only, which needs it", path)
+	case a.Over != "":
+		v.paramOfType(a.Over, path+".over", ParamMoney)
+		if a.OverFactor != "" {
+			v.paramOfType(a.OverFactor, path+".over_factor", ParamRatio)
+		}
+	case a.OverFactor != "":
+		v.errf("%s: over_factor goes with over", path)
+	}
 	return operandType{fact: fn.Result, ok: true}
+}
+
+// calendar checks a calendar window: a known period, and history kept for at least the period.
+func (v *ruleValidator) calendar(a Aggregate, path string) {
+	if a.Calendar == "" {
+		return
+	}
+	period := map[string]float64{CalendarDay: 86400, CalendarMonth: 31 * 86400}[a.Calendar]
+	if period == 0 {
+		v.errf("%s: calendar must be day or month", path)
+		return
+	}
+	for _, p := range v.r.Parameters {
+		if p.Name == a.Window && p.Max < period {
+			v.errf("%s: a %s window keeps at least %v seconds of history", path, a.Calendar, period)
+		}
+	}
 }
 
 func (v *ruleValidator) compare(c Cond, path string) {

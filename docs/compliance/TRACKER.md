@@ -8,10 +8,7 @@ leaves this list in the commit that resolves it.
 
 | Item | Phase |
 |---|---|
-| Calendar windows in the jurisdiction's time zone with a day boundary (GH-REG-01 and GH-REG-03 count the last 24 hours and 30 days until then; GH-TM-07's three-days-a-week test) | 3 |
-| `txn.from_new_sender` (GH-TM-23) derived from history | 3 |
-| Table-driven firing, non-firing and boundary tests for every numeric rule of both packs | 3 |
-| Activation wizard: readiness check, maker-checker for live, rationale, change history; a setting to drop or change the fallback; `jurisdiction` on the configuration endpoints (inherited IDs resolve to the fallback today), so another country's rules are configured on their own pages | 4 |
+| Activation wizard: readiness check, maker-checker for live, rationale, change history; the business day's start hour (`day_starts_at`, midnight today); a setting to drop or change the fallback; `jurisdiction` on the configuration endpoints (inherited IDs resolve to the fallback today), so another country's rules are configured on their own pages | 4 |
 | Marking an open question verified against the original text (who, when, a link or note), updating the badge on every rule it names | 4 |
 | Activated countries' rules listed under Your rules next to the institution's own | 4 |
 | Enabling a rule that is off until confirmed requires its placeholder settings and a rationale | 4 |
@@ -21,7 +18,7 @@ leaves this list in the commit that resolves it.
 | Tasks carry their jurisdiction; reports for the FIC (Ghana, Rwanda) drafted without the NFIU's goAML check (REG-19 applies to Nigeria) | 5 |
 | Retention across jurisdictions (longest period wins, RW-GOV-10's logged denial) | 5 |
 | No-tipping-off serializer walk over gh and rw payloads | 5 |
-| Benchmarks of three packs, security review of the new endpoints, accessibility pass | 6 |
+| Benchmarks of three packs (including `days_over`, which reads its whole window, at most 20,000 entries, on a busy wallet), security review of the new endpoints, accessibility pass | 6 |
 
 Nigeria: none open; the last items closed in phase 6. Follow-ups that need deployment infrastructure are
 listed with their `TODO(phase-8)` in [SECURITY_REVIEW.md](SECURITY_REVIEW.md#accepted-risks),

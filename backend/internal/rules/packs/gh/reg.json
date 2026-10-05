@@ -26,7 +26,7 @@
         "date": "2024-03-01"
       },
       "verification": "conflicting",
-      "caveat": "Limits from 1 March 2024 as reported by the press; a 2026 blog gives lower figures and is treated as unreliable (C12). Counted over the last 24 hours, not the calendar day in Accra, until calendar windows arrive. Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
+      "caveat": "Limits from 1 March 2024 as reported by the press; a 2026 blog gives lower figures and is treated as unreliable (C12). Counted over the calendar day in Accra, from the hour your institution's day starts (midnight unless set). Read from summaries of the law, not the Gazette text; confirm the section numbers, amounts and dates against the original before relying on them.",
       "defaults": {
         "enabled": true,
         "mode": "live"
@@ -82,7 +82,8 @@
                       "right": {
                         "literal": "debit"
                       }
-                    }
+                    },
+                    "calendar": "day"
                   }
                 },
                 "op": "gt",
@@ -119,7 +120,8 @@
                       "right": {
                         "literal": "debit"
                       }
-                    }
+                    },
+                    "calendar": "day"
                   }
                 },
                 "op": "gt",
@@ -156,7 +158,8 @@
                       "right": {
                         "literal": "debit"
                       }
-                    }
+                    },
+                    "calendar": "day"
                   }
                 },
                 "op": "gt",
@@ -398,7 +401,7 @@
         "date": "2024-03-01"
       },
       "verification": "conflicting",
-      "caveat": "Only the Minimum-tier monthly limit (GHS 10,000) was confirmed. The Medium and Enhanced monthly limits are reported both as unchanged and as unrestricted (C12), so they are blank until your institution enters them; until then the rule reports those wallets as not evaluated. Counted over the last 30 days, not the calendar month, until calendar windows arrive.",
+      "caveat": "Only the Minimum-tier monthly limit (GHS 10,000) was confirmed. The Medium and Enhanced monthly limits are reported both as unchanged and as unrestricted (C12), so they are blank until your institution enters them; until then the rule reports those wallets as not evaluated. Counted over the calendar month in Accra, from the hour your institution's day starts.",
       "defaults": {
         "enabled": true,
         "mode": "live"
@@ -454,7 +457,8 @@
                       "right": {
                         "literal": "debit"
                       }
-                    }
+                    },
+                    "calendar": "month"
                   }
                 },
                 "op": "gt",
@@ -491,7 +495,8 @@
                       "right": {
                         "literal": "debit"
                       }
-                    }
+                    },
+                    "calendar": "month"
                   }
                 },
                 "op": "gt",
@@ -528,7 +533,8 @@
                       "right": {
                         "literal": "debit"
                       }
-                    }
+                    },
+                    "calendar": "month"
                   }
                 },
                 "op": "gt",
@@ -578,10 +584,10 @@
         },
         {
           "name": "month",
-          "label": "The month the limit counts over",
+          "label": "History kept for the month",
           "type": "duration",
-          "default": 2592000,
-          "min": 2592000,
+          "default": 2678400,
+          "min": 2678400,
           "max": 2678400
         }
       ]

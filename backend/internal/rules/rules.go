@@ -110,6 +110,8 @@ type (
 	TenantPacks = service.TenantPacks
 	// Resolution is which pack governs an event and why (ADR-0007).
 	Resolution = service.Resolution
+	// USDRate is the exchange rate a conversion used, recorded with the evaluation.
+	USDRate = service.USDRate
 	// Outcome is one triggered rule's evaluation.
 	Outcome = service.Outcome
 	// Window is one windowed aggregate a rule reads.

@@ -2,7 +2,7 @@
   "id": "rw",
   "jurisdiction": "RW",
   "name": "Rwanda",
-  "version": "2026.10.1",
+  "version": "2026.10.2",
   "currency": "RWF",
   "timezone": "Africa/Kigali",
   "library": "docs/compliance/GHANA_RWANDA_RULES_LIBRARY.md",
