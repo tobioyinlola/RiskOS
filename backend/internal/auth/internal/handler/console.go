@@ -29,6 +29,7 @@ const (
 	CSRFHeader        = "X-CSRF-Token"
 	EnvironmentHeader = "RiskOS-Environment"
 	sessionPathPrefix = "/api/v1/auth/"
+	loginPath         = "/api/v1/auth/login"
 )
 
 // Error codes of the dashboard realm.
@@ -108,7 +109,9 @@ func Middleware(keys *service.Service, con *service.Console, cc CookieConfig, su
 				ctx := withClient(r.Context(), r)
 				if token != "" {
 					if sess, err := con.ResolveSession(ctx, token); err == nil {
-						if unsafeMethod(r.Method) && sess.State == service.StateActive && !con.CheckCSRF(sess, r.Header.Get(CSRFHeader)) {
+						// Signing in opens a new session and ignores the old one, so a leftover cookie
+						// (whose token the sign-in page never read) must not block it; Origin still guards it.
+						if unsafeMethod(r.Method) && r.URL.Path != loginPath && sess.State == service.StateActive && !con.CheckCSRF(sess, r.Header.Get(CSRFHeader)) {
 							httpx.WriteError(w, r, logger, httpx.NewError(http.StatusForbidden, CodeCSRF, "The CSRF token is missing or invalid.", nil))
 							return
 						}
