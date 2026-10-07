@@ -101,7 +101,10 @@ func (h *Handlers) ListComplianceCrossBorder(ctx context.Context, _ apigen.ListC
 func days(d time.Duration) int { return int(d / (24 * time.Hour)) }
 
 func retentionRuleToAPI(r service.RetentionRule) apigen.RetentionRule {
-	return apigen.RetentionRule{Jurisdiction: r.Jurisdiction, Rule: r.Rule, Name: r.Name, Setting: r.Setting, Days: days(r.Period)}
+	return apigen.RetentionRule{
+		Jurisdiction: r.Jurisdiction, Rule: r.Rule, Name: r.Name, Setting: r.Setting, Days: days(r.Period),
+		Mode: apigen.RetentionRuleMode(r.Mode),
+	}
 }
 
 func periodToAPI(p service.RetentionPeriod) apigen.RetentionPeriod {

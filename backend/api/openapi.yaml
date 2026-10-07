@@ -3023,7 +3023,8 @@ paths:
         Requires `compliance:read`. For each record type, the longest minimum retention any country
         the workspace has activated (draft activations aside) requires, the rule that sets it, and
         every rule considered: GOV-08 and its country versions (GH-GOV-01, RW-GOV-01), RW-GOV-10,
-        and GH-SEC-11 for audit logs. Rules switched off in this environment are not counted.
+        and GH-SEC-11 for audit logs. A rule switched off still counts: a legal minimum is not
+        lifted by a setting.
       responses:
         "200":
           description: The periods.
@@ -6326,8 +6327,12 @@ components:
     RetentionRule:
       type: object
       additionalProperties: false
-      required: [jurisdiction, rule, name, setting, days]
+      required: [jurisdiction, rule, name, setting, days, mode]
       properties:
+        mode:
+          type: string
+          enum: [live, shadow, off]
+          description: The rule's mode in this environment. A retention minimum counts whatever its mode.
         jurisdiction:
           type: string
         rule:

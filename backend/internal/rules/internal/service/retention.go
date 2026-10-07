@@ -27,11 +27,12 @@ var retentionParams = map[string][]string{ //nolint:gochecknoglobals // fixed ta
 	"retain_logs": {"audit_log"},
 }
 
-// RetentionRule is one rule's minimum retention for some record types, in one country.
+// RetentionRule is one rule's minimum retention for some record types, in one country, and the
+// rule's mode in the environment (counted whatever it is).
 type RetentionRule struct {
-	Jurisdiction, Rule, Name, Setting string
-	Period                            time.Duration
-	RecordTypes                       []string
+	Jurisdiction, Rule, Name, Setting, Mode string
+	Period                                  time.Duration
+	RecordTypes                             []string
 }
 
 // RetentionPeriod is the retention in force for a record type: the longest of the rules that
@@ -43,9 +44,11 @@ type RetentionPeriod struct {
 	Considered []RetentionRule
 }
 
-// retentionRules lists the retention rules switched on in the caller's environment for every
-// country the tenant has activated (drafts excepted: nothing was recorded under them). It must run
-// inside the runner.
+// retentionRules lists the retention rules of every country the tenant has activated (drafts
+// excepted: nothing was recorded under them), with their settings in the caller's environment.
+// A rule switched off still counts: a minimum the law sets is not lifted by a setting, and a
+// governance preset is switched off without a second person, so counting only rules switched on
+// would let one person make every deletion allowed. It must run inside the runner.
 func (s *Service) retentionRules(ctx context.Context) ([]RetentionRule, error) {
 	scope, err := readScope(ctx)
 	if err != nil {
@@ -77,9 +80,6 @@ func (s *Service) retentionRules(ctx context.Context) ([]RetentionRule, error) {
 				v = &c
 			}
 			cfg := configOf(def, v, lib.profile)
-			if cfg.Mode == ModeOff {
-				continue
-			}
 			for _, prm := range def.Parameters {
 				types, ok := retentionParams[prm.Name]
 				if !ok || prm.Type != pack.ParamDuration {
@@ -94,7 +94,7 @@ func (s *Service) retentionRules(ctx context.Context) ([]RetentionRule, error) {
 				}
 				out = append(out, RetentionRule{
 					Jurisdiction: lib.pack.Jurisdiction, Rule: def.ID, Name: def.Text.Name, Setting: prm.Name,
-					Period: time.Duration(val) * time.Second, RecordTypes: types,
+					Mode: cfg.Mode, Period: time.Duration(val) * time.Second, RecordTypes: types,
 				})
 			}
 		}

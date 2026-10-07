@@ -30,7 +30,7 @@ import (
 // library check ties to the library's wording.
 
 // countryPack loads a country pack with its Nigerian parent.
-func countryPack(t *testing.T, country string) *pack.Pack {
+func countryPack(t testing.TB, country string) *pack.Pack {
 	t.Helper()
 	parent, err := pack.Load(ng.Files)
 	require.NoError(t, err)

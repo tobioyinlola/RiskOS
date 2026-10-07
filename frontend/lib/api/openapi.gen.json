@@ -4458,7 +4458,7 @@
      "compliance"
     ],
     "summary": "Retention in force across countries",
-    "description": "Requires `compliance:read`. For each record type, the longest minimum retention any country\nthe workspace has activated (draft activations aside) requires, the rule that sets it, and\nevery rule considered: GOV-08 and its country versions (GH-GOV-01, RW-GOV-01), RW-GOV-10,\nand GH-SEC-11 for audit logs. Rules switched off in this environment are not counted.\n",
+    "description": "Requires `compliance:read`. For each record type, the longest minimum retention any country\nthe workspace has activated (draft activations aside) requires, the rule that sets it, and\nevery rule considered: GOV-08 and its country versions (GH-GOV-01, RW-GOV-01), RW-GOV-10,\nand GH-SEC-11 for audit logs. A rule switched off still counts: a legal minimum is not\nlifted by a setting.\n",
     "responses": {
      "200": {
       "description": "The periods.",
@@ -9753,9 +9753,19 @@
      "rule",
      "name",
      "setting",
-     "days"
+     "days",
+     "mode"
     ],
     "properties": {
+     "mode": {
+      "type": "string",
+      "enum": [
+       "live",
+       "shadow",
+       "off"
+      ],
+      "description": "The rule's mode in this environment. A retention minimum counts whatever its mode."
+     },
      "jurisdiction": {
       "type": "string"
      },

@@ -1697,7 +1697,8 @@ export interface paths {
          * @description Requires `compliance:read`. For each record type, the longest minimum retention any country
          *     the workspace has activated (draft activations aside) requires, the rule that sets it, and
          *     every rule considered: GOV-08 and its country versions (GH-GOV-01, RW-GOV-01), RW-GOV-10,
-         *     and GH-SEC-11 for audit logs. Rules switched off in this environment are not counted.
+         *     and GH-SEC-11 for audit logs. A rule switched off still counts: a legal minimum is not
+         *     lifted by a setting.
          */
         get: operations["getComplianceRetention"];
         put?: never;
@@ -3346,6 +3347,11 @@ export interface components {
         /** @enum {string} */
         RecordType: "customer_file" | "transaction" | "report" | "audit_log" | "other";
         RetentionRule: {
+            /**
+             * @description The rule's mode in this environment. A retention minimum counts whatever its mode.
+             * @enum {string}
+             */
+            mode: "live" | "shadow" | "off";
             jurisdiction: string;
             rule: string;
             name: string;

@@ -93,8 +93,10 @@ func (s *Service) AddHoliday(ctx context.Context, jurisdiction string, day time.
 	if name == "" || len([]rune(name)) > 100 {
 		return store.Holiday{}, fmt.Errorf("%w: a name of 1 to 100 characters is required", ErrInvalidInput)
 	}
-	if day.Year() < 2000 || day.Year() > 2100 {
-		return store.Holiday{}, fmt.Errorf("%w: the date must be between 2000 and 2100", ErrInvalidInput)
+	// Holidays matter to holds running now or soon: a year back, three ahead. Every pack compile
+	// reads them, and a far-off date could only stretch a hold.
+	if day.Before(now.AddDate(-1, 0, -1)) || day.After(now.AddDate(3, 0, 0)) {
+		return store.Holiday{}, fmt.Errorf("%w: the date must be within a year back and three years ahead", ErrInvalidInput)
 	}
 	h := store.Holiday{Jurisdiction: jurisdiction, Day: day, Name: name, CreatedAt: now, CreatedBy: scope.Principal.ID}
 	err = s.runner.Run(ctx, func(ctx context.Context) error {

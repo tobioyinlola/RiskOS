@@ -107,6 +107,8 @@ func TestClocksAndReportingAcrossCountries(t *testing.T) {
 		require.Equal(t, http.StatusCreated, r.status, r.String())
 		assert.Equal(t, http.StatusConflict, officer.b.do(t, http.MethodPost, path, body).status, "one holiday a day")
 		assert.Equal(t, http.StatusNotFound, officer.b.do(t, http.MethodPost, "/api/v1/compliance/jurisdictions/ZZ/holidays", body).status)
+		far := map[string]any{"date": time.Now().AddDate(4, 0, 0).Format(time.DateOnly), "name": "Far off"}
+		assert.Equal(t, http.StatusBadRequest, officer.b.do(t, http.MethodPost, path, far).status, "holidays are bounded to the years holds can reach")
 		r = analyst.b.do(t, http.MethodGet, path, nil)
 		require.Equal(t, http.StatusOK, r.status, r.String())
 		assert.Contains(t, r.String(), holiday)
@@ -307,6 +309,13 @@ func TestClocksAndReportingAcrossCountries(t *testing.T) {
 		assert.False(t, v.Allowed, "six years is past Ghana's and Nigeria's five, not Rwanda's ten")
 		assert.WithinDuration(t, time.Now().AddDate(-6, 0, 0).Add(3650*24*time.Hour), v.RetainUntil, time.Minute)
 		assert.True(t, check(time.Now().AddDate(-11, 0, 0)).Allowed)
+		// Switching Rwanda's retention rules off does not lift the minimum.
+		configure(t, a.id, "rw", "RW-GOV-01", "off", `{}`)
+		configure(t, a.id, "rw", "RW-GOV-10", "off", `{}`)
+		v = check(time.Now().AddDate(-6, 0, 0))
+		assert.False(t, v.Allowed, "a retention rule switched off still counts")
+		require.NotNil(t, v.Period.Rule)
+		assert.Equal(t, apigen.RetentionRuleMode("off"), v.Period.Rule.Mode)
 		logs := s.call(t, http.MethodGet, "/api/v1/audit-logs?limit=100", a.testKey, nil).String()
 		assert.Contains(t, logs, "compliance.deletion_denied")
 		assert.Contains(t, logs, "compliance.deletion_allowed")
