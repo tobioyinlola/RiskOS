@@ -324,8 +324,9 @@ their own `jurisdiction`, and their tasks the country they are owed to, so a Gha
 of a Rwandan's data starts Rwanda's 48-hour clock to the NCSA.
 
 **Retention across countries.** The retention in force for a record type is the longest of the
-retention settings switched on in every country activated (drafts aside): GOV-08 and its country
-versions, RW-GOV-10, and GH-SEC-11 for payment institutions' audit logs
+retention settings of every country activated (drafts aside), switched off or not (a minimum the
+law sets is not lifted by a setting): GOV-08 and its country versions, RW-GOV-10, and GH-SEC-11
+for payment institutions' audit logs
 (`GET /api/v1/compliance/retention`). `POST /api/v1/compliance/retention/check` answers whether a
 record may be deleted; a refusal names the rule and country, and every answer is audited
 (`compliance.deletion_denied`, `compliance.deletion_allowed`). RiskOS holds no customer records
