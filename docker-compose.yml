@@ -94,7 +94,7 @@ services:
 
   # Catches every email locally; nothing leaves the machine. Inbox: http://localhost:8025
   mailpit:
-    image: axllent/mailpit:v1.27.10@sha256:b1f1be18af530d939a11ee8820b379e0c88eeec204d904bfad68862adced3a5a
+    image: axllent/mailpit:v1.31.4@sha256:b68349e3a014b90c5610bfb26b2ae36f3892d7b8cf25ee140c6c71c98d2fcf48
     ports: ["127.0.0.1:${MAILPIT_UI_PORT:-8025}:8025"]
     environment:
       MP_MAX_MESSAGES: "500"
