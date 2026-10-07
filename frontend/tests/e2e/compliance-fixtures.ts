@@ -477,6 +477,16 @@ export const JURISDICTIONS = [
     activated: true,
   },
   {
+    code: "GH",
+    name: "Ghana",
+    currency: "GHS",
+    minor_unit: 2,
+    timezone: "Africa/Accra",
+    regulators: ["BoG", "FIC", "SEC", "NCA", "DPC"],
+    pack: "gh",
+    activated: false,
+  },
+  {
     code: "RW",
     name: "Rwanda",
     currency: "RWF",
