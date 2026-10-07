@@ -238,24 +238,28 @@ type Outcome struct {
 
 // Jurisdiction mirrors the risk module's jurisdiction resolution in the stored outcome.
 type Jurisdiction struct {
-	Jurisdiction  string `json:"jurisdiction,omitempty"`
-	Pack          string `json:"pack,omitempty"`
-	ResolvedBy    string `json:"resolved_by"`
-	BookingEntity string `json:"booking_entity,omitempty"`
+	Jurisdiction       string `json:"jurisdiction,omitempty"`
+	Pack               string `json:"pack,omitempty"`
+	ResolvedBy         string `json:"resolved_by"`
+	BookingEntity      string `json:"booking_entity,omitempty"`
+	DataSubjectCountry string `json:"data_subject_country,omitempty"`
+	DataSubjectPack    string `json:"data_subject_pack,omitempty"`
 }
 
 // Control mirrors the risk module's rule pack control in the stored outcome.
 type Control struct {
-	Rule             string   `json:"rule"`
-	Name             string   `json:"name"`
-	Mode             string   `json:"mode"`
-	Decision         string   `json:"decision,omitempty"`
-	Reason           string   `json:"reason"`
-	Tasks            []string `json:"tasks"`
-	FeePercent       float64  `json:"fee_percent,omitempty"`
-	HoldSeconds      int64    `json:"hold_seconds,omitempty"`
-	Branch           string   `json:"branch,omitempty"`
-	ExemptionUnknown bool     `json:"exemption_unknown,omitempty"`
+	Rule             string     `json:"rule"`
+	Name             string     `json:"name"`
+	Mode             string     `json:"mode"`
+	Decision         string     `json:"decision,omitempty"`
+	Reason           string     `json:"reason"`
+	Tasks            []string   `json:"tasks"`
+	FeePercent       float64    `json:"fee_percent,omitempty"`
+	HoldSeconds      int64      `json:"hold_seconds,omitempty"`
+	HoldUntil        *time.Time `json:"hold_until,omitempty"`
+	Branch           string     `json:"branch,omitempty"`
+	Jurisdiction     string     `json:"jurisdiction,omitempty"`
+	ExemptionUnknown bool       `json:"exemption_unknown,omitempty"`
 }
 
 // NotEvaluated mirrors a rule pack rule that could not be evaluated.

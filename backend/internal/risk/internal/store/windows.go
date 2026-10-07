@@ -40,10 +40,12 @@ const (
 // would cost every event milliseconds of Redis time, shared by every tenant. So the script keeps,
 // next to the sorted set, the unknown events by time in KEYS[2] (one ZCOUNT says whether a window
 // is unknown), each counted field's latest time in KEYS[3] (a distinct count is one ZCOUNT), and
-// in KEYS[4] the count and the sum per currency of each time bucket (about 1,024 per retention).
+// in KEYS[4] the count and the sum per currency of each time bucket (about 1,024 per retention,
+// sized to divide an hour or a day so that no bucket straddles a local day).
 // Counts and exists are one ZCOUNT (no unknown entry means every entry counts). Sums and daily
 // averages add whole buckets and scan only the two partial buckets at the window's edges, once
-// per window length, unless the window holds fewer entries than its buckets would cost to fetch:
+// per window length; days_over adds whole buckets into local days the same way, once per window
+// length and day offset (a day offset that is not a multiple of the bucket size scans), unless the window holds fewer entries than its buckets would cost to fetch:
 // then it is scanned. An empty window answers at once. The bucket size follows the retention a write
 // gives (an event that only reads a window gives none, so its longest query stands in), and a
 // write with another retention reindexes the window; a query over more than 4,096 buckets scans
@@ -76,27 +78,34 @@ if dry then _, dflag, dfield, _, damt, dc = parse(member) end
 
 -- days_over counts the local days of the window whose total in the event's currency reached a
 -- threshold. fn is "days_over:<threshold>:<offset ms>", the offset moving UTC to the local day's
--- start (ADR-0007).
+-- start (ADR-0007). The day totals are scanned once per window length and offset: a rule
+-- comparing them with several thresholds (GH-TM-07's three tiers) reads the window once.
+local dayscans = {}
 local function days_over(fn, win)
   local threshold, offset = string.match(fn, '^days_over:(%-?%d+):(%-?%d+)$')
   threshold, offset = tonumber(threshold), tonumber(offset)
-  local ms = redis.call('ZRANGEBYSCORE', K, now - win, now, 'WITHSCORES')
-  local totals = {}
-  local function add(flag, amt, c, t)
-    if flag == '1' and c == cur and amt ~= '' then
-      local d = math.floor((t + offset) / 86400000)
-      totals[d] = (totals[d] or 0) + tonumber(amt)
+  local id = win .. ':' .. offset
+  local totals = dayscans[id]
+  if not totals then
+    local ms = redis.call('ZRANGEBYSCORE', K, now - win, now, 'WITHSCORES')
+    totals = {}
+    local function add(flag, amt, c, t)
+      if flag == '1' and c == cur and amt ~= '' then
+        local d = math.floor((t + offset) / 86400000)
+        totals[d] = (totals[d] or 0) + tonumber(amt)
+      end
     end
+    for i = 1, #ms, 2 do
+      local _, flag, _, _, amt, c = parse(ms[i])
+      if flag == '?' then totals = '?' break end
+      add(flag, amt, c, tonumber(ms[i + 1]))
+    end
+    if totals ~= '?' and dry then
+      if dflag == '?' then totals = '?' else add(dflag, damt, dc, now) end
+    end
+    dayscans[id] = totals
   end
-  for i = 1, #ms, 2 do
-    local _, flag, _, _, amt, c = parse(ms[i])
-    if flag == '?' then return '?' end
-    add(flag, amt, c, tonumber(ms[i + 1]))
-  end
-  if dry then
-    if dflag == '?' then return '?' end
-    add(dflag, damt, dc, now)
-  end
+  if totals == '?' then return '?' end
   local n = 0
   for _, s in pairs(totals) do
     if s >= threshold then n = n + 1 end
@@ -165,7 +174,18 @@ end
 local meta = redis.call('HMGET', KB, 'B', 'last')
 local B, last = tonumber(meta[1] or ''), tonumber(meta[2] or '')
 local function bucket(t) return math.floor(t / B) end
-local function size(r) return math.max(1000, math.ceil(r / 1024)) end
+-- size is the bucket size for a retention: about 1,024 buckets, rounded up to a size that divides
+-- an hour (or a day, past an hour), so a bucket never straddles the start of a local day in any
+-- time zone of whole hours: days_over adds whole buckets.
+local steps = {1000, 2000, 5000, 10000, 15000, 30000, 60000, 120000, 300000, 600000, 900000, 1200000,
+  1800000, 3600000, 7200000, 10800000, 14400000, 21600000, 28800000, 43200000, 86400000}
+local function size(r)
+  local want = math.max(1000, math.ceil(r / 1024))
+  for _, s in ipairs(steps) do
+    if s >= want then return s end
+  end
+  return math.ceil(want / 86400000) * 86400000
+end
 local longest = 0
 for q = 0, tonumber(ARGV[8]) - 1 do longest = math.max(longest, tonumber(ARGV[10 + 2 * q])) end
 
@@ -235,8 +255,53 @@ local top = redis.call('ZRANGE', K, -1, -1, 'WITHSCORES')
 local lag = 0
 if #top > 0 then lag = tonumber(top[2]) - now end
 
+-- scanned returns the count and the sum of the entries with scores in [a, b] ('(' marks an
+-- open bound).
+local function scanned(a, b)
+  local c, s = 0, 0
+  for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, a, b)) do
+    local _, flag, _, _, amt, cc = parse(m)
+    if flag == '1' then
+      c = c + 1
+      if cc == cur and amt ~= '' then s = s + tonumber(amt) end
+    end
+  end
+  return c, s
+end
+
+-- stored returns a bucket's count and sum from the index.
+local function stored(b)
+  local v = redis.call('HMGET', KB, 'c' .. b, 's' .. b .. ':' .. cur)
+  return tonumber(v[1] or 0), tonumber(v[2] or 0)
+end
+
+-- current returns the count and the sum of the current bucket up to now, once per call: every
+-- window ends now, so they share it. When no entry is newer than now (the usual case), the
+-- bucket's stored totals are exactly that and nothing is scanned.
+local currentEdge
+local function current()
+  if not currentEdge then
+    local c, s
+    if lag <= 0 then c, s = stored(bucket(now)) else c, s = scanned(bucket(now) * B, now) end
+    currentEdge = {c, s}
+  end
+  return currentEdge[1], currentEdge[2]
+end
+
+-- older returns the count and the sum of a window's first, partial bucket bl from lo: it scans
+-- the side of lo with fewer entries and, for the earlier side, takes it from the bucket's totals.
+local function older(bl, lo)
+  local after = redis.call('ZCOUNT', K, lo, (bl + 1) * B - 1)
+  local before = redis.call('ZCOUNT', K, bl * B, '(' .. lo)
+  if after <= before then return scanned(lo, (bl + 1) * B - 1) end
+  local c, s = stored(bl)
+  local bc, bs = scanned(bl * B, '(' .. lo)
+  return c - bc, s - bs
+end
+
 -- totals returns the count and the sum of a window from the buckets and its edges, once per
--- window length.
+-- window length. A window that starts on a bucket boundary (a calendar day or month) reads its
+-- first bucket whole.
 local totals = {}
 local function total(win)
   if totals[win] then return totals[win][1], totals[win][2] end
@@ -258,11 +323,18 @@ local function total(win)
   elseif bl == bh or bh - bl > 4096 or n <= 2 * (bh - bl) + 64 then
     for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, lo, hi)) do add(m) end
   else
-    for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, lo, (bl + 1) * B - 1)) do add(m) end
-    for _, m in ipairs(redis.call('ZRANGEBYSCORE', K, bh * B, hi)) do add(m) end
-    if bh - bl > 1 then
+    local first = bl + 1
+    if lo == bl * B then
+      first = bl
+    else
+      local oc, os = older(bl, lo)
+      count, sum = count + oc, sum + os
+    end
+    local ec, es = current()
+    count, sum = count + ec, sum + es
+    if bh > first then
       local f = {}
-      for b = bl + 1, bh - 1 do
+      for b = first, bh - 1 do
         f[#f + 1] = 'c' .. b
         f[#f + 1] = 's' .. b .. ':' .. cur
       end
@@ -276,6 +348,57 @@ local function total(win)
   if dry then add(member) end
   totals[win] = {count, sum}
   return count, sum
+end
+
+-- days computes days_over from the buckets: each local day's total adds the whole buckets of
+-- the window (a bucket lies within one day when the day offset is a multiple of the bucket size)
+-- and scans the two partial buckets at its edges, once per window length and offset. It falls
+-- back to the scan when the offset does not align or the window holds few entries.
+local daytotals = {}
+local function days(fn, win)
+  local threshold, offset = string.match(fn, '^days_over:(%-?%d+):(%-?%d+)$')
+  threshold, offset = tonumber(threshold), tonumber(offset)
+  local lo, hi = now - win, now
+  local bl, bh = bucket(lo), bucket(hi)
+  if offset % B ~= 0 or bl == bh or bh - bl > 4096 then return scan(fn, win) end
+  if (dry and dflag == '?') or redis.call('ZCOUNT', KU, lo, hi) > 0 then return '?' end
+  local id = win .. ':' .. offset
+  local d = daytotals[id]
+  if not d then
+    -- Parsing an entry costs several times reading a bucket's sum: scan only small windows.
+    if redis.call('ZCOUNT', K, lo, hi) <= (bh - bl) / 4 + 64 then return scan(fn, win) end
+    d = {}
+    local function add(t, amt)
+      local k = math.floor((t + offset) / 86400000)
+      d[k] = (d[k] or 0) + amt
+    end
+    -- Every bucket lies within one local day, so a bucket's share goes to its day.
+    local first = bl + 1
+    if lo == bl * B then
+      first = bl
+    else
+      local _, os = older(bl, lo)
+      if os ~= 0 then add(bl * B, os) end
+    end
+    -- The current bucket lies within one local day: its sum counts for that day.
+    local _, es = current()
+    if es ~= 0 then add(bh * B, es) end
+    if bh > first then
+      local f = {}
+      for b = first, bh - 1 do f[#f + 1] = 's' .. b .. ':' .. cur end
+      local v = redis.call('HMGET', KB, unpack(f))
+      for i = 1, #v do
+        if v[i] then add((first + i - 1) * B, tonumber(v[i])) end
+      end
+    end
+    if dry and dflag == '1' and dc == cur and damt ~= '' then add(now, tonumber(damt)) end
+    daytotals[id] = d
+  end
+  local n = 0
+  for _, s in pairs(d) do
+    if s >= threshold then n = n + 1 end
+  end
+  return n
 end
 
 -- fast computes count, exists, sum, daily_avg and (in order) distinct_count from the indexes.
@@ -310,6 +433,8 @@ for q = 0, tonumber(ARGV[8]) - 1 do
   local v
   if fn == 'count' or fn == 'exists' or fn == 'sum' or fn == 'daily_avg' or (fn == 'distinct_count' and lag <= skew) then
     v = fast(fn, win)
+  elseif string.sub(fn, 1, 10) == 'days_over:' then
+    v = days(fn, win)
   else
     v = scan(fn, win)
   end

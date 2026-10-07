@@ -2,7 +2,7 @@
   "id": "gh",
   "jurisdiction": "GH",
   "name": "Ghana",
-  "version": "2026.10.2",
+  "version": "2026.10.3",
   "currency": "GHS",
   "timezone": "Africa/Accra",
   "library": "docs/compliance/GHANA_RWANDA_RULES_LIBRARY.md",
@@ -642,14 +642,14 @@
       "duration": "Up to 7 working days",
       "duty": "Hold a transaction the FIC suspends, then let the hold expire",
       "applies_to": "Any account or transaction in scope (Act 1044 s.45)",
-      "requirement": "Hold with automatic expiry; RiskOS counts calendar time until working-day clocks arrive",
+      "requirement": "Hold with automatic expiry at the close of the 7th working day (weekends and entered public holidays skipped)",
       "sources": [
         "GS3"
       ],
       "rules": [
         "GH-REG-11"
       ],
-      "hours": 168,
+      "working_days": 7,
       "kind": "legal",
       "authority": "FIC"
     },

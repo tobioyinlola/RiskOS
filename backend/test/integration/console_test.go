@@ -225,6 +225,10 @@ func TestConsoleOnboardingAndSession(t *testing.T) {
 		b.origin = "https://evil.example"
 		assert.Equal(t, http.StatusForbidden, b.do(t, http.MethodPost, "/api/v1/cases", map[string]any{"title": "x"}).status)
 		b.origin = "http://console.test"
+		b.csrf = ""
+		r := b.do(t, http.MethodPost, "/api/v1/auth/login", map[string]any{"email": "admin@bank.example", "password": "wrong password"})
+		assert.Equal(t, http.StatusUnauthorized, r.status, "a leftover session cookie does not block signing in: %s", r.String())
+		b.csrf = csrf
 	})
 	t.Run("environments are chosen per request", func(t *testing.T) {
 		b.env = "production"

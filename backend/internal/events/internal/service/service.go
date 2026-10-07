@@ -159,11 +159,23 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 // daily check reads.
 func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n domain.Normalized, res risk.Result) error {
 	var controls []rules.TaskControl
-	for _, c := range res.Controls {
+	add := func(c risk.Control, restricted bool) {
 		if c.Mode != "live" || !slices.ContainsFunc(c.Tasks, rules.TrackedTask) {
-			continue
+			return
 		}
-		controls = append(controls, rules.TaskControl{Rule: c.Rule, Tasks: c.Tasks, Branch: c.Branch, Jurisdiction: jurisdictionOf(res)})
+		j := c.Jurisdiction
+		if j == "" {
+			j = jurisdictionOf(res)
+		}
+		controls = append(controls, rules.TaskControl{Rule: c.Rule, Tasks: c.Tasks, Branch: c.Branch, Jurisdiction: j, Restricted: restricted})
+	}
+	for _, c := range res.Controls {
+		add(c, false)
+	}
+	// Compliance-only controls are masked in Controls (GOV-09); their work is recorded from the
+	// controls as they fired.
+	for _, c := range res.RestrictedControls {
+		add(c, true)
 	}
 	var hasBVN *bool
 	if n.Compliance != nil && n.Actor.AccountID != "" {
@@ -181,7 +193,7 @@ func (s *Service) recordComplianceWork(ctx context.Context, eventID uuid.UUID, n
 	args := rules.TasksArgs{
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, EvaluationID: res.ID, EventID: eventID,
 		OccurredAt: n.OccurredAt, SubjectRef: n.Actor.UserID, AccountRef: n.Actor.AccountID, HasBVN: hasBVN,
-		Controls: controls,
+		Controls: controls, EventJurisdiction: jurisdictionOf(res),
 	}
 	var data struct {
 		Amount   int64  `json:"amount"`
@@ -298,7 +310,8 @@ func toOutcome(r risk.Result) domain.Outcome {
 	for _, c := range r.Controls {
 		out.Controls = append(out.Controls, domain.Control{
 			Rule: c.Rule, Name: c.Name, Mode: c.Mode, Decision: string(c.Decision), Reason: c.Reason, Tasks: c.Tasks,
-			FeePercent: c.FeePercent, HoldSeconds: c.HoldSeconds, Branch: c.Branch, ExemptionUnknown: c.ExemptionUnknown,
+			FeePercent: c.FeePercent, HoldSeconds: c.HoldSeconds, HoldUntil: c.HoldUntil, Branch: c.Branch,
+			Jurisdiction: c.Jurisdiction, ExemptionUnknown: c.ExemptionUnknown,
 		})
 	}
 	for _, n := range r.NotEvaluated {
@@ -307,6 +320,7 @@ func toOutcome(r risk.Result) domain.Outcome {
 	if j := r.Jurisdiction; j != nil {
 		out.Jurisdiction = &domain.Jurisdiction{
 			Jurisdiction: j.Jurisdiction, Pack: j.Pack, ResolvedBy: j.ResolvedBy, BookingEntity: j.BookingEntity,
+			DataSubjectCountry: j.DataSubjectCountry, DataSubjectPack: j.DataSubjectPack,
 		}
 	}
 	return out

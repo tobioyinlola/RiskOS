@@ -42,3 +42,48 @@ names the evidence that keeps it true. Reviewed 2026-10-03 against `staging`.
   (fail closed) and each raises a security alert job, which adds PostgreSQL load during the
   overload (seen at 250 events/s before the window fix). Grouping still yields one alert per
   subject; the job volume is the cost. Revisit with rate-based alerting on separated hosts.
+
+## Several jurisdictions (ADR-0007)
+
+The review of everything ADR-0007 added (Ghana and Rwanda packs, activations and their
+approvals, open-question verification, the library export, working-day clocks and holidays,
+data-subject duties, country tasks, the clock load, the cross-border view and retention).
+Reviewed 2026-10-05 against `staging`.
+
+### Findings fixed
+
+| Finding | Severity | Fix |
+|---|---|---|
+| `days_over` (GH-TM-07: days a wallet's debits reached its daily limit) read and parsed every entry of its 7-day window, three times per event. An agent wallet with 20,000 debits in a week cost 75 to 91 ms of Redis time per event: one busy wallet would stall decisions for every tenant sharing Redis | High (availability, cross-tenant) | Bucket sizes divide an hour or a day, so no bucket straddles a local day; days are totalled from whole buckets plus the two partial edges, once per window and day offset; misaligned offsets and small windows scan. 1.4 to 1.7 ms per event, the write included; exact against the backtest on random streams (`windows_integration_test.go`, PERFORMANCE_BASELINE.md §7) |
+| A compliance-only control (GH-REG-11, an FIC suspension or freeze) was returned with its rule, reason (`fic_order`) and tasks in the decision, the stored evaluation and the work queue: telling the institution's systems, and anyone reading them, that the FIC had acted (tipping off is an offence under Act 1044 s.38(4)) | High (confidentiality, legal) | Fixed in phase 5 (`8ca485a`): the control reads as `compliance_review` with its decision and hold kept, its work is sensitive, and a test fires every compliance-only rule of the Ghana and Rwanda packs and walks every payload others can read (`clocks_reporting_test.go`) |
+| The retention check ignored retention rules switched off in the environment. Switching off a governance preset needs no second person, so one person could make every deletion check answer "allowed" | Medium (integrity of records) | Retention minimums count whatever their mode; the API shows each rule's mode (`clocks_reporting_test.go`) |
+| Library export cells starting with `=`, `+`, `-` or `@` would be read as formulas when the CSV is opened in a spreadsheet. The cells hold the library's own text today, not tenant input | Low (defence in depth) | Such cells are prefixed with an apostrophe (`TestSpreadsheetSafe`) |
+| Public holidays had no date bound: every pack compile loads them, and a far-future date could only stretch a hold | Low | A holiday is within a year back and three years ahead |
+
+### Controls
+
+| Control | How | Evidence |
+|---|---|---|
+| Tenant isolation | `jurisdiction_activations`, `activation_changes`, `gap_verifications` and `jurisdiction_holidays` have row-level security on the authenticated tenant; `jurisdictions` and the packs are reference data the application can only read | `TestEveryTenantTableIsIsolated`; `jurisdictions_test.go` (another tenant's booking entity resolves to nothing) |
+| No country is guessed | One governing pack per event: the booking entity's activation, else the stated fallback, else none; a draft or suspended entity is judged by no other country. Data-subject duties run only from the tenant's own activation in that country | `jurisdictions_test.go`, `clocks_reporting_test.go` |
+| Going live is never one person's act | Activations start as drafts; going live, leaving live, editing a live activation and changing the fallback need another person with `rules:approve`, readiness is checked again on approval, and every change is kept (decided once, never deleted) and audited | `activation_workflow_test.go` |
+| People, not keys, configure countries | Activations, approvals, open-question verification and holidays need a console user (`compliance:configure` or `rules:approve`); API keys get 403 | `activation_workflow_test.go`, `clocks_reporting_test.go` |
+| No tipping off in any country | Compliance-only signals and controls of every pack read as `compliance_review`; their work, suspicious transaction reports and the counts of both are seen only with `compliance:sensitive`, also in the clock load and the cross-border view | `gov09_test.go`, `clocks_reporting_test.go` |
+| Nothing is filed or deleted by RiskOS | Reports to the FIC and NCSA are exported and filed by a person; the retention check answers and audits, it deletes nothing | Code review; `clocks_reporting_test.go` |
+| Exports are safe to open and audited | Filenames come from validated country codes; CSV cells cannot start a formula; the PDF writer escapes its strings; each export is audited | `TestSpreadsheetSafe`, `library_countries_test.go` |
+| Links stay links | An open question's verification link must be `http(s)`, at most 500 characters; the console opens it with `rel="noreferrer noopener"` | `activation_workflow_test.go`; code review |
+| Bounded work | The cross-border view lists 100 events; the clock load is one grouped query; holidays are bounded by date; days are totalled from at most about 1,024 buckets per window | Code review; `windows_integration_test.go` |
+
+### Accepted risks
+
+- **Holidays lengthen holds.** A person with `compliance:configure` can enter a holiday that is
+  not one, holding funds a day longer than the law allows. Every holiday is audited and shown
+  with who entered it.
+- **Holidays are entered, not shipped.** A country whose holidays nobody entered counts only
+  weekends, so a hold may end before a public holiday it should skip. Readiness warns while
+  none is entered for the coming year.
+- **Retention years are 365 days.** The packs state retention in seconds (5 years =
+  157,680,000 s), about one to three days short of calendar years. Institutions that need the
+  calendar date can raise the setting.
+- **A retention check per call loads the activated packs' configuration.** API keys are rate
+  limited; heavy disposal jobs should batch and pace their calls.

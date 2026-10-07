@@ -12,6 +12,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/interp"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/pack"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/rules/internal/workdays"
 )
 
 // TenantPack is the rules of one of a tenant's activations that apply to it and are switched on,
@@ -26,12 +27,18 @@ type TenantPack struct {
 	LicenceType string
 	// DayStart is the hour a business day starts, for calendar windows.
 	DayStart int
+	// calendar is the jurisdiction's working days (the tenant's public holidays there).
+	calendar workdays.Calendar
 	rules    []tenantRule
 	// rates are the institution's exchange rates: US dollars per one unit of a currency; ratesAt
 	// when each was set.
 	rates   map[string]float64
 	ratesAt map[string]time.Time
 }
+
+// WorkingDaysEnd returns when n working days from at end in the pack's calendar: the close of
+// the nth working day after at's local day.
+func (p *TenantPack) WorkingDaysEnd(at time.Time, n int) time.Time { return p.calendar.End(at, n) }
 
 // AmountUSD converts an amount to US dollars with the institution's rates; ok is false without
 // a rate for its currency.
@@ -138,6 +145,33 @@ func (t *TenantPacks) Resolve(bookingEntity string) Resolution {
 	return Resolution{By: ResolvedNone, BookingEntity: bookingEntity}
 }
 
+// ForDataSubject returns the rules of the tenant's activation in a country that follow the data
+// subject (RW-SEC-04), compiled as a pack, or nil when the tenant has no activation running there
+// or its pack has none. The fallback is preferred when it is in that country.
+func (t *TenantPacks) ForDataSubject(country string) *TenantPack {
+	var p *TenantPack
+	for _, c := range t.Packs() {
+		if c.Jurisdiction == country {
+			p = c
+			break
+		}
+	}
+	if p == nil {
+		return nil
+	}
+	sub := *p
+	sub.rules = nil
+	for _, r := range p.rules {
+		if r.r.Def.FollowsDataSubject {
+			sub.rules = append(sub.rules, r)
+		}
+	}
+	if len(sub.rules) == 0 {
+		return nil
+	}
+	return &sub
+}
+
 // Packs returns every compiled pack, the fallback first.
 func (t *TenantPacks) Packs() []*TenantPack {
 	var out []*TenantPack
@@ -175,6 +209,10 @@ func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 		for _, r := range rates {
 			usd[r.Currency], at[r.Currency] = r.USDPerUnit, r.UpdatedAt
 		}
+		holidays, err := s.holidaysByJurisdiction(ctx)
+		if err != nil {
+			return err
+		}
 		out = &TenantPacks{byEntity: map[string]*TenantPack{}, inactive: map[string]bool{}}
 		for i := range acts {
 			a := &acts[i]
@@ -182,7 +220,7 @@ func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 				out.inactive[a.BookingEntity] = true
 				continue
 			}
-			p, err := s.compile(ctx, a, usd, at)
+			p, err := s.compile(ctx, a, usd, at, holidays[a.Jurisdiction])
 			if err != nil {
 				return err
 			}
@@ -197,7 +235,7 @@ func (s *Service) TenantPacks(ctx context.Context) (*TenantPacks, error) {
 }
 
 // compile compiles one activation's pack with the environment's configuration.
-func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[string]float64, at map[string]time.Time) (*TenantPack, error) {
+func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[string]float64, at map[string]time.Time, holidays map[string]bool) (*TenantPack, error) {
 	rec, err := s.store.Pack(ctx, a.PackID, a.PackVersion)
 	if err != nil {
 		return nil, err
@@ -216,7 +254,7 @@ func (s *Service) compile(ctx context.Context, a *store.Activation, usd map[stri
 	}
 	out := &TenantPack{
 		Ref: p.ID + "@" + p.Version, Jurisdiction: p.Jurisdiction, Location: loc, LicenceType: a.LicenceType,
-		DayStart: int(a.DayStartsAt), rates: usd, ratesAt: at,
+		DayStart: int(a.DayStartsAt), rates: usd, ratesAt: at, calendar: workdays.Calendar{Location: loc, Holidays: holidays},
 	}
 	for i := range p.Rules {
 		def := &p.Rules[i]
@@ -333,10 +371,15 @@ func (s *Service) Candidates(ctx context.Context, ruleID string, settings map[st
 		if a := lib.profile; a != nil {
 			licence, dayStart = a.LicenceType, int(a.DayStartsAt)
 		}
+		holidays, err := s.holidaysByJurisdiction(ctx)
+		if err != nil {
+			return err
+		}
+		cal := workdays.Calendar{Location: loc, Holidays: holidays[lib.pack.Jurisdiction]}
 		one := func(settings map[string]float64) *TenantPack {
 			return &TenantPack{
 				Ref: ref, Jurisdiction: lib.pack.Jurisdiction, Location: loc, LicenceType: licence, DayStart: dayStart,
-				rules: []tenantRule{{r: interp.Compile(def, settings), mode: pack.ModeLive}},
+				calendar: cal, rules: []tenantRule{{r: interp.Compile(def, settings), mode: pack.ModeLive}},
 			}
 		}
 		current, candidate = one(cur.Settings), one(cur.Settings)

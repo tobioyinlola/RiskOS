@@ -254,6 +254,9 @@ export function task(
     closed_at: null,
     close_note: null,
     filing_ref: null,
+    jurisdiction: "NG",
+    event_jurisdiction: null as string | null,
+    authority: (kind === "report.STR" ? "NFIU" : null) as string | null,
     ...extra,
   };
 }
@@ -472,6 +475,16 @@ export const JURISDICTIONS = [
     regulators: ["CBN", "NFIU"],
     pack: "ng",
     activated: true,
+  },
+  {
+    code: "GH",
+    name: "Ghana",
+    currency: "GHS",
+    minor_unit: 2,
+    timezone: "Africa/Accra",
+    regulators: ["BoG", "FIC", "SEC", "NCA", "DPC"],
+    pack: "gh",
+    activated: false,
   },
   {
     code: "RW",

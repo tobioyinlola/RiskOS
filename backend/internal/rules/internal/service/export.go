@@ -137,18 +137,32 @@ func exportCSV(packs []exportPack, units map[string]int, env string) ([]byte, er
 	for _, p := range packs {
 		for i := range p.rules {
 			r := &p.rules[i]
-			if err := w.Write([]string{
+			row := []string{
 				p.pack.Name, r.ID, r.Text.Name, kindText(r.Kind), r.Text.Description, secondText(r),
 				provenanceText(r), lineageText(r), defaultText(r), modeText(r.Config.Mode), appliesText(r),
 				settingsText(r, units), verificationText(r.Verification), r.Caveat, strings.Join(r.Regulators, ", "),
 				sourcesText(p.pack.Pack, r.Sources), r.Text.Basis,
-			}); err != nil {
+			}
+			for j := range row {
+				row[j] = spreadsheetSafe(row[j])
+			}
+			if err := w.Write(row); err != nil {
 				return nil, err
 			}
 		}
 	}
 	w.Flush()
 	return b.Bytes(), w.Error()
+}
+
+// spreadsheetSafe keeps a cell from being read as a formula when the file is opened in a
+// spreadsheet (CSV injection): a cell starting with =, +, -, @, a tab or a carriage return is
+// prefixed with an apostrophe, which spreadsheets show as text.
+func spreadsheetSafe(v string) string {
+	if v != "" && strings.ContainsRune("=+-@\t\r", rune(v[0])) {
+		return "'" + v
+	}
+	return v
 }
 
 func exportPDF(packs []exportPack, units map[string]int, env string, now time.Time) []byte {

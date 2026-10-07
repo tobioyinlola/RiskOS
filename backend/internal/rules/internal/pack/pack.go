@@ -206,8 +206,12 @@ type Clock struct {
 	Requirement string   `json:"requirement"`
 	Sources     []string `json:"sources"`
 	Rules       []string `json:"rules"`
-	// Hours is nil for a clock that was not found: shown as "not found", never as zero.
+	// Hours is nil for a clock that was not found: shown as "not found", never as zero. A
+	// working-day clock has no fixed hours either: WorkingDays is set instead.
 	Hours *int `json:"hours"`
+	// WorkingDays is a clock counted in the jurisdiction's working days (weekends and the
+	// public holidays the institution entered are skipped).
+	WorkingDays *int `json:"working_days,omitempty"`
 	// Kind is legal unless stated (packs before ADR-0007 list legal clocks only).
 	Kind ClockKind `json:"kind,omitempty"`
 	// Authority is the body the clock runs against (FIC, BoG, NCSA).
@@ -296,6 +300,10 @@ type Rule struct {
 	Overrides map[string]Override `json:"overrides,omitempty"`
 	// InheritedFrom is the pack an inherited rule comes from; it keeps the parent's ID.
 	InheritedFrom string `json:"inherited_from,omitempty"`
+	// FollowsDataSubject marks a duty owed to people of the pack's country wherever the event
+	// was booked (a data-protection breach clock): it also runs, under this country's settings,
+	// on events of other activations whose compliance.data_subject_country is this country.
+	FollowsDataSubject bool `json:"follows_data_subject,omitempty"`
 	// Text is filled from the pack's text file, never written in the rule files.
 	Text Text `json:"-"`
 }
@@ -419,6 +427,9 @@ const (
 	ParamScore ParamType = "score"
 	// ParamFlag is a yes/no setting: 0 or 1.
 	ParamFlag ParamType = "flag"
+	// ParamWorkingDays is a number of working days in the jurisdiction's calendar: a deadline
+	// ends at the close of the last of them (ADR-0007).
+	ParamWorkingDays ParamType = "working_days"
 )
 
 // Parameter is a named, bounded setting.

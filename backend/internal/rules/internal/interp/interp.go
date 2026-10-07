@@ -305,9 +305,12 @@ type Result struct {
 	Branch string
 	// Weight is a fired signal's points.
 	Weight int
-	// Fee is a fired fee control's rate in percent; Hold a hold control's maximum in seconds.
-	Fee  float64
-	Hold int64
+	// Fee is a fired fee control's rate in percent; Hold a hold control's maximum in seconds,
+	// or HoldWorkingDays its maximum in the jurisdiction's working days (the caller turns them
+	// into an end time with the working-day calendar).
+	Fee             float64
+	Hold            int64
+	HoldWorkingDays int
 	// ExemptionUnknown is set when a control fired because its exemption could not be checked.
 	ExemptionUnknown bool
 	// Seen are the values the evaluation compared, for the evaluation record.
@@ -378,9 +381,23 @@ func Evaluate(r *Rule, env Env) (res Result) {
 		res.Fee = r.params[o.Fee]
 	}
 	if o.Hold != "" {
-		res.Hold = int64(r.params[o.Hold])
+		if r.ParamType(o.Hold) == pack.ParamWorkingDays {
+			res.HoldWorkingDays = int(r.params[o.Hold])
+		} else {
+			res.Hold = int64(r.params[o.Hold])
+		}
 	}
 	return res
+}
+
+// ParamType returns the type of one of the rule's parameters ("" if it has none of that name).
+func (r *Rule) ParamType(name string) pack.ParamType {
+	for _, p := range r.Def.Parameters {
+		if p.Name == name {
+			return p.Type
+		}
+	}
+	return ""
 }
 
 // branches picks the matching branch with the most points (signals) or the first matching one

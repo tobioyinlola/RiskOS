@@ -209,7 +209,9 @@ func TestWindowsMatchBacktest(t *testing.T) {
 		require.Len(t, keys, 1)
 		size, err := rdb.HGet(ctx, keys[0], "B").Int64()
 		require.NoError(t, err)
-		assert.Equal(t, month.Milliseconds()/1024, size, "buckets follow the retention writes give")
+		// A 30-day retention wants 2,531,250 ms buckets (1,024 of them), rounded up to an hour so
+		// that no bucket straddles a local day.
+		assert.Equal(t, time.Hour.Milliseconds(), size, "buckets follow the retention writes give")
 	})
 
 	t.Run("a slightly late event never counts fewer identifiers", func(t *testing.T) {
@@ -265,6 +267,7 @@ func TestWindowsMatchBacktest(t *testing.T) {
 			require.True(t, ok)
 		}
 		assert.Equal(t, features.WindowValue{Value: 20_000, OK: true}, got[0][0], "the cap keeps the newest 20,000")
+		assert.Equal(t, features.WindowValue{Value: 100 * 20_000, OK: true}, got[0][1], "the day's sum, from buckets and edges")
 		assert.Equal(t, features.WindowValue{Value: 5000, OK: true}, got[0][2])
 		stats, err := rdb.Info(ctx, "commandstats").Result()
 		require.NoError(t, err)
@@ -279,4 +282,114 @@ func TestWindowsMatchBacktest(t *testing.T) {
 		t.Logf("busy entity (20,000 entries): %d µs of Redis time per window call", usec/calls)
 		assert.Less(t, usec/calls, int64(2000), "a read must not scan 20,000 entries")
 	})
+
+	// GH-TM-07 reads a wallet's week three times with days_over (one per KYC tier's daily
+	// limit). An agent wallet with 20,000 debits in the week must not make each read scan them,
+	// in Accra's days, Kigali's, or days that start at 06:00.
+	t.Run("a busy wallet's days over stays cheap and exact", func(t *testing.T) {
+		const week = 7 * 24 * time.Hour
+		thresholds := []int64{3_000_000, 15_000_000, 25_000_000}
+		for _, c := range []struct {
+			offset int64
+			n      int
+		}{{0, 1500}, {0, 20_000}, {7_200_000, 20_000}, {-21_600_000, 20_000}} {
+			offset := c.offset
+			key := fmt.Sprintf("wallet%d-%d", offset, c.n)
+			queries := make([]features.WindowQuery, len(thresholds))
+			for i, th := range thresholds {
+				queries[i] = features.WindowQuery{Fn: fmt.Sprintf("days_over:%d:%d", th, offset), Window: week}
+			}
+			op := features.WindowOp{Key: key, EntityKind: "account", EntityID: "agent", Retention: week, Record: true, Queries: queries}
+			type debit struct{ at, amount int64 }
+			var debits []debit
+			// The fill only writes (another rule's read of the window); the reads are measured.
+			fill := op
+			fill.Queries = nil
+			send := func(o features.WindowOp, id string, at time.Time, amount int64) []features.WindowValue {
+				t.Helper()
+				got, _, ok := fs.Windows(ctx, []features.WindowOp{o}, features.WindowEvent{
+					ID: id, At: at, Amount: amount, Currency: "GHS", UserID: "u", Hour: -1,
+				}, true)
+				require.True(t, ok)
+				debits = append(debits, debit{at.UnixMilli(), amount})
+				return got[0]
+			}
+			// n debits over just under a week, heavier on later days, so each threshold is reached
+			// on some local days and not on others.
+			start := base.Add(30 * 24 * time.Hour)
+			step := 580_000 * time.Second / time.Duration(c.n)
+			var at time.Time
+			for i := range c.n {
+				at = start.Add(time.Duration(i) * step)
+				send(fill, fmt.Sprintf("%s-%d", key, i), at, int64(500+(i%7)*600+(i*7/c.n)*1200)*int64(20_000/c.n))
+			}
+			require.NoError(t, rdb.ConfigResetStat(ctx).Err())
+			var got []features.WindowValue
+			for i := range 100 {
+				at = at.Add(time.Second)
+				got = send(op, fmt.Sprintf("%s-x-%d", key, i), at, 1)
+			}
+			// The reference: the local days of the last week whose total reached each threshold.
+			lo := at.Add(-week).UnixMilli()
+			daily := map[int64]int64{}
+			for _, d := range debits {
+				if d.at >= lo {
+					daily[floorDiv(d.at+offset, 86_400_000)] += d.amount
+				}
+			}
+			for i, th := range thresholds {
+				var want float64
+				for _, total := range daily {
+					if total >= th {
+						want++
+					}
+				}
+				assert.Equal(t, features.WindowValue{Value: want, OK: true}, got[i], "%s at GHS %d", key, th/100)
+			}
+			// A calendar window starts on a bucket boundary (the local day's start): its first
+			// bucket is read whole, and the current bucket is shared with every other window.
+			dayStart := floorDiv(at.UnixMilli()+offset, 86_400_000)*86_400_000 - offset
+			today := time.Duration(at.UnixMilli()-dayStart) * time.Millisecond
+			calendar := op
+			calendar.Record = false
+			calendar.Queries = append([]features.WindowQuery{{Fn: "sum", Window: today}, {Fn: "count", Window: today}}, queries...)
+			cv, _, ok := fs.Windows(ctx, []features.WindowOp{calendar}, features.WindowEvent{
+				At: at, Currency: "GHS", UserID: "u", Hour: -1,
+			}, false)
+			require.True(t, ok)
+			var sum, count float64
+			for _, d := range debits {
+				if d.at >= dayStart && d.at <= at.UnixMilli() {
+					sum += float64(d.amount)
+					count++
+				}
+			}
+			assert.Equal(t, features.WindowValue{Value: sum, OK: true}, cv[0][0], "%s: today's sum", key)
+			assert.Equal(t, features.WindowValue{Value: count, OK: true}, cv[0][1], "%s: today's count", key)
+			assert.Equal(t, got, cv[0][2:], "%s: the same days with the shared current bucket", key)
+			stats, err := rdb.Info(ctx, "commandstats").Result()
+			require.NoError(t, err)
+			var calls, usec int64
+			for line := range strings.SplitSeq(stats, "\n") {
+				if strings.HasPrefix(line, "cmdstat_evalsha:") {
+					_, err := fmt.Sscanf(strings.TrimSpace(line), "cmdstat_evalsha:calls=%d,usec=%d", &calls, &usec)
+					require.NoError(t, err)
+				}
+			}
+			require.Positive(t, calls)
+			t.Logf("busy wallet (%d entries, day offset %d ms): %d µs of Redis time per call (three days_over); days %v",
+				c.n, offset, usec/calls, got)
+			// A scan of the week costs 75-91 ms here; the buckets about 1.5 ms, the write included.
+			assert.Less(t, usec/calls, int64(5000), "three reads must not scan 20,000 entries each")
+		}
+	})
+}
+
+// floorDiv divides rounding toward negative infinity, as Lua's math.floor does.
+func floorDiv(a, b int64) int64 {
+	q := a / b
+	if (a%b != 0) && ((a < 0) != (b < 0)) {
+		q--
+	}
+	return q
 }

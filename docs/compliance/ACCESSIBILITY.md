@@ -8,7 +8,11 @@ queue), rule pack phase 6. Target: WCAG 2.1 AA, as for the rest of the console
 
 `frontend/tests/e2e/a11y.spec.ts` runs axe-core (WCAG 2.1 A and AA rules) on the Rules library,
 a rule, and the Work queue with every panel shown (tasks, both kinds of escalation, unreported
-fraud, compliance-only signals) and a report dialog open, on desktop and mobile. It runs with the
+fraud, compliance-only signals) and a report dialog open, on desktop and mobile. For several
+countries (ADR-0007, reviewed 2026-10-05) it also audits another country's rules, a rule and its
+deadlines, all countries, a country's activation card with its readiness and public holidays,
+the activation form, the deadlines matrix with work running, cross-border events and retention,
+the work queue filtered by country, and the Confirm suspicion dialog with its country choice. It runs with the
 rest of the end-to-end suite; a violation fails it, naming the rule and the elements. Automated
 rules catch only part of what matters, so the checks below were made by hand.
 
@@ -20,6 +24,19 @@ rules catch only part of what matters, so the checks below were made by hand.
 | Code blocks (a rule's definition and engineering logic, event payloads) scroll but could not be reached by keyboard | 2.1.1 | `CodeBlock` is a labelled, focusable region ("Rule definition", "Engineering logic") |
 | A table wider than its card (mobile) scrolled sideways without keyboard access | 2.1.1 | The table's scroll container becomes a focusable region named after the table, only while it scrolls |
 | Every task row's button was named "Open" | 2.4.6 | Named after the task: "Open Suspicious transaction report for usr_4812" |
+
+## Checked by hand (several countries)
+
+- **Countries are named, not only flagged.** Flags are `aria-hidden` next to the country code or
+  name; the country switcher's buttons carry the country's name and say which is pressed.
+- **Tables carry names** ("Work running against each clock", "Cross-border events", "Retention
+  in force", "{Country} public holidays"); a holiday's Remove button names the holiday and date;
+  the country filter and the suspicion dialog's country choice are labelled selects.
+- **Counts are words and numbers.** Overdue counts are also red, but the column says
+  "Overdue"; "(no legal clock listed)" says why a rule has no deadline row; a working-day clock
+  reads "Up to 7 working days", never "Not found".
+- **Descriptions are announced.** The Confirm suspicion dialog's description names the
+  authority and rule of the chosen country, and changes with it; the test asserts it.
 
 ## Checked by hand
 

@@ -45,6 +45,13 @@ var (
 type LibraryHandlers interface {
 	GetCompliancePack(ctx context.Context, req apigen.GetCompliancePackRequestObject) (apigen.GetCompliancePackResponseObject, error)
 	GetComplianceClockMatrix(ctx context.Context, req apigen.GetComplianceClockMatrixRequestObject) (apigen.GetComplianceClockMatrixResponseObject, error)
+	GetComplianceClockLoad(ctx context.Context, req apigen.GetComplianceClockLoadRequestObject) (apigen.GetComplianceClockLoadResponseObject, error)
+	ListComplianceCrossBorder(ctx context.Context, req apigen.ListComplianceCrossBorderRequestObject) (apigen.ListComplianceCrossBorderResponseObject, error)
+	ListComplianceHolidays(ctx context.Context, req apigen.ListComplianceHolidaysRequestObject) (apigen.ListComplianceHolidaysResponseObject, error)
+	AddComplianceHoliday(ctx context.Context, req apigen.AddComplianceHolidayRequestObject) (apigen.AddComplianceHolidayResponseObject, error)
+	DeleteComplianceHoliday(ctx context.Context, req apigen.DeleteComplianceHolidayRequestObject) (apigen.DeleteComplianceHolidayResponseObject, error)
+	GetComplianceRetention(ctx context.Context, req apigen.GetComplianceRetentionRequestObject) (apigen.GetComplianceRetentionResponseObject, error)
+	CheckComplianceDeletion(ctx context.Context, req apigen.CheckComplianceDeletionRequestObject) (apigen.CheckComplianceDeletionResponseObject, error)
 	ExportComplianceLibrary(ctx context.Context, req apigen.ExportComplianceLibraryRequestObject) (apigen.ExportComplianceLibraryResponseObject, error)
 	ListComplianceJurisdictions(ctx context.Context, req apigen.ListComplianceJurisdictionsRequestObject) (apigen.ListComplianceJurisdictionsResponseObject, error)
 	ListComplianceActivations(ctx context.Context, req apigen.ListComplianceActivationsRequestObject) (apigen.ListComplianceActivationsResponseObject, error)
@@ -286,6 +293,8 @@ type TasksArgs struct {
 	Amount     int64
 	Currency   string
 	Controls   []TaskControl
+	// EventJurisdiction is the country that governed the event ("" when none did).
+	EventJurisdiction string `json:",omitempty"`
 }
 
 // Kind implements jobs.Args.
@@ -310,6 +319,7 @@ func (m *Module) TasksJob(scopes *tenants.Module, clk clock.Clock, logger *slog.
 		return m.svc.CreateTasks(ctx, service.TasksInput{
 			EvaluationID: a.EvaluationID, EventID: a.EventID, OccurredAt: a.OccurredAt, SubjectRef: a.SubjectRef,
 			AccountRef: a.AccountRef, HasBVN: a.HasBVN, Amount: a.Amount, Currency: a.Currency, Controls: a.Controls,
+			EventJurisdiction: a.EventJurisdiction,
 		}, clk.Now())
 	}
 }

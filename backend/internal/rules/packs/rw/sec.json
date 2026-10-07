@@ -340,6 +340,7 @@
       "id": "RW-SEC-04",
       "group": "cybersecurity",
       "kind": "control",
+      "follows_data_subject": true,
       "status": "regulatory",
       "provenance": "regulatory",
       "lineage": {

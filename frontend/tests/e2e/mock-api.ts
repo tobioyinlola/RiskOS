@@ -138,6 +138,8 @@ export interface MockApi {
   gapVerifications: Record<string, Record<string, unknown>>;
   /** Compliance tasks (ReturnType<typeof task>). */
   tasks: ReturnType<typeof task>[];
+  /** Public holidays by country (working-day clocks). */
+  holidays: Record<string, { date: string; name: string }[]>;
   /** Alerts past a deadline of the pack, and confirmed fraud not yet reported. */
   escalations: Record<string, unknown>[];
   unreportedFraud: { case_id: string; title: string; resolved_at: string }[];
@@ -425,6 +427,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     gapVerifications: {},
     fxRates: {},
     tasks: [],
+    holidays: {},
     escalations: [],
     unreportedFraud: [],
   };
@@ -765,12 +768,49 @@ export async function mockApi(page: Page): Promise<MockApi> {
       return json(route, t, 201);
     }
     if (path === "/compliance/suspicion") {
-      const t = task(`ctk_${state.tasks.length + 1}`, "report.STR", "REG-14", {
-        case_id: body?.case_id,
-        report: { narrative: body?.note ?? "" },
-      });
+      const j = String(body?.jurisdiction ?? "NG");
+      const rule = { NG: "REG-14", GH: "GH-REG-06", RW: "RW-REG-04" }[j];
+      const t = task(
+        `ctk_${state.tasks.length + 1}`,
+        "report.STR",
+        rule ?? "REG-14",
+        {
+          case_id: body?.case_id,
+          report: { narrative: body?.note ?? "" },
+          jurisdiction: j,
+          authority: j === "NG" ? "NFIU" : "FIC",
+        },
+      );
       state.tasks.push(t);
       return json(route, t, 201);
+    }
+    const holidays = path.match(
+      /^\/compliance\/jurisdictions\/([A-Z]{2})\/holidays(?:\/([0-9-]+))?$/,
+    );
+    if (holidays) {
+      const code = holidays[1]!;
+      const list = (state.holidays[code] ??= []);
+      const view = (h: { date: string; name: string }) => ({
+        jurisdiction: code,
+        ...h,
+        created_at: NOW,
+        created_by: "usr_admin",
+      });
+      if (method === "POST") {
+        if (!state.permissions.includes("compliance:configure"))
+          return error(route, 403, "FORBIDDEN", "Not allowed.");
+        const h = { date: String(body?.date), name: String(body?.name) };
+        if (list.some((x) => x.date === h.date))
+          return error(route, 409, "CONFLICT", "Already a holiday.");
+        list.push(h);
+        list.sort((a, b) => a.date.localeCompare(b.date));
+        return json(route, view(h), 201);
+      }
+      if (method === "DELETE") {
+        state.holidays[code] = list.filter((x) => x.date !== holidays[2]);
+        return route.fulfill({ status: 204 });
+      }
+      return json(route, { data: list.map(view) });
     }
     const activation = path.match(
       /^\/compliance\/activations\/([^/]+)\/(status|fallback|readiness)$/,
@@ -934,6 +974,105 @@ export async function mockApi(page: Page): Promise<MockApi> {
         return json(route, { data: ACTIVE_RULES });
       case "/compliance/clock-matrix":
         return json(route, { data: CLOCK_MATRIX });
+      case "/compliance/clock-load": {
+        const running = state.tasks.filter(
+          (t) =>
+            (sensitive || !t.sensitive) &&
+            (t.status === "open" || t.status === "approved"),
+        );
+        const rows = [
+          ...CLOCKS.map((c) => ({ jurisdiction: "NG", clock: c })),
+          ...RW_CLOCKS.map((c) => ({ jurisdiction: "RW", clock: c })),
+        ].map((r) => {
+          const mine = running.filter(
+            (t) =>
+              t.jurisdiction === r.jurisdiction &&
+              (r.clock.rules as string[]).includes(t.rule),
+          );
+          return {
+            ...r,
+            running: mine.length,
+            overdue: mine.filter((t) => t.overdue).length,
+            due_soon: mine.filter((t) => !t.overdue).length,
+          };
+        });
+        const clocked = (t: (typeof running)[number]) =>
+          rows.some(
+            (r) =>
+              r.jurisdiction === t.jurisdiction &&
+              (r.clock.rules as string[]).includes(t.rule),
+          );
+        return json(route, {
+          data: rows,
+          unclocked: running
+            .filter((t) => !clocked(t))
+            .map((t) => ({
+              jurisdiction: t.jurisdiction,
+              rule: t.rule,
+              running: 1,
+              overdue: t.overdue ? 1 : 0,
+              due_soon: t.overdue ? 0 : 1,
+            })),
+          sensitive_hidden: !sensitive,
+        });
+      }
+      case "/compliance/cross-border": {
+        const byEvent = new Map<string, ReturnType<typeof task>[]>();
+        for (const t of state.tasks) {
+          if (!t.event_id || (!sensitive && t.sensitive)) continue;
+          byEvent.set(t.event_id, [...(byEvent.get(t.event_id) ?? []), t]);
+        }
+        return json(route, {
+          data: [...byEvent.entries()]
+            .filter(([, ts]) =>
+              ts.some(
+                (t) =>
+                  t.event_jurisdiction &&
+                  t.event_jurisdiction !== t.jurisdiction,
+              ),
+            )
+            .map(([event_id, ts]) => {
+              const booked = ts[0]!.event_jurisdiction ?? "";
+              return {
+                event_id,
+                booked_in: booked,
+                countries: [
+                  ...new Set([booked, ...ts.map((t) => t.jurisdiction)]),
+                ].sort(),
+                tasks: ts,
+              };
+            }),
+        });
+      }
+      case "/compliance/retention": {
+        const rule = (jurisdiction: string, id: string, days: number) => ({
+          jurisdiction,
+          rule: id,
+          name: "Record retention",
+          setting: "retain_for",
+          days,
+          mode: "live",
+        });
+        const considered = [
+          rule("NG", "GOV-08", 1825),
+          rule("RW", "RW-GOV-01", 3650),
+          rule("RW", "RW-GOV-10", 3650),
+        ];
+        return json(route, {
+          data: [
+            "customer_file",
+            "transaction",
+            "report",
+            "audit_log",
+            "other",
+          ].map((record_type) => ({
+            record_type,
+            days: 3650,
+            rule: considered[1],
+            considered,
+          })),
+        });
+      }
       case "/compliance/export":
         return route.fulfill({
           status: 200,
@@ -955,13 +1094,15 @@ export async function mockApi(page: Page): Promise<MockApi> {
         });
       }
       case "/compliance/tasks": {
-        const status = new URL(route.request().url()).searchParams.get(
-          "status",
-        );
+        const query = new URL(route.request().url()).searchParams;
+        const status = query.get("status");
+        const country = query.get("jurisdiction");
         return json(route, {
           data: state.tasks.filter(
             (t) =>
-              (sensitive || !t.sensitive) && (!status || t.status === status),
+              (sensitive || !t.sensitive) &&
+              (!status || t.status === status) &&
+              (!country || t.jurisdiction === country),
           ),
           escalations: state.escalations,
           unreported_fraud: state.unreportedFraud,
@@ -1429,6 +1570,27 @@ export async function mockApi(page: Page): Promise<MockApi> {
         });
       case "/entities/user/usr_4812":
         return json(route, PROFILE);
+      case "/cases/cas_1":
+        return json(route, {
+          case: {
+            id: "cas_1",
+            title: "Pooling pattern",
+            description: "",
+            status: "open",
+            priority: "medium",
+            assignee: null,
+            resolution: null,
+            resolution_note: null,
+            resolved_at: null,
+            resolved_by: null,
+            created_at: NOW,
+            created_by: "usr_admin",
+            updated_at: NOW,
+          },
+          alerts: [],
+          notes: [],
+          activity: [],
+        });
       case "/cases":
       case "/audit-logs":
       case "/api-keys":

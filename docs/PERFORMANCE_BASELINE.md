@@ -207,6 +207,42 @@ What the measurements changed (each found by these runs, each fixed and re-measu
 Together: the pack's Redis time per event went from 4–6 ms to 1.0–1.7 ms, and its p95 at 100
 events/s from 36–115 ms to 14–21 ms.
 
+## 7. Three rule packs (ADR-0007 phase 6)
+
+**Interpreter** (`go test -bench Outbound ./internal/rules/internal/interp/`, 2026-10-07, same
+laptop): every rule an outbound transfer triggers in each pack, with typical facts and every
+institution setting given a value, so whole conditions run. Windows are answered in memory; this
+is the interpreter's share of the decision path only.
+
+| Pack | Rules per event | Mean | p95 | Allocations |
+|---|---|---|---|---|
+| Nigeria (`ng`) | 34 | 85 µs | 177 µs | 322 (18.6 KB) |
+| Ghana (`gh`) | 31 | 115 µs | 191 µs | 373 (18.6 KB) |
+| Rwanda (`rw`) | 26 | 134 µs | 189 µs | 268 (15.3 KB) |
+
+All three stay below 0.2 ms at p95: the packs add Redis round trips, not interpreter time.
+
+**`days_over` on a busy wallet** (GH-TM-07, three tiers over 7 days; `windows_integration_test.go`):
+an agent wallet with 20,000 debits in its window cost 75 to 91 ms of Redis script time per event
+when every entry was read and parsed for each tier. Buckets now divide an hour or a day, so days
+are totalled from whole buckets plus the two partial edges, once per window and day offset: 1.4
+to 1.7 ms per event, the write included, and exact against a full scan on random streams.
+
+**Decision path under load** (`ROUNDS=1 WARM_S=30 scripts/bench-packs.sh` against `make up`,
+2026-10-07, same laptop; concentrated load as in §6, 100 events/s for 30 s after a 30 s warm-up,
+one round per case). Each pack workspace has exchange rates, so US dollar thresholds run.
+
+| Case | Achieved | Failed | Median | p90 | p95 | p99 | Redis script time per event |
+|---|---|---|---|---|---|---|---|
+| No pack | 100/s | 0 | 7.8 ms | 9.5 ms | **10.4 ms** | 20.5 ms | 0.42 ms |
+| Nigeria (bank) | 100/s | 0 | 9.4 ms | 11.5 ms | **12.5 ms** | 17.5 ms | 0.94 ms |
+| Ghana (mobile money issuer) | 100/s | 0 | 13.5 ms | 20.6 ms | **29.4 ms** | 362.9 ms | 1.54 ms |
+| Rwanda (e-money issuer) | 100/s | 0 | 11.5 ms | 13.7 ms | **15.0 ms** | 23.8 ms | 1.05 ms |
+
+Every pack stays far inside the budget at p95. Ghana costs the most (GH-TM-07's `days_over`
+tiers and the agent rules), and its p99 in this single short round is an outlier the other
+percentiles do not share: rerun with `ROUNDS=2 WARM_S=60` before treating it as a tail.
+
 ## Findings
 
 1. **Latency is far inside budget.** At 2,000 req/s the p99 of the full network path is below

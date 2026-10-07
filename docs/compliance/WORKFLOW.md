@@ -18,11 +18,18 @@ records a **compliance task** for each task the control names that RiskOS tracks
 | `edd`, `source_of_funds`, `source_of_wealth`, `senior_approval` | REG-12, politically exposed persons | none in the pack |
 | `case.open`, `freeze_account`, `close_account` | REG-05, REG-11, REG-13, REG-16 | `close_after` for REG-16 |
 | `close_account` | REG-16's daily check of accounts without a BVN | `close_after` (30 days) from when the account was first seen |
-| `report.STR` | A compliance officer confirming suspicion on a case (REG-14) | REG-14's `str_due` (24 hours) from confirmation |
+| `report.STR` | A compliance officer confirming suspicion on a case, for a country: REG-14 (NFIU), GH-REG-06 (Ghana's FIC), RW-REG-04 (Rwanda's FIC) | the country rule's `str_due` (24 hours; Rwanda's is a design placeholder) from confirmation |
 | `report.industry_fraud` | A person preparing it for a confirmed-fraud case (GOV-12) | none: the source states none |
 
-Deadlines use the rule's settings in the environment. A retried job creates nothing twice (one
-task per evaluation, rule and kind). Actions for the customer's own systems (fresh
+Deadlines use the rule's settings in the environment; a deadline in working days ends at the
+close of the last one in the country's calendar (weekends and the holidays the workspace
+entered). Every task carries its **country** (the one whose rule requires it), the country that
+governed its event, and the **authority** a report goes to (NFIU, FIC, NCSA). Ghana's and
+Rwanda's controls create their own tasks the same way (`report.CTR` to Ghana's FIC, `report.NCSA`
+for a Rwandan data subject's breach); the queue filters by country (`?jurisdiction=`). The
+work of a compliance-only control (GH-REG-11's case on an FIC order) is sensitive, like a
+suspicious transaction report. A retried job creates nothing twice (one task per evaluation, rule
+and kind). Actions for the customer's own systems (fresh
 authentication, enhanced MFA, routing through a financial institution) are not tasks: they are
 returned with the decision in `controls`.
 
@@ -65,11 +72,13 @@ open (a draft) ──edit──▶ approved ──filed (with the regulator's re
 ```
 
 - **Approval (GOV-06).** Only compliance officers (`compliance:sensitive`) approve a report.
-- **Completeness (REG-19).** A suspicious transaction report is approved only when goAML would
-  accept it: a predicate offence, at least one indicator, and a category goAML accepts. The pack
-  rule itself decides; the refusal says what is missing.
-- **Filing.** RiskOS never submits a report. A person files it in the regulator's portal (goAML
-  for the NFIU), using the export, and records the reference the portal gave.
+- **Completeness (REG-19).** A suspicious transaction report to the NFIU is approved only when
+  goAML would accept it: a predicate offence, at least one indicator, and a category goAML
+  accepts. The pack rule itself decides; the refusal says what is missing. Reports to Ghana's and
+  Rwanda's FIC have no goAML check: their use of goAML is not confirmed (GH-GOV-03, RW-GOV-03).
+- **Filing.** RiskOS never submits a report. A person files it with the authority (goAML for the
+  NFIU; the channel the institution uses with an FIC), using the export, and records the
+  reference it gave.
 - Other tasks are marked done, or dismissed with a note.
 
 ## No tipping off (GOV-09)
@@ -85,8 +94,9 @@ open (a draft) ──edit──▶ approved ──filed (with the regulator's re
 `GET /api/v1/compliance/tasks`, `GET …/tasks/{id}`, `PATCH …/tasks/{id}/report`,
 `POST …/tasks/{id}/approve`, `POST …/tasks/{id}/file`, `POST …/tasks/{id}/close`,
 `GET …/tasks/{id}/export`, `POST /api/v1/compliance/suspicion`,
-`POST /api/v1/compliance/fraud-reports`. Approving, filing and confirming suspicion need a recent
+`POST /api/v1/compliance/fraud-reports`, `GET /api/v1/compliance/clock-load`,
+`GET /api/v1/compliance/cross-border`. Approving, filing and confirming suspicion need a recent
 second factor in the console. Every change is audited.
 
-Tested in `backend/test/integration/compliance_tasks_test.go`, `compliance_governance_test.go`
-and `gov09_test.go`.
+Tested in `backend/test/integration/compliance_tasks_test.go`, `compliance_governance_test.go`,
+`gov09_test.go` and `clocks_reporting_test.go`.

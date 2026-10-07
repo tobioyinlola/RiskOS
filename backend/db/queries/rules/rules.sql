@@ -210,9 +210,11 @@ DELETE FROM compliance_fx_rates WHERE tenant_id = @tenant_id AND currency = @cur
 
 -- name: InsertTask :execrows
 INSERT INTO compliance_tasks (tenant_id, environment_id, id, kind, rule_id, evaluation_id, event_id, case_id,
-  subject_ref, account_ref, sensitive, status, due_at, report, created_at, created_by, updated_at)
+  subject_ref, account_ref, sensitive, status, due_at, report, created_at, created_by, updated_at,
+  jurisdiction, event_jurisdiction, authority)
 VALUES (@tenant_id, @environment_id, @id, @kind, @rule_id, @evaluation_id, @event_id, @case_id,
-  @subject_ref, @account_ref, @sensitive, 'open', @due_at, @report, @created_at, @created_by, @created_at)
+  @subject_ref, @account_ref, @sensitive, 'open', @due_at, @report, @created_at, @created_by, @created_at,
+  @jurisdiction, sqlc.narg(event_jurisdiction), sqlc.narg(authority))
 ON CONFLICT DO NOTHING;
 
 -- name: GetTask :one
@@ -224,9 +226,39 @@ FOR UPDATE;
 SELECT * FROM compliance_tasks
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id
   AND (sqlc.narg(status)::text IS NULL OR status = sqlc.narg(status)::text)
+  AND (sqlc.narg(jurisdiction)::text IS NULL OR jurisdiction = sqlc.narg(jurisdiction)::text)
   AND (@include_sensitive::boolean OR NOT sensitive)
 ORDER BY (status IN ('open', 'approved')) DESC, due_at NULLS LAST, created_at DESC
 LIMIT 500;
+
+-- name: TaskLoad :many
+-- Tasks still running (open or approved, not yet filed) by country and rule: how many, how many
+-- past their deadline at @now, and how many due within the next day. Sensitive ones only when
+-- asked (GOV-09: not even a count of suspicious transaction reports otherwise).
+SELECT jurisdiction, rule_id, count(*)::int AS running,
+  (count(*) FILTER (WHERE due_at < sqlc.arg(now)::timestamptz))::int AS overdue,
+  (count(*) FILTER (WHERE due_at >= sqlc.arg(now)::timestamptz AND due_at < sqlc.arg(now)::timestamptz + interval '24 hours'))::int AS due_soon
+FROM compliance_tasks
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND status IN ('open', 'approved')
+  AND (@include_sensitive::boolean OR NOT sensitive)
+GROUP BY jurisdiction, rule_id
+ORDER BY jurisdiction, rule_id;
+
+-- name: CrossBorderTasks :many
+-- Every task of the latest events that started a clock in a country other than the one that
+-- governed them. Sensitive tasks (and events known only through them) only when asked.
+SELECT t.* FROM compliance_tasks t
+WHERE t.tenant_id = @tenant_id AND t.environment_id = @environment_id
+  AND (sqlc.arg(include_sensitive)::boolean OR NOT t.sensitive)
+  AND t.event_id IN (
+    SELECT c.event_id FROM compliance_tasks c
+    WHERE c.tenant_id = @tenant_id AND c.environment_id = @environment_id
+      AND c.event_jurisdiction IS NOT NULL AND c.event_jurisdiction <> c.jurisdiction
+      AND (sqlc.arg(include_sensitive)::boolean OR NOT c.sensitive)
+    GROUP BY c.event_id
+    ORDER BY max(c.created_at) DESC
+    LIMIT @event_limit)
+ORDER BY t.created_at DESC, t.id;
 
 -- name: UpdateTask :exec
 UPDATE compliance_tasks
@@ -299,3 +331,18 @@ WHERE NOT EXISTS (SELECT 1 FROM jurisdiction_activations c WHERE c.tenant_id = t
 SELECT DISTINCT ON (jurisdiction) id, version, jurisdiction, name, checksum, meta, loaded_at
 FROM rule_packs
 ORDER BY jurisdiction, string_to_array(version, '.')::int[] DESC;
+
+-- Public holidays of the countries a tenant operates in (working-day clocks).
+
+-- name: ListHolidays :many
+SELECT * FROM jurisdiction_holidays
+WHERE tenant_id = @tenant_id AND (sqlc.narg(jurisdiction)::text IS NULL OR jurisdiction = sqlc.narg(jurisdiction)::text)
+ORDER BY jurisdiction, day;
+
+-- name: InsertHoliday :execrows
+INSERT INTO jurisdiction_holidays (tenant_id, jurisdiction, day, name, created_at, created_by)
+VALUES (@tenant_id, @jurisdiction, @day, @name, @created_at, @created_by)
+ON CONFLICT DO NOTHING;
+
+-- name: DeleteHoliday :execrows
+DELETE FROM jurisdiction_holidays WHERE tenant_id = @tenant_id AND jurisdiction = @jurisdiction AND day = @day;

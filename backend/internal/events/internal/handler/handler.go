@@ -332,6 +332,8 @@ func toAPI(o domain.Outcome) apigen.RiskDecision {
 		if c.HoldSeconds != 0 {
 			d.Controls[i].HoldSeconds = new(c.HoldSeconds)
 		}
+		d.Controls[i].HoldUntil = c.HoldUntil
+		d.Controls[i].Jurisdiction = optional(c.Jurisdiction)
 		if c.Branch != "" {
 			d.Controls[i].Branch = new(c.Branch)
 		}
@@ -347,6 +349,7 @@ func toAPI(o domain.Outcome) apigen.RiskDecision {
 		d.Jurisdiction = &apigen.JurisdictionResolution{
 			ResolvedBy: apigen.JurisdictionResolutionResolvedBy(j.ResolvedBy), Jurisdiction: optional(j.Jurisdiction),
 			Pack: optional(j.Pack), BookingEntity: optional(j.BookingEntity),
+			DataSubjectCountry: optional(j.DataSubjectCountry), DataSubjectPack: optional(j.DataSubjectPack),
 		}
 	}
 	return d

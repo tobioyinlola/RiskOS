@@ -29,6 +29,12 @@ type Task struct {
 	ApprovedBy, ClosedBy          *string
 	ApprovedAt, ClosedAt          *time.Time
 	CloseNote, FilingRef          *string
+	// Jurisdiction is the country whose rule requires the work; EventJurisdiction the country
+	// that governed the event (they differ when a duty follows the data subject); Authority the
+	// body a report goes to.
+	Jurisdiction      string
+	EventJurisdiction *string
+	Authority         *string
 }
 
 func taskOf(r sqlcgen.ComplianceTask) (Task, error) {
@@ -37,6 +43,7 @@ func taskOf(r sqlcgen.ComplianceTask) (Task, error) {
 		SubjectRef: r.SubjectRef, AccountRef: r.AccountRef, Sensitive: r.Sensitive, Status: r.Status, DueAt: r.DueAt, CreatedAt: r.CreatedAt,
 		CreatedBy: r.CreatedBy, UpdatedAt: r.UpdatedAt, ApprovedBy: r.ApprovedBy, ApprovedAt: r.ApprovedAt,
 		ClosedBy: r.ClosedBy, ClosedAt: r.ClosedAt, CloseNote: r.CloseNote, FilingRef: r.FilingRef,
+		Jurisdiction: r.Jurisdiction, EventJurisdiction: r.EventJurisdiction, Authority: r.Authority,
 	}
 	if err := json.Unmarshal(r.Report, &t.Report); err != nil {
 		return Task{}, fmt.Errorf("decode report: %w", err)
@@ -58,6 +65,7 @@ func (Store) InsertTask(ctx context.Context, t Task) (created bool, err error) {
 		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, ID: t.ID, Kind: t.Kind, RuleID: t.RuleID,
 		EvaluationID: t.EvaluationID, EventID: t.EventID, CaseID: t.CaseID, SubjectRef: t.SubjectRef,
 		AccountRef: t.AccountRef, Sensitive: t.Sensitive, DueAt: t.DueAt, Report: report, CreatedAt: t.CreatedAt, CreatedBy: t.CreatedBy,
+		Jurisdiction: t.Jurisdiction, EventJurisdiction: t.EventJurisdiction, Authority: t.Authority,
 	})
 	if err != nil {
 		return false, fmt.Errorf("insert compliance task: %w", err)
@@ -81,8 +89,9 @@ func (Store) Task(ctx context.Context, id uuid.UUID) (Task, error) {
 	return taskOf(r)
 }
 
-// Tasks lists tasks, open ones first by deadline; sensitive ones only when asked.
-func (Store) Tasks(ctx context.Context, status string, includeSensitive bool) ([]Task, error) {
+// Tasks lists tasks, open ones first by deadline, of one status and country ("" for any);
+// sensitive ones only when asked.
+func (Store) Tasks(ctx context.Context, status, jurisdiction string, includeSensitive bool) ([]Task, error) {
 	q, scope, err := scoped(ctx)
 	if err != nil {
 		return nil, err
@@ -91,17 +100,69 @@ func (Store) Tasks(ctx context.Context, status string, includeSensitive bool) ([
 	if status != "" {
 		p.Status = &status
 	}
+	if jurisdiction != "" {
+		p.Jurisdiction = &jurisdiction
+	}
 	rows, err := q.ListTasks(ctx, p)
 	if err != nil {
 		return nil, fmt.Errorf("list compliance tasks: %w", err)
 	}
+	return tasksOf(rows)
+}
+
+func tasksOf(rows []sqlcgen.ComplianceTask) ([]Task, error) {
 	out := make([]Task, len(rows))
 	for i, r := range rows {
+		var err error
 		if out[i], err = taskOf(r); err != nil {
 			return nil, err
 		}
 	}
 	return out, nil
+}
+
+// Load is how many tasks of one country's rule are still running at a time: in all, past their
+// deadline, and due within a day.
+type Load struct {
+	Jurisdiction, RuleID      string
+	Running, Overdue, DueSoon int
+}
+
+// TaskLoad counts the tasks still running (open or approved) by country and rule at now;
+// sensitive ones only when asked.
+func (Store) TaskLoad(ctx context.Context, now time.Time, includeSensitive bool) ([]Load, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.TaskLoad(ctx, sqlcgen.TaskLoadParams{
+		Now: now, TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, IncludeSensitive: includeSensitive,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("count running compliance tasks: %w", err)
+	}
+	out := make([]Load, len(rows))
+	for i, r := range rows {
+		out[i] = Load{Jurisdiction: r.Jurisdiction, RuleID: r.RuleID, Running: int(r.Running), Overdue: int(r.Overdue), DueSoon: int(r.DueSoon)}
+	}
+	return out, nil
+}
+
+// CrossBorderTasks returns every task of the latest events (at most events) that started a
+// clock in a country other than the one that governed them, newest first; sensitive ones only
+// when asked.
+func (Store) CrossBorderTasks(ctx context.Context, events int32, includeSensitive bool) ([]Task, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := q.CrossBorderTasks(ctx, sqlcgen.CrossBorderTasksParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, IncludeSensitive: includeSensitive, EventLimit: events,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("list cross-border compliance tasks: %w", err)
+	}
+	return tasksOf(rows)
 }
 
 // UpdateTask writes a task's status, report and decisions.
@@ -196,13 +257,7 @@ func (Store) OpenTasksOfAccountsWithBVN(ctx context.Context, rule, kind string, 
 	if err != nil {
 		return nil, fmt.Errorf("list tasks of accounts with a BVN: %w", err)
 	}
-	out := make([]Task, len(rows))
-	for i, r := range rows {
-		if out[i], err = taskOf(r); err != nil {
-			return nil, err
-		}
-	}
-	return out, nil
+	return tasksOf(rows)
 }
 
 // DBTX runs queries outside a tenant transaction (a connection pool).

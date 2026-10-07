@@ -31,9 +31,11 @@ type PackOutput struct {
 	Controls     []domain.Control
 	NotEvaluated []domain.NotEvaluated
 	Floors       []Floor
-	// Restricted are compliance-only signals as they fired (GOV-09), stored apart from the
-	// signals every role and system sees.
-	Restricted []domain.Signal
+	// Restricted are compliance-only signals and controls as they fired (GOV-09), stored apart
+	// from the signals every role and system sees; RestrictedControls the controls unmasked,
+	// for the compliance work they require (Controls holds them masked).
+	Restricted         []domain.Signal
+	RestrictedControls []domain.Control
 	// Facts and Seen are recorded with the evaluation so it can be reproduced: the facts pack
 	// rules saw, and the values each fired rule compared.
 	Facts rulepack.Facts
@@ -192,18 +194,45 @@ func (en Engine) EvaluatePack(ctx context.Context, e features.Event, v features.
 				out.Signals = append(out.Signals, sig)
 			}
 			if d, ok := domain.ParseDecision(o.MinDecision); live && ok && o.MinDecision != "" {
-				out.Floors = append(out.Floors, Floor{Decision: d, Reason: "min_decision:" + o.Rule})
+				out.Floors = append(out.Floors, Floor{Decision: d, Reason: "min_decision:" + sig.Code})
 			}
 			continue
 		}
 		c := domain.Control{
 			Rule: o.Rule, Name: o.Name, Mode: string(o.Mode), Reason: o.Reason, Tasks: nonNilTasks(o.Tasks),
 			FeePercent: o.Fee, HoldSeconds: o.Hold, Branch: o.Branch, ExemptionUnknown: o.ExemptionUnknown,
+			Jurisdiction: p.Jurisdiction,
+		}
+		switch {
+		case o.HoldWorkingDays > 0:
+			// A hold in working days ends at the close of the last one in the pack's calendar.
+			until := p.WorkingDaysEnd(e.OccurredAt, o.HoldWorkingDays)
+			c.HoldUntil, c.HoldSeconds = &until, int64(until.Sub(e.OccurredAt)/time.Second)
+		case o.Hold > 0:
+			until := e.OccurredAt.Add(time.Duration(o.Hold) * time.Second)
+			c.HoldUntil = &until
 		}
 		if d, ok := domain.ParseDecision(o.Decision); ok && o.Decision != "" {
 			c.Decision = d
 			if live {
-				out.Floors = append(out.Floors, Floor{Decision: d, Reason: "control:" + o.Rule})
+				reason := "control:" + o.Rule
+				if o.Restricted {
+					reason = "control:" + domain.SignalComplianceReview
+				}
+				out.Floors = append(out.Floors, Floor{Decision: d, Reason: reason})
+			}
+		}
+		if o.Restricted {
+			// No tipping off (GOV-09, GH-GOV-02): the decision and its hold stand, under a name
+			// that says nothing about the order or suspicion behind them; the control itself is
+			// kept for compliance roles and for the work it requires.
+			out.RestrictedControls = append(out.RestrictedControls, c)
+			out.Restricted = append(out.Restricted, domain.Signal{Code: o.Rule, Label: o.Name, Mode: string(o.Mode)})
+			delete(out.Seen, o.Rule)
+			c = domain.Control{
+				Rule: domain.SignalComplianceReview, Name: domain.ComplianceReviewLabel, Mode: c.Mode, Decision: c.Decision,
+				Reason: domain.SignalComplianceReview, Tasks: []string{}, FeePercent: c.FeePercent, HoldSeconds: c.HoldSeconds,
+				HoldUntil: c.HoldUntil, Jurisdiction: c.Jurisdiction,
 			}
 		}
 		out.Controls = append(out.Controls, c)

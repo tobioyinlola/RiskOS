@@ -653,16 +653,73 @@ export function useFXRates() {
   });
 }
 
-/** The compliance work queue of the current environment. */
-export function useComplianceTasks(status?: Schemas["ComplianceTaskStatus"]) {
-  const key = useKey("compliance", "tasks", status ?? "all");
+/** The compliance work queue of the current environment, of one country or all. */
+export function useComplianceTasks(
+  status?: Schemas["ComplianceTaskStatus"],
+  jurisdiction?: string,
+) {
+  const key = useKey(
+    "compliance",
+    "tasks",
+    status ?? "all",
+    jurisdiction ?? "all",
+  );
   return useQuery({
     queryKey: key,
     queryFn: async () =>
       unwrap(
         await api().GET("/api/v1/compliance/tasks", {
-          params: { query: status ? { status } : {} },
+          params: {
+            query: {
+              ...(status ? { status } : {}),
+              ...(jurisdiction ? { jurisdiction } : {}),
+            },
+          },
         }),
+      ),
+  });
+}
+
+/** The work running against each legal clock now, in the current environment. */
+export function useClockLoad() {
+  const key = useKey("compliance", "clock-load");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/clock-load")),
+  });
+}
+
+/** Events that started a clock outside the country that governed them. */
+export function useCrossBorder() {
+  const key = useKey("compliance", "cross-border");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/cross-border")),
+  });
+}
+
+/** The retention in force for each record type across the activated countries. */
+export function useRetention() {
+  const key = useKey("compliance", "retention");
+  return useQuery({
+    queryKey: key,
+    queryFn: async () =>
+      unwrap(await api().GET("/api/v1/compliance/retention")),
+  });
+}
+
+/** The public holidays the workspace entered for a country (working-day clocks). */
+export function useHolidays(jurisdiction: string) {
+  return useQuery({
+    queryKey: ["compliance", "holidays", jurisdiction],
+    queryFn: async () =>
+      unwrap(
+        await api().GET(
+          "/api/v1/compliance/jurisdictions/{jurisdiction}/holidays",
+          { params: { path: { jurisdiction } } },
+        ),
       ),
   });
 }

@@ -150,7 +150,7 @@ func (h *Handlers) GetComplianceActivationReadiness(ctx context.Context, req api
 	if err != nil {
 		return nil, err
 	}
-	r, err := h.svc.ActivationReadiness(ctx, id)
+	r, err := h.svc.ActivationReadiness(ctx, id, h.clock.Now())
 	if err != nil {
 		return nil, mapError(err)
 	}

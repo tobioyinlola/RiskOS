@@ -173,29 +173,32 @@ type ComplianceFxRate struct {
 }
 
 type ComplianceTask struct {
-	TenantID      uuid.UUID
-	EnvironmentID uuid.UUID
-	ID            uuid.UUID
-	Kind          string
-	RuleID        string
-	EvaluationID  *uuid.UUID
-	EventID       *uuid.UUID
-	CaseID        *uuid.UUID
-	SubjectRef    *string
-	Sensitive     bool
-	Status        string
-	DueAt         *time.Time
-	Report        []byte
-	CreatedAt     time.Time
-	CreatedBy     string
-	UpdatedAt     time.Time
-	ApprovedBy    *string
-	ApprovedAt    *time.Time
-	ClosedBy      *string
-	ClosedAt      *time.Time
-	CloseNote     *string
-	FilingRef     *string
-	AccountRef    *string
+	TenantID          uuid.UUID
+	EnvironmentID     uuid.UUID
+	ID                uuid.UUID
+	Kind              string
+	RuleID            string
+	EvaluationID      *uuid.UUID
+	EventID           *uuid.UUID
+	CaseID            *uuid.UUID
+	SubjectRef        *string
+	Sensitive         bool
+	Status            string
+	DueAt             *time.Time
+	Report            []byte
+	CreatedAt         time.Time
+	CreatedBy         string
+	UpdatedAt         time.Time
+	ApprovedBy        *string
+	ApprovedAt        *time.Time
+	ClosedBy          *string
+	ClosedAt          *time.Time
+	CloseNote         *string
+	FilingRef         *string
+	AccountRef        *string
+	Jurisdiction      string
+	EventJurisdiction *string
+	Authority         *string
 }
 
 type ConsoleSession struct {
@@ -348,6 +351,15 @@ type JurisdictionActivation struct {
 	Rationale     *string
 	ApprovedBy    *string
 	DayStartsAt   int16
+}
+
+type JurisdictionHoliday struct {
+	TenantID     uuid.UUID
+	Jurisdiction string
+	Day          pgtype.Date
+	Name         string
+	CreatedAt    time.Time
+	CreatedBy    string
 }
 
 type PackRule struct {

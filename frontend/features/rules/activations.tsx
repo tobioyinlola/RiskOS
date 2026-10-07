@@ -19,6 +19,8 @@ import { Table, Td, Th, Tr } from "@/components/ui/table";
 import { useAction } from "@/lib/action";
 import { api, unwrap, type Schemas } from "@/lib/api/client";
 import { flag } from "@/lib/compliance";
+
+import { HolidaysPanel } from "../compliance/clocks";
 import { formatTimestamp } from "@/lib/format";
 import {
   useActivationChanges,
@@ -127,6 +129,7 @@ export function CountryActivations({ country }: { country: string }) {
           rights can activate it.
         </p>
       )}
+      {mine.length ? <HolidaysPanel country={country} name={name} /> : null}
       {wizard ? (
         <ActivationWizard
           country={country}

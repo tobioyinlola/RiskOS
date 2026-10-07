@@ -252,11 +252,15 @@ event ─▶ pack event kinds (named in compliance.kind, or derived)
   unavailable window or an amount in another currency than the rule's makes a comparison
   unknown; a rule that cannot be decided is listed in `not_evaluated` with what it lacked. One
   known finding is enough to fire a rule ("any of"), and one known failure to clear it ("all of").
-- **No tipping off (GOV-09).** A compliance-only signal (INS-01, staff-linked accounts) keeps its
-  points but is listed as `compliance_review` ("Compliance review") in the decision, the stored
-  evaluation, alerts, webhooks and analytics. The rule that fired is stored apart and read only
-  by compliance officers (`compliance:sensitive`, which administrators and API keys never hold)
-  through `GET /api/v1/compliance/restricted-signals`. Tenant rules cannot use the code.
+- **No tipping off (GOV-09, GH-GOV-02, RW-GOV-02).** A compliance-only signal (INS-01,
+  staff-linked accounts) keeps its points but is listed as `compliance_review` ("Compliance
+  review") in the decision, the stored evaluation, alerts, webhooks and analytics. A
+  compliance-only control (GH-REG-11, an FIC suspension or freeze) keeps its decision and hold
+  under the same name, without its rule, reason or tasks; the work it requires is a sensitive task.
+  The rule that fired is stored apart and read only by compliance officers (`compliance:sensitive`,
+  which administrators and API keys never hold) through
+  `GET /api/v1/compliance/restricted-signals`. Tenant rules cannot use the code. A test fires every
+  compliance-only rule of the Ghana and Rwanda packs and walks every payload others can read.
 - **Exemptions.** A control whose exemption cannot be checked (REG-04's raised limit) applies,
   and says so (`exemption_unknown`): an unknown exemption never lifts a legal limit.
 - **Amounts** are compared in one currency only. Rules on US dollar amounts (REG-10) read
@@ -304,6 +308,29 @@ entered, and every change carries its reason.
 **Verified open questions.** A person can record that they checked an open question against the
 original text (`POST /api/v1/compliance/gaps/{gap_id}/verify`: a note and an optional link), once.
 The question and every rule it names show who verified it and when; it changes no setting.
+
+**Working days.** A setting of type `working_days` (GH-REG-11's FIC suspension, at most 7) ends
+at the close of the last working day after the local day it starts: Monday to Friday in the
+country's time zone, less the public holidays the workspace entered
+(`/api/v1/compliance/jurisdictions/{code}/holidays`). RiskOS ships no holiday dates; a country
+with a working-day rule and no holiday entered for the coming year shows a readiness warning. A
+hold carries `hold_until`, and its `hold_seconds` is the time to it. Holidays apply from the next
+evaluation; deadlines already set do not move.
+
+**Duties that follow the data subject.** A rule marked `follows_data_subject` (RW-SEC-04) also
+runs on events of other activations whose `compliance.data_subject_country` is its country, under
+that country's settings, beside the governing pack. Only those rules run; their controls carry
+their own `jurisdiction`, and their tasks the country they are owed to, so a Ghana-booked breach
+of a Rwandan's data starts Rwanda's 48-hour clock to the NCSA.
+
+**Retention across countries.** The retention in force for a record type is the longest of the
+retention settings of every country activated (drafts aside), switched off or not (a minimum the
+law sets is not lifted by a setting): GOV-08 and its country versions, RW-GOV-10, and GH-SEC-11
+for payment institutions' audit logs
+(`GET /api/v1/compliance/retention`). `POST /api/v1/compliance/retention/check` answers whether a
+record may be deleted; a refusal names the rule and country, and every answer is audited
+(`compliance.deletion_denied`, `compliance.deletion_allowed`). RiskOS holds no customer records
+and deletes nothing itself.
 
 ### Configuration
 

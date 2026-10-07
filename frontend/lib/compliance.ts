@@ -89,6 +89,8 @@ export function formatParameterValue(p: Parameter, v: number): string {
       return `${v} / 100`;
     case "flag":
       return v ? "On" : "Off";
+    case "working_days":
+      return plural(v, "working day");
   }
 }
 
@@ -175,6 +177,8 @@ export function inputUnits(p: Parameter): InputUnit[] {
       return [{ id: "percent", label: "%", factor: 1 }];
     case "points":
       return [{ id: "points", label: "points", factor: 1 }];
+    case "working_days":
+      return [{ id: "working_days", label: "working days", factor: 1 }];
     default:
       return [{ id: "value", label: "", factor: 1 }];
   }
@@ -203,7 +207,15 @@ export function fromInput(
   const n = Number(text);
   if (!Number.isFinite(n)) return null;
   const v = n * unit.factor;
-  const whole = ["money", "count", "duration", "hour", "points", "flag"];
+  const whole = [
+    "money",
+    "count",
+    "duration",
+    "hour",
+    "points",
+    "flag",
+    "working_days",
+  ];
   return whole.includes(p.type) ? Math.round(v) : Math.round(v * 1e6) / 1e6;
 }
 
@@ -215,6 +227,15 @@ export const TASK_LABEL: Record<string, string> = {
   "report.PEP_monthly": "Monthly PEP transaction report",
   "report.sanctions": "Sanctions match report",
   "report.industry_fraud": "Industry fraud report",
+  "report.ECTR": "Electronic transfer report",
+  "report.PEP": "PEP transaction report",
+  "report.cross_border_cash": "Cross-border cash report",
+  "report.BoG": "Report to the Bank of Ghana",
+  "report.BNR": "Report to the National Bank of Rwanda",
+  "report.CSA": "Report to the Cyber Security Authority",
+  "report.DPC": "Report to the Data Protection Commission",
+  "report.NCSA": "Report to the National Cyber Security Authority",
+  "report.RURA": "Report to RURA",
   "case.open": "Open a case",
   edd: "Enhanced due diligence",
   source_of_funds: "Source of funds",

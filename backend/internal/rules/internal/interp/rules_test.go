@@ -58,6 +58,8 @@ type tc struct {
 	branch  string
 	fee     float64
 	hold    int64
+	// holdDays is a hold counted in the jurisdiction's working days.
+	holdDays int
 	// exemptionUnknown expects a control that fired without its exemption being checked.
 	exemptionUnknown bool
 }
