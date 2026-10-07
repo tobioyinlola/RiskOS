@@ -1051,6 +1051,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
           name: "Record retention",
           setting: "retain_for",
           days,
+          mode: "live",
         });
         const considered = [
           rule("NG", "GOV-08", 1825),
@@ -1569,6 +1570,27 @@ export async function mockApi(page: Page): Promise<MockApi> {
         });
       case "/entities/user/usr_4812":
         return json(route, PROFILE);
+      case "/cases/cas_1":
+        return json(route, {
+          case: {
+            id: "cas_1",
+            title: "Pooling pattern",
+            description: "",
+            status: "open",
+            priority: "medium",
+            assignee: null,
+            resolution: null,
+            resolution_note: null,
+            resolved_at: null,
+            resolved_by: null,
+            created_at: NOW,
+            created_by: "usr_admin",
+            updated_at: NOW,
+          },
+          alerts: [],
+          notes: [],
+          activity: [],
+        });
       case "/cases":
       case "/audit-logs":
       case "/api-keys":

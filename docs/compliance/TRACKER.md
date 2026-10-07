@@ -4,13 +4,7 @@ Open items of the rule pack work ([ADR-0006](../adr/ADR-0006-jurisdiction-rule-p
 [ADR-0007](../adr/ADR-0007-multi-jurisdiction.md)), each with the phase that closes it. An item
 leaves this list in the commit that resolves it.
 
-## Ghana and Rwanda (ADR-0007)
-
-| Item | Phase |
-|---|---|
-| Benchmarks of three packs (including `days_over`, which reads its whole window, at most 20,000 entries, on a busy wallet), security review of the new endpoints, accessibility pass | 6 |
-
-Nigeria: none open; the last items closed in phase 6. Follow-ups that need deployment infrastructure are
+Ghana and Rwanda (ADR-0007) and Nigeria: none open; the last items closed in each phase 6. Follow-ups that need deployment infrastructure are
 listed with their `TODO(phase-8)` in [SECURITY_REVIEW.md](SECURITY_REVIEW.md#accepted-risks),
 [ACCESSIBILITY.md](ACCESSIBILITY.md#not-covered) and
 [PERFORMANCE_BASELINE.md](../PERFORMANCE_BASELINE.md) §6.

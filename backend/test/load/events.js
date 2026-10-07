@@ -8,6 +8,9 @@
 // PACK=1 adds the compliance block a rule pack reads (customer profile, device and screening
 // facts), for a key whose workspace has a compliance profile: every request then also runs the
 // pack's rules, with their Redis time windows and profiles (docs/PERFORMANCE_BASELINE.md §5).
+// COUNTRY=GH or RW (with PACK=1) books every event to that country's activation (booking entity
+// gh-bench or rw-bench, as scripts/bench-packs.sh creates them), in its currency, from mobile
+// money wallets and eKash: every request runs that country's pack (§7).
 import http from "k6/http";
 import { check } from "k6";
 
@@ -18,6 +21,19 @@ if (!API_KEY) {
 }
 const RUN = Date.now().toString(36);
 const PACK = __ENV.PACK === "1";
+const COUNTRY = PACK ? __ENV.COUNTRY || "NG" : "NG";
+// Per country: the currency, the smallest amount (minor units, multiplied by 1 to 100 per
+// event), and the compliance facts its pack reads.
+const LOCALE = {
+  NG: { currency: "NGN", base: 250000, entity: "", facts: {} },
+  GH: {
+    currency: "GHS",
+    base: 2500,
+    entity: "gh-bench",
+    facts: { "account.type": "mobile_money_wallet", "wallet.kyc_tier": "medium", "txn.domestic": true },
+  },
+  RW: { currency: "RWF", base: 2500, entity: "rw-bench", facts: { "txn.rail": "ekash", "txn.domestic": true } },
+}[COUNTRY];
 // ACCOUNTS spreads the load over that many customers (default: one per VU, so every customer is
 // busy); production traffic at a few hundred events per second comes from thousands.
 const ACCOUNTS = Number(__ENV.ACCOUNTS || 0);
@@ -53,12 +69,13 @@ export default function () {
     type: "transaction",
     occurred_at: new Date().toISOString(),
     actor: actor(),
-    context: { ip: "203.0.113.7", country: "NG" },
+    context: { ip: "203.0.113.7", country: COUNTRY },
     data: {
       transaction_id: `t-${id}`,
-      // From 2,500 to 250,000 NGN, so thresholds and baselines see realistic spread.
-      amount: PACK ? 250000 + ((__ITER * 7919) % 100) * 247500 : 250000,
-      currency: "NGN",
+      // From 2,500 to 250,000 NGN (GHS 25 to 2,500; RWF 2,500 to 250,000), so thresholds and
+      // baselines see realistic spread.
+      amount: PACK ? LOCALE.base * (1 + ((__ITER * 7919) % 100)) : 250000,
+      currency: LOCALE.currency,
       direction: "debit",
       beneficiary_id: "ben-1",
       channel: "bank_transfer",
@@ -66,7 +83,9 @@ export default function () {
     ...(PACK
       ? {
           compliance: {
+            ...(LOCALE.entity ? { booking_entity: LOCALE.entity } : {}),
             facts: {
+              ...LOCALE.facts,
               "customer.type": "individual",
               "account.age": 400 * 86400,
               "customer.is_pep": false,

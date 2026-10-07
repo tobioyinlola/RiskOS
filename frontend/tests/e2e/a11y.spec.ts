@@ -64,6 +64,75 @@ test("another country: its rules, a rule, its deadlines and all countries", asyn
   await audit(page);
 });
 
+test("several countries: activations, holidays, the deadlines matrix, country work and suspicion", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.activations.push({
+    ...api.activations[0],
+    id: "act_rw",
+    jurisdiction: "RW",
+    booking_entity: "rw-emi",
+    fallback: false,
+    pack: "rw@2026.10.3",
+  });
+  api.holidays.NG = [{ date: "2026-12-25", name: "Christmas Day" }];
+  api.tasks.push(
+    task("ctk_ncsa", "report.NCSA", "RW-SEC-04", {
+      jurisdiction: "RW",
+      event_jurisdiction: "GH",
+      authority: "NCSA",
+      event_id: "evt_breach",
+    }),
+  );
+
+  // A country's activation card, its readiness and its public holidays.
+  await page.goto("/rules?tab=presets&country=NG");
+  await expect(
+    page.getByRole("table", { name: "Nigeria public holidays" }),
+  ).toBeVisible();
+  await audit(page);
+
+  // The activation form.
+  await page.goto("/rules?tab=presets&country=GH");
+  await page.getByRole("button", { name: "Activate Ghana" }).click();
+  await expect(
+    page.getByRole("dialog", { name: "Activate Ghana" }),
+  ).toBeVisible();
+  await audit(page);
+
+  // The deadlines matrix: work running now, cross-border events, retention.
+  await page.goto("/rules?tab=references&country=ALL");
+  await expect(
+    page.getByRole("table", { name: "Cross-border events" }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Retention in force" }),
+  ).toBeVisible();
+  await audit(page);
+
+  // The work queue across countries, filtered to one.
+  await page.goto("/compliance/work");
+  await page.getByLabel("Country").selectOption("RW");
+  await expect(
+    page
+      .getByRole("table", { name: "Compliance tasks" })
+      .getByText(/to the NCSA/),
+  ).toBeVisible();
+  await audit(page);
+
+  // Confirming suspicion asks which country the report is owed to.
+  await page.goto("/cases/cas_1");
+  await page.getByRole("button", { name: "Confirm suspicion" }).click();
+  const dialog = page.getByRole("dialog", { name: "Confirm suspicion?" });
+  await expect(dialog.getByLabel("Country")).toBeVisible();
+  await dialog.getByLabel("Country").selectOption("RW");
+  await expect(dialog).toHaveAccessibleDescription(/report to Rwanda.s FIC/);
+  await audit(page);
+  expect(api.problems).toEqual([]);
+});
+
 test("the work queue, its panels and a report", async ({ page }) => {
   const api = await mockApi(page);
   api.signedIn = true;

@@ -207,6 +207,30 @@ What the measurements changed (each found by these runs, each fixed and re-measu
 Together: the pack's Redis time per event went from 4–6 ms to 1.0–1.7 ms, and its p95 at 100
 events/s from 36–115 ms to 14–21 ms.
 
+## 7. Three rule packs (ADR-0007 phase 6)
+
+**Interpreter** (`go test -bench Outbound ./internal/rules/internal/interp/`, 2026-10-07, same
+laptop): every rule an outbound transfer triggers in each pack, with typical facts and every
+institution setting given a value, so whole conditions run. Windows are answered in memory; this
+is the interpreter's share of the decision path only.
+
+| Pack | Rules per event | Mean | p95 | Allocations |
+|---|---|---|---|---|
+| Nigeria (`ng`) | 34 | 85 µs | 177 µs | 322 (18.6 KB) |
+| Ghana (`gh`) | 31 | 115 µs | 191 µs | 373 (18.6 KB) |
+| Rwanda (`rw`) | 26 | 134 µs | 189 µs | 268 (15.3 KB) |
+
+All three stay below 0.2 ms at p95: the packs add Redis round trips, not interpreter time.
+
+**`days_over` on a busy wallet** (GH-TM-07, three tiers over 7 days; `windows_integration_test.go`):
+an agent wallet with 20,000 debits in its window cost 75 to 91 ms of Redis script time per event
+when every entry was read and parsed for each tier. Buckets now divide an hour or a day, so days
+are totalled from whole buckets plus the two partial edges, once per window and day offset: 1.4
+to 1.7 ms per event, the write included, and exact against a full scan on random streams.
+
+The decision path under load with each pack (k6, as in §6) is run by `scripts/bench-packs.sh`
+against `make up`; its results land in `backend/test/load/results`.
+
 ## Findings
 
 1. **Latency is far inside budget.** At 2,000 req/s the p99 of the full network path is below
