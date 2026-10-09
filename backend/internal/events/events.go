@@ -7,6 +7,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
@@ -30,9 +31,10 @@ type Module struct {
 }
 
 // New returns the events module.
-// enq receives the alert jobs of decisions; it must join the caller's transaction.
-func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, enq jobs.Enqueuer, clk clock.Clock) *Module {
-	return &Module{svc: service.New(runner, evaluator, tester, enq, clk)}
+// enq receives the alert jobs of decisions; it must join the caller's transaction. metrics may
+// be nil.
+func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, enq jobs.Enqueuer, clk clock.Clock, metrics *appmetrics.Metrics) *Module {
+	return &Module{svc: service.New(runner, evaluator, tester, enq, clk, metrics)}
 }
 
 // HTTPHandlers returns the module's API handlers.

@@ -277,5 +277,5 @@ func appModules() (*events.Module, *risk.Module, *alerts.Module, *cases.Module, 
 	webhooksModule := webhooks.New(noDB{}, rec, clock.System{}, noJobs{}, webhooks.Config{SigningKey: []byte(strings.Repeat("w", 32)), Timeout: time.Second}, nil, slog.New(slog.DiscardHandler))
 	alertsModule := alerts.New(noDB{}, rec, clock.System{}, webhooksModule.Publisher(), slog.New(slog.DiscardHandler))
 	casesModule := cases.New(noDB{}, alertsModule.Linker(), rec, clock.System{}, webhooksModule.Publisher())
-	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}), riskModule, alertsModule, casesModule, webhooksModule
+	return events.New(noDB{}, riskModule.Evaluator(), riskModule.RuleTester(), noJobs{}, clock.System{}, nil), riskModule, alertsModule, casesModule, webhooksModule
 }

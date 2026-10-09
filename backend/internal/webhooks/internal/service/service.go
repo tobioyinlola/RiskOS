@@ -20,6 +20,7 @@ import (
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -44,6 +45,8 @@ type Config struct {
 	// DisableAfter disables an endpoint that has failed every attempt for this long; zero means
 	// domain.DisableAfter.
 	DisableAfter time.Duration
+	// Metrics records delivery outcomes; nil records nothing.
+	Metrics *appmetrics.Metrics
 }
 
 // Notifier is told when an endpoint is disabled automatically (the alerts module raises a
@@ -577,6 +580,14 @@ func (s *Service) Deliver(ctx context.Context, deliveryID uuid.UUID) error {
 	})
 	if err != nil {
 		return err
+	}
+	switch {
+	case res.OK():
+		s.cfg.Metrics.Delivered(ctx, appmetrics.DeliverySucceeded, duration)
+	case retryIn > 0:
+		s.cfg.Metrics.Delivered(ctx, appmetrics.DeliveryRetrying, duration)
+	default:
+		s.cfg.Metrics.Delivered(ctx, appmetrics.DeliveryFailed, duration)
 	}
 	if retryIn > 0 {
 		return jobs.Snooze(retryIn)

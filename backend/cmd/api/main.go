@@ -24,6 +24,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
@@ -108,6 +109,10 @@ func run() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, tel.Shutdown(context.WithoutCancel(ctx))) }()
+	appMetrics, err := appmetrics.New(tel.MeterProvider)
+	if err != nil {
+		return err
+	}
 
 	pool, err := db.NewPool(ctx, cfg.Postgres)
 	if err != nil {
@@ -167,7 +172,7 @@ func run() (err error) {
 		HistoryWarmup:  cfg.Risk.HistoryWarmup,
 	})
 	riskModule.WatchFeatureState(ctx)
-	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk)
+	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, appMetrics)
 	// The API publishes webhook events and manages endpoints; it never delivers (no notifier).
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
@@ -202,6 +207,7 @@ func run() (err error) {
 		Rules:     rulesModule,
 		Admin:     adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
+		Metrics:   appMetrics,
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
 			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},

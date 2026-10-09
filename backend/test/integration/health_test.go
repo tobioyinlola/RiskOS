@@ -56,7 +56,7 @@ func newAPI(t *testing.T) http.Handler {
 		Telemetry:  tel,
 		Auth:       authModule,
 		Audit:      auditModule,
-		Events:     events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clock.System{}),
+		Events:     events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clock.System{}, nil),
 		Risk:       riskModule,
 		Alerts:     alertsModule,
 		Cases:      cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clock.System{}, webhooksModule.Publisher()),

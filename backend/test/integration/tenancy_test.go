@@ -196,7 +196,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
+		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, nil),
 		Risk:     riskModule,
 		Alerts:   alertsModule,
 		Cases:    casesModule,

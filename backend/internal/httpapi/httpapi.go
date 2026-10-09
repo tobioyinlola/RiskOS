@@ -20,6 +20,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
@@ -71,6 +72,8 @@ type Deps struct {
 	// Limiter enforces RateLimits on authenticated requests.
 	Limiter    Allower
 	RateLimits RateLimits
+	// Metrics records rate-limit and authentication-failure counts; nil records nothing.
+	Metrics *appmetrics.Metrics
 }
 
 // New returns the root handler.
@@ -97,9 +100,9 @@ func New(d Deps) (http.Handler, error) {
 		httpx.SecurityHeaders,
 		httpx.Timeout(d.HTTP.RequestTimeout),
 		httpx.BodyLimit(d.HTTP.MaxBodyBytes, d.Logger),
-		authFailureGuard(d.Limiter, d.RateLimits.AuthFailures, d.Logger),
+		authFailureGuard(d.Limiter, d.RateLimits.AuthFailures, d.Logger, d.Metrics),
 		d.Auth.Middleware(d.Logger),
-		rateLimit(d.Limiter, d.RateLimits, d.Logger),
+		rateLimit(d.Limiter, d.RateLimits, d.Logger, d.Metrics),
 	}
 	if d.Admin != nil {
 		middlewares = append(middlewares, d.Admin.Middleware())
@@ -123,7 +126,7 @@ func New(d Deps) (http.Handler, error) {
 		LibraryHandlers:    d.Rules.HTTPHandlers(d.Clock),
 	}
 	strict := apigen.NewStrictHandlerWithOptions(impl, []apigen.StrictMiddlewareFunc{
-		d.Auth.ReauthMiddleware(), operationLimit(d.Limiter, d.RateLimits.Operations, d.Logger),
+		d.Auth.ReauthMiddleware(), operationLimit(d.Limiter, d.RateLimits.Operations, d.Logger, d.Metrics),
 	}, apigen.StrictHTTPServerOptions{
 		RequestErrorHandlerFunc: func(w http.ResponseWriter, req *http.Request, err error) {
 			writeErr(w, req, httpx.InvalidRequest("The request is invalid.", err))

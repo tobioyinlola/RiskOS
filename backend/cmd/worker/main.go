@@ -18,6 +18,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
@@ -63,6 +64,10 @@ func run() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, tel.Shutdown(context.WithoutCancel(ctx))) }()
+	appMetrics, err := appmetrics.New(tel.MeterProvider)
+	if err != nil {
+		return err
+	}
 
 	pool, err := db.NewPool(ctx, cfg.Postgres)
 	if err != nil {
@@ -84,6 +89,7 @@ func run() (err error) {
 	var alertsModule *alerts.Module
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, inserter, webhooks.Config{
 		SigningKey: []byte(cfg.Webhooks.SigningKey), Timeout: cfg.Webhooks.Timeout, AllowPrivateTest: cfg.Webhooks.AllowPrivateTest,
+		Metrics: appMetrics,
 	}, webhooks.NotifierFunc(func(ctx context.Context, id uuid.UUID) error {
 		return alertsModule.WebhookEndpointDisabled(ctx, id)
 	}), logger)
@@ -126,6 +132,7 @@ func run() (err error) {
 		Concurrency: cfg.Worker.Concurrency,
 		JobTimeout:  cfg.Worker.JobTimeout,
 		Queues:      map[string]int{jobs.QueueWebhooks: cfg.Webhooks.Concurrency},
+		Metrics:     appMetrics,
 	}, logger)
 	if err != nil {
 		return err
