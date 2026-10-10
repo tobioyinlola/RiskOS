@@ -13,6 +13,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/service"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/assignee"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
@@ -37,6 +38,10 @@ type Module struct {
 func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher) *Module {
 	return &Module{svc: service.New(runner, linker, rec, clk, pub)}
 }
+
+// SetAssignees makes assigning a case require an active dashboard user of the workspace, found
+// by r. Without it any reference is accepted (tests).
+func (m *Module) SetAssignees(r assignee.Resolver) { m.svc.SetAssignees(r) }
 
 // HTTPHandlers returns the module's API handlers.
 func (m *Module) HTTPHandlers() CaseHandlers { return handler.New(m.svc) }

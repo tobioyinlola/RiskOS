@@ -20,6 +20,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/assignee"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -108,6 +109,10 @@ func New(runner txn.Runner, rec audit.Recorder, clk clock.Clock, pub webhooks.Pu
 func (m *Module) WebhookEndpointDisabled(ctx context.Context, endpointID uuid.UUID) error {
 	return m.svc.RaiseWebhookDisabled(ctx, endpointID)
 }
+
+// SetAssignees makes assigning an alert require an active dashboard user of the workspace, found
+// by r. Without it any reference is accepted (tests).
+func (m *Module) SetAssignees(r assignee.Resolver) { m.svc.SetAssignees(r) }
 
 // HTTPHandlers returns the module's API handlers.
 func (m *Module) HTTPHandlers() AlertHandlers { return handler.New(m.svc) }

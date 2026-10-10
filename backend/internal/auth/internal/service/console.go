@@ -129,6 +129,12 @@ type Console struct {
 	signupKey []byte
 }
 
+// ResolveAssignee finds the active user of the caller's workspace whose email is ref (compared
+// without regard to case), for assigning alerts and cases. It runs in the caller's transaction.
+func (c *Console) ResolveAssignee(ctx context.Context, ref string) (string, bool, error) {
+	return c.store.ActiveUserEmail(ctx, strings.ToLower(strings.TrimSpace(ref)))
+}
+
 // PasskeyRP returns the passkey relying party ID and allowed origins.
 func (c *Console) PasskeyRP() (string, []string) { return c.cfg.RPID, c.cfg.Origins }
 

@@ -13,6 +13,9 @@ SELECT * FROM users WHERE tenant_id = @tenant_id AND id = @id FOR UPDATE;
 -- name: ListUsers :many
 SELECT * FROM users WHERE tenant_id = @tenant_id ORDER BY created_at, id;
 
+-- name: ActiveUserEmail :one
+SELECT email FROM users WHERE tenant_id = @tenant_id AND email = @email AND status = 'active';
+
 -- name: CountActiveAdmins :one
 SELECT count(*) FROM users WHERE tenant_id = @tenant_id AND role = 'customer_admin' AND status = 'active';
 

@@ -61,7 +61,9 @@ export default function Page() {
       <P>
         <C>PATCH /api/v1/alerts/{"{alert_id}"}</C> (<C>alerts:write</C>) changes
         the status, the assignee (empty unassigns) and adds a note to the
-        alert&apos;s timeline.
+        alert&apos;s timeline. The assignee must be the email of an active
+        dashboard user of your workspace, otherwise the request is refused with
+        400; the same applies to cases.
       </P>
       <Fields
         label="Alert statuses"

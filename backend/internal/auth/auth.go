@@ -299,6 +299,12 @@ func (m *Module) CreateKey(ctx context.Context, in CreateKeyInput) (CreatedKey, 
 	return m.svc.CreateKey(ctx, in)
 }
 
+// ResolveAssignee implements assignee.Resolver: it finds the active dashboard user of the
+// caller's workspace that ref (an email) names. It runs in the caller's transaction.
+func (m *Module) ResolveAssignee(ctx context.Context, ref string) (string, bool, error) {
+	return m.console.ResolveAssignee(ctx, ref)
+}
+
 // Invite creates an invite in the tenant of the scope in ctx and returns its link (shown once).
 // Operator tooling uses it to invite a tenant's first administrator.
 func (m *Module) Invite(ctx context.Context, email string, role Role) (string, error) {

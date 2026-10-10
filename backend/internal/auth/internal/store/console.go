@@ -175,6 +175,23 @@ func (Store) ListUsers(ctx context.Context) ([]User, error) {
 	return us, nil
 }
 
+// ActiveUserEmail returns the email of the tenant's active user with that (lowercase) email, and
+// whether there is one.
+func (Store) ActiveUserEmail(ctx context.Context, email string) (string, bool, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return "", false, err
+	}
+	got, err := q.ActiveUserEmail(ctx, sqlcgen.ActiveUserEmailParams{TenantID: scope.TenantID, Email: email})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return "", false, nil
+	}
+	if err != nil {
+		return "", false, fmt.Errorf("find active user: %w", err)
+	}
+	return got, true, nil
+}
+
 // CountActiveAdmins counts the tenant's active administrators.
 func (Store) CountActiveAdmins(ctx context.Context) (int64, error) {
 	q, scope, err := scoped(ctx)

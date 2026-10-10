@@ -32,6 +32,22 @@ func (q *Queries) AcceptInvite(ctx context.Context, arg AcceptInviteParams) (int
 	return result.RowsAffected(), nil
 }
 
+const activeUserEmail = `-- name: ActiveUserEmail :one
+SELECT email FROM users WHERE tenant_id = $1 AND email = $2 AND status = 'active'
+`
+
+type ActiveUserEmailParams struct {
+	TenantID uuid.UUID
+	Email    string
+}
+
+func (q *Queries) ActiveUserEmail(ctx context.Context, arg ActiveUserEmailParams) (string, error) {
+	row := q.db.QueryRow(ctx, activeUserEmail, arg.TenantID, arg.Email)
+	var email string
+	err := row.Scan(&email)
+	return email, err
+}
+
 const bindGoogleSubject = `-- name: BindGoogleSubject :execrows
 UPDATE users SET google_subject = $1, updated_at = $2
 WHERE tenant_id = $3 AND id = $4 AND (google_subject IS NULL OR google_subject = $1)

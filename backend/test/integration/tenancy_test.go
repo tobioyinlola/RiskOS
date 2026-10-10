@@ -71,6 +71,13 @@ type stackConfig struct {
 	// signup enables self-serve sign-up; google, when set, Google sign-in.
 	signup bool
 	google *auth.GoogleConfig
+	// assigneeCheck makes assigning alerts and cases require an active dashboard user, as in the API.
+	assigneeCheck bool
+}
+
+// withAssigneeValidation turns on the assignee check the API binary has.
+func withAssigneeValidation() stackOption {
+	return func(c *stackConfig) { c.assigneeCheck = true }
 }
 
 // withSignup enables self-serve sign-up (and Google sign-in with google, if not nil).
@@ -190,6 +197,10 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 	rulesModule := rules.New(runner, auditModule.Recorder())
 	rulesModule.ConnectWorkflow(alertsModule, casesModule)
+	if sc.assigneeCheck {
+		alertsModule.SetAssignees(authModule)
+		casesModule.SetAssignees(authModule)
+	}
 	h, err := httpapi.New(httpapi.Deps{
 		Tenants: tenants.New(runner, auditModule.Recorder()),
 		Rules:   rulesModule,

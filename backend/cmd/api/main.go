@@ -180,6 +180,9 @@ func run() (err error) {
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 	rulesModule.ConnectWorkflow(alertsModule, casesModule)
+	// Work is assigned only to the workspace's active dashboard users.
+	alertsModule.SetAssignees(authModule)
+	casesModule.SetAssignees(authModule)
 
 	// The internal admin realm: staff passkeys use the console's relying party and origins.
 	rpid, origins := authModule.PasskeyRP()

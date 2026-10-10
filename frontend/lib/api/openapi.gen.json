@@ -1887,7 +1887,7 @@
      "alerts"
     ],
     "summary": "Triage an alert (status, assignee, note)",
-    "description": "Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`\nto any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and\n`resolved` are final. Alerts are escalated by creating a case with them\n(`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty\n`assignee` unassigns. A change that alters nothing is a no-op.\n",
+    "description": "Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`\nto any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and\n`resolved` are final. Alerts are escalated by creating a case with them\n(`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty\n`assignee` unassigns; any other value must be the email of an active dashboard user of the\nworkspace (compared without regard to case, stored as the user's own email), otherwise the\nrequest is refused with 400. A value that is not changed is not checked again. A change\nthat alters nothing is a no-op.\n",
     "parameters": [
      {
       "name": "alert_id",
@@ -2103,7 +2103,7 @@
      "cases"
     ],
     "summary": "Update or resolve a case",
-    "description": "Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a\n`resolution` and closes the case's alerts: `false_positive` when the resolution is\n`false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.\nAn empty `assignee` unassigns.\n",
+    "description": "Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a\n`resolution` and closes the case's alerts: `false_positive` when the resolution is\n`false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.\nAn empty `assignee` unassigns; any other value must be the email of an active dashboard\nuser of the workspace, as for alerts. A case's `assignee` can also be set when it is created.\n",
     "parameters": [
      {
       "name": "case_id",

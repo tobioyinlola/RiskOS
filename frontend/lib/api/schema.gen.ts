@@ -680,7 +680,10 @@ export interface paths {
          *     to any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and
          *     `resolved` are final. Alerts are escalated by creating a case with them
          *     (`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty
-         *     `assignee` unassigns. A change that alters nothing is a no-op.
+         *     `assignee` unassigns; any other value must be the email of an active dashboard user of the
+         *     workspace (compared without regard to case, stored as the user's own email), otherwise the
+         *     request is refused with 400. A value that is not changed is not checked again. A change
+         *     that alters nothing is a no-op.
          */
         patch: operations["updateAlert"];
         trace?: never;
@@ -733,7 +736,8 @@ export interface paths {
          * @description Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a
          *     `resolution` and closes the case's alerts: `false_positive` when the resolution is
          *     `false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.
-         *     An empty `assignee` unassigns.
+         *     An empty `assignee` unassigns; any other value must be the email of an active dashboard
+         *     user of the workspace, as for alerts. A case's `assignee` can also be set when it is created.
          */
         patch: operations["updateCase"];
         trace?: never;
