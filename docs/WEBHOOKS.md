@@ -143,5 +143,6 @@ coordinated with customers.
   built. TODO(phase-8).
 - **Signing key:** an environment variable locally; the secrets manager comes with deployment.
   TODO(phase-8).
-- **Retention:** deliveries and attempts (including payloads) are kept until the retention sweep
-  exists. TODO(phase-7).
+- **Retention:** deliveries and attempts (including payloads) are kept, by decision: they are
+  `other` records under the retention floors, and no sweep exists yet
+  ([ADR-0009](adr/ADR-0009-retention.md)).
