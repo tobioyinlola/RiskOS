@@ -37,19 +37,19 @@ func (e AdminTenantOrigin) Valid() bool {
 
 // Defines values for AdminTenantStatus.
 const (
-	Active    AdminTenantStatus = "active"
-	Disabled  AdminTenantStatus = "disabled"
-	Suspended AdminTenantStatus = "suspended"
+	AdminTenantStatusActive    AdminTenantStatus = "active"
+	AdminTenantStatusDisabled  AdminTenantStatus = "disabled"
+	AdminTenantStatusSuspended AdminTenantStatus = "suspended"
 )
 
 // Valid indicates whether the value is a known member of the AdminTenantStatus enum.
 func (e AdminTenantStatus) Valid() bool {
 	switch e {
-	case Active:
+	case AdminTenantStatusActive:
 		return true
-	case Disabled:
+	case AdminTenantStatusDisabled:
 		return true
-	case Suspended:
+	case AdminTenantStatusSuspended:
 		return true
 	default:
 		return false
@@ -92,6 +92,24 @@ func (e StaffRole) Valid() bool {
 	case OperationsAdmin:
 		return true
 	case SecurityAdmin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StaffRosterEntryStatus.
+const (
+	StaffRosterEntryStatusActive   StaffRosterEntryStatus = "active"
+	StaffRosterEntryStatusDisabled StaffRosterEntryStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the StaffRosterEntryStatus enum.
+func (e StaffRosterEntryStatus) Valid() bool {
+	switch e {
+	case StaffRosterEntryStatusActive:
+		return true
+	case StaffRosterEntryStatusDisabled:
 		return true
 	default:
 		return false
@@ -363,6 +381,31 @@ type StaffRef struct {
 // StaffRole defines model for StaffRole.
 type StaffRole string
 
+// StaffRosterEntry defines model for StaffRosterEntry.
+type StaffRosterEntry struct {
+	CreatedAt time.Time `json:"created_at"`
+	Email     string    `json:"email"`
+
+	// EnrollmentPending An enrollment link has been issued and has not been used or expired.
+	EnrollmentPending bool       `json:"enrollment_pending"`
+	Id                string     `json:"id"`
+	LastSignIn        *time.Time `json:"last_sign_in,omitempty"`
+	Name              string     `json:"name"`
+
+	// Passkeys Registered passkeys. Zero until the person has enrolled.
+	Passkeys int64                  `json:"passkeys"`
+	Role     StaffRole              `json:"role"`
+	Status   StaffRosterEntryStatus `json:"status"`
+}
+
+// StaffRosterEntryStatus defines model for StaffRosterEntry.Status.
+type StaffRosterEntryStatus string
+
+// StaffRosterList defines model for StaffRosterList.
+type StaffRosterList struct {
+	Data []StaffRosterEntry `json:"data"`
+}
+
 // StaffSession defines model for StaffSession.
 type StaffSession struct {
 	CsrfToken string `json:"csrf_token"`
@@ -472,6 +515,9 @@ type WebAuthnOptions map[string]interface{}
 // AccessID Example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
 type AccessID = string
 
+// StaffID Example: stf_01j9x2k7m3q4r5s6t7v8w9x0yz
+type StaffID = string
+
 // StatusRequestID Example: tsr_01j9x2k7m3q4r5s6t7v8w9x0yz
 type StatusRequestID = string
 
@@ -572,6 +618,15 @@ type ServerInterface interface {
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(w http.ResponseWriter, r *http.Request)
+	// ListStaffRoster Staff accounts (security administrators only)
+	// (GET /api/admin/v1/staff)
+	ListStaffRoster(w http.ResponseWriter, r *http.Request)
+	// DisableStaff Disable another staff member's account
+	// (POST /api/admin/v1/staff/{staff_id}/disable)
+	DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID)
+	// EnableStaff Enable a disabled staff account
+	// (POST /api/admin/v1/staff/{staff_id}/enable)
+	EnableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID)
 	// ListSupportAccess Support access requests, newest first
 	// (GET /api/admin/v1/support-access)
 	ListSupportAccess(w http.ResponseWriter, r *http.Request)
@@ -689,6 +744,24 @@ func (_ Unimplemented) GetAdminOverview(w http.ResponseWriter, r *http.Request) 
 // GetSecurityOverview Security signals across tenants
 // (GET /api/admin/v1/security)
 func (_ Unimplemented) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListStaffRoster Staff accounts (security administrators only)
+// (GET /api/admin/v1/staff)
+func (_ Unimplemented) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisableStaff Disable another staff member's account
+// (POST /api/admin/v1/staff/{staff_id}/disable)
+func (_ Unimplemented) DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableStaff Enable a disabled staff account
+// (POST /api/admin/v1/staff/{staff_id}/enable)
+func (_ Unimplemented) EnableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1001,6 +1074,72 @@ func (siw *ServerInterfaceWrapper) GetSecurityOverview(w http.ResponseWriter, r 
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSecurityOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStaffRoster operation middleware
+func (siw *ServerInterfaceWrapper) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStaffRoster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisableStaff operation middleware
+func (siw *ServerInterfaceWrapper) DisableStaff(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "staff_id" -------------
+	var staffId StaffID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "staff_id", chi.URLParam(r, "staff_id"), &staffId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "staff_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableStaff(w, r, staffId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableStaff operation middleware
+func (siw *ServerInterfaceWrapper) EnableStaff(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "staff_id" -------------
+	var staffId StaffID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "staff_id", chi.URLParam(r, "staff_id"), &staffId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "staff_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableStaff(w, r, staffId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1428,6 +1567,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/withdraw", wrapper.WithdrawTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/staff", wrapper.ListStaffRoster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/{staff_id}/disable", wrapper.DisableStaff)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/{staff_id}/enable", wrapper.EnableStaff)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/security", wrapper.GetSecurityOverview)
@@ -2400,6 +2548,248 @@ type GetSecurityOverviewdefaultJSONResponse struct {
 }
 
 func (response GetSecurityOverviewdefaultJSONResponse) VisitGetSecurityOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRosterRequestObject struct {
+}
+
+type ListStaffRosterResponseObject interface {
+	VisitListStaffRosterResponse(w http.ResponseWriter) error
+}
+
+type ListStaffRoster200JSONResponse StaffRosterList
+
+func (response ListStaffRoster200JSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRoster401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListStaffRoster401JSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRoster403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListStaffRoster403JSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRosterdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListStaffRosterdefaultJSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaffRequestObject struct {
+	StaffId StaffID `json:"staff_id"`
+}
+
+type DisableStaffResponseObject interface {
+	VisitDisableStaffResponse(w http.ResponseWriter) error
+}
+
+type DisableStaff200JSONResponse StaffRosterEntry
+
+func (response DisableStaff200JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response DisableStaff401JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DisableStaff403JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DisableStaff404JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DisableStaff409JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaffdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DisableStaffdefaultJSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaffRequestObject struct {
+	StaffId StaffID `json:"staff_id"`
+}
+
+type EnableStaffResponseObject interface {
+	VisitEnableStaffResponse(w http.ResponseWriter) error
+}
+
+type EnableStaff200JSONResponse StaffRosterEntry
+
+func (response EnableStaff200JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaff401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response EnableStaff401JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaff403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EnableStaff403JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaff404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EnableStaff404JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaffdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response EnableStaffdefaultJSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -3452,6 +3842,15 @@ type StrictServerInterface interface {
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(ctx context.Context, request GetSecurityOverviewRequestObject) (GetSecurityOverviewResponseObject, error)
+	// ListStaffRoster Staff accounts (security administrators only)
+	// (GET /api/admin/v1/staff)
+	ListStaffRoster(ctx context.Context, request ListStaffRosterRequestObject) (ListStaffRosterResponseObject, error)
+	// DisableStaff Disable another staff member's account
+	// (POST /api/admin/v1/staff/{staff_id}/disable)
+	DisableStaff(ctx context.Context, request DisableStaffRequestObject) (DisableStaffResponseObject, error)
+	// EnableStaff Enable a disabled staff account
+	// (POST /api/admin/v1/staff/{staff_id}/enable)
+	EnableStaff(ctx context.Context, request EnableStaffRequestObject) (EnableStaffResponseObject, error)
 	// ListSupportAccess Support access requests, newest first
 	// (GET /api/admin/v1/support-access)
 	ListSupportAccess(ctx context.Context, request ListSupportAccessRequestObject) (ListSupportAccessResponseObject, error)
@@ -3880,6 +4279,82 @@ func (sh *strictHandler) GetSecurityOverview(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetSecurityOverviewResponseObject); ok {
 		if err := validResponse.VisitGetSecurityOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListStaffRoster operation middleware
+func (sh *strictHandler) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+	var request ListStaffRosterRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStaffRoster(ctx, request.(ListStaffRosterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStaffRoster")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStaffRosterResponseObject); ok {
+		if err := validResponse.VisitListStaffRosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisableStaff operation middleware
+func (sh *strictHandler) DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
+	var request DisableStaffRequestObject
+
+	request.StaffId = staffId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisableStaff(ctx, request.(DisableStaffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisableStaff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisableStaffResponseObject); ok {
+		if err := validResponse.VisitDisableStaffResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EnableStaff operation middleware
+func (sh *strictHandler) EnableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
+	var request EnableStaffRequestObject
+
+	request.StaffId = staffId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EnableStaff(ctx, request.(EnableStaffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnableStaff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EnableStaffResponseObject); ok {
+		if err := validResponse.VisitEnableStaffResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

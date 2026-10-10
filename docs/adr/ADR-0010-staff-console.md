@@ -78,3 +78,12 @@ is any other active staff member.
   restricted to one role and audited.
 - Follow-ups unchanged from ADMIN.md: private access path, hardware-key attestation, staff SSO,
   hash chain on the staff audit log; and now break-glass suspension and per-tenant limits.
+
+## Implementation
+
+All four pieces are built and described in [ADMIN.md](../ADMIN.md): the Overview work queue and
+tenant directory (migration `00035`), tenant status requests with four-eyes approval
+(`00036`, `TestAdminTenantStatusFourEyes`) and the staff roster (`TestAdminStaffRoster`). One
+observation from building the roster: "never the last active security administrator" can only
+be reached by a race, since an actor who is an active security administrator makes the count at
+least two; the lock on active security administrators is what keeps that true under concurrency.

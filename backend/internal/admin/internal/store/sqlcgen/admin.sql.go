@@ -692,6 +692,30 @@ func (q *Queries) ListTenantStatusRequests(ctx context.Context) ([]TenantStatusR
 	return items, nil
 }
 
+const lockActiveSecurityAdmins = `-- name: LockActiveSecurityAdmins :many
+SELECT id FROM staff WHERE role = 'security_admin' AND status = 'active' FOR UPDATE
+`
+
+func (q *Queries) LockActiveSecurityAdmins(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, lockActiveSecurityAdmins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const purgeCeremonies = `-- name: PurgeCeremonies :exec
 DELETE FROM staff_ceremonies WHERE expires_at < $1
 `
@@ -891,6 +915,58 @@ func (q *Queries) StaffPasskeys(ctx context.Context, staffID uuid.UUID) ([]Staff
 			&i.Flags,
 			&i.CreatedAt,
 			&i.LastUsedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const staffRoster = `-- name: StaffRoster :many
+SELECT s.id::uuid AS id, s.email::text AS email, s.name::text AS name, s.role::text AS role,
+       s.status::text AS status, s.created_at::timestamptz AS created_at,
+       (SELECT count(*) FROM staff_passkeys p WHERE p.staff_id = s.id)::bigint AS passkeys,
+       -- The epoch means "never signed in".
+       COALESCE((SELECT max(ss.created_at) FROM staff_sessions ss WHERE ss.staff_id = s.id), 'epoch'::timestamptz)::timestamptz AS last_sign_in,
+       COALESCE(s.enroll_token_hash IS NOT NULL AND s.enroll_expires_at > now(), false)::boolean AS enrollment_pending
+FROM staff s ORDER BY s.created_at
+`
+
+type StaffRosterRow struct {
+	ID                uuid.UUID
+	Email             string
+	Name              string
+	Role              string
+	Status            string
+	CreatedAt         time.Time
+	Passkeys          int64
+	LastSignIn        time.Time
+	EnrollmentPending bool
+}
+
+func (q *Queries) StaffRoster(ctx context.Context) ([]StaffRosterRow, error) {
+	rows, err := q.db.Query(ctx, staffRoster)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffRosterRow
+	for rows.Next() {
+		var i StaffRosterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Passkeys,
+			&i.LastSignIn,
+			&i.EnrollmentPending,
 		); err != nil {
 			return nil, err
 		}

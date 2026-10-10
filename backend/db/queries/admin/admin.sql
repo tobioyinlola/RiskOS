@@ -25,6 +25,18 @@ UPDATE staff SET enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = @
 -- name: SetStaffStatus :execrows
 UPDATE staff SET status = @status WHERE id = @id;
 
+-- name: StaffRoster :many
+SELECT s.id::uuid AS id, s.email::text AS email, s.name::text AS name, s.role::text AS role,
+       s.status::text AS status, s.created_at::timestamptz AS created_at,
+       (SELECT count(*) FROM staff_passkeys p WHERE p.staff_id = s.id)::bigint AS passkeys,
+       -- The epoch means "never signed in".
+       COALESCE((SELECT max(ss.created_at) FROM staff_sessions ss WHERE ss.staff_id = s.id), 'epoch'::timestamptz)::timestamptz AS last_sign_in,
+       COALESCE(s.enroll_token_hash IS NOT NULL AND s.enroll_expires_at > now(), false)::boolean AS enrollment_pending
+FROM staff s ORDER BY s.created_at;
+
+-- name: LockActiveSecurityAdmins :many
+SELECT id FROM staff WHERE role = 'security_admin' AND status = 'active' FOR UPDATE;
+
 -- name: InsertStaffPasskey :exec
 INSERT INTO staff_passkeys (id, staff_id, name, public_key, attestation_type, aaguid, sign_count, transports, flags, created_at)
 VALUES (@id, @staff_id, @name, @public_key, @attestation_type, @aaguid, @sign_count, @transports, @flags, @now);

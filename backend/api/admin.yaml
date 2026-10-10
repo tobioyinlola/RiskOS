@@ -358,6 +358,78 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff:
+    get:
+      operationId: listStaffRoster
+      tags: [staff]
+      summary: Staff accounts (security administrators only)
+      description: |
+        Role, status, passkey count, last sign-in and whether an enrollment link is outstanding.
+        Never a credential. Accounts are created, and enrollment links issued, with the operator
+        CLI only.
+      responses:
+        "200":
+          description: Staff accounts, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRosterList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/{staff_id}/disable:
+    post:
+      operationId: disableStaff
+      tags: [staff]
+      summary: Disable another staff member's account
+      description: |
+        Security administrators only. Ends the person's sessions at once. Refused for your own
+        account and for the last active security administrator. Recorded in the staff audit log.
+      parameters:
+        - $ref: "#/components/parameters/StaffID"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRosterEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/{staff_id}/enable:
+    post:
+      operationId: enableStaff
+      tags: [staff]
+      summary: Enable a disabled staff account
+      description: Security administrators only; never your own account. Recorded in the staff audit log.
+      parameters:
+        - $ref: "#/components/parameters/StaffID"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRosterEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/security:
     get:
       operationId: getSecurityOverview
@@ -646,6 +718,13 @@ components:
       schema:
         type: string
         example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
+    StaffID:
+      name: staff_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: stf_01j9x2k7m3q4r5s6t7v8w9x0yz
     StatusRequestID:
       name: request_id
       in: path
@@ -732,6 +811,45 @@ components:
         token:
           type: string
           maxLength: 128
+    StaffRosterEntry:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role, status, passkeys, enrollment_pending, created_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/StaffRole"
+        status:
+          type: string
+          enum: [active, disabled]
+        passkeys:
+          type: integer
+          format: int64
+          description: Registered passkeys. Zero until the person has enrolled.
+        last_sign_in:
+          type: string
+          format: date-time
+          nullable: true
+        enrollment_pending:
+          type: boolean
+          description: An enrollment link has been issued and has not been used or expired.
+        created_at:
+          type: string
+          format: date-time
+    StaffRosterList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffRosterEntry"
     TenantStatusChange:
       type: object
       additionalProperties: false

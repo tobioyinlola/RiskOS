@@ -264,6 +264,69 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Staff accounts (security administrators only)
+         * @description Role, status, passkey count, last sign-in and whether an enrollment link is outstanding.
+         *     Never a credential. Accounts are created, and enrollment links issued, with the operator
+         *     CLI only.
+         */
+        get: operations["listStaffRoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/{staff_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable another staff member's account
+         * @description Security administrators only. Ends the person's sessions at once. Refused for your own
+         *     account and for the last active security administrator. Recorded in the staff audit log.
+         */
+        post: operations["disableStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/{staff_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable a disabled staff account
+         * @description Security administrators only; never your own account. Recorded in the staff audit log.
+         */
+        post: operations["enableStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/security": {
         parameters: {
             query?: never;
@@ -484,6 +547,28 @@ export interface components {
         };
         EnrollOptionsRequest: {
             token: string;
+        };
+        StaffRosterEntry: {
+            id: string;
+            email: string;
+            name: string;
+            role: components["schemas"]["StaffRole"];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /**
+             * Format: int64
+             * @description Registered passkeys. Zero until the person has enrolled.
+             */
+            passkeys: number;
+            /** Format: date-time */
+            last_sign_in?: string | null;
+            /** @description An enrollment link has been issued and has not been used or expired. */
+            enrollment_pending: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        StaffRosterList: {
+            data: components["schemas"]["StaffRosterEntry"][];
         };
         TenantStatusChange: {
             /** @enum {string} */
@@ -798,6 +883,7 @@ export interface components {
     parameters: {
         TenantID: string;
         AccessID: string;
+        StaffID: string;
         StatusRequestID: string;
     };
     requestBodies: never;
@@ -1170,6 +1256,82 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listStaffRoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staff accounts, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRosterList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    disableStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: components["parameters"]["StaffID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRosterEntry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    enableStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: components["parameters"]["StaffID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRosterEntry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

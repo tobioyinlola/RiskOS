@@ -216,6 +216,10 @@ test("staff console: session gate, security view, four-eyes approval", async ({
   signedIn = true;
   await page.goto("/admin");
   await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+  // Operations administrators are not offered the staff roster.
+  await expect(
+    page.getByRole("link", { name: "Staff", exact: true }),
+  ).toHaveCount(0);
   await expect(
     page.getByRole("link", { name: /^Onboarding reviews: 3/ }),
   ).toBeVisible();
@@ -266,4 +270,79 @@ test("staff console: session gate, security view, four-eyes approval", async ({
     requests.getByRole("button", { name: "End access" }),
   ).toBeVisible();
   expect(problems).toEqual([]);
+});
+
+test("staff console: the roster is for security administrators, and disabling is one click", async ({
+  page,
+}) => {
+  const accounts: Record<string, unknown>[] = [
+    {
+      id: "stf_me",
+      email: "sec-b@riskos.example",
+      name: "Sec B",
+      role: "security_admin",
+      status: "active",
+      passkeys: 2,
+      last_sign_in: NOW,
+      enrollment_pending: false,
+      created_at: NOW,
+    },
+    {
+      id: "stf_ops",
+      email: "ops-a@riskos.example",
+      name: "Ops A",
+      role: "operations_admin",
+      status: "active",
+      passkeys: 1,
+      last_sign_in: null,
+      enrollment_pending: false,
+      created_at: NOW,
+    },
+  ];
+  const json = (route: Route, body: unknown, code = 200) =>
+    route.fulfill({
+      status: code,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  await page.route("**/api/admin/v1/**", async (route) => {
+    const path = new URL(route.request().url()).pathname.replace(
+      "/api/admin/v1",
+      "",
+    );
+    switch (path) {
+      case "/auth/session":
+        return json(route, {
+          staff: {
+            id: "stf_me",
+            name: "Sec B",
+            email: "sec-b@riskos.example",
+            role: "security_admin",
+          },
+          csrf_token: CSRF,
+          expires_at: "2026-10-01T14:00:00Z",
+          idle_expires_at: "2026-10-01T10:15:00Z",
+        });
+      case "/staff":
+        return json(route, { data: accounts });
+      case "/staff/stf_ops/disable":
+        Object.assign(accounts[1] ?? {}, { status: "disabled" });
+        return json(route, accounts[1]);
+      default:
+        return json(route, { data: [] });
+    }
+  });
+
+  await page.goto("/admin/staff");
+  await page
+    .getByRole("link", { name: "Staff", exact: true })
+    .first()
+    .waitFor();
+  const table = page.getByRole("table", { name: "Staff accounts" });
+  await expect(table).toContainText("Sec B (you)");
+  await expect(table).toContainText("Never");
+  await expect(table.getByText("Your account")).toBeVisible();
+  await table.getByRole("button", { name: "Disable" }).click();
+  await expect(table).toContainText("Disabled");
+  await expect(table.getByRole("button", { name: "Enable" })).toBeVisible();
 });

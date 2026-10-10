@@ -108,11 +108,23 @@ tenant.
   `tenant.reactivated`, naming the staff member but not the reason.
 - **No break-glass.** There is no single-person emergency suspension; see the ADR.
 
+## Staff roster
+
+Security administrators (`security_admin`) see **Staff** in the console: every account with its
+role, status, passkey count, last sign-in and whether an enrollment link is outstanding. Never a
+credential. They may **disable** or **enable** another account:
+
+- Never their own account, and never the last active security administrator (a lock on the
+  active security administrators stops two of them disabling each other at once).
+- Disabling ends the person's sessions at once, and they cannot sign in again until enabled.
+- Each change is in the staff audit log (`staff.disabled`, `staff.enabled`).
+
+**Creating accounts and issuing enrollment links stay in the operator CLI** (`make staff`, see
+above). That is deliberate: a hijacked staff session that could mint credentials could take over
+any account, so the web console can only remove access, never grant it.
+
 ## Not built yet
 
-- A staff roster in the console (list accounts, disable and enable them), restricted to security
-  administrators (ADR-0010). Account creation and enrollment links stay in the operator CLI by
-  design. TODO(phase-9)
 - Per-tenant limits editable by staff. TODO(phase-9)
 - Break-glass suspension by one security administrator, with its own review trail. TODO(phase-9)
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
