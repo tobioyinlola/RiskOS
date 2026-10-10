@@ -30,6 +30,7 @@ suffixes.
 | `riskos.ratelimit.rejected` | counter | `limit`: `key`, `tenant`, `operation`, `auth_failure` | api | Rate-limit violations. A rejection by the combined per-key and per-tenant check is attributed to `key` |
 | `riskos.ratelimit.errors` | counter | none | api | Checks that failed open because Redis was unavailable |
 | `riskos.auth.failures` | counter | none | api | API requests answered 401 |
+| `riskos.auth.previous_pepper` | counter | `rehashed`: `true`, `false` | api | Pepper rotation progress ([ADR-0008](adr/ADR-0008-secret-rotation.md)): keys still verifying under the previous pepper. Zero for the retirement period means it can be removed |
 | `riskos.webhooks.deliveries` | counter | `result`: `succeeded`, `retrying`, `failed` | worker | Webhook success. `failed` means the schedule is exhausted or the endpoint was disabled |
 | `riskos.webhooks.delivery.duration` | histogram, s | `result` | worker | Receiver latency, as seen by RiskOS |
 | `riskos.jobs.duration` | histogram, s | `kind`, `outcome`: `succeeded`, `failed`, `snoozed` | worker | Worker latency and failure rate by job kind. A snooze is a webhook retry, not a failure |

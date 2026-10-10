@@ -15,6 +15,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -36,27 +37,37 @@ const (
 type Config struct {
 	// Pepper keys the HMAC of stored secrets. At least 32 bytes, from the secrets manager.
 	Pepper []byte
+	// PepperPrevious is, during a rotation (ADR-0008), the pepper secrets were hashed with
+	// before Pepper. A key that verifies against it is accepted and rehashed under Pepper.
+	// Empty outside a rotation.
+	PepperPrevious []byte
 	// CacheTTL bounds how long a key lookup is reused, and so how long a revoked key can keep
 	// working on an instance (ARCHITECTURE.md §9: at most 5 seconds). Zero disables caching.
 	CacheTTL time.Duration
+	// Metrics records rotation progress; nil records nothing.
+	Metrics *appmetrics.Metrics
 }
 
 // Service authenticates and manages API keys.
 type Service struct {
-	store  store.Store
-	runner txn.Runner
-	audit  audit.Recorder
-	clock  clock.Clock
-	pepper []byte
-	cache  *lookupCache
+	store          store.Store
+	runner         txn.Runner
+	audit          audit.Recorder
+	clock          clock.Clock
+	pepper         []byte
+	pepperPrevious []byte
+	cache          *lookupCache
+	metrics        *appmetrics.Metrics
 }
 
 // New returns a Service.
 func New(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg Config) *Service {
 	return &Service{
 		store: st, runner: runner, audit: rec, clock: clk,
-		pepper: slices.Clone(cfg.Pepper),
-		cache:  newLookupCache(cfg.CacheTTL, maxCachedLookups),
+		pepper:         slices.Clone(cfg.Pepper),
+		pepperPrevious: slices.Clone(cfg.PepperPrevious),
+		cache:          newLookupCache(cfg.CacheTTL, maxCachedLookups),
+		metrics:        cfg.Metrics,
 	}
 }
 
@@ -68,6 +79,10 @@ func (s *Service) Authenticate(ctx context.Context, token string) (tenancy.Scope
 	// The HMAC is computed for every attempt, well-formed or not, so response time does not
 	// reveal whether a lookup value exists.
 	computed := domain.HashToken(s.pepper, token)
+	var previous []byte
+	if len(s.pepperPrevious) > 0 {
+		previous = domain.HashToken(s.pepperPrevious, token)
+	}
 	lookup, kind, ok := domain.ParseToken(token)
 	if !ok {
 		return tenancy.Scope{}, domain.ErrUnauthenticated
@@ -77,15 +92,24 @@ func (s *Service) Authenticate(ctx context.Context, token string) (tenancy.Scope
 	if err != nil {
 		return tenancy.Scope{}, err
 	}
+	// Both comparisons always run, so a key on the previous pepper is not distinguishable by time.
+	var current, old bool
+	if res != nil {
+		current = hmac.Equal(computed, res.SecretHash)
+		old = previous != nil && hmac.Equal(previous, res.SecretHash)
+	}
 	switch {
 	case res == nil,
-		!hmac.Equal(computed, res.SecretHash),
+		!current && !old,
 		res.Environment != kind,
 		res.RevokedAt != nil && !now.Before(*res.RevokedAt),
 		res.ExpiresAt != nil && !now.Before(*res.ExpiresAt):
 		return tenancy.Scope{}, domain.ErrUnauthenticated
 	case res.TenantStatus != tenantStatusActive:
 		return tenancy.Scope{}, domain.ErrTenantSuspended
+	}
+	if old && !current {
+		s.rehash(ctx, lookup, res, computed)
 	}
 	return tenancy.Scope{
 		TenantID:        res.TenantID,
@@ -97,6 +121,16 @@ func (s *Service) Authenticate(ctx context.Context, token string) (tenancy.Scope
 			Permissions: res.Scopes,
 		},
 	}, nil
+}
+
+// rehash moves a key that verified under the previous pepper to the current one. It is best
+// effort: the key already authenticated, so a failure is only counted, and the key is rehashed
+// on a later request.
+func (s *Service) rehash(ctx context.Context, lookup string, res *store.LookupResult, hash []byte) {
+	// Not swapping is fine: another instance rehashed the key first, which is the same outcome.
+	_, err := s.store.Rehash(context.WithoutCancel(ctx), res.ID, res.SecretHash, hash)
+	s.cache.delete(lookup)
+	s.metrics.PreviousPepperUsed(ctx, err == nil)
 }
 
 func (s *Service) lookup(ctx context.Context, lookup string, now time.Time) (*store.LookupResult, error) {

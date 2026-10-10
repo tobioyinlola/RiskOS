@@ -116,6 +116,9 @@ func TestAuthValidate(t *testing.T) {
 		{"missing pepper", config.Auth{APIKeyCacheTTL: time.Second}, "RISKOS_API_KEY_PEPPER"},
 		{"short pepper", config.Auth{APIKeyPepper: "short"}, "RISKOS_API_KEY_PEPPER"},
 		{"cache ttl above revocation bound", config.Auth{APIKeyPepper: strings.Repeat("p", 32), APIKeyCacheTTL: 6 * time.Second}, "RISKOS_API_KEY_CACHE_TTL"},
+		{"rotation", config.Auth{APIKeyPepper: strings.Repeat("n", 32), APIKeyPepperPrevious: strings.Repeat("o", 32)}, ""},
+		{"previous too weak", config.Auth{APIKeyPepper: strings.Repeat("n", 32), APIKeyPepperPrevious: "tiny"}, "RISKOS_API_KEY_PEPPER_PREVIOUS"},
+		{"previous equals current", config.Auth{APIKeyPepper: strings.Repeat("n", 32), APIKeyPepperPrevious: strings.Repeat("n", 32)}, "must differ"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

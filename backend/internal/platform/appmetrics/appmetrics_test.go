@@ -34,6 +34,7 @@ func TestNilMetricsRecordNothing(t *testing.T) {
 	m.RateLimited(ctx, appmetrics.LimitKey)
 	m.LimiterUnavailable(ctx)
 	m.AuthFailed(ctx)
+	m.PreviousPepperUsed(ctx, true)
 	m.Delivered(ctx, appmetrics.DeliverySucceeded, time.Millisecond)
 	m.JobRan(ctx, "noop", appmetrics.JobSucceeded, time.Millisecond)
 	if err := m.ObserveQueueDepth(nil); err != nil {

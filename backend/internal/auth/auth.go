@@ -17,6 +17,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
@@ -114,6 +115,11 @@ type Pool = store.Querier
 type Config struct {
 	// Pepper keys the HMAC of stored API key secrets. At least 32 bytes.
 	Pepper []byte
+	// PepperPrevious, during a rotation (ADR-0008), is the pepper keys were hashed with before
+	// Pepper. Keys that verify against it are rehashed under Pepper. Nil outside a rotation.
+	PepperPrevious []byte
+	// Metrics records pepper rotation progress; nil records nothing.
+	Metrics *appmetrics.Metrics
 	// CacheTTL bounds API key lookup caching (the revocation staleness bound).
 	CacheTTL time.Duration
 	// Console configures the dashboard realm. Zero values take DefaultConsole's; without a
@@ -225,7 +231,9 @@ func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg 
 		cookie.Origins = cc.Origins
 	}
 	return &Module{
-		svc:     service.New(st, runner, rec, clk, service.Config{Pepper: cfg.Pepper, CacheTTL: cfg.CacheTTL}),
+		svc: service.New(st, runner, rec, clk, service.Config{
+			Pepper: cfg.Pepper, PepperPrevious: cfg.PepperPrevious, CacheTTL: cfg.CacheTTL, Metrics: cfg.Metrics,
+		}),
 		console: con, cookie: cookie, clock: clk,
 	}
 }

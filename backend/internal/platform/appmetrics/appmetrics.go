@@ -55,6 +55,7 @@ type Metrics struct {
 	rateRejected    metric.Int64Counter
 	limiterErrors   metric.Int64Counter
 	authFailures    metric.Int64Counter
+	previousPepper  metric.Int64Counter
 	deliveries      metric.Int64Counter
 	deliveryTime    metric.Float64Histogram
 	jobDuration     metric.Float64Histogram
@@ -90,6 +91,11 @@ func New(mp metric.MeterProvider) (*Metrics, error) {
 	if out.authFailures, err = m.Int64Counter("riskos.auth.failures",
 		metric.WithDescription("API requests that failed authentication."), metric.WithUnit("{request}")); err != nil {
 		return nil, fail("riskos.auth.failures", err)
+	}
+	if out.previousPepper, err = m.Int64Counter("riskos.auth.previous_pepper",
+		metric.WithDescription("API keys that verified against the previous pepper during a rotation, by whether they were rehashed."),
+		metric.WithUnit("{request}")); err != nil {
+		return nil, fail("riskos.auth.previous_pepper", err)
 	}
 	if out.deliveries, err = m.Int64Counter("riskos.webhooks.deliveries",
 		metric.WithDescription("Webhook delivery attempts by result."), metric.WithUnit("{attempt}")); err != nil {
@@ -146,6 +152,16 @@ func (m *Metrics) AuthFailed(ctx context.Context) {
 		return
 	}
 	m.authFailures.Add(ctx, 1)
+}
+
+// PreviousPepperUsed counts an API key that verified against the previous pepper (ADR-0008),
+// by whether it was rehashed under the current one. When it stays at zero for the retirement
+// period, the previous pepper can be removed.
+func (m *Metrics) PreviousPepperUsed(ctx context.Context, rehashed bool) {
+	if !m.ok() {
+		return
+	}
+	m.previousPepper.Add(ctx, 1, metric.WithAttributes(attribute.Bool("rehashed", rehashed)))
 }
 
 // Delivered records one webhook delivery attempt.

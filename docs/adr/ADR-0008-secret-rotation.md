@@ -77,6 +77,10 @@ to the new one, deploy, wait for the retirement condition, then remove `_PREVIOU
 - A previous secret that is left configured keeps accepting what it accepted; the start-up
   check and the retirement counters exist so that is visible, and the runbook makes removal an
   explicit step.
-- Follow-ups: implement the previous-key paths and the `riskosctl` bulk webhook rotation; add
-  the `riskos.auth.previous_pepper` metric to [OBSERVABILITY.md](../OBSERVABILITY.md); exercise
-  each rotation in staging.
+- Implemented: the API key pepper (decision 1): `RISKOS_API_KEY_PEPPER_PREVIOUS`, migration
+  `00033_api_key_rehash.sql` (a compare-and-swap `SECURITY DEFINER` function, the second
+  pre-authentication exception after `auth_lookup_api_key`), and the
+  `riskos.auth.previous_pepper` metric. `TestAPIKeyPepperRotation` walks the procedure.
+- Follow-ups: the previous-key paths for the console secret and the webhook signing key, and the
+  `riskosctl` bulk webhook rotation (decisions 2 and 3); the start-up warning that a previous
+  key is still configured; exercise each rotation in staging.

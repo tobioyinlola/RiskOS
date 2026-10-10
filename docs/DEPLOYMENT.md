@@ -76,11 +76,18 @@ Requirements, in order of importance:
 - Distinct per environment: database credentials (the application role is not the schema
   owner), the API key pepper, console session secret, webhook signing master key, SMTP
   credentials, identity provider client secrets.
-- The API key pepper and the webhook signing key cannot be rotated by overwriting: the pepper
-  invalidates every stored key hash, and the signing key changes every endpoint secret. Each
-  needs a planned rotation procedure with an overlap period before first production use
-  (webhook secrets already have a per-endpoint overlap; the master key does not).
-  TODO(phase-8)
+- The server-side secrets cannot be rotated by overwriting them: the API key pepper invalidates
+  every stored key hash, and the webhook signing key changes every endpoint secret. Rotation is
+  designed in [ADR-0008](adr/ADR-0008-secret-rotation.md).
+  - **API key pepper (built).** Set `RISKOS_API_KEY_PEPPER_PREVIOUS` to the old value and
+    `RISKOS_API_KEY_PEPPER` to the new one, then deploy. Keys on the old pepper keep working and
+    move to the new one the first time they are used. Remove `_PREVIOUS` once
+    `riskos.auth.previous_pepper` has been zero for 14 days; keys not used in that time stop
+    working at that point, so tell tenants with dormant keys first. Order matters: deploy the
+    `migrate` image first (it adds the database function that rehashes), then api.
+  - **Webhook signing key, console secret (designed, not built).** Previous-key paths and the
+    bulk webhook rotation in `riskosctl`. TODO(phase-8)
+  - **Feature hash key.** A planned event: history signals warm up again.
 - Secret access is logged, and a secret read by a human is treated as an incident-level event.
 
 ## Supply chain and release controls
@@ -120,4 +127,4 @@ after. In practice:
 - The platform, its infrastructure as code, the pipeline's deploy and approval stages, image
   signing and the secrets manager integration, all following the platform decision.
   TODO(phase-8)
-- Master key rotation procedures (above).
+- Rotation of the webhook signing key and console secret (above).

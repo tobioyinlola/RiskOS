@@ -86,6 +86,17 @@ func (s Store) Lookup(ctx context.Context, lookup string) (*LookupResult, error)
 	return &r, nil
 }
 
+// Rehash replaces a key's stored secret hash when it is still old (compare and swap), and
+// reports whether it did. It runs before the tenant is known, like Lookup, through the one
+// narrow database function that may do so.
+func (s Store) Rehash(ctx context.Context, id uuid.UUID, old, replacement []byte) (bool, error) {
+	var swapped bool
+	err := preAuth(ctx, "rehash api key", func(ctx context.Context) error {
+		return s.pool.QueryRow(ctx, `SELECT auth_rehash_api_key($1, $2, $3)`, id, old, replacement).Scan(&swapped)
+	})
+	return swapped, err
+}
+
 func scoped(ctx context.Context) (*sqlcgen.Queries, tenancy.Scope, error) {
 	tx, err := db.TxFrom(ctx)
 	if err != nil {

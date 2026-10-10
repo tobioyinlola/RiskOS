@@ -248,6 +248,11 @@ type Auth struct {
 	// must be at least 32 bytes, and must never change without a rotation plan (every key would
 	// stop verifying).
 	APIKeyPepper string
+	// APIKeyPepperPrevious is set only during a pepper rotation (ADR-0008): the pepper keys were
+	// hashed with before APIKeyPepper. Keys that verify against it are rehashed under the
+	// current one; remove it once riskos.auth.previous_pepper has been zero for the retirement
+	// period.
+	APIKeyPepperPrevious string
 	// APIKeyCacheTTL bounds revocation staleness per instance (ARCHITECTURE.md §9: 5 s maximum).
 	APIKeyCacheTTL time.Duration
 }
@@ -263,6 +268,14 @@ func (a Auth) Validate() error {
 	var errs []error
 	if len(a.APIKeyPepper) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_API_KEY_PEPPER: required, at least %d bytes", MinPepperBytes))
+	}
+	if p := a.APIKeyPepperPrevious; p != "" {
+		if len(p) < MinPepperBytes {
+			errs = append(errs, fmt.Errorf("RISKOS_API_KEY_PEPPER_PREVIOUS: at least %d bytes when set", MinPepperBytes))
+		}
+		if p == a.APIKeyPepper {
+			errs = append(errs, errors.New("RISKOS_API_KEY_PEPPER_PREVIOUS: must differ from RISKOS_API_KEY_PEPPER"))
+		}
 	}
 	if a.APIKeyCacheTTL < 0 || a.APIKeyCacheTTL > MaxAPIKeyCacheTTL {
 		errs = append(errs, fmt.Errorf("RISKOS_API_KEY_CACHE_TTL: must be between 0s and %s", MaxAPIKeyCacheTTL))
@@ -377,8 +390,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			AuthFailuresBurst:     r.integer("RISKOS_RATE_LIMIT_AUTH_FAILURES_BURST", 30),
 		},
 		Auth: Auth{
-			APIKeyPepper:   r.str("RISKOS_API_KEY_PEPPER", ""),
-			APIKeyCacheTTL: r.duration("RISKOS_API_KEY_CACHE_TTL", MaxAPIKeyCacheTTL),
+			APIKeyPepper:         r.str("RISKOS_API_KEY_PEPPER", ""),
+			APIKeyPepperPrevious: r.str("RISKOS_API_KEY_PEPPER_PREVIOUS", ""),
+			APIKeyCacheTTL:       r.duration("RISKOS_API_KEY_CACHE_TTL", MaxAPIKeyCacheTTL),
 		},
 		Env:         Environment(r.str("RISKOS_ENV", string(EnvDevelopment))),
 		ServiceName: r.str("RISKOS_SERVICE_NAME", "riskos"),

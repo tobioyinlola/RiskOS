@@ -145,9 +145,11 @@ func run() (err error) {
 	auditModule := audit.New(runner, clk)
 	tenantsModule := tenants.New(runner, auditModule.Recorder())
 	authCfg := auth.Config{
-		Pepper:   []byte(cfg.Auth.APIKeyPepper),
-		CacheTTL: cfg.Auth.APIKeyCacheTTL,
-		Console:  consoleConfig(cfg.Console),
+		Pepper:         []byte(cfg.Auth.APIKeyPepper),
+		PepperPrevious: []byte(cfg.Auth.APIKeyPepperPrevious),
+		Metrics:        appMetrics,
+		CacheTTL:       cfg.Auth.APIKeyCacheTTL,
+		Console:        consoleConfig(cfg.Console),
 		Cookie: auth.CookieConfig{
 			Secure: cfg.Console.CookieSecure, Origins: cfg.Console.Origins, ConsoleURL: cfg.Console.URL,
 		},
