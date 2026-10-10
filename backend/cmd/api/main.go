@@ -175,6 +175,10 @@ func run() (err error) {
 	})
 	riskModule.WatchFeatureState(ctx)
 	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, appMetrics)
+	// Refuse to start without a signing key some endpoint still uses (ADR-0008).
+	if err := webhooks.VerifyKeyring(ctx, pool, webhookConfig(cfg.Webhooks)); err != nil {
+		return err
+	}
 	// The API publishes webhook events and manages endpoints; it never delivers (no notifier).
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
@@ -187,7 +191,8 @@ func run() (err error) {
 	// The internal admin realm: staff passkeys use the console's relying party and origins.
 	rpid, origins := authModule.PasskeyRP()
 	adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
-		Secret: []byte(cfg.Console.Secret), RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
+		Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious),
+		RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
 		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
 	})
 	if err != nil {
@@ -239,7 +244,11 @@ func run() (err error) {
 }
 
 func webhookConfig(c config.Webhooks) webhooks.Config {
-	return webhooks.Config{SigningKey: []byte(c.SigningKey), Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest}
+	return webhooks.Config{
+		SigningKey: []byte(c.SigningKey), SigningKeyID: c.SigningKeyID,
+		PreviousSigningKey: []byte(c.PreviousSigningKey), PreviousSigningKeyID: c.PreviousSigningKeyID,
+		Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest,
+	}
 }
 
 // selfServeTenants creates the workspaces of public sign-up (auth.TenantCreator): pinned to the
@@ -258,6 +267,7 @@ func (s selfServeTenants) CreateSelfServe(ctx context.Context, name, actor strin
 func consoleConfig(c config.Console) auth.ConsoleConfig {
 	cc := auth.DefaultConsole()
 	cc.Secret, cc.RPID, cc.Origins = []byte(c.Secret), c.RPID, c.Origins
+	cc.SecretPrevious = []byte(c.SecretPrevious)
 	cc.SSOAllowPrivate = c.SSOAllowPrivate
 	if c.BreachedPasswordCheck == "pwned" {
 		cc.Breach = auth.PwnedPasswords(c.BreachedPasswordURL, 3*time.Second)

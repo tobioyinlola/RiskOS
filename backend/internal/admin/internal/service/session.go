@@ -76,15 +76,25 @@ func loadWAStaff(ctx context.Context, q *sqlcgen.Queries, st sqlcgen.Staff) (waS
 	return w, nil
 }
 
-func (s *Service) csrfFor(sessionID uuid.UUID) string {
-	m := hmac.New(sha256.New, s.csrfKey)
+func csrfWith(key []byte, sessionID uuid.UUID) string {
+	m := hmac.New(sha256.New, key)
 	m.Write(sessionID[:])
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }
 
-// CheckCSRF verifies a presented CSRF token in constant time.
+func (s *Service) csrfFor(sessionID uuid.UUID) string { return csrfWith(s.csrfKey, sessionID) }
+
+// CheckCSRF verifies a presented CSRF token in constant time. During a secret rotation
+// (ADR-0008) a token issued under the previous secret is still accepted.
 func (s *Service) CheckCSRF(sess Session, token string) bool {
-	return token != "" && hmac.Equal([]byte(s.csrfFor(sess.ID)), []byte(token))
+	if token == "" {
+		return false
+	}
+	ok := hmac.Equal([]byte(s.csrfFor(sess.ID)), []byte(token))
+	if s.csrfKeyPrevious != nil {
+		ok = hmac.Equal([]byte(csrfWith(s.csrfKeyPrevious, sess.ID)), []byte(token)) || ok
+	}
+	return ok
 }
 
 func (s *Service) throttle(ctx context.Context, cl Client) error {

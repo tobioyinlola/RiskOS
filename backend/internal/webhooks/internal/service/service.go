@@ -33,8 +33,16 @@ import (
 
 // Config configures delivery.
 type Config struct {
-	// SigningKey derives every endpoint's secret (at least 32 bytes, from the secrets manager).
-	SigningKey []byte
+	// SigningKey derives the secrets of new and rotated endpoints (at least 32 bytes, from the
+	// secrets manager). SigningKeyID names it; zero means 1.
+	SigningKey   []byte
+	SigningKeyID int
+	// PreviousSigningKey, during a key rotation (ADR-0008), is the key the secrets issued before
+	// SigningKey were derived with, named PreviousSigningKeyID. Customers hold those secrets and
+	// see them only once, so endpoints keep using it until their customer rotates. Remove it only
+	// when KeyUsage reports no endpoint on it.
+	PreviousSigningKey   []byte
+	PreviousSigningKeyID int
 	// Timeout bounds each attempt.
 	Timeout time.Duration
 	// AllowPrivateTest lets test-environment endpoints use http:// and private addresses (local
@@ -47,6 +55,44 @@ type Config struct {
 	DisableAfter time.Duration
 	// Metrics records delivery outcomes; nil records nothing.
 	Metrics *appmetrics.Metrics
+}
+
+// CurrentKeyID is the id of the key new secrets are derived with.
+func (c Config) CurrentKeyID() int {
+	if c.SigningKeyID > 0 {
+		return c.SigningKeyID
+	}
+	return 1
+}
+
+// ErrUnknownKey means an endpoint's secret was derived with a key that is not configured. It
+// is a deployment error (a key was removed while endpoints still used it), never the caller's.
+var ErrUnknownKey = errors.New("webhook signing key is not configured")
+
+// keyFor returns the key with the given id.
+func (c Config) keyFor(id int) ([]byte, error) {
+	switch {
+	case id == c.CurrentKeyID():
+		return c.SigningKey, nil
+	case len(c.PreviousSigningKey) > 0 && id == c.PreviousSigningKeyID:
+		return c.PreviousSigningKey, nil
+	}
+	return nil, fmt.Errorf("%w: key %d", ErrUnknownKey, id)
+}
+
+// HasKey reports whether the key with that id is configured.
+func (c Config) HasKey(id int) bool {
+	_, err := c.keyFor(id)
+	return err == nil
+}
+
+// secretOf derives the secret of an endpoint's version with the key it was issued under.
+func (c Config) secretOf(endpointID uuid.UUID, version, keyID int) (string, error) {
+	key, err := c.keyFor(keyID)
+	if err != nil {
+		return "", err
+	}
+	return domain.Secret(key, endpointID, version), nil
 }
 
 // Notifier is told when an endpoint is disabled automatically (the alerts module raises a
@@ -165,7 +211,7 @@ func (s *Service) Create(ctx context.Context, in Input) (domain.Endpoint, string
 	now := s.clock.Now()
 	e := domain.Endpoint{
 		ID: ids.NewV7(), URL: in.URL, Description: in.Description, EventTypes: types, Status: domain.StatusActive,
-		SecretVersion: 1, CreatedAt: now, CreatedBy: scope.Principal.ID, UpdatedAt: now,
+		SecretVersion: 1, SecretKeyID: s.cfg.CurrentKeyID(), CreatedAt: now, CreatedBy: scope.Principal.ID, UpdatedAt: now,
 	}
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
 		n, err := s.store.CountEndpoints(ctx)
@@ -187,7 +233,11 @@ func (s *Service) Create(ctx context.Context, in Input) (domain.Endpoint, string
 	if err != nil {
 		return domain.Endpoint{}, "", err
 	}
-	return e, domain.Secret(s.cfg.SigningKey, e.ID, e.SecretVersion), nil
+	secret, err := s.cfg.secretOf(e.ID, e.SecretVersion, e.SecretKeyID)
+	if err != nil {
+		return domain.Endpoint{}, "", err
+	}
+	return e, secret, nil
 }
 
 // List returns the environment's endpoints. Requires webhooks:read.
@@ -307,7 +357,7 @@ func (s *Service) RotateSecret(ctx context.Context, id uuid.UUID, overlap time.D
 			return err
 		}
 		now := s.clock.Now()
-		if err := s.store.RotateSecret(ctx, id, now.Add(overlap), now); err != nil {
+		if err := s.store.RotateSecret(ctx, id, s.cfg.CurrentKeyID(), now.Add(overlap), now); err != nil {
 			return err
 		}
 		var err error
@@ -323,7 +373,11 @@ func (s *Service) RotateSecret(ctx context.Context, id uuid.UUID, overlap time.D
 	if err != nil {
 		return domain.Endpoint{}, "", err
 	}
-	return out, domain.Secret(s.cfg.SigningKey, out.ID, out.SecretVersion), nil
+	secret, err := s.cfg.secretOf(out.ID, out.SecretVersion, out.SecretKeyID)
+	if err != nil {
+		return domain.Endpoint{}, "", err
+	}
+	return out, secret, nil
 }
 
 // envelope is the JSON body of every delivery.
@@ -532,10 +586,14 @@ func (s *Service) Deliver(ctx context.Context, deliveryID uuid.UUID) error {
 	}
 
 	start := s.clock.Now()
+	signatures, err := s.signatures(e, d, start)
+	if err != nil {
+		return err
+	}
 	res := s.client.Send(ctx, egress.Request{
 		URL: e.URL, Body: d.Payload, EventID: ids.Format(ids.PrefixWebhookEvent, d.EventID), EventType: string(d.EventType),
 		DeliveryID: ids.Format(ids.PrefixWebhookDelivery, d.ID), Timestamp: start.Unix(),
-		Signatures:   s.signatures(e, d, start),
+		Signatures:   signatures,
 		AllowPrivate: s.policy(scope).AllowPrivate,
 	})
 	duration := s.clock.Now().Sub(start)
@@ -634,14 +692,29 @@ func (s *Service) recordFailure(ctx context.Context, e domain.Endpoint, now time
 
 // signatures returns the current secret's signature and, during a rotation overlap, the
 // previous one's.
-func (s *Service) signatures(e domain.Endpoint, d domain.Delivery, at time.Time) []string {
+//
+// Each secret is derived with the key it was issued under (ADR-0008). A key that is no longer
+// configured is an error, so a delivery is retried rather than sent with a secret the customer
+// does not have.
+func (s *Service) signatures(e domain.Endpoint, d domain.Delivery, at time.Time) ([]string, error) {
 	eventID := ids.Format(ids.PrefixWebhookEvent, d.EventID)
-	out := []string{domain.Sign(domain.Secret(s.cfg.SigningKey, e.ID, e.SecretVersion), eventID, at.Unix(), d.Payload)}
+	cur, err := s.cfg.secretOf(e.ID, e.SecretVersion, e.SecretKeyID)
+	if err != nil {
+		return nil, err
+	}
+	out := []string{domain.Sign(cur, eventID, at.Unix(), d.Payload)}
 	if e.PreviousSecretVersion != nil && e.PreviousSecretValidUntil != nil && at.Before(*e.PreviousSecretValidUntil) {
-		prev := domain.Secret(s.cfg.SigningKey, e.ID, *e.PreviousSecretVersion)
+		keyID := e.SecretKeyID
+		if e.PreviousSecretKeyID != nil {
+			keyID = *e.PreviousSecretKeyID
+		}
+		prev, err := s.cfg.secretOf(e.ID, *e.PreviousSecretVersion, keyID)
+		if err != nil {
+			return nil, err
+		}
 		out = append(out, domain.Sign(prev, eventID, at.Unix(), d.Payload))
 	}
-	return out
+	return out, nil
 }
 
 // jitter spreads retries by ±20% so failing endpoints are not hit in lockstep.

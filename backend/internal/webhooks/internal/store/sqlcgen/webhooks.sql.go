@@ -124,7 +124,7 @@ func (q *Queries) GetDeliveryForUpdate(ctx context.Context, arg GetDeliveryForUp
 }
 
 const getEndpoint = `-- name: GetEndpoint :one
-SELECT tenant_id, environment_id, id, url, description, event_types, status, disabled_reason, secret_version, previous_secret_version, previous_secret_valid_until, failing_since, created_at, created_by, updated_at FROM webhook_endpoints
+SELECT tenant_id, environment_id, id, url, description, event_types, status, disabled_reason, secret_version, previous_secret_version, previous_secret_valid_until, failing_since, created_at, created_by, updated_at, secret_key_id, previous_secret_key_id FROM webhook_endpoints
 WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
 `
 
@@ -153,12 +153,14 @@ func (q *Queries) GetEndpoint(ctx context.Context, arg GetEndpointParams) (Webho
 		&i.CreatedAt,
 		&i.CreatedBy,
 		&i.UpdatedAt,
+		&i.SecretKeyID,
+		&i.PreviousSecretKeyID,
 	)
 	return i, err
 }
 
 const getEndpointForUpdate = `-- name: GetEndpointForUpdate :one
-SELECT tenant_id, environment_id, id, url, description, event_types, status, disabled_reason, secret_version, previous_secret_version, previous_secret_valid_until, failing_since, created_at, created_by, updated_at FROM webhook_endpoints
+SELECT tenant_id, environment_id, id, url, description, event_types, status, disabled_reason, secret_version, previous_secret_version, previous_secret_valid_until, failing_since, created_at, created_by, updated_at, secret_key_id, previous_secret_key_id FROM webhook_endpoints
 WHERE tenant_id = $1 AND environment_id = $2 AND id = $3
 FOR UPDATE
 `
@@ -188,6 +190,8 @@ func (q *Queries) GetEndpointForUpdate(ctx context.Context, arg GetEndpointForUp
 		&i.CreatedAt,
 		&i.CreatedBy,
 		&i.UpdatedAt,
+		&i.SecretKeyID,
+		&i.PreviousSecretKeyID,
 	)
 	return i, err
 }
@@ -263,10 +267,10 @@ const insertEndpoint = `-- name: InsertEndpoint :exec
 
 INSERT INTO webhook_endpoints (
   tenant_id, environment_id, id, url, description, event_types, status, secret_version,
-  created_at, created_by, updated_at
+  secret_key_id, created_at, created_by, updated_at
 ) VALUES (
   $1, $2, $3, $4, $5, $6, 'active', 1,
-  $7, $8, $7
+  $7, $8, $9, $8
 )
 `
 
@@ -277,6 +281,7 @@ type InsertEndpointParams struct {
 	Url           string
 	Description   string
 	EventTypes    []string
+	SecretKeyID   int16
 	Now           time.Time
 	CreatedBy     string
 }
@@ -290,6 +295,7 @@ func (q *Queries) InsertEndpoint(ctx context.Context, arg InsertEndpointParams) 
 		arg.Url,
 		arg.Description,
 		arg.EventTypes,
+		arg.SecretKeyID,
 		arg.Now,
 		arg.CreatedBy,
 	)
@@ -404,7 +410,7 @@ func (q *Queries) ListDeliveries(ctx context.Context, arg ListDeliveriesParams) 
 }
 
 const listEndpoints = `-- name: ListEndpoints :many
-SELECT tenant_id, environment_id, id, url, description, event_types, status, disabled_reason, secret_version, previous_secret_version, previous_secret_valid_until, failing_since, created_at, created_by, updated_at FROM webhook_endpoints
+SELECT tenant_id, environment_id, id, url, description, event_types, status, disabled_reason, secret_version, previous_secret_version, previous_secret_valid_until, failing_since, created_at, created_by, updated_at, secret_key_id, previous_secret_key_id FROM webhook_endpoints
 WHERE tenant_id = $1 AND environment_id = $2
 ORDER BY id DESC
 `
@@ -439,6 +445,8 @@ func (q *Queries) ListEndpoints(ctx context.Context, arg ListEndpointsParams) ([
 			&i.CreatedAt,
 			&i.CreatedBy,
 			&i.UpdatedAt,
+			&i.SecretKeyID,
+			&i.PreviousSecretKeyID,
 		); err != nil {
 			return nil, err
 		}
@@ -546,14 +554,17 @@ func (q *Queries) RestartDelivery(ctx context.Context, arg RestartDeliveryParams
 const rotateEndpointSecret = `-- name: RotateEndpointSecret :exec
 UPDATE webhook_endpoints SET
   previous_secret_version = secret_version,
+  previous_secret_key_id = secret_key_id,
   previous_secret_valid_until = $1,
   secret_version = secret_version + 1,
-  updated_at = $2
-WHERE tenant_id = $3 AND environment_id = $4 AND id = $5
+  secret_key_id = $2,
+  updated_at = $3
+WHERE tenant_id = $4 AND environment_id = $5 AND id = $6
 `
 
 type RotateEndpointSecretParams struct {
 	PreviousValidUntil *time.Time
+	SecretKeyID        int16
 	Now                time.Time
 	TenantID           uuid.UUID
 	EnvironmentID      uuid.UUID
@@ -563,6 +574,7 @@ type RotateEndpointSecretParams struct {
 func (q *Queries) RotateEndpointSecret(ctx context.Context, arg RotateEndpointSecretParams) error {
 	_, err := q.db.Exec(ctx, rotateEndpointSecret,
 		arg.PreviousValidUntil,
+		arg.SecretKeyID,
 		arg.Now,
 		arg.TenantID,
 		arg.EnvironmentID,

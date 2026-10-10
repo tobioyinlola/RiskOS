@@ -85,8 +85,20 @@ Requirements, in order of importance:
     `riskos.auth.previous_pepper` has been zero for 14 days; keys not used in that time stop
     working at that point, so tell tenants with dormant keys first. Order matters: deploy the
     `migrate` image first (it adds the database function that rehashes), then api.
-  - **Webhook signing key, console secret (designed, not built).** Previous-key paths and the
-    bulk webhook rotation in `riskosctl`. TODO(phase-8)
+  - **Webhook signing key (built).** Set `RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS` and
+    `_PREVIOUS_ID` to the old key and its id (1 until now), and `RISKOS_WEBHOOK_SIGNING_KEY` and
+    `_ID` to the new key and a new id; deploy `migrate` first, then api and worker. Customers'
+    secrets do not change, because they are shown once; each endpoint keeps the key it was
+    issued under, and new endpoints and customer-initiated rotations use the new one. Remove
+    `_PREVIOUS` only when `riskosctl webhooks key-usage` shows no endpoint on that id: the API
+    and worker refuse to start if one still is. Ask tenants still on the old key to rotate their
+    secret (the console and API offer an overlap window). There is no bulk-rotate command by
+    design.
+  - **Console secret (built).** Set `RISKOS_CONSOLE_SECRET_PREVIOUS` to the old value and
+    `RISKOS_CONSOLE_SECRET` to the new one, deploy, then run `riskosctl console reseal` (needs
+    the migration URL; it prints counts only) until nothing is left on the previous secret.
+    Remove `_PREVIOUS` after the longest session and invite lifetime has passed. A sign-in
+    through an identity provider that is in flight during the deploy restarts.
   - **Feature hash key.** A planned event: history signals warm up again.
 - Secret access is logged, and a secret read by a human is treated as an incident-level event.
 

@@ -709,4 +709,6 @@ type WebhookEndpoint struct {
 	CreatedAt                time.Time
 	CreatedBy                string
 	UpdatedAt                time.Time
+	SecretKeyID              int16
+	PreviousSecretKeyID      *int16
 }

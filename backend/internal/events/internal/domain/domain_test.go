@@ -100,7 +100,10 @@ func TestContainsCardNumberIsBounded(t *testing.T) {
 	long := `{"x":"` + strings.Repeat("7", 60000) + `"}`
 	start := time.Now()
 	domain.ContainsCardNumber([]byte(long))
-	assert.Less(t, time.Since(start), 100*time.Millisecond)
+	// A quadratic scan of 60 KB takes many seconds; the linear one takes milliseconds, tens of
+	// times that under the race detector on a busy machine. The bound separates the two without
+	// failing on load (it was 100 ms, and failed the gate intermittently).
+	assert.Less(t, time.Since(start), 2*time.Second)
 }
 
 func TestNormalizeComplianceBlock(t *testing.T) {

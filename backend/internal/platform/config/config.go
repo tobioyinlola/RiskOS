@@ -49,9 +49,13 @@ type Config struct {
 
 // Console configures the dashboard realm (console sign-in and sessions).
 type Console struct {
-	// Secret keys MFA secret encryption and CSRF tokens (at least 32 bytes, from the secrets
-	// manager). Rotating it invalidates enrolled authenticator apps and open sessions' CSRF tokens.
-	Secret string
+	// Secret keys MFA and SSO secret encryption, CSRF tokens and invite links (at least 32 bytes,
+	// from the secrets manager). Never replace it without a rotation (ADR-0008): set
+	// SecretPrevious to the old value, deploy, run `riskosctl console reseal`, and remove
+	// SecretPrevious once it reports nothing left and sessions and invites issued before have
+	// expired.
+	Secret         string
+	SecretPrevious string
 	// URL is the console's public base URL (invite links, passkey origin).
 	URL string
 	// Origins may make cookie-authenticated requests; defaults to URL's origin.
@@ -88,6 +92,14 @@ func (c Console) Validate(env Environment) error {
 	if len(c.Secret) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET: required, at least %d bytes", MinPepperBytes))
 	}
+	if p := c.SecretPrevious; p != "" {
+		if len(p) < MinPepperBytes {
+			errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET_PREVIOUS: at least %d bytes when set", MinPepperBytes))
+		}
+		if p == c.Secret {
+			errs = append(errs, errors.New("RISKOS_CONSOLE_SECRET_PREVIOUS: must differ from RISKOS_CONSOLE_SECRET"))
+		}
+	}
 	if c.SSOAllowPrivate && env == EnvProduction {
 		errs = append(errs, errors.New("RISKOS_SSO_ALLOW_PRIVATE: not allowed in production"))
 	}
@@ -120,9 +132,17 @@ func (c Console) Validate(env Environment) error {
 
 // Webhooks configures webhook signing and delivery.
 type Webhooks struct {
-	// SigningKey derives every endpoint's signing secret (at least 32 bytes, from the secrets
-	// manager). Rotating it changes every endpoint's secret at once.
-	SigningKey string
+	// SigningKey derives the signing secrets of new and rotated endpoints (at least 32 bytes,
+	// from the secrets manager). SigningKeyID names it (default 1). Secrets already issued keep
+	// the key they were derived with, so replacing the key needs a rotation (ADR-0008): set
+	// PreviousSigningKey to the old key, SigningKeyID to a new id, and PreviousSigningKeyID to the
+	// old one's.
+	SigningKey   string
+	SigningKeyID int
+	// PreviousSigningKey is set only during a key rotation, and removed once no endpoint uses it
+	// (riskosctl webhooks key-usage).
+	PreviousSigningKey   string
+	PreviousSigningKeyID int
 	// Timeout bounds each delivery attempt.
 	Timeout time.Duration
 	// Concurrency is the number of deliveries the worker runs at once.
@@ -137,6 +157,24 @@ func (w Webhooks) Validate() error {
 	var errs []error
 	if len(w.SigningKey) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_WEBHOOK_SIGNING_KEY: required, at least %d bytes", MinPepperBytes))
+	}
+	current := w.SigningKeyID
+	if current == 0 {
+		current = 1 // the default
+	}
+	if current < 1 || current > 32000 {
+		errs = append(errs, errors.New("RISKOS_WEBHOOK_SIGNING_KEY_ID: must be between 1 and 32000"))
+	}
+	if w.PreviousSigningKey != "" {
+		if len(w.PreviousSigningKey) < MinPepperBytes {
+			errs = append(errs, fmt.Errorf("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS: at least %d bytes when set", MinPepperBytes))
+		}
+		if w.PreviousSigningKey == w.SigningKey {
+			errs = append(errs, errors.New("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS: must differ from RISKOS_WEBHOOK_SIGNING_KEY"))
+		}
+		if w.PreviousSigningKeyID < 1 || w.PreviousSigningKeyID > 32000 || w.PreviousSigningKeyID == current {
+			errs = append(errs, errors.New("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS_ID: required and different from RISKOS_WEBHOOK_SIGNING_KEY_ID"))
+		}
 	}
 	if w.Timeout < time.Second || w.Timeout > 30*time.Second {
 		errs = append(errs, errors.New("RISKOS_WEBHOOK_TIMEOUT: must be between 1s and 30s"))
@@ -370,10 +408,13 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Timeout:  r.duration("RISKOS_SMTP_TIMEOUT", 10*time.Second),
 		},
 		Webhooks: Webhooks{
-			SigningKey:       r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
-			Timeout:          r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
-			Concurrency:      r.integer("RISKOS_WEBHOOK_CONCURRENCY", 10),
-			AllowPrivateTest: r.boolean("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST", false),
+			SigningKey:           r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
+			SigningKeyID:         r.integer("RISKOS_WEBHOOK_SIGNING_KEY_ID", 1),
+			PreviousSigningKey:   r.str("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS", ""),
+			PreviousSigningKeyID: r.integer("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS_ID", 0),
+			Timeout:              r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
+			Concurrency:          r.integer("RISKOS_WEBHOOK_CONCURRENCY", 10),
+			AllowPrivateTest:     r.boolean("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST", false),
 		},
 		Risk: Risk{
 			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
@@ -726,10 +767,11 @@ func (r *reader) logLevel(key string, def slog.Level) slog.Level {
 
 func consoleConfig(r *reader) Console {
 	c := Console{
-		Secret:       r.str("RISKOS_CONSOLE_SECRET", ""),
-		URL:          strings.TrimRight(r.str("RISKOS_CONSOLE_URL", "http://localhost:3000"), "/"),
-		RPID:         r.str("RISKOS_WEBAUTHN_RP_ID", ""),
-		CookieSecure: r.boolean("RISKOS_SESSION_COOKIE_SECURE", true),
+		Secret:         r.str("RISKOS_CONSOLE_SECRET", ""),
+		SecretPrevious: r.str("RISKOS_CONSOLE_SECRET_PREVIOUS", ""),
+		URL:            strings.TrimRight(r.str("RISKOS_CONSOLE_URL", "http://localhost:3000"), "/"),
+		RPID:           r.str("RISKOS_WEBAUTHN_RP_ID", ""),
+		CookieSecure:   r.boolean("RISKOS_SESSION_COOKIE_SECURE", true),
 
 		BreachedPasswordCheck: r.str("RISKOS_BREACHED_PASSWORD_CHECK", "pwned"),
 		BreachedPasswordURL:   r.str("RISKOS_BREACHED_PASSWORD_URL", ""),

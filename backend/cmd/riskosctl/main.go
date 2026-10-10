@@ -11,6 +11,8 @@
 //	riskosctl staff create --operator NAME --email EMAIL --name NAME [--role operations_admin|security_admin]
 //	riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
 //	riskosctl staff list
+//	riskosctl webhooks key-usage
+//	riskosctl console reseal
 //
 // Secrets are printed to stdout exactly once; logs go to stderr.
 package main
@@ -44,7 +46,9 @@ const usage = `usage:
   riskosctl user invite --operator NAME --tenant ten_... --email EMAIL [--role customer_admin]
   riskosctl staff create --operator NAME --email EMAIL --name NAME [--role operations_admin|security_admin]
   riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
-  riskosctl staff list`
+  riskosctl staff list
+  riskosctl webhooks key-usage
+  riskosctl console reseal`
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -84,6 +88,10 @@ func run(args []string, out io.Writer) error {
 		return userInvite(ctx, cfg, args[2:], out)
 	case "staff create", "staff enroll", "staff disable", "staff enable", "staff list":
 		return staffCommand(ctx, cfg, args[1], args[2:], out)
+	case "webhooks key-usage":
+		return webhooksKeyUsage(ctx, cfg, out)
+	case "console reseal":
+		return consoleReseal(ctx, cfg, out)
 	default:
 		return usageError()
 	}

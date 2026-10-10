@@ -35,17 +35,27 @@ to the new one, deploy, wait for the retirement condition, then remove `_PREVIOU
    Retirement: the counter has been zero for a full business cycle (14 days); keys that were
    never used in that time are still on the old pepper and stop working when it is removed,
    which is the intended effect for dormant keys and is announced to tenants beforehand.
-2. **Webhook signing key.** Customers hold derived secrets, so the old and new secrets must be
-   valid together. Rotation of the master key is a bulk rotation of every endpoint: each
-   endpoint's secret version is raised, the previous version is kept valid for the overlap
-   period (the mechanism per-endpoint rotation already has), and the previous version is derived
-   with `RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS`. Deliveries carry both signatures during the
-   overlap; customers fetch the new secret from the console and switch. After the overlap the
-   previous key is removed. The bulk rotation is a staff operation (`riskosctl`), audited per
-   endpoint, with an overlap of at least 7 days.
-3. **Console secret.** Tokens are verified against the current secret and then the previous
-   one, and are always issued under the current one. Retirement: after the longest token
-   lifetime (session maximum), when no token issued under the old secret can still be live.
+2. **Webhook signing key (amended).** The first version of this decision was a bulk rotation
+   of every endpoint, with customers fetching the new secret from the console. That cannot work:
+   a webhook secret is shown to its customer only when it is created or rotated, and never
+   again, so a forced rotation would leave customers without the secret their endpoint is now
+   signed with. The decision is instead a **key ring**. Each endpoint records the key id its
+   current secret (and, during an overlap, its previous secret) was derived with. Configuration
+   names the current key and id (`RISKOS_WEBHOOK_SIGNING_KEY`, `_ID`) and, during a rotation, the
+   previous key and id (`_PREVIOUS`, `_PREVIOUS_ID`). Existing endpoints keep the key they were
+   issued under, so nothing a customer holds changes; new endpoints and any secret rotation by a
+   customer use the current key. A key is removed only when `riskosctl webhooks key-usage`
+   reports no endpoint on it, which the API and worker also enforce at start-up. Customers move
+   to the new key at their own pace by rotating their secret, which already has an overlap
+   window; staff can ask them to. There is deliberately no bulk-rotate command.
+3. **Console secret.** It keys four things, handled differently. Values **sealed at rest**
+   (authenticator secrets, SSO client secrets) are opened with the current key and then the
+   previous, and moved to the current key by `riskosctl console reseal`, which is idempotent,
+   compare-and-swap per row, and reports counts only. **CSRF tokens** and **invite links** are
+   accepted from either secret, so open pages and links already emailed keep working. **SSO
+   state and sign-up codes** are short-lived derived values and are not carried over: a
+   sign-in in flight during the deploy restarts. Retirement: reseal reports nothing left on the
+   previous secret, and the longest session and invite lifetime has passed.
 4. **Feature hash key.** There is no way to keep history across a change, because the keys are
    one-way. Rotation is therefore a planned event: history signals warm up again, which the
    engine already reports (warming signals) and decisions are weaker, not wrong
@@ -81,6 +91,13 @@ to the new one, deploy, wait for the retirement condition, then remove `_PREVIOU
   `00033_api_key_rehash.sql` (a compare-and-swap `SECURITY DEFINER` function, the second
   pre-authentication exception after `auth_lookup_api_key`), and the
   `riskos.auth.previous_pepper` metric. `TestAPIKeyPepperRotation` walks the procedure.
-- Follow-ups: the previous-key paths for the console secret and the webhook signing key, and the
-  `riskosctl` bulk webhook rotation (decisions 2 and 3); the start-up warning that a previous
-  key is still configured; exercise each rotation in staging.
+- Implemented (decision 2): the webhook key ring: migration `00034_webhook_key_ids.sql`
+  (`secret_key_id`, `previous_secret_key_id`, and the counts-only `webhook_key_usage()`
+  function), `RISKOS_WEBHOOK_SIGNING_KEY_ID`, `_PREVIOUS` and `_PREVIOUS_ID`, start-up
+  verification in the API and worker, and `riskosctl webhooks key-usage`.
+  `TestWebhookSigningKeyRotation` walks it.
+- Implemented (decision 3): `RISKOS_CONSOLE_SECRET_PREVIOUS` for the sealer, CSRF tokens (console
+  and staff realm) and invite links, and `riskosctl console reseal`.
+  `TestConsoleSecretRotation` walks it.
+- Follow-ups: a start-up warning that a previous key is still configured after its retirement
+  condition holds; exercise each rotation in staging before the first production customer.

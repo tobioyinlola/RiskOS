@@ -111,6 +111,19 @@ type ConsoleHandlers interface {
 // satisfies it.
 type Pool = store.Querier
 
+// ResealDB is what ResealConsoleSecrets needs: a connection as the schema owner.
+type ResealDB = store.DB
+
+// ResealResult counts what ResealConsoleSecrets did.
+type ResealResult = service.ResealResult
+
+// ResealConsoleSecrets moves every value sealed under the previous console secret (authenticator
+// secrets, SSO client secrets) to the current one, so the previous secret can be retired
+// (ADR-0008). db must connect as the schema owner. Operator tooling only.
+func ResealConsoleSecrets(ctx context.Context, db ResealDB, secret, previous []byte) (ResealResult, error) {
+	return service.Reseal(ctx, db, secret, previous)
+}
+
 // Config configures the auth module.
 type Config struct {
 	// Pepper keys the HMAC of stored API key secrets. At least 32 bytes.

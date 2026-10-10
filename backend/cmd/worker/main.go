@@ -87,10 +87,17 @@ func run() (err error) {
 	// alerts and webhooks depend on each other at run time only: alerts publish webhook events,
 	// and a webhook endpoint disabled for failing raises a security alert.
 	var alertsModule *alerts.Module
-	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, inserter, webhooks.Config{
-		SigningKey: []byte(cfg.Webhooks.SigningKey), Timeout: cfg.Webhooks.Timeout, AllowPrivateTest: cfg.Webhooks.AllowPrivateTest,
+	webhookCfg := webhooks.Config{
+		SigningKey: []byte(cfg.Webhooks.SigningKey), SigningKeyID: cfg.Webhooks.SigningKeyID,
+		PreviousSigningKey: []byte(cfg.Webhooks.PreviousSigningKey), PreviousSigningKeyID: cfg.Webhooks.PreviousSigningKeyID,
+		Timeout: cfg.Webhooks.Timeout, AllowPrivateTest: cfg.Webhooks.AllowPrivateTest,
 		Metrics: appMetrics,
-	}, webhooks.NotifierFunc(func(ctx context.Context, id uuid.UUID) error {
+	}
+	// Refuse to start without a signing key some endpoint still uses (ADR-0008).
+	if err := webhooks.VerifyKeyring(ctx, pool, webhookCfg); err != nil {
+		return err
+	}
+	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, inserter, webhookCfg, webhooks.NotifierFunc(func(ctx context.Context, id uuid.UUID) error {
 		return alertsModule.WebhookEndpointDisabled(ctx, id)
 	}), logger)
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
@@ -106,6 +113,7 @@ func run() (err error) {
 		}
 		cc := auth.DefaultConsole()
 		cc.Secret, cc.RPID, cc.Origins = []byte(cfg.Console.Secret), cfg.Console.RPID, cfg.Console.Origins
+		cc.SecretPrevious = []byte(cfg.Console.SecretPrevious)
 		authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
 			Console: cc, Cookie: auth.CookieConfig{ConsoleURL: cfg.Console.URL}, Logger: logger,
 		})

@@ -173,6 +173,40 @@ func TestWebhooksValidate(t *testing.T) {
 	assert.NotContains(t, err.Error(), "short", "the key must never be echoed")
 }
 
+func TestWebhooksKeyRotationValidate(t *testing.T) {
+	cur, prev := strings.Repeat("c", 32), strings.Repeat("p", 32)
+	base := config.Webhooks{SigningKey: cur, Timeout: 10 * time.Second, Concurrency: 1}
+	with := func(f func(*config.Webhooks)) config.Webhooks { w := base; f(&w); return w }
+
+	assert.NoError(t, with(func(w *config.Webhooks) { w.SigningKeyID = 2 }).Validate(), "a current key id alone")
+	assert.NoError(t, with(func(w *config.Webhooks) {
+		w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, prev, 1
+	}).Validate(), "a rotation")
+	assert.NoError(t, with(func(w *config.Webhooks) {
+		w.PreviousSigningKey, w.PreviousSigningKeyID = prev, 2
+	}).Validate(), "the current id defaults to 1")
+
+	for name, w := range map[string]config.Webhooks{
+		"previous without an id": with(func(w *config.Webhooks) { w.PreviousSigningKey = prev }),
+		"previous id equals current": with(func(w *config.Webhooks) {
+			w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, prev, 2
+		}),
+		"previous key equals current": with(func(w *config.Webhooks) {
+			w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, cur, 1
+		}),
+		"previous key too short": with(func(w *config.Webhooks) {
+			w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, "tiny", 1
+		}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := w.Validate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS")
+			assert.NotContains(t, err.Error(), prev, "keys are never echoed")
+		})
+	}
+}
+
 func TestPrivateWebhooksRefusedInProduction(t *testing.T) {
 	env := minimalEnv()
 	env["RISKOS_ENV"] = "production"

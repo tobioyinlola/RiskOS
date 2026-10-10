@@ -52,9 +52,13 @@ func (Store) InsertEndpoint(ctx context.Context, e domain.Endpoint) error {
 	if err != nil {
 		return err
 	}
+	keyID, err := keyID16(e.SecretKeyID)
+	if err != nil {
+		return err
+	}
 	if err := q.InsertEndpoint(ctx, sqlcgen.InsertEndpointParams{
 		TenantID: s.TenantID, EnvironmentID: s.EnvironmentID, ID: e.ID, Url: e.URL, Description: e.Description,
-		EventTypes: typesToStrings(e.EventTypes), Now: e.CreatedAt, CreatedBy: e.CreatedBy,
+		EventTypes: typesToStrings(e.EventTypes), SecretKeyID: keyID, Now: e.CreatedAt, CreatedBy: e.CreatedBy,
 	}); err != nil {
 		return fmt.Errorf("insert webhook endpoint: %w", err)
 	}
@@ -130,14 +134,20 @@ func (Store) UpdateEndpoint(ctx context.Context, e domain.Endpoint) error {
 	return nil
 }
 
-// RotateSecret moves to the next secret version; the previous one stays valid until until.
-func (Store) RotateSecret(ctx context.Context, id uuid.UUID, until, now time.Time) error {
+// RotateSecret moves to the next secret version, derived with key keyID; the previous one (and
+// the key it was derived with) stays valid until until.
+func (Store) RotateSecret(ctx context.Context, id uuid.UUID, keyID int, until, now time.Time) error {
 	q, s, err := scoped(ctx)
 	if err != nil {
 		return err
 	}
+	key, err := keyID16(keyID)
+	if err != nil {
+		return err
+	}
 	if err := q.RotateEndpointSecret(ctx, sqlcgen.RotateEndpointSecretParams{
-		TenantID: s.TenantID, EnvironmentID: s.EnvironmentID, ID: id, PreviousValidUntil: &until, Now: now,
+		TenantID: s.TenantID, EnvironmentID: s.EnvironmentID, ID: id, PreviousValidUntil: &until,
+		SecretKeyID: key, Now: now,
 	}); err != nil {
 		return fmt.Errorf("rotate webhook secret: %w", err)
 	}
@@ -323,7 +333,7 @@ func (Store) Attempts(ctx context.Context, deliveryID uuid.UUID) ([]domain.Attem
 func endpointToDomain(r sqlcgen.WebhookEndpoint) domain.Endpoint {
 	e := domain.Endpoint{
 		ID: r.ID, URL: r.Url, Description: r.Description, Status: r.Status, DisabledReason: r.DisabledReason,
-		SecretVersion: int(r.SecretVersion), PreviousSecretValidUntil: r.PreviousSecretValidUntil,
+		SecretVersion: int(r.SecretVersion), SecretKeyID: int(r.SecretKeyID), PreviousSecretValidUntil: r.PreviousSecretValidUntil,
 		FailingSince: r.FailingSince, CreatedAt: r.CreatedAt, CreatedBy: r.CreatedBy, UpdatedAt: r.UpdatedAt,
 	}
 	for _, t := range r.EventTypes {
@@ -332,6 +342,10 @@ func endpointToDomain(r sqlcgen.WebhookEndpoint) domain.Endpoint {
 	if r.PreviousSecretVersion != nil {
 		v := int(*r.PreviousSecretVersion)
 		e.PreviousSecretVersion = &v
+	}
+	if r.PreviousSecretKeyID != nil {
+		k := int(*r.PreviousSecretKeyID)
+		e.PreviousSecretKeyID = &k
 	}
 	return e
 }

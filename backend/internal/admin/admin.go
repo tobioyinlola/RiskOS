@@ -41,6 +41,8 @@ var (
 type Config struct {
 	// Secret derives the realm's CSRF key: the console secret.
 	Secret []byte
+	// SecretPrevious is the console secret before a rotation, or nil (ADR-0008).
+	SecretPrevious []byte
 	// RPID and Origins configure passkeys and allowed origins: the console's.
 	RPID    string
 	Origins []string
@@ -74,7 +76,7 @@ func New(pool Pool, tenantsModule *tenants.Module, runner txn.Runner, rec audit.
 		logger = slog.New(slog.DiscardHandler)
 	}
 	sc := service.DefaultConfig()
-	sc.Secret, sc.RPID, sc.Origins = cfg.Secret, cfg.RPID, cfg.Origins
+	sc.Secret, sc.SecretPrevious, sc.RPID, sc.Origins = cfg.Secret, cfg.SecretPrevious, cfg.RPID, cfg.Origins
 	var lim service.Limiter
 	if cfg.Limiter != nil {
 		lim = limiter{cfg.Limiter}

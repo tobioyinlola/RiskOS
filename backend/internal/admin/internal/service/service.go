@@ -46,6 +46,9 @@ var (
 type Config struct {
 	// Secret derives the CSRF key (the console secret; the derivation keeps the keys distinct).
 	Secret []byte
+	// SecretPrevious, during a rotation (ADR-0008), is the console secret in force before Secret;
+	// CSRF tokens derived from it are still accepted.
+	SecretPrevious []byte
 	// RPID and Origins configure passkeys (the console's).
 	RPID    string
 	Origins []string
@@ -89,9 +92,11 @@ type Service struct {
 	clock     clock.Clock
 	wa        *webauthn.WebAuthn
 	csrfKey   []byte
-	cfg       Config
-	limiter   Limiter
-	logger    *slog.Logger
+	// csrfKeyPrevious is derived from Config.SecretPrevious during a rotation, nil otherwise.
+	csrfKeyPrevious []byte
+	cfg             Config
+	limiter         Limiter
+	logger          *slog.Logger
 }
 
 // New returns the service.
@@ -117,9 +122,15 @@ func New(st store.Store, tenants Tenants, tenantErr TenantErrors, runner txn.Run
 	}
 	m := hmac.New(sha256.New, cfg.Secret)
 	m.Write([]byte("riskos-staff-csrf-key"))
+	var previous []byte
+	if len(cfg.SecretPrevious) > 0 {
+		p := hmac.New(sha256.New, cfg.SecretPrevious)
+		p.Write([]byte("riskos-staff-csrf-key"))
+		previous = p.Sum(nil)
+	}
 	return &Service{
 		store: st, tenants: tenants, tenantErr: tenantErr, runner: runner, audit: rec, clock: clk,
-		wa: wa, csrfKey: m.Sum(nil), cfg: cfg, limiter: limiter, logger: logger,
+		wa: wa, csrfKey: m.Sum(nil), csrfKeyPrevious: previous, cfg: cfg, limiter: limiter, logger: logger,
 	}, nil
 }
 
