@@ -1,3 +1,3 @@
 // Package store is the only code that reads or writes the devices module's tables. Every query is
-// tenant-scoped by construction once tenancy is designed (TODO(phase-0)).
+// tenant-scoped by construction once the module has tables (not built yet).
 package store

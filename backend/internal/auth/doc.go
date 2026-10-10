@@ -1,6 +1,6 @@
 // Package auth is the public interface of the auth module: authentication of API clients (scoped API keys) and dashboard users (sessions, MFA).
 //
-// This package will export only the module's service interface, its DTOs and its constructor.
+// This package exports only the module's service interface, its DTOs and its constructor.
 // Implementation lives in the module's internal packages, which the Go compiler makes
 // unreachable from other modules:
 //
@@ -8,5 +8,5 @@
 //	internal/service  business logic; calls the store and other modules' public interfaces only
 //	internal/store    the only code that touches this module's tables (sqlc queries)
 //
-// Design and implementation: TODO(phase-0). See docs/ARCHITECTURE.md for the boundary rules.
+// See docs/ARCHITECTURE.md for the boundary rules.
 package auth
