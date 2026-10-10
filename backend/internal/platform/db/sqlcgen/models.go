@@ -547,15 +547,25 @@ type StaffAccountRequest struct {
 	StaffID      *uuid.UUID
 }
 
+type StaffAuditChainHead struct {
+	Singleton bool
+	Seq       int64
+	Hash      []byte
+}
+
 type StaffAuditLog struct {
-	ID         uuid.UUID
-	OccurredAt time.Time
-	Actor      string
-	Action     string
-	TenantID   *uuid.UUID
-	ResourceID string
-	Outcome    string
-	Metadata   []byte
+	ID           uuid.UUID
+	OccurredAt   time.Time
+	Actor        string
+	Action       string
+	TenantID     *uuid.UUID
+	ResourceID   string
+	Outcome      string
+	Metadata     []byte
+	Seq          *int64
+	PrevHash     []byte
+	Hash         []byte
+	MetadataText *string
 }
 
 type StaffCeremony struct {

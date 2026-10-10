@@ -27,8 +27,17 @@ customer API.
   SameSite=Strict, Secure outside local development). Unsafe requests need the session's CSRF
   token and an allowed `Origin`. Passkey ceremonies are throttled per client address.
 - **All audited.** Every staff action (creation, enrollment, sign-in and failures, sign-out,
-  support access and each page read with it) goes to the staff audit log, which the application
-  role can only append to. The console shows it under Staff audit log.
+  support access and each page read with it) goes to the staff audit log. The console shows it
+  under Staff audit log.
+- **Tamper-evident.** Each entry written since migration `00040` carries a sequence number and a
+  SHA-256 over its fields and the previous entry's hash (`riskos.staffaudit.v1`, length-prefixed,
+  over the exact canonical metadata text), the table rejects update, delete and truncate for
+  everyone including the owner, and a single locked head row serializes appends. A modified,
+  removed, reordered or truncated entry is found by `riskosctl staff-audit verify` (it reads as the
+  schema owner, like `audit verify`). Entries from before the chain are outside it. The chain
+  detects tampering; it does not prevent someone with the owner's rights from disabling the
+  trigger, so the head should also be anchored outside the database once the platform has
+  write-once storage (`TODO(phase-8)`, with the tenant chain's).
 
 ## Support access
 
@@ -177,4 +186,4 @@ live credential.
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
   hardware-key attestation for staff passkeys. TODO(phase-9)
 - SSO for staff. TODO(phase-9)
-- A hash chain on the staff audit log like the tenant audit log's. TODO(phase-9)
+- Anchoring the staff and tenant audit chains' heads in write-once storage. TODO(phase-8)

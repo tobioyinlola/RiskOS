@@ -48,7 +48,8 @@ const usage = `usage:
   riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
   riskosctl staff list
   riskosctl webhooks key-usage
-  riskosctl console reseal`
+  riskosctl console reseal
+  riskosctl staff-audit verify`
 
 func main() {
 	if err := run(os.Args[1:], os.Stdout); err != nil {
@@ -92,6 +93,8 @@ func run(args []string, out io.Writer) error {
 		return webhooksKeyUsage(ctx, cfg, out)
 	case "console reseal":
 		return consoleReseal(ctx, cfg, out)
+	case "staff-audit verify":
+		return staffAuditVerify(ctx, cfg, out)
 	default:
 		return usageError()
 	}

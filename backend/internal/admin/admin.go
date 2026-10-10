@@ -14,6 +14,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/adminapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
@@ -170,6 +171,16 @@ func (m *Module) SetStaffStatus(ctx context.Context, email string, active bool, 
 
 // ListStaff returns every staff member (operator CLI).
 func (m *Module) ListStaff(ctx context.Context) ([]Staff, error) { return m.svc.ListStaff(ctx) }
+
+// ChainResult reports the outcome of verifying the staff audit chain.
+type ChainResult = service.ChainResult
+
+// VerifyStaffAudit recomputes the staff audit log's hash chain and compares it with the stored
+// head. conn is an operator connection (the schema owner). Entries written before the chain was
+// introduced are outside it.
+func VerifyStaffAudit(ctx context.Context, conn sqlcgen.DBTX) (ChainResult, error) {
+	return service.VerifyChain(ctx, sqlcgen.New(conn))
+}
 
 // EnrollmentEmailArgs is the job that emails a staff member created from the console their
 // enrollment link.

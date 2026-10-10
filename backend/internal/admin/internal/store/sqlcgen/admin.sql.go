@@ -343,6 +343,22 @@ func (q *Queries) GetStaffAccountRequestForUpdate(ctx context.Context, id uuid.U
 	return i, err
 }
 
+const getStaffAuditHead = `-- name: GetStaffAuditHead :one
+SELECT seq, hash FROM staff_audit_chain_head WHERE singleton
+`
+
+type GetStaffAuditHeadRow struct {
+	Seq  int64
+	Hash []byte
+}
+
+func (q *Queries) GetStaffAuditHead(ctx context.Context) (GetStaffAuditHeadRow, error) {
+	row := q.db.QueryRow(ctx, getStaffAuditHead)
+	var i GetStaffAuditHeadRow
+	err := row.Scan(&i.Seq, &i.Hash)
+	return i, err
+}
+
 const getSupportAccess = `-- name: GetSupportAccess :one
 SELECT id, tenant_id, requested_by, reason, duration_minutes, status, created_at, decided_by, decided_at, expires_at, revoked_by, revoked_at FROM support_access WHERE id = $1
 `
@@ -548,19 +564,25 @@ func (q *Queries) InsertStaffAccountRequest(ctx context.Context, arg InsertStaff
 }
 
 const insertStaffAudit = `-- name: InsertStaffAudit :exec
-INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata,
+                             seq, prev_hash, hash, metadata_text)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12)
 `
 
 type InsertStaffAuditParams struct {
-	ID         uuid.UUID
-	Now        time.Time
-	Actor      string
-	Action     string
-	TenantID   *uuid.UUID
-	ResourceID string
-	Outcome    string
-	Metadata   []byte
+	ID           uuid.UUID
+	Now          time.Time
+	Actor        string
+	Action       string
+	TenantID     *uuid.UUID
+	ResourceID   string
+	Outcome      string
+	Metadata     []byte
+	Seq          *int64
+	PrevHash     []byte
+	Hash         []byte
+	MetadataText *string
 }
 
 func (q *Queries) InsertStaffAudit(ctx context.Context, arg InsertStaffAuditParams) error {
@@ -573,6 +595,10 @@ func (q *Queries) InsertStaffAudit(ctx context.Context, arg InsertStaffAuditPara
 		arg.ResourceID,
 		arg.Outcome,
 		arg.Metadata,
+		arg.Seq,
+		arg.PrevHash,
+		arg.Hash,
+		arg.MetadataText,
 	)
 	return err
 }
@@ -691,6 +717,57 @@ func (q *Queries) InsertTenantStatusRequest(ctx context.Context, arg InsertTenan
 	return err
 }
 
+const listChainedStaffAudit = `-- name: ListChainedStaffAudit :many
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, seq, prev_hash, hash, metadata_text
+FROM staff_audit_log WHERE seq IS NOT NULL ORDER BY seq
+`
+
+type ListChainedStaffAuditRow struct {
+	ID           uuid.UUID
+	OccurredAt   time.Time
+	Actor        string
+	Action       string
+	TenantID     *uuid.UUID
+	ResourceID   string
+	Outcome      string
+	Seq          *int64
+	PrevHash     []byte
+	Hash         []byte
+	MetadataText *string
+}
+
+func (q *Queries) ListChainedStaffAudit(ctx context.Context) ([]ListChainedStaffAuditRow, error) {
+	rows, err := q.db.Query(ctx, listChainedStaffAudit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListChainedStaffAuditRow
+	for rows.Next() {
+		var i ListChainedStaffAuditRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredAt,
+			&i.Actor,
+			&i.Action,
+			&i.TenantID,
+			&i.ResourceID,
+			&i.Outcome,
+			&i.Seq,
+			&i.PrevHash,
+			&i.Hash,
+			&i.MetadataText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaff = `-- name: ListStaff :many
 SELECT id, email, name, role, status, enroll_token_hash, enroll_expires_at, created_at, created_by FROM staff ORDER BY created_at
 `
@@ -763,7 +840,7 @@ func (q *Queries) ListStaffAccountRequests(ctx context.Context) ([]StaffAccountR
 }
 
 const listStaffAudit = `-- name: ListStaffAudit :many
-SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT $1
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata, seq, prev_hash, hash, metadata_text FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT $1
 `
 
 func (q *Queries) ListStaffAudit(ctx context.Context, lim int32) ([]StaffAuditLog, error) {
@@ -784,6 +861,10 @@ func (q *Queries) ListStaffAudit(ctx context.Context, lim int32) ([]StaffAuditLo
 			&i.ResourceID,
 			&i.Outcome,
 			&i.Metadata,
+			&i.Seq,
+			&i.PrevHash,
+			&i.Hash,
+			&i.MetadataText,
 		); err != nil {
 			return nil, err
 		}
@@ -796,7 +877,7 @@ func (q *Queries) ListStaffAudit(ctx context.Context, lim int32) ([]StaffAuditLo
 }
 
 const listStaffAuditForTenant = `-- name: ListStaffAuditForTenant :many
-SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata FROM staff_audit_log WHERE tenant_id = $1 ORDER BY occurred_at DESC, id DESC LIMIT $2
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata, seq, prev_hash, hash, metadata_text FROM staff_audit_log WHERE tenant_id = $1 ORDER BY occurred_at DESC, id DESC LIMIT $2
 `
 
 type ListStaffAuditForTenantParams struct {
@@ -822,6 +903,10 @@ func (q *Queries) ListStaffAuditForTenant(ctx context.Context, arg ListStaffAudi
 			&i.ResourceID,
 			&i.Outcome,
 			&i.Metadata,
+			&i.Seq,
+			&i.PrevHash,
+			&i.Hash,
+			&i.MetadataText,
 		); err != nil {
 			return nil, err
 		}
@@ -931,6 +1016,22 @@ func (q *Queries) LockActiveSecurityAdmins(ctx context.Context) ([]uuid.UUID, er
 		return nil, err
 	}
 	return items, nil
+}
+
+const lockStaffAuditHead = `-- name: LockStaffAuditHead :one
+SELECT seq, hash FROM staff_audit_chain_head WHERE singleton FOR UPDATE
+`
+
+type LockStaffAuditHeadRow struct {
+	Seq  int64
+	Hash []byte
+}
+
+func (q *Queries) LockStaffAuditHead(ctx context.Context) (LockStaffAuditHeadRow, error) {
+	row := q.db.QueryRow(ctx, lockStaffAuditHead)
+	var i LockStaffAuditHeadRow
+	err := row.Scan(&i.Seq, &i.Hash)
+	return i, err
 }
 
 const purgeCeremonies = `-- name: PurgeCeremonies :exec
@@ -1075,6 +1176,20 @@ func (q *Queries) SetEnrollToken(ctx context.Context, arg SetEnrollTokenParams) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setStaffAuditHead = `-- name: SetStaffAuditHead :exec
+UPDATE staff_audit_chain_head SET seq = $1, hash = $2 WHERE singleton
+`
+
+type SetStaffAuditHeadParams struct {
+	Seq  int64
+	Hash []byte
+}
+
+func (q *Queries) SetStaffAuditHead(ctx context.Context, arg SetStaffAuditHeadParams) error {
+	_, err := q.db.Exec(ctx, setStaffAuditHead, arg.Seq, arg.Hash)
+	return err
 }
 
 const setStaffStatus = `-- name: SetStaffStatus :execrows

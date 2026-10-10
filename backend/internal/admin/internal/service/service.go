@@ -176,19 +176,46 @@ func hashToken(token string) []byte {
 
 func staffRef(id uuid.UUID) string { return ids.Format(ids.PrefixStaff, id) }
 
-// record writes the staff audit log with q, so the entry commits with the change it records.
+// record appends to the hash-chained staff audit log with q, so the entry commits with the change
+// it records. q must be bound to a transaction: the chain's head is locked until it commits, which
+// is what serializes appends. Callers without one use recordAlone.
 func (s *Service) record(ctx context.Context, q *sqlcgen.Queries, actor, action string, tenantID *uuid.UUID, resource, outcome string, meta map[string]any) error {
 	if meta == nil {
 		meta = map[string]any{}
 	}
+	// encoding/json sorts map keys, so this is canonical: the hash covers exactly these bytes.
 	raw, err := json.Marshal(meta)
 	if err != nil {
 		return fmt.Errorf("encode staff audit metadata: %w", err)
 	}
-	return store.Classify(q.InsertStaffAudit(ctx, sqlcgen.InsertStaffAuditParams{
-		ID: ids.NewV7(), Now: s.clock.Now(), Actor: actor, Action: action, TenantID: tenantID,
+	head, err := q.LockStaffAuditHead(ctx)
+	if err != nil {
+		return store.Classify(err, "lock staff audit head")
+	}
+	// PostgreSQL stores microseconds; truncating first keeps the hashed time identical to the stored one.
+	entry := ChainEntry{
+		Seq: head.Seq + 1, ID: ids.NewV7(), OccurredAt: s.clock.Now().UTC().Truncate(time.Microsecond),
+		Actor: actor, Action: action, TenantID: tenantID, ResourceID: resource, Outcome: outcome,
+		MetadataText: string(raw), PrevHash: head.Hash,
+	}
+	hash := ComputeChainHash(entry)
+	text := string(raw)
+	if err := q.InsertStaffAudit(ctx, sqlcgen.InsertStaffAuditParams{
+		ID: entry.ID, Now: entry.OccurredAt, Actor: actor, Action: action, TenantID: tenantID,
 		ResourceID: resource, Outcome: outcome, Metadata: raw,
-	}), "record staff audit")
+		Seq: &entry.Seq, PrevHash: entry.PrevHash, Hash: hash, MetadataText: &text,
+	}); err != nil {
+		return store.Classify(err, "record staff audit")
+	}
+	return store.Classify(q.SetStaffAuditHead(ctx, sqlcgen.SetStaffAuditHeadParams{Seq: entry.Seq, Hash: hash}), "advance staff audit head")
+}
+
+// recordAlone appends one entry in its own transaction, for callers that have no change to commit
+// it with (a failed sign-in).
+func (s *Service) recordAlone(ctx context.Context, actor, action string, tenantID *uuid.UUID, resource, outcome string, meta map[string]any) error {
+	return s.store.Tx(ctx, func(q *sqlcgen.Queries) error {
+		return s.record(ctx, q, actor, action, tenantID, resource, outcome, meta)
+	})
 }
 
 // Staff is a staff member.

@@ -346,7 +346,7 @@ func (s *Service) Login(ctx context.Context, ceremony string, credential []byte,
 		return Session{}, "", err
 	}
 	if failed != "" {
-		if err := s.record(ctx, s.store.Q(), "unknown", "staff.sign_in_failed", nil, "-", "failure", map[string]any{"reason": failed}); err != nil {
+		if err := s.recordAlone(ctx, "unknown", "staff.sign_in_failed", nil, "-", "failure", map[string]any{"reason": failed}); err != nil {
 			return Session{}, "", err
 		}
 		return Session{}, "", ErrPasskey

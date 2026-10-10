@@ -98,8 +98,23 @@ WHERE id = @id;
 UPDATE support_access SET status = 'revoked', revoked_by = @revoked_by, revoked_at = @now::timestamptz WHERE id = @id;
 
 -- name: InsertStaffAudit :exec
-INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata)
-VALUES (@id, @now, @actor, @action, @tenant_id, @resource_id, @outcome, @metadata);
+INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata,
+                             seq, prev_hash, hash, metadata_text)
+VALUES (@id, @now, @actor, @action, @tenant_id, @resource_id, @outcome, @metadata,
+        @seq, @prev_hash, @hash, @metadata_text);
+
+-- name: LockStaffAuditHead :one
+SELECT seq, hash FROM staff_audit_chain_head WHERE singleton FOR UPDATE;
+
+-- name: SetStaffAuditHead :exec
+UPDATE staff_audit_chain_head SET seq = @seq, hash = @hash WHERE singleton;
+
+-- name: GetStaffAuditHead :one
+SELECT seq, hash FROM staff_audit_chain_head WHERE singleton;
+
+-- name: ListChainedStaffAudit :many
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, seq, prev_hash, hash, metadata_text
+FROM staff_audit_log WHERE seq IS NOT NULL ORDER BY seq;
 
 -- name: ListStaffAudit :many
 SELECT * FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT @lim;
