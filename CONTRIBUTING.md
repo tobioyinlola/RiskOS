@@ -20,9 +20,13 @@ Steps:
 2. API change? Edit `backend/api/openapi.yaml` **first**, run `make generate`, then implement.
 3. Keep commits small and logical, using [Conventional Commits](https://www.conventionalcommits.org):
    `feat(events): validate event timestamps`. The `commit-msg` hook checks this.
-4. Run `make check` (what CI runs) before pushing. At minimum, run `make lint test-race`.
-5. `git push origin staging`. The pre-push hook runs `make verify` (generated code, both lints,
-   secrets, unit tests with the race detector, frontend tests) and refuses the push if it fails.
+4. `git push origin staging`. The pre-push hook runs `make verify` (generated code, both lints,
+   known vulnerabilities in dependencies, secrets, unit tests with the race detector, frontend
+   tests) and refuses the push if it fails.
+5. Before the pull request, run `make check` (integration tests, the console's browser tests and
+   the runtime images; needs Docker). Pull requests to `main` run exactly two checks, `verify`
+   and `integration`, which are `make verify` and `make check` plus the image and filesystem
+   scans, so a pull request that passed both locally passes on GitHub.
 6. On GitHub, open a pull request **staging → main** and complete the **security checklist** in
    the template.
 

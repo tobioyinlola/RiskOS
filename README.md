@@ -98,7 +98,7 @@ make test-integration  # real PostgreSQL/Redis via testcontainers (needs Docker)
 make test-e2e     # Playwright against the production frontend build
 make vuln         # govulncheck + pnpm audit
 make secrets      # gitleaks over history and working tree
-make check        # everything CI runs
+make check        # the Docker-based half of CI (make verify is the other half)
 make help         # all targets
 ```
 
