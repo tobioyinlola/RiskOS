@@ -1,0 +1,80 @@
+# ADR-0010: The staff console: tenant directory, tenant status with four eyes, staff roster
+
+- **Status:** accepted
+- **Date:** 2026-10-10
+- **Deciders:** product owner (delegated the design to engineering), engineering
+
+## Context
+
+The staff console ([ADMIN.md](../ADMIN.md)) lets RiskOS staff sign in with passkeys, review
+self-serve onboarding, approve each other's support-access requests, read cross-tenant security
+counts and read the staff audit log. What it cannot do is run the platform day to day:
+
+- **No tenant directory.** The API lists tenants (`GET /api/admin/v1/tenants`) but no page shows
+  them, and there is no tenant detail: staff cannot see a tenant's status, origin, whether
+  production is open, how big it is, or what staff have done to it.
+- **No way to suspend or reactivate a tenant.** `tenants.status` has the values and the
+  authentication path already refuses a suspended tenant, but nothing can change the value except
+  SQL. ARCHITECTURE.md §16 requires four-eyes approval for tenant suspension.
+- **No staff roster.** Accounts exist only in the operator CLI; a security administrator cannot
+  see who has access, when they last signed in, or disable an account without shell access.
+- **No work queue.** The landing page is the security view. Pending onboarding reviews, support
+  requests and tenant actions each need a separate visit to find out whether anything waits.
+
+## Decision
+
+The console gains four things, in one design so they read as one product.
+
+1. **Overview (`/admin`).** A work queue first, then the existing security view: pending
+   onboarding reviews, support requests waiting for *someone else*, tenant status requests waiting
+   for someone else, and tenants by status. Each count links to the page that clears it. Counts
+   only, from `SECURITY DEFINER` aggregates, like the security view.
+2. **Tenants (`/admin/tenants`, `/admin/tenants/{id}`).** A directory with name search and status
+   filter, and a detail page: status, region, origin, production enabled, created date, onboarding
+   status, counts (active users, active API keys per environment), the security counters for that
+   tenant, the staff audit entries about it, and its status requests. Identity and counts only:
+   tenant *data* is reached only through support access, unchanged.
+3. **Tenant status changes with four eyes.** Any active staff member requests *suspend* or
+   *reactivate* for a tenant with a reason of 10 to 500 characters. A different active staff
+   member approves or rejects; the requester may withdraw. One request may be pending per tenant.
+   The database enforces that nobody decides their own request and that approval and the status
+   change happen together (a `SECURITY DEFINER` function performs both, so no code path can do one
+   without the other). Both audit logs record the request, the decision and the effect; the tenant
+   sees `tenant.suspended` / `tenant.reactivated` in its own audit log without the internal
+   reason. A suspended tenant's API keys and console sessions are refused, which the
+   authentication path already does; a test pins it.
+4. **Staff roster (`/admin/staff`, security administrators only).** Lists accounts with role,
+   status, passkey count, last sign-in and whether an enrollment link is outstanding. A security
+   administrator may disable or enable another account, never their own, and never the last
+   active security administrator. **Creating accounts and issuing enrollment links stay in the
+   operator CLI**: ADMIN.md's rule that there is no API to create staff is a deliberate control,
+   because a compromised staff session that could mint credentials could take over any account.
+
+Roles: `operations_admin` runs onboarding, tenants and support; `security_admin` additionally
+sees the roster and the security view. Either may request a tenant status change; the approver
+is any other active staff member.
+
+## Alternatives considered
+
+- **Immediate suspension by one security administrator (break-glass).** Faster in an incident,
+  and a real need. Rejected for now because §16 asks for four eyes and an emergency path that
+  bypasses them needs its own review trail (who may, how it is reviewed afterwards). The status
+  request is a single click for the approver; if that proves too slow in drills, add break-glass
+  as a separate decision.
+- **Staff creation in the UI.** Rejected as above.
+- **A "disabled" tenant status in the UI.** The column allows it, but it has no defined meaning
+  distinct from suspended (offboarding is undecided, ADR-0009), so the console offers only
+  `active` and `suspended`.
+- **Tenant limits (rate limits, quotas) editable by staff.** Valuable, but limits live in
+  configuration today; per-tenant overrides are a data-model decision of their own.
+
+## Consequences
+
+- Operations no longer need SQL for suspension, and every suspension has a reason, two people and
+  an audit trail on both sides.
+- A suspension request waits for a second staff member: a team of one cannot suspend. That is the
+  control working, and the runbook for incidents should say who the second approver is.
+- The roster is the only place staff accounts can be disabled without a shell, and it is
+  restricted to one role and audited.
+- Follow-ups unchanged from ADMIN.md: private access path, hardware-key attestation, staff SSO,
+  hash chain on the staff audit log; and now break-glass suspension and per-tenant limits.
