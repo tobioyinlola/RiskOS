@@ -67,6 +67,7 @@ func DefaultConfig() Config {
 // Tenants gives staff a tenant scope (the tenants module).
 type Tenants interface {
 	StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, staffRef string, permissions []string) (context.Context, error)
+	StaffTenantScope(ctx context.Context, tenantID uuid.UUID, staffRef string) context.Context
 	StaffOnboarding(ctx context.Context) (tenants.Onboarding, error)
 	ReviewOnboarding(ctx context.Context, approve bool, note string, now time.Time) (tenants.Onboarding, error)
 }

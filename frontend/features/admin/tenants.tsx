@@ -16,6 +16,7 @@ import { unwrap } from "@/lib/api/client";
 import { formatCount, formatTimestamp, humanize } from "@/lib/format";
 
 import { SecurityOverview } from "./pages";
+import { TenantStatusPanel } from "./tenant-status";
 
 type Tenant = AdminSchemas["AdminTenant"];
 
@@ -59,12 +60,18 @@ export function AdminOverviewPage() {
         description="What waits for you, and the state of the platform. Counts only: tenant data is reached through approved support access."
       />
       {q.isError ? <ErrorState error={q.error} className="mb-5" /> : null}
-      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-4">
+      <div className="mb-8 grid gap-4 sm:grid-cols-2 xl:grid-cols-5">
         {card(
           "/admin/onboarding",
           "Onboarding reviews",
           o?.onboarding_submitted,
           "waiting for a decision",
+        )}
+        {card(
+          "/admin/status-requests",
+          "Status requests",
+          o?.status_requests_pending,
+          "suspensions and reactivations to decide",
         )}
         {card(
           "/admin/support",
@@ -286,6 +293,7 @@ export function TenantDetailPage({ id }: { id: string }) {
           </div>
         </Panel>
       </div>
+      {t ? <TenantStatusPanel tenant={t} /> : null}
       <Panel className="overflow-hidden">
         <PanelHeader
           title="Staff activity on this tenant"

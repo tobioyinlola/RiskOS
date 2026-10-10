@@ -88,10 +88,34 @@ Onboarding reviews page:
   note of 10 to 1000 characters, which the customer sees, and production stays locked. Both are
   recorded in both audit logs in one transaction.
 
+## Suspending and reactivating a tenant
+
+Four eyes ([ADR-0010](adr/ADR-0010-staff-console.md)). From a tenant's page, or the Status
+requests page, any staff member requests **suspend** (only for an active tenant) or
+**reactivate** (only for a suspended one) with a reason of 10 to 500 characters. A *different*
+staff member approves or rejects; the requester may withdraw. One request may be pending per
+tenant.
+
+- **The database enforces it.** `tenant_status_requests` refuses a decision by the requester, and
+  `admin_decide_tenant_status()` (`SECURITY DEFINER`) applies the request and the tenant's status
+  change as one step, so no code path changes a status without an approved request. If the
+  tenant changed since the request, approval is refused and the request can be rejected.
+- **Effect.** A suspended tenant's API keys and console sessions are refused (a key lookup is
+  cached for up to 5 seconds); reactivation restores them. Support-access grants are not usable
+  while suspended.
+- **Both logs.** The staff audit log records the request (with the reason), the decision and any
+  note (`tenant_status.*`). The tenant's own audit log records the effect, `tenant.suspended` or
+  `tenant.reactivated`, naming the staff member but not the reason.
+- **No break-glass.** There is no single-person emergency suspension; see the ADR.
+
 ## Not built yet
 
+- A staff roster in the console (list accounts, disable and enable them), restricted to security
+  administrators (ADR-0010). Account creation and enrollment links stay in the operator CLI by
+  design. TODO(phase-9)
+- Per-tenant limits editable by staff. TODO(phase-9)
+- Break-glass suspension by one security administrator, with its own review trail. TODO(phase-9)
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
   hardware-key attestation for staff passkeys. TODO(phase-9)
 - SSO for staff. TODO(phase-9)
 - A hash chain on the staff audit log like the tenant audit log's. TODO(phase-9)
-- Tenant management (suspension and limits) by staff, with four-eyes approval. TODO(phase-9)

@@ -73,6 +73,13 @@ func (m *Module) StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenanc
 	return m.svc.StaffScope(ctx, tenantID, kind, staffRef, permissions)
 }
 
+// StaffTenantScope returns ctx scoped to the tenant itself, whatever its status, with no
+// environment and no permissions, so a staff member can record a tenant status change in the
+// tenant's audit log. For the admin module only.
+func (m *Module) StaffTenantScope(ctx context.Context, tenantID uuid.UUID, staffRef string) context.Context {
+	return m.svc.StaffTenantScope(ctx, tenantID, staffRef)
+}
+
 // OperatorScope returns ctx scoped to an environment of an active tenant, acting as the named
 // operator tool. For operator tooling only.
 func (m *Module) OperatorScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, actor string) (context.Context, error) {

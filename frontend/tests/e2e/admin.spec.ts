@@ -49,6 +49,18 @@ test("staff console: session gate, security view, four-eyes approval", async ({
 }) => {
   let signedIn = false;
   let status: "pending" | "approved" = "pending";
+  const statusRequests: Record<string, unknown>[] = [
+    {
+      id: "tsr_other",
+      tenant_id: "ten_2",
+      tenant_name: "Beta Remit",
+      action: "suspend",
+      reason: "Fraud ring suspected: ticket SEC-7781",
+      status: "pending",
+      requested_by: other,
+      created_at: NOW,
+    },
+  ];
   const problems: string[] = [];
   const json = (route: Route, body: unknown, code = 200) =>
     route.fulfill({
@@ -116,7 +128,34 @@ test("staff console: session gate, security view, four-eyes approval", async ({
           support_pending: 1,
           support_active: 0,
           staff_active: 4,
+          status_requests_pending: 1,
         });
+      case "/tenant-status-requests":
+        return json(route, { data: statusRequests });
+      case "/tenants/ten_1/status-requests": {
+        const body = req.postDataJSON() as { action: string; reason: string };
+        const created = {
+          id: "tsr_mine",
+          tenant_id: "ten_1",
+          tenant_name: "Acme Payments",
+          action: body.action,
+          reason: body.reason,
+          status: "pending",
+          requested_by: me,
+          created_at: NOW,
+        };
+        statusRequests.unshift(created);
+        return json(route, created, 201);
+      }
+      case "/tenant-status-requests/tsr_other/approve": {
+        const r = statusRequests.find((x) => x.id === "tsr_other");
+        Object.assign(r ?? {}, {
+          status: "approved",
+          decided_by: me,
+          decided_at: NOW,
+        });
+        return json(route, r);
+      }
       case "/tenants":
         return json(route, { data: [tenant] });
       case "/tenants/ten_1":
@@ -203,6 +242,20 @@ test("staff console: session gate, security view, four-eyes approval", async ({
   await expect(
     page.getByRole("table", { name: "Staff activity on this tenant" }),
   ).toContainText("support_access.requested");
+
+  // Asking for a suspension waits for someone else; deciding another's request is one click.
+  await page.getByLabel("Reason").fill("Fraud ring suspected: ticket SEC-7790");
+  await page.getByRole("button", { name: "Request suspension" }).click();
+  await expect(
+    page.getByText("A suspension requested by Ops A is waiting"),
+  ).toBeVisible();
+
+  await page.getByRole("link", { name: "Status requests" }).click();
+  const decisions = page.getByRole("table", { name: "Tenant status requests" });
+  await expect(decisions).toContainText("Beta Remit");
+  await expect(decisions).toContainText("Awaiting another staff member");
+  await decisions.getByRole("button", { name: "Approve" }).click();
+  await expect(decisions).toContainText("Approved");
 
   await page.getByRole("link", { name: "Support access" }).click();
   const requests = page.getByRole("table", { name: "Support access requests" });

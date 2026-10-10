@@ -9,6 +9,7 @@ import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/states";
 import {
+  Lock,
   Organization,
   Report,
   Scroll,
@@ -48,6 +49,7 @@ export function useStaff(): StaffSession {
 const NAV = [
   { href: "/admin", label: "Overview", icon: ShieldCheck },
   { href: "/admin/tenants", label: "Tenants", icon: Organization },
+  { href: "/admin/status-requests", label: "Status requests", icon: Lock },
   { href: "/admin/onboarding", label: "Onboarding reviews", icon: Report },
   { href: "/admin/support", label: "Support access", icon: UserAdmin },
   { href: "/admin/audit", label: "Staff audit log", icon: Scroll },

@@ -615,6 +615,19 @@ type TenantOnboarding struct {
 	ReviewNote  *string
 }
 
+type TenantStatusRequest struct {
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	Action       string
+	Reason       string
+	Status       string
+	RequestedBy  uuid.UUID
+	CreatedAt    time.Time
+	DecidedBy    *uuid.UUID
+	DecidedAt    *time.Time
+	DecisionNote *string
+}
+
 type User struct {
 	ID             uuid.UUID
 	TenantID       uuid.UUID

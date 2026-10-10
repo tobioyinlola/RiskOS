@@ -171,6 +171,99 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/tenants/{tenant_id}/status-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a tenant to be suspended or reactivated
+         * @description A different staff member must approve it; nothing changes until they do. One request may be
+         *     pending per tenant. Recorded in the staff audit log.
+         */
+        post: operations["requestTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requests to suspend or reactivate tenants, newest first */
+        get: operations["listTenantStatusRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve another staff member's request
+         * @description Applies the change at once, in the same transaction as the audit entries. The tenant sees
+         *     `tenant.suspended` or `tenant.reactivated` in its audit log, without the reason.
+         */
+        post: operations["approveTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject another staff member's request */
+        post: operations["rejectTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take back your own pending request */
+        post: operations["withdrawTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/security": {
         parameters: {
             query?: never;
@@ -392,6 +485,35 @@ export interface components {
         EnrollOptionsRequest: {
             token: string;
         };
+        TenantStatusChange: {
+            /** @enum {string} */
+            action: "suspend" | "reactivate";
+            /** @description Why. For the staff audit log and the approver; the tenant is not shown it. */
+            reason: string;
+        };
+        TenantStatusDecision: {
+            note?: string;
+        };
+        TenantStatusRequest: {
+            id: string;
+            tenant_id: string;
+            tenant_name: string;
+            /** @enum {string} */
+            action: "suspend" | "reactivate";
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "withdrawn";
+            requested_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            created_at: string;
+            decided_by?: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            decided_at?: string;
+            decision_note?: string;
+        };
+        TenantStatusRequestList: {
+            data: components["schemas"]["TenantStatusRequest"][];
+        };
         EnrollRequest: {
             token: string;
             ceremony_id: string;
@@ -486,6 +608,11 @@ export interface components {
             support_active: number;
             /** Format: int64 */
             staff_active: number;
+            /**
+             * Format: int64
+             * @description Requests to suspend or reactivate a tenant, made by someone else, waiting for this staff member's decision.
+             */
+            status_requests_pending: number;
         };
         AdminTenantList: {
             data: components["schemas"]["AdminTenant"][];
@@ -671,6 +798,7 @@ export interface components {
     parameters: {
         TenantID: string;
         AccessID: string;
+        StatusRequestID: string;
     };
     requestBodies: never;
     headers: never;
@@ -898,6 +1026,150 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    requestTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusChange"];
+            };
+        };
+        responses: {
+            /** @description The pending request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listTenantStatusRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequestList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The approved request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The rejected request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    withdrawTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The withdrawn request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             default: components["responses"]["DefaultError"];
         };
     };

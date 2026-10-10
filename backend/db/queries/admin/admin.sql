@@ -107,8 +107,29 @@ FROM admin_tenant_directory();
 SELECT tenants_active::bigint AS tenants_active, tenants_suspended::bigint AS tenants_suspended,
        tenants_total::bigint AS tenants_total, onboarding_submitted::bigint AS onboarding_submitted,
        support_pending::bigint AS support_pending, support_active::bigint AS support_active,
-       staff_active::bigint AS staff_active
+       staff_active::bigint AS staff_active, status_requests_pending::bigint AS status_requests_pending
 FROM admin_overview(@staff_id);
+
+-- name: InsertTenantStatusRequest :exec
+INSERT INTO tenant_status_requests (id, tenant_id, action, reason, status, requested_by, created_at)
+VALUES (@id, @tenant_id, @action, @reason, 'pending', @requested_by, @now);
+
+-- name: GetTenantStatusRequest :one
+SELECT * FROM tenant_status_requests WHERE id = @id;
+
+-- name: GetTenantStatusRequestForUpdate :one
+SELECT * FROM tenant_status_requests WHERE id = @id FOR UPDATE;
+
+-- name: ListTenantStatusRequests :many
+SELECT * FROM tenant_status_requests ORDER BY created_at DESC LIMIT 200;
+
+-- name: WithdrawTenantStatusRequest :execrows
+UPDATE tenant_status_requests SET status = 'withdrawn', decided_by = NULL, decided_at = @now::timestamptz
+WHERE id = @id AND requested_by = @staff_id AND status = 'pending';
+
+-- name: DecideTenantStatusRequest :one
+SELECT outcome::text AS outcome, tenant_id::uuid AS tenant_id, action::text AS action
+FROM admin_decide_tenant_status(@request_id, @decider_id, @approve::boolean, @note, @now::timestamptz);
 
 -- name: ListStaffAuditForTenant :many
 SELECT * FROM staff_audit_log WHERE tenant_id = @tenant_id ORDER BY occurred_at DESC, id DESC LIMIT @lim;

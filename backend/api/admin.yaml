@@ -218,6 +218,146 @@ paths:
           $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/status-requests:
+    post:
+      operationId: requestTenantStatus
+      tags: [staff]
+      summary: Ask for a tenant to be suspended or reactivated
+      description: |
+        A different staff member must approve it; nothing changes until they do. One request may be
+        pending per tenant. Recorded in the staff audit log.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusChange"
+      responses:
+        "201":
+          description: The pending request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests:
+    get:
+      operationId: listTenantStatusRequests
+      tags: [staff]
+      summary: Requests to suspend or reactivate tenants, newest first
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequestList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/approve:
+    post:
+      operationId: approveTenantStatus
+      tags: [staff]
+      summary: Approve another staff member's request
+      description: |
+        Applies the change at once, in the same transaction as the audit entries. The tenant sees
+        `tenant.suspended` or `tenant.reactivated` in its audit log, without the reason.
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The approved request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/reject:
+    post:
+      operationId: rejectTenantStatus
+      tags: [staff]
+      summary: Reject another staff member's request
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/withdraw:
+    post:
+      operationId: withdrawTenantStatus
+      tags: [staff]
+      summary: Take back your own pending request
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      responses:
+        "200":
+          description: The withdrawn request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/security:
     get:
       operationId: getSecurityOverview
@@ -506,6 +646,13 @@ components:
       schema:
         type: string
         example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
+    StatusRequestID:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: tsr_01j9x2k7m3q4r5s6t7v8w9x0yz
   responses:
     DefaultError:
       description: Error in the standard RiskOS error contract.
@@ -585,6 +732,66 @@ components:
         token:
           type: string
           maxLength: 128
+    TenantStatusChange:
+      type: object
+      additionalProperties: false
+      required: [action, reason]
+      properties:
+        action:
+          type: string
+          enum: [suspend, reactivate]
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why. For the staff audit log and the approver; the tenant is not shown it.
+    TenantStatusDecision:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          maxLength: 500
+    TenantStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, tenant_name, action, reason, status, requested_by, created_at]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        action:
+          type: string
+          enum: [suspend, reactivate]
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, withdrawn]
+        requested_by:
+          $ref: "#/components/schemas/StaffRef"
+        created_at:
+          type: string
+          format: date-time
+        decided_by:
+          $ref: "#/components/schemas/StaffRef"
+        decided_at:
+          type: string
+          format: date-time
+        decision_note:
+          type: string
+    TenantStatusRequestList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantStatusRequest"
     EnrollRequest:
       type: object
       additionalProperties: false
@@ -702,7 +909,7 @@ components:
     AdminOverview:
       type: object
       additionalProperties: false
-      required: [tenants_total, tenants_active, tenants_suspended, onboarding_submitted, support_pending, support_active, staff_active]
+      required: [tenants_total, tenants_active, tenants_suspended, onboarding_submitted, support_pending, support_active, staff_active, status_requests_pending]
       properties:
         tenants_total:
           type: integer
@@ -728,6 +935,10 @@ components:
         staff_active:
           type: integer
           format: int64
+        status_requests_pending:
+          type: integer
+          format: int64
+          description: Requests to suspend or reactivate a tenant, made by someone else, waiting for this staff member's decision.
     AdminTenantList:
       type: object
       additionalProperties: false
