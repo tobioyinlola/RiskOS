@@ -348,6 +348,15 @@ type OnboardingReview struct {
 // OnboardingStatus defines model for OnboardingStatus.
 type OnboardingStatus string
 
+// RateLimit defines model for RateLimit.
+type RateLimit struct {
+	// Burst How many requests may arrive at once before the rate applies.
+	Burst int `json:"burst"`
+
+	// PerSecond The sustained rate.
+	PerSecond float64 `json:"per_second"`
+}
+
 // SecurityOverview defines model for SecurityOverview.
 type SecurityOverview struct {
 	Data  []TenantSecurity `json:"data"`
@@ -460,6 +469,34 @@ type SupportAccessRequest struct {
 	// Reason Why access is needed, e.g. the customer's ticket. The tenant sees it in its audit log.
 	Reason   string `json:"reason"`
 	TenantId string `json:"tenant_id"`
+}
+
+// TenantLimits defines model for TenantLimits.
+type TenantLimits struct {
+	// Defaults The platform's limits, which apply when there is no override.
+	Defaults struct {
+		PerKey    RateLimit `json:"per_key"`
+		PerTenant RateLimit `json:"per_tenant"`
+	} `json:"defaults"`
+	Override *TenantLimitsOverride `json:"override,omitempty"`
+}
+
+// TenantLimitsChange defines model for TenantLimitsChange.
+type TenantLimitsChange struct {
+	PerKey    RateLimit `json:"per_key"`
+	PerTenant RateLimit `json:"per_tenant"`
+
+	// Reason Why. For the staff audit log; the tenant is not shown it.
+	Reason string `json:"reason"`
+}
+
+// TenantLimitsOverride defines model for TenantLimitsOverride.
+type TenantLimitsOverride struct {
+	PerKey    RateLimit `json:"per_key"`
+	PerTenant RateLimit `json:"per_tenant"`
+	Reason    string    `json:"reason"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedBy StaffRef  `json:"updated_by"`
 }
 
 // TenantSecurity defines model for TenantSecurity.
@@ -595,6 +632,9 @@ type ReviewEmergencySuspensionJSONRequestBody = TenantStatusDecision
 // EmergencySuspendTenantJSONRequestBody defines body for EmergencySuspendTenant for application/json ContentType.
 type EmergencySuspendTenantJSONRequestBody = EmergencySuspension
 
+// SetTenantLimitsJSONRequestBody defines body for SetTenantLimits for application/json ContentType.
+type SetTenantLimitsJSONRequestBody = TenantLimitsChange
+
 // RequestTenantStatusJSONRequestBody defines body for RequestTenantStatus for application/json ContentType.
 type RequestTenantStatusJSONRequestBody = TenantStatusChange
 
@@ -687,6 +727,15 @@ type ServerInterface interface {
 	// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
 	// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
 	EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// ClearTenantLimits Remove a tenant's override, so the platform's limits apply again
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/limits)
+	ClearTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// GetTenantLimits A tenant's request limits, and the platform's beside them
+	// (GET /api/admin/v1/tenants/{tenant_id}/limits)
+	GetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
+	// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
+	SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
 	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
 	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
 	RequestTenantStatus(w http.ResponseWriter, r *http.Request, tenantId TenantID)
@@ -867,6 +916,24 @@ func (_ Unimplemented) GetAdminTenant(w http.ResponseWriter, r *http.Request, te
 // EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
 // (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
 func (_ Unimplemented) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ClearTenantLimits Remove a tenant's override, so the platform's limits apply again
+// (DELETE /api/admin/v1/tenants/{tenant_id}/limits)
+func (_ Unimplemented) ClearTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTenantLimits A tenant's request limits, and the platform's beside them
+// (GET /api/admin/v1/tenants/{tenant_id}/limits)
+func (_ Unimplemented) GetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
+// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
+func (_ Unimplemented) SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1478,6 +1545,84 @@ func (siw *ServerInterfaceWrapper) EmergencySuspendTenant(w http.ResponseWriter,
 	handler.ServeHTTP(w, r)
 }
 
+// ClearTenantLimits operation middleware
+func (siw *ServerInterfaceWrapper) ClearTenantLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearTenantLimits(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTenantLimits operation middleware
+func (siw *ServerInterfaceWrapper) GetTenantLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTenantLimits(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetTenantLimits operation middleware
+func (siw *ServerInterfaceWrapper) SetTenantLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetTenantLimits(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RequestTenantStatus operation middleware
 func (siw *ServerInterfaceWrapper) RequestTenantStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -1655,6 +1800,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/reject", wrapper.RejectTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.ClearTenantLimits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.GetTenantLimits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.SetTenantLimits)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/emergency-suspension", wrapper.EmergencySuspendTenant)
@@ -4022,6 +4176,222 @@ func (response EmergencySuspendTenantdefaultJSONResponse) VisitEmergencySuspendT
 	return err
 }
 
+type ClearTenantLimitsRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type ClearTenantLimitsResponseObject interface {
+	VisitClearTenantLimitsResponse(w http.ResponseWriter) error
+}
+
+type ClearTenantLimits200JSONResponse TenantLimits
+
+func (response ClearTenantLimits200JSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimits401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ClearTenantLimits401JSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimits404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClearTenantLimits404JSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimitsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ClearTenantLimitsdefaultJSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimitsRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetTenantLimitsResponseObject interface {
+	VisitGetTenantLimitsResponse(w http.ResponseWriter) error
+}
+
+type GetTenantLimits200JSONResponse TenantLimits
+
+func (response GetTenantLimits200JSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimits401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetTenantLimits401JSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimits404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTenantLimits404JSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimitsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetTenantLimitsdefaultJSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimitsRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *SetTenantLimitsJSONRequestBody
+}
+
+type SetTenantLimitsResponseObject interface {
+	VisitSetTenantLimitsResponse(w http.ResponseWriter) error
+}
+
+type SetTenantLimits200JSONResponse TenantLimits
+
+func (response SetTenantLimits200JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimits400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SetTenantLimits400JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimits401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SetTenantLimits401JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimits404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetTenantLimits404JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimitsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SetTenantLimitsdefaultJSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RequestTenantStatusRequestObject struct {
 	TenantId TenantID `json:"tenant_id"`
 	Body     *RequestTenantStatusJSONRequestBody
@@ -4207,6 +4577,15 @@ type StrictServerInterface interface {
 	// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
 	// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
 	EmergencySuspendTenant(ctx context.Context, request EmergencySuspendTenantRequestObject) (EmergencySuspendTenantResponseObject, error)
+	// ClearTenantLimits Remove a tenant's override, so the platform's limits apply again
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/limits)
+	ClearTenantLimits(ctx context.Context, request ClearTenantLimitsRequestObject) (ClearTenantLimitsResponseObject, error)
+	// GetTenantLimits A tenant's request limits, and the platform's beside them
+	// (GET /api/admin/v1/tenants/{tenant_id}/limits)
+	GetTenantLimits(ctx context.Context, request GetTenantLimitsRequestObject) (GetTenantLimitsResponseObject, error)
+	// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
+	// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
+	SetTenantLimits(ctx context.Context, request SetTenantLimitsRequestObject) (SetTenantLimitsResponseObject, error)
 	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
 	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
 	RequestTenantStatus(ctx context.Context, request RequestTenantStatusRequestObject) (RequestTenantStatusResponseObject, error)
@@ -5052,6 +5431,91 @@ func (sh *strictHandler) EmergencySuspendTenant(w http.ResponseWriter, r *http.R
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(EmergencySuspendTenantResponseObject); ok {
 		if err := validResponse.VisitEmergencySuspendTenantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearTenantLimits operation middleware
+func (sh *strictHandler) ClearTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request ClearTenantLimitsRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearTenantLimits(ctx, request.(ClearTenantLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearTenantLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearTenantLimitsResponseObject); ok {
+		if err := validResponse.VisitClearTenantLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTenantLimits operation middleware
+func (sh *strictHandler) GetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetTenantLimitsRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTenantLimits(ctx, request.(GetTenantLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTenantLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTenantLimitsResponseObject); ok {
+		if err := validResponse.VisitGetTenantLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetTenantLimits operation middleware
+func (sh *strictHandler) SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request SetTenantLimitsRequestObject
+
+	request.TenantId = tenantId
+
+	var body SetTenantLimitsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetTenantLimits(ctx, request.(SetTenantLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetTenantLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetTenantLimitsResponseObject); ok {
+		if err := validResponse.VisitSetTenantLimitsResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

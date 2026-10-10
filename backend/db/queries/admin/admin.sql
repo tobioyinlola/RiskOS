@@ -160,3 +160,19 @@ SELECT tenant_id::uuid AS tenant_id, tenant_name::text AS tenant_name, tenant_st
        degraded_evaluations::bigint AS degraded_evaluations, open_security_alerts::bigint AS open_security_alerts,
        failed_logins::bigint AS failed_logins, disabled_webhooks::bigint AS disabled_webhooks
 FROM admin_security_overview(@since);
+
+-- name: GetTenantLimits :one
+SELECT * FROM tenant_limits WHERE tenant_id = @tenant_id;
+
+-- name: UpsertTenantLimits :exec
+INSERT INTO tenant_limits (tenant_id, per_key_per_second, per_key_burst, per_tenant_per_second, per_tenant_burst,
+                           reason, updated_by, updated_at)
+VALUES (@tenant_id, @per_key_per_second, @per_key_burst, @per_tenant_per_second, @per_tenant_burst,
+        @reason, @updated_by, @now)
+ON CONFLICT (tenant_id) DO UPDATE SET
+  per_key_per_second = EXCLUDED.per_key_per_second, per_key_burst = EXCLUDED.per_key_burst,
+  per_tenant_per_second = EXCLUDED.per_tenant_per_second, per_tenant_burst = EXCLUDED.per_tenant_burst,
+  reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at;
+
+-- name: DeleteTenantLimits :execrows
+DELETE FROM tenant_limits WHERE tenant_id = @tenant_id;

@@ -25,6 +25,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/health"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
 	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
@@ -74,6 +75,9 @@ type Deps struct {
 	RateLimits RateLimits
 	// Metrics records rate-limit and authentication-failure counts; nil records nothing.
 	Metrics *appmetrics.Metrics
+	// Overrides gives a tenant its own per-key and per-tenant limits when staff have set them
+	// (ADR-0010); nil applies RateLimits to everyone.
+	Overrides ratelimit.Overrides
 }
 
 // New returns the root handler.
@@ -102,7 +106,7 @@ func New(d Deps) (http.Handler, error) {
 		httpx.BodyLimit(d.HTTP.MaxBodyBytes, d.Logger),
 		authFailureGuard(d.Limiter, d.RateLimits.AuthFailures, d.Logger, d.Metrics),
 		d.Auth.Middleware(d.Logger),
-		rateLimit(d.Limiter, d.RateLimits, d.Logger, d.Metrics),
+		rateLimit(d.Limiter, d.RateLimits, d.Overrides, d.Logger, d.Metrics),
 	}
 	if d.Admin != nil {
 		middlewares = append(middlewares, d.Admin.Middleware())

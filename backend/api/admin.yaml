@@ -334,6 +334,76 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/limits:
+    get:
+      operationId: getTenantLimits
+      tags: [staff]
+      summary: A tenant's request limits, and the platform's beside them
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The limits.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantLimits"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: setTenantLimits
+      tags: [staff]
+      summary: Replace a tenant's per-key and per-tenant request limits
+      description: |
+        Takes effect on every API instance within about 30 seconds. The staff audit log keeps the
+        reason; the tenant's own audit log records the new values (`tenant.limits_changed`) and not
+        the reason.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantLimitsChange"
+      responses:
+        "200":
+          description: The limits now in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantLimits"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: clearTenantLimits
+      tags: [staff]
+      summary: Remove a tenant's override, so the platform's limits apply again
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The limits now in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantLimits"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/tenants/{tenant_id}/emergency-suspension:
     post:
       operationId: emergencySuspendTenant
@@ -942,6 +1012,70 @@ components:
         note:
           type: string
           maxLength: 500
+    RateLimit:
+      type: object
+      additionalProperties: false
+      required: [per_second, burst]
+      properties:
+        per_second:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+          maximum: 100000
+          description: The sustained rate.
+        burst:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: How many requests may arrive at once before the rate applies.
+    TenantLimitsChange:
+      type: object
+      additionalProperties: false
+      required: [per_key, per_tenant, reason]
+      properties:
+        per_key:
+          $ref: "#/components/schemas/RateLimit"
+        per_tenant:
+          $ref: "#/components/schemas/RateLimit"
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why. For the staff audit log; the tenant is not shown it.
+    TenantLimitsOverride:
+      type: object
+      additionalProperties: false
+      required: [per_key, per_tenant, reason, updated_by, updated_at]
+      properties:
+        per_key:
+          $ref: "#/components/schemas/RateLimit"
+        per_tenant:
+          $ref: "#/components/schemas/RateLimit"
+        reason:
+          type: string
+        updated_by:
+          $ref: "#/components/schemas/StaffRef"
+        updated_at:
+          type: string
+          format: date-time
+    TenantLimits:
+      type: object
+      additionalProperties: false
+      required: [defaults]
+      properties:
+        defaults:
+          type: object
+          additionalProperties: false
+          required: [per_key, per_tenant]
+          description: The platform's limits, which apply when there is no override.
+          properties:
+            per_key:
+              $ref: "#/components/schemas/RateLimit"
+            per_tenant:
+              $ref: "#/components/schemas/RateLimit"
+        override:
+          $ref: "#/components/schemas/TenantLimitsOverride"
     EmergencySuspension:
       type: object
       additionalProperties: false

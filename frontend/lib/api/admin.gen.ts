@@ -247,6 +247,30 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/tenants/{tenant_id}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A tenant's request limits, and the platform's beside them */
+        get: operations["getTenantLimits"];
+        /**
+         * Replace a tenant's per-key and per-tenant request limits
+         * @description Takes effect on every API instance within about 30 seconds. The staff audit log keeps the
+         *     reason; the tenant's own audit log records the new values (`tenant.limits_changed`) and not
+         *     the reason.
+         */
+        put: operations["setTenantLimits"];
+        post?: never;
+        /** Remove a tenant's override, so the platform's limits apply again */
+        delete: operations["clearTenantLimits"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/tenants/{tenant_id}/emergency-suspension": {
         parameters: {
             query?: never;
@@ -622,6 +646,37 @@ export interface components {
         };
         TenantStatusDecision: {
             note?: string;
+        };
+        RateLimit: {
+            /**
+             * Format: double
+             * @description The sustained rate.
+             */
+            per_second: number;
+            /** @description How many requests may arrive at once before the rate applies. */
+            burst: number;
+        };
+        TenantLimitsChange: {
+            per_key: components["schemas"]["RateLimit"];
+            per_tenant: components["schemas"]["RateLimit"];
+            /** @description Why. For the staff audit log; the tenant is not shown it. */
+            reason: string;
+        };
+        TenantLimitsOverride: {
+            per_key: components["schemas"]["RateLimit"];
+            per_tenant: components["schemas"]["RateLimit"];
+            reason: string;
+            updated_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TenantLimits: {
+            /** @description The platform's limits, which apply when there is no override. */
+            defaults: {
+                per_key: components["schemas"]["RateLimit"];
+                per_tenant: components["schemas"]["RateLimit"];
+            };
+            override?: components["schemas"]["TenantLimitsOverride"];
         };
         EmergencySuspension: {
             /** @description Why, for the staff audit log and the reviewer. The tenant is not shown it. */
@@ -1288,6 +1343,86 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getTenantLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The limits. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLimits"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    setTenantLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantLimitsChange"];
+            };
+        };
+        responses: {
+            /** @description The limits now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLimits"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    clearTenantLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The limits now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLimits"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

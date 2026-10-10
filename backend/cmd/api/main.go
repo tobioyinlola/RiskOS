@@ -199,6 +199,10 @@ func run() (err error) {
 		Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious),
 		RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
 		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
+		DefaultLimits: ratelimit.Override{
+			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
+			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},
+		},
 	})
 	if err != nil {
 		return err
@@ -221,6 +225,7 @@ func run() (err error) {
 		Tenants:   tenantsModule,
 		Rules:     rulesModule,
 		Admin:     adminModule,
+		Overrides: adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
 		Metrics:   appMetrics,
 		RateLimits: httpapi.RateLimits{

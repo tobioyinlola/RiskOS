@@ -25,6 +25,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
@@ -49,6 +50,11 @@ type Config struct {
 	// SecretPrevious, during a rotation (ADR-0008), is the console secret in force before Secret;
 	// CSRF tokens derived from it are still accepted.
 	SecretPrevious []byte
+	// DefaultLimits are the platform's per-key and per-tenant limits, shown beside a tenant's
+	// override. LimitCacheTTL bounds how long an API instance keeps a tenant's override (zero:
+	// 30 seconds).
+	DefaultLimits ratelimit.Override
+	LimitCacheTTL time.Duration
 	// RPID and Origins configure passkeys (the console's).
 	RPID    string
 	Origins []string
@@ -98,6 +104,8 @@ type Service struct {
 	cfg             Config
 	limiter         Limiter
 	logger          *slog.Logger
+	// limits caches tenants' rate-limit overrides for the request path.
+	limits *overrideCache
 }
 
 // New returns the service.
@@ -121,6 +129,10 @@ func New(st store.Store, tenants Tenants, tenantErr TenantErrors, runner txn.Run
 	if err != nil {
 		return nil, fmt.Errorf("admin: configure passkeys: %w", err)
 	}
+	limitTTL := cfg.LimitCacheTTL
+	if limitTTL <= 0 {
+		limitTTL = 30 * time.Second
+	}
 	m := hmac.New(sha256.New, cfg.Secret)
 	m.Write([]byte("riskos-staff-csrf-key"))
 	var previous []byte
@@ -132,6 +144,7 @@ func New(st store.Store, tenants Tenants, tenantErr TenantErrors, runner txn.Run
 	return &Service{
 		store: st, tenants: tenants, tenantErr: tenantErr, runner: runner, audit: rec, clock: clk,
 		wa: wa, csrfKey: m.Sum(nil), csrfKeyPrevious: previous, cfg: cfg, limiter: limiter, logger: logger,
+		limits: newOverrideCache(limitTTL),
 	}, nil
 }
 

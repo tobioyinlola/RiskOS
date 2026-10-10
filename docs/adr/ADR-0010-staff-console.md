@@ -66,8 +66,12 @@ is any other active staff member.
 - **A "disabled" tenant status in the UI.** The column allows it, but it has no defined meaning
   distinct from suspended (offboarding is undecided, ADR-0009), so the console offers only
   `active` and `suspended`.
-- **Tenant limits (rate limits, quotas) editable by staff.** Valuable, but limits live in
-  configuration today; per-tenant overrides are a data-model decision of their own.
+- **Tenant limits (rate limits, quotas) editable by staff.** *Amended:* first deferred as a
+  data-model decision; the request-rate limits are now built as a `tenant_limits` override table
+  (migration `00038`) that the API's limiter consults through a short cache, set by staff with a
+  reason and audited on both sides. It needs no second approver: lowering a limit protects the
+  platform and raising one is bounded by the table's checks and visible to the tenant. Quotas
+  other than request rate (storage, volume) remain undesigned.
 
 ## Consequences
 

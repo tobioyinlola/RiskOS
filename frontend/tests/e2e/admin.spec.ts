@@ -48,6 +48,7 @@ test("staff console: session gate, security view, four-eyes approval", async ({
   page,
 }) => {
   let signedIn = false;
+  let limitsOverride: Record<string, unknown> | undefined;
   let status: "pending" | "approved" = "pending";
   const statusRequests: Record<string, unknown>[] = [
     {
@@ -132,6 +133,29 @@ test("staff console: session gate, security view, four-eyes approval", async ({
         });
       case "/tenant-status-requests":
         return json(route, { data: statusRequests });
+      case "/tenants/ten_1/limits": {
+        if (req.method() === "PUT") {
+          const body = req.postDataJSON() as {
+            per_key: unknown;
+            per_tenant: unknown;
+            reason: string;
+          };
+          limitsOverride = {
+            per_key: body.per_key,
+            per_tenant: body.per_tenant,
+            reason: body.reason,
+            updated_by: me,
+            updated_at: NOW,
+          };
+        }
+        return json(route, {
+          defaults: {
+            per_key: { per_second: 50, burst: 100 },
+            per_tenant: { per_second: 500, burst: 1000 },
+          },
+          ...(limitsOverride ? { override: limitsOverride } : {}),
+        });
+      }
       case "/tenants/ten_1/status-requests": {
         const body = req.postDataJSON() as { action: string; reason: string };
         const created = {
@@ -248,10 +272,22 @@ test("staff console: session gate, security view, four-eyes approval", async ({
   ).toContainText("support_access.requested");
 
   // Asking for a suspension waits for someone else; deciding another's request is one click.
-  await page.getByLabel("Reason").fill("Fraud ring suspected: ticket SEC-7790");
+  await page
+    .getByLabel("Reason", { exact: true })
+    .fill("Fraud ring suspected: ticket SEC-7790");
   await page.getByRole("button", { name: "Request suspension" }).click();
   await expect(
     page.getByText("A suspension requested by Ops A is waiting"),
+  ).toBeVisible();
+
+  // Request limits start as the platform's; saving an override says so.
+  await expect(page.getByText("Platform limits")).toBeVisible();
+  await page.getByLabel("Per key: burst").fill("20");
+  await page.getByLabel("Limits reason").fill("Abusive polling: ticket OPS-77");
+  await page.getByRole("button", { name: "Save limits" }).click();
+  await expect(page.getByText("Override in force")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove override" }),
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Status requests" }).click();
@@ -403,6 +439,13 @@ test("staff console: break-glass suspension is flagged and waits for someone els
         });
       case "/tenant-status-requests":
         return json(route, { data: requests });
+      case "/tenants/ten_1/limits":
+        return json(route, {
+          defaults: {
+            per_key: { per_second: 50, burst: 100 },
+            per_tenant: { per_second: 500, burst: 1000 },
+          },
+        });
       case "/tenants/ten_1/emergency-suspension": {
         const body = req.postDataJSON() as { reason: string };
         const created = {

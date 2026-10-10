@@ -18,6 +18,8 @@ func TestEveryTenantTableIsIsolated(t *testing.T) {
 		"support_access":  "staff realm, four-eyes support access (00016_admin_realm.sql)",
 		"tenant_status_requests": "staff realm, four-eyes suspension and reactivation; read across tenants by staff, " +
 			"and decided only through admin_decide_tenant_status() (00036_tenant_status_requests.sql)",
+		"tenant_limits": "staff realm, rate-limit overrides set from the staff console and read by the API's " +
+			"limiter on the request path, never by a tenant (00038_tenant_limits.sql)",
 	}
 	rows, err := shared.owner.Query(t.Context(), `
 		SELECT c.relname, c.relrowsecurity, (SELECT count(*) FROM pg_policy p WHERE p.polrelid = c.oid)

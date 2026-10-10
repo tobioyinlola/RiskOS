@@ -30,7 +30,7 @@ type Allower interface {
 // rateLimit applies per-key and per-tenant limits to authenticated requests (it must run after
 // authentication). If Redis is unavailable the request is allowed and the failure logged: a
 // limiter outage must not take the API down (ARCHITECTURE.md §12).
-func rateLimit(limiter Allower, limits RateLimits, logger *slog.Logger, m *appmetrics.Metrics) func(http.Handler) http.Handler {
+func rateLimit(limiter Allower, limits RateLimits, overrides ratelimit.Overrides, logger *slog.Logger, m *appmetrics.Metrics) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			scope, err := tenancy.FromContext(r.Context())
@@ -39,9 +39,17 @@ func rateLimit(limiter Allower, limits RateLimits, logger *slog.Logger, m *appme
 				next.ServeHTTP(w, r)
 				return
 			}
+			perKey, perTenant := limits.PerKey, limits.PerTenant
+			if overrides != nil {
+				// Set by RiskOS staff for this tenant (ADR-0010); none, or a failed lookup, keeps the
+				// platform's limits.
+				if o, ok := overrides.Override(r.Context(), scope.TenantID); ok {
+					perKey, perTenant = o.PerKey, o.PerTenant
+				}
+			}
 			d, err := limiter.Allow(r.Context(),
-				ratelimit.Rule{Key: "rl:key:" + scope.Principal.ID, Limit: limits.PerKey},
-				ratelimit.Rule{Key: "rl:tenant:" + scope.TenantID.String(), Limit: limits.PerTenant},
+				ratelimit.Rule{Key: "rl:key:" + scope.Principal.ID, Limit: perKey},
+				ratelimit.Rule{Key: "rl:tenant:" + scope.TenantID.String(), Limit: perTenant},
 			)
 			if err != nil {
 				m.LimiterUnavailable(r.Context())

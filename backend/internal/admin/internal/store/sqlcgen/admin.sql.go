@@ -205,6 +205,18 @@ func (q *Queries) DecideTenantStatusRequest(ctx context.Context, arg DecideTenan
 	return i, err
 }
 
+const deleteTenantLimits = `-- name: DeleteTenantLimits :execrows
+DELETE FROM tenant_limits WHERE tenant_id = $1
+`
+
+func (q *Queries) DeleteTenantLimits(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTenantLimits, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const emergencySuspendTenant = `-- name: EmergencySuspendTenant :one
 SELECT outcome::text AS outcome, COALESCE(request_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS request_id
 FROM admin_emergency_suspend($1, $2, $3, $4::timestamptz)
@@ -299,6 +311,26 @@ func (q *Queries) GetSupportAccessForUpdate(ctx context.Context, id uuid.UUID) (
 		&i.ExpiresAt,
 		&i.RevokedBy,
 		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const getTenantLimits = `-- name: GetTenantLimits :one
+SELECT tenant_id, per_key_per_second, per_key_burst, per_tenant_per_second, per_tenant_burst, reason, updated_by, updated_at FROM tenant_limits WHERE tenant_id = $1
+`
+
+func (q *Queries) GetTenantLimits(ctx context.Context, tenantID uuid.UUID) (TenantLimit, error) {
+	row := q.db.QueryRow(ctx, getTenantLimits, tenantID)
+	var i TenantLimit
+	err := row.Scan(
+		&i.TenantID,
+		&i.PerKeyPerSecond,
+		&i.PerKeyBurst,
+		&i.PerTenantPerSecond,
+		&i.PerTenantBurst,
+		&i.Reason,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -1143,6 +1175,42 @@ func (q *Queries) UpdateStaffPasskeyUse(ctx context.Context, arg UpdateStaffPass
 		arg.Flags,
 		arg.Now,
 		arg.ID,
+	)
+	return err
+}
+
+const upsertTenantLimits = `-- name: UpsertTenantLimits :exec
+INSERT INTO tenant_limits (tenant_id, per_key_per_second, per_key_burst, per_tenant_per_second, per_tenant_burst,
+                           reason, updated_by, updated_at)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $7, $8)
+ON CONFLICT (tenant_id) DO UPDATE SET
+  per_key_per_second = EXCLUDED.per_key_per_second, per_key_burst = EXCLUDED.per_key_burst,
+  per_tenant_per_second = EXCLUDED.per_tenant_per_second, per_tenant_burst = EXCLUDED.per_tenant_burst,
+  reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at
+`
+
+type UpsertTenantLimitsParams struct {
+	TenantID           uuid.UUID
+	PerKeyPerSecond    float64
+	PerKeyBurst        int32
+	PerTenantPerSecond float64
+	PerTenantBurst     int32
+	Reason             string
+	UpdatedBy          uuid.UUID
+	Now                time.Time
+}
+
+func (q *Queries) UpsertTenantLimits(ctx context.Context, arg UpsertTenantLimitsParams) error {
+	_, err := q.db.Exec(ctx, upsertTenantLimits,
+		arg.TenantID,
+		arg.PerKeyPerSecond,
+		arg.PerKeyBurst,
+		arg.PerTenantPerSecond,
+		arg.PerTenantBurst,
+		arg.Reason,
+		arg.UpdatedBy,
+		arg.Now,
 	)
 	return err
 }

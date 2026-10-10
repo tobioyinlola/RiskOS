@@ -190,9 +190,17 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	if sc.admin {
 		rpid, origins := authModule.PasskeyRP()
 		adminModule, err = admin.New(shared.pool, tenants.New(runner, auditModule.Recorder()), runner, auditModule.Recorder(), clk,
-			admin.Config{Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger})
+			admin.Config{
+				Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger,
+				DefaultLimits: ratelimit.Override{PerKey: limits.PerKey, PerTenant: limits.PerTenant},
+				LimitCacheTTL: 100 * time.Millisecond,
+			})
 		require.NoError(t, err)
 		authModule.SetSupport(adminModule)
+	}
+	var overrides ratelimit.Overrides // a nil *admin.Module must not become a non-nil interface
+	if adminModule != nil {
+		overrides = adminModule
 	}
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 	rulesModule := rules.New(runner, auditModule.Recorder())
@@ -207,13 +215,14 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, nil),
-		Risk:     riskModule,
-		Alerts:   alertsModule,
-		Cases:    casesModule,
-		Webhooks: webhooksModule,
-		Admin:    adminModule,
-		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
+		Events:    events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, nil),
+		Risk:      riskModule,
+		Alerts:    alertsModule,
+		Cases:     casesModule,
+		Webhooks:  webhooksModule,
+		Admin:     adminModule,
+		Overrides: overrides,
+		Limiter:   ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
 	})
 	require.NoError(t, err)
 	return stack{

@@ -602,6 +602,17 @@ type Tenant struct {
 	Origin            string
 }
 
+type TenantLimit struct {
+	TenantID           uuid.UUID
+	PerKeyPerSecond    float64
+	PerKeyBurst        int32
+	PerTenantPerSecond float64
+	PerTenantBurst     int32
+	Reason             string
+	UpdatedBy          uuid.UUID
+	UpdatedAt          time.Time
+}
+
 type TenantOnboarding struct {
 	TenantID    uuid.UUID
 	Answers     []byte

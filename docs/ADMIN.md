@@ -117,6 +117,25 @@ tenant.
   two-person request. The role and tenant state are checked inside
   `admin_emergency_suspend()`, not only by the caller.
 
+## Request limits per tenant
+
+On a tenant's page, staff see the platform's per-key and per-tenant request limits and may
+replace them for that tenant (a rate and a burst for each), with a reason of 10 to 500
+characters; **Remove override** restores the platform's.
+
+- **Scope.** An override changes only how much that tenant may send; it never changes who is
+  limited. Auth-failure and per-operation limits, and every other tenant, are untouched.
+- **Where it applies.** The API's limiter looks the override up, cached for up to 30 seconds per
+  instance, so a change is in force within about that time. A failed lookup falls back to the
+  platform's limits instead of failing requests.
+- **Draining.** The limiter keeps each key's state in Redis and a change of limit does not reset
+  it. After removing a slow override, a tenant that had exhausted it waits for that debt to drain
+  (up to burst divided by the old rate) before the platform's higher limit is felt. Choose bursts
+  that keep that short.
+- **Both logs.** The staff audit log keeps the reason (`tenant_limits.set`,
+  `tenant_limits.cleared`); the tenant's own log records `tenant.limits_changed` with the new
+  values and not the reason.
+
 ## Staff roster
 
 Security administrators (`security_admin`) see **Staff** in the console: every account with its
@@ -134,7 +153,7 @@ any account, so the web console can only remove access, never grant it.
 
 ## Not built yet
 
-- Per-tenant limits editable by staff. TODO(phase-9)
+- Quotas other than request rate (storage, event volume) per tenant. TODO(phase-9)
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
   hardware-key attestation for staff passkeys. TODO(phase-9)
 - SSO for staff. TODO(phase-9)

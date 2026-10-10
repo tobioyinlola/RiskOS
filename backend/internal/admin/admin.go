@@ -8,6 +8,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/google/uuid"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/handler"
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/service"
@@ -43,6 +44,10 @@ type Config struct {
 	Secret []byte
 	// SecretPrevious is the console secret before a rotation, or nil (ADR-0008).
 	SecretPrevious []byte
+	// DefaultLimits are the platform's per-key and per-tenant limits, shown beside a tenant's
+	// override; LimitCacheTTL bounds how long an instance keeps an override (zero: 30 s).
+	DefaultLimits ratelimit.Override
+	LimitCacheTTL time.Duration
 	// RPID and Origins configure passkeys and allowed origins: the console's.
 	RPID    string
 	Origins []string
@@ -77,6 +82,7 @@ func New(pool Pool, tenantsModule *tenants.Module, runner txn.Runner, rec audit.
 	}
 	sc := service.DefaultConfig()
 	sc.Secret, sc.SecretPrevious, sc.RPID, sc.Origins = cfg.Secret, cfg.SecretPrevious, cfg.RPID, cfg.Origins
+	sc.DefaultLimits, sc.LimitCacheTTL = cfg.DefaultLimits, cfg.LimitCacheTTL
 	var lim service.Limiter
 	if cfg.Limiter != nil {
 		lim = limiter{cfg.Limiter}
@@ -129,6 +135,14 @@ func (m *Module) SupportScope(ctx context.Context, staffToken, grant string, kin
 }
 
 var _ auth.SupportResolver = (*Module)(nil)
+
+// Override implements ratelimit.Overrides: the rate limits staff set for a tenant, if any. The
+// API's request path calls it, so lookups are cached for a short time.
+func (m *Module) Override(ctx context.Context, tenantID uuid.UUID) (ratelimit.Override, bool) {
+	return m.svc.Override(ctx, tenantID)
+}
+
+var _ ratelimit.Overrides = (*Module)(nil)
 
 // CreateStaff creates a staff member and returns their enrollment token (operator CLI).
 func (m *Module) CreateStaff(ctx context.Context, email, name string, role authz.Role, operator string) (string, error) {
