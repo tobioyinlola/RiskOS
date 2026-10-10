@@ -50,6 +50,27 @@ func Up(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) (version i
 	return version, err
 }
 
+// UpTo applies pending application migrations up to and including version, and not the job
+// queue's schema. It exists to rehearse a migration on populated data: stop one version short,
+// seed, then Up.
+func UpTo(ctx context.Context, pool *pgxpool.Pool, version int64) error {
+	return withProvider(pool, func(p *goose.Provider) error {
+		if _, err := p.UpTo(ctx, version); err != nil {
+			return fmt.Errorf("apply migrations to %d: %w", version, err)
+		}
+		return nil
+	})
+}
+
+// Version returns the application schema version.
+func Version(ctx context.Context, pool *pgxpool.Pool) (version int64, err error) {
+	err = withProvider(pool, func(p *goose.Provider) error {
+		version, err = p.GetDBVersion(ctx)
+		return err
+	})
+	return version, err
+}
+
 // Down rolls back the most recent application migration.
 func Down(ctx context.Context, pool *pgxpool.Pool, logger *slog.Logger) error {
 	return withProvider(pool, func(p *goose.Provider) error {
