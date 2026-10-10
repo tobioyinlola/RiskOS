@@ -19,6 +19,19 @@ func KeyUsage(ctx context.Context, q Querier) (map[int]int, error) {
 	return store.KeyUsage(ctx, q)
 }
 
+// PreviousKeyUnused reports whether a previous signing key is configured and no endpoint secret
+// still depends on it, which means it can be removed (ADR-0008).
+func PreviousKeyUnused(ctx context.Context, q Querier, cfg Config) (bool, error) {
+	if len(cfg.PreviousSigningKey) == 0 {
+		return false, nil
+	}
+	usage, err := KeyUsage(ctx, q)
+	if err != nil {
+		return false, err
+	}
+	return usage[cfg.PreviousSigningKeyID] == 0, nil
+}
+
 // VerifyKeyring refuses a configuration that lacks a signing key some endpoint still uses.
 // Starting anyway would fail every delivery to those endpoints, so the API and worker call it at
 // start-up and stop.

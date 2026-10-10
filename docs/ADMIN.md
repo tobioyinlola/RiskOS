@@ -106,7 +106,16 @@ tenant.
 - **Both logs.** The staff audit log records the request (with the reason), the decision and any
   note (`tenant_status.*`). The tenant's own audit log records the effect, `tenant.suspended` or
   `tenant.reactivated`, naming the staff member but not the reason.
-- **No break-glass.** There is no single-person emergency suspension; see the ADR.
+- **Break-glass.** In an incident one security administrator may **suspend now** from the tenant's
+  page: it applies at once, with a reason and an explicit confirmation. It is never silent and
+  never final on one person's word: it is flagged as an emergency in both audit logs
+  (`tenant_status.emergency_suspended`; the tenant's log shows `tenant.suspended` marked
+  `emergency`), it appears on every other staff member's queue until a *different* staff member
+  marks it reviewed (`tenant_status.emergency_reviewed`), and the database refuses a review by
+  the person who did it. A waiting request for the tenant must be decided or withdrawn first.
+  Reviewing does not undo it; **reactivation has no emergency path** and stays an ordinary
+  two-person request. The role and tenant state are checked inside
+  `admin_emergency_suspend()`, not only by the caller.
 
 ## Staff roster
 
@@ -126,7 +135,6 @@ any account, so the web console can only remove access, never grant it.
 ## Not built yet
 
 - Per-tenant limits editable by staff. TODO(phase-9)
-- Break-glass suspension by one security administrator, with its own review trail. TODO(phase-9)
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
   hardware-key attestation for staff passkeys. TODO(phase-9)
 - SSO for staff. TODO(phase-9)

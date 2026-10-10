@@ -18,11 +18,56 @@ func statusRequestToAPI(r service.TenantStatusRequest) adminapi.TenantStatusRequ
 		Status:      adminapi.TenantStatusRequestStatus(r.Status),
 		RequestedBy: adminapi.StaffRef{Id: ids.Format(ids.PrefixStaff, r.RequestedBy), Name: r.RequesterName},
 		CreatedAt:   r.CreatedAt, DecidedAt: r.DecidedAt, DecisionNote: r.DecisionNote,
+		Emergency: r.Emergency, ReviewedAt: r.ReviewedAt, ReviewNote: r.ReviewNote,
 	}
 	if r.DecidedBy != nil {
 		out.DecidedBy = &adminapi.StaffRef{Id: ids.Format(ids.PrefixStaff, *r.DecidedBy), Name: r.DeciderName}
 	}
+	if r.ReviewedBy != nil {
+		out.ReviewedBy = &adminapi.StaffRef{Id: ids.Format(ids.PrefixStaff, *r.ReviewedBy), Name: r.ReviewerName}
+	}
 	return out
+}
+
+// EmergencySuspendTenant implements POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension.
+func (h *Handlers) EmergencySuspendTenant(ctx context.Context, req adminapi.EmergencySuspendTenantRequestObject) (adminapi.EmergencySuspendTenantResponseObject, error) {
+	s, err := session(ctx)
+	if err != nil {
+		return nil, err
+	}
+	if req.Body == nil {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	tenantID, err := ids.Parse(ids.PrefixTenant, req.TenantId)
+	if err != nil || tenantID == uuid.Nil {
+		return nil, httpx.NotFound(err)
+	}
+	r, err := h.svc.EmergencySuspend(ctx, s, tenantID, req.Body.Reason)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return adminapi.EmergencySuspendTenant201JSONResponse(statusRequestToAPI(r)), nil
+}
+
+// ReviewEmergencySuspension implements POST /api/admin/v1/tenant-status-requests/{request_id}/review.
+func (h *Handlers) ReviewEmergencySuspension(ctx context.Context, req adminapi.ReviewEmergencySuspensionRequestObject) (adminapi.ReviewEmergencySuspensionResponseObject, error) {
+	s, err := session(ctx)
+	if err != nil {
+		return nil, err
+	}
+	id, err := requestID(req.RequestId)
+	if err != nil {
+		return nil, err
+	}
+	note := ""
+	if req.Body != nil && req.Body.Note != nil {
+		note = *req.Body.Note
+	}
+	r, err := h.svc.ReviewEmergencySuspension(ctx, s, id, note)
+	if err != nil {
+		return nil, mapError(err)
+	}
+	return adminapi.ReviewEmergencySuspension200JSONResponse(statusRequestToAPI(r)), nil
 }
 
 func requestID(raw string) (uuid.UUID, error) {

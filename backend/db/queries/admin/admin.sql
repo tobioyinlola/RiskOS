@@ -119,8 +119,17 @@ FROM admin_tenant_directory();
 SELECT tenants_active::bigint AS tenants_active, tenants_suspended::bigint AS tenants_suspended,
        tenants_total::bigint AS tenants_total, onboarding_submitted::bigint AS onboarding_submitted,
        support_pending::bigint AS support_pending, support_active::bigint AS support_active,
-       staff_active::bigint AS staff_active, status_requests_pending::bigint AS status_requests_pending
+       staff_active::bigint AS staff_active, status_requests_pending::bigint AS status_requests_pending,
+       emergency_reviews_pending::bigint AS emergency_reviews_pending
 FROM admin_overview(@staff_id);
+
+-- name: EmergencySuspendTenant :one
+SELECT outcome::text AS outcome, COALESCE(request_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS request_id
+FROM admin_emergency_suspend(@tenant_id, @staff_id, @reason, @now::timestamptz);
+
+-- name: ReviewEmergencySuspension :one
+SELECT outcome::text AS outcome, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS tenant_id
+FROM admin_review_emergency(@request_id, @reviewer_id, @note, @now::timestamptz);
 
 -- name: InsertTenantStatusRequest :exec
 INSERT INTO tenant_status_requests (id, tenant_id, action, reason, status, requested_by, created_at)

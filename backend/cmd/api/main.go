@@ -175,9 +175,14 @@ func run() (err error) {
 	})
 	riskModule.WatchFeatureState(ctx)
 	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, appMetrics)
-	// Refuse to start without a signing key some endpoint still uses (ADR-0008).
+	// Refuse to start without a signing key some endpoint still uses (ADR-0008), and say when a
+	// previous key is no longer needed.
 	if err := webhooks.VerifyKeyring(ctx, pool, webhookConfig(cfg.Webhooks)); err != nil {
 		return err
+	}
+	logging.WarnRotations(ctx, logger, cfg.RotationsInProgress())
+	if unused, err := webhooks.PreviousKeyUnused(ctx, pool, webhookConfig(cfg.Webhooks)); err == nil && unused {
+		logger.WarnContext(ctx, "no webhook endpoint uses the previous signing key any more; remove RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS")
 	}
 	// The API publishes webhook events and manages endpoints; it never delivers (no notifier).
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)

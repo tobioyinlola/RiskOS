@@ -97,6 +97,10 @@ func run() (err error) {
 	if err := webhooks.VerifyKeyring(ctx, pool, webhookCfg); err != nil {
 		return err
 	}
+	logging.WarnRotations(ctx, logger, cfg.RotationsInProgress())
+	if unused, err := webhooks.PreviousKeyUnused(ctx, pool, webhookCfg); err == nil && unused {
+		logger.WarnContext(ctx, "no webhook endpoint uses the previous signing key any more; remove RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS")
+	}
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, inserter, webhookCfg, webhooks.NotifierFunc(func(ctx context.Context, id uuid.UUID) error {
 		return alertsModule.WebhookEndpointDisabled(ctx, id)
 	}), logger)

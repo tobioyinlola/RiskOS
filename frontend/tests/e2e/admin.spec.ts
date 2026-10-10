@@ -346,3 +346,112 @@ test("staff console: the roster is for security administrators, and disabling is
   await expect(table).toContainText("Disabled");
   await expect(table.getByRole("button", { name: "Enable" })).toBeVisible();
 });
+
+test("staff console: break-glass suspension is flagged and waits for someone else's review", async ({
+  page,
+}) => {
+  const requests: Record<string, unknown>[] = [
+    {
+      id: "tsr_em_other",
+      tenant_id: "ten_2",
+      tenant_name: "Beta Remit",
+      action: "suspend",
+      reason: "Credential stuffing in progress: INC-204",
+      status: "approved",
+      requested_by: other,
+      decided_by: other,
+      decided_at: NOW,
+      created_at: NOW,
+      emergency: true,
+    },
+  ];
+  const json = (route: Route, body: unknown, code = 200) =>
+    route.fulfill({
+      status: code,
+      contentType: "application/json",
+      body: JSON.stringify(body),
+    });
+  await page.route("**/api/admin/v1/**", async (route) => {
+    const req = route.request();
+    const path = new URL(req.url()).pathname.replace("/api/admin/v1", "");
+    switch (path) {
+      case "/auth/session":
+        return json(route, {
+          staff: {
+            ...me,
+            email: "sec-me@riskos.example",
+            role: "security_admin",
+          },
+          csrf_token: CSRF,
+          expires_at: "2026-10-01T14:00:00Z",
+          idle_expires_at: "2026-10-01T10:15:00Z",
+        });
+      case "/tenants/ten_1":
+        return json(route, {
+          tenant,
+          since: "2026-09-30T10:00:00Z",
+          security: {
+            tenant_id: "ten_1",
+            tenant_name: "Acme Payments",
+            tenant_status: "active",
+            degraded_evaluations: 0,
+            open_security_alerts: 0,
+            failed_logins: 0,
+            disabled_webhooks: 0,
+          },
+          recent_staff_actions: [],
+        });
+      case "/tenant-status-requests":
+        return json(route, { data: requests });
+      case "/tenants/ten_1/emergency-suspension": {
+        const body = req.postDataJSON() as { reason: string };
+        const created = {
+          id: "tsr_em_mine",
+          tenant_id: "ten_1",
+          tenant_name: "Acme Payments",
+          action: "suspend",
+          reason: body.reason,
+          status: "approved",
+          requested_by: me,
+          decided_by: me,
+          decided_at: NOW,
+          created_at: NOW,
+          emergency: true,
+        };
+        requests.unshift(created);
+        return json(route, created, 201);
+      }
+      case "/tenant-status-requests/tsr_em_other/review": {
+        Object.assign(requests.find((r) => r.id === "tsr_em_other") ?? {}, {
+          reviewed_by: me,
+          reviewed_at: NOW,
+        });
+        return json(
+          route,
+          requests.find((r) => r.id === "tsr_em_other"),
+        );
+      }
+      default:
+        return json(route, { data: [] });
+    }
+  });
+
+  // Another staff member's emergency suspension waits for this person's review.
+  await page.goto("/admin/status-requests");
+  const table = page.getByRole("table", { name: "Tenant status requests" });
+  await expect(table).toContainText("Emergency · awaiting review");
+  await table.getByRole("button", { name: "Mark reviewed" }).click();
+  await expect(table).toContainText("reviewed by Ops A");
+
+  // Suspending in an emergency needs a reason and an explicit confirmation, then is flagged.
+  await page.goto("/admin/tenants/ten_1");
+  await page
+    .getByLabel("Reason", { exact: true })
+    .last()
+    .fill("Credential stuffing in progress: INC-205");
+  await page.getByRole("checkbox").check();
+  await page.getByRole("button", { name: "Suspend now" }).click();
+  await page.goto("/admin/status-requests");
+  await expect(table).toContainText("Acme Payments");
+  await expect(table).toContainText("Awaiting review by another staff member");
+});

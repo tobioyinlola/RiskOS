@@ -72,10 +72,20 @@ export function TenantStatusRequestsPage() {
       unwrap(await adminApi().GET("/api/admin/v1/tenant-status-requests")),
     refetchInterval: 30_000,
   });
-  const decide = (id: string, verb: "approve" | "reject" | "withdraw") =>
+  const decide = (
+    id: string,
+    verb: "approve" | "reject" | "withdraw" | "review",
+  ) =>
     void act(async () => {
       const opts = { params: { path: { request_id: id } } };
       const c = adminApi();
+      if (verb === "review")
+        return unwrap(
+          await c.POST(
+            "/api/admin/v1/tenant-status-requests/{request_id}/review",
+            opts,
+          ),
+        );
       if (verb === "approve")
         return unwrap(
           await c.POST(
@@ -147,7 +157,14 @@ export function TenantStatusRequestsPage() {
                   </Td>
                   <Td>
                     <Status tone={tone(r)}>{humanize(r.status)}</Status>
-                    {r.decided_by ? (
+                    {r.emergency ? (
+                      <span className="block text-label text-risk-high">
+                        Emergency ·{" "}
+                        {r.reviewed_by
+                          ? `reviewed by ${r.reviewed_by.name}`
+                          : "awaiting review"}
+                      </span>
+                    ) : r.decided_by ? (
                       <span className="block text-label text-text-muted">
                         by {r.decided_by.name}
                       </span>
@@ -187,6 +204,19 @@ export function TenantStatusRequestsPage() {
                           </Button>
                         </>
                       ) : null}
+                      {r.emergency && !r.reviewed_by && !mine ? (
+                        <Button
+                          size="sm"
+                          variant="primary"
+                          disabled={busy}
+                          onClick={() => decide(r.id, "review")}
+                        >
+                          Mark reviewed
+                        </Button>
+                      ) : null}
+                      {r.emergency && !r.reviewed_by && mine ? (
+                        <Tag>Awaiting review by another staff member</Tag>
+                      ) : null}
                     </div>
                   </Td>
                 </Tr>
@@ -205,6 +235,7 @@ export function TenantStatusRequestsPage() {
 
 /** On a tenant's page: ask for it to be suspended or reactivated, or see that a request waits. */
 export function TenantStatusPanel({ tenant }: { tenant: Tenant }) {
+  const me = useStaff();
   const { act, busy, error } = useStatusActions();
   const waiting = useQuery({
     queryKey: ["staff", "status-requests"],
@@ -240,40 +271,110 @@ export function TenantStatusPanel({ tenant }: { tenant: Tenant }) {
     if (ok) form.reset();
   };
 
+  const onEmergency = async (e: FormEvent<HTMLFormElement>) => {
+    e.preventDefault();
+    const form = e.currentTarget;
+    const reason = String(new FormData(form).get("emergency_reason"));
+    const ok = await act(async () =>
+      unwrap(
+        await adminApi().POST(
+          "/api/admin/v1/tenants/{tenant_id}/emergency-suspension",
+          {
+            params: { path: { tenant_id: tenant.id } },
+            body: { reason },
+          },
+        ),
+      ),
+    );
+    if (ok) form.reset();
+  };
+  const canBreakGlass =
+    me.staff.role === "security_admin" && tenant.status === "active" && !open;
+
   return (
-    <Panel className="mb-5">
-      <PanelHeader title="Suspension" />
-      <div className="flex flex-col gap-4 p-4">
-        {error ? <Notice tone="error">{error}</Notice> : null}
-        {open ? (
-          <Notice tone="info">
-            A {VERBS[open.action].noun} requested by {open.requested_by.name} is
-            waiting for another staff member.{" "}
-            <Link
-              href="/admin/status-requests"
-              className="underline underline-offset-2"
+    <>
+      <Panel className="mb-5">
+        <PanelHeader title="Suspension" />
+        <div className="flex flex-col gap-4 p-4">
+          {error ? <Notice tone="error">{error}</Notice> : null}
+          {open ? (
+            <Notice tone="info">
+              A {VERBS[open.action].noun} requested by {open.requested_by.name}{" "}
+              is waiting for another staff member.{" "}
+              <Link
+                href="/admin/status-requests"
+                className="underline underline-offset-2"
+              >
+                Open requests
+              </Link>
+            </Notice>
+          ) : action ? (
+            <form
+              onSubmit={(e) => void onSubmit(e)}
+              className="flex flex-col gap-4"
             >
-              Open requests
-            </Link>
-          </Notice>
-        ) : action ? (
+              <p className="text-body-sm text-text-secondary">
+                {action === "suspend"
+                  ? "A suspended tenant's API keys and console sessions are refused. Another staff member must approve."
+                  : "Reactivating restores the tenant's access. Another staff member must approve."}
+              </p>
+              <Field
+                label="Reason"
+                hint="For the staff audit log and the approver. The tenant is not shown it. Name the ticket."
+              >
+                {(p) => (
+                  <Textarea
+                    {...p}
+                    name="reason"
+                    minLength={10}
+                    maxLength={500}
+                    rows={2}
+                    required
+                  />
+                )}
+              </Field>
+              <Button
+                type="submit"
+                variant={action === "suspend" ? "danger" : "primary"}
+                className="self-start"
+                disabled={busy}
+              >
+                {VERBS[action].button}
+              </Button>
+            </form>
+          ) : (
+            <p className="text-body-sm text-text-secondary">
+              This tenant is {tenant.status}; it cannot be suspended or
+              reactivated here.
+            </p>
+          )}
+        </div>
+      </Panel>
+      {canBreakGlass ? (
+        <Panel className="mb-5">
+          <PanelHeader
+            title="Emergency suspension"
+            legend="Security administrators"
+          />
           <form
-            onSubmit={(e) => void onSubmit(e)}
-            className="flex flex-col gap-4"
+            onSubmit={(e) => void onEmergency(e)}
+            className="flex flex-col gap-4 p-4"
           >
             <p className="text-body-sm text-text-secondary">
-              {action === "suspend"
-                ? "A suspended tenant's API keys and console sessions are refused. Another staff member must approve."
-                : "Reactivating restores the tenant's access. Another staff member must approve."}
+              For an incident. The tenant is suspended now, without waiting for
+              approval. It is flagged as an emergency in both audit logs and
+              stays on every other staff member&apos;s queue until one of them
+              reviews it. Reactivating it is an ordinary request that needs a
+              second person.
             </p>
             <Field
               label="Reason"
-              hint="For the staff audit log and the approver. The tenant is not shown it. Name the ticket."
+              hint="Name the incident. The tenant is not shown it."
             >
               {(p) => (
                 <Textarea
                   {...p}
-                  name="reason"
+                  name="emergency_reason"
                   minLength={10}
                   maxLength={500}
                   rows={2}
@@ -281,22 +382,24 @@ export function TenantStatusPanel({ tenant }: { tenant: Tenant }) {
                 />
               )}
             </Field>
+            <label className="flex items-start gap-2 text-body-sm">
+              <input type="checkbox" required className="mt-1" />
+              <span>
+                I understand this suspends the tenant immediately and that
+                another staff member will review it.
+              </span>
+            </label>
             <Button
               type="submit"
-              variant={action === "suspend" ? "danger" : "primary"}
+              variant="danger"
               className="self-start"
               disabled={busy}
             >
-              {VERBS[action].button}
+              Suspend now
             </Button>
           </form>
-        ) : (
-          <p className="text-body-sm text-text-secondary">
-            This tenant is {tenant.status}; it cannot be suspended or
-            reactivated here.
-          </p>
-        )}
-      </div>
-    </Panel>
+        </Panel>
+      ) : null}
+    </>
   );
 }

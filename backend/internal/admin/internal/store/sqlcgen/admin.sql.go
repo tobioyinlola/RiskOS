@@ -17,19 +17,21 @@ const adminOverview = `-- name: AdminOverview :one
 SELECT tenants_active::bigint AS tenants_active, tenants_suspended::bigint AS tenants_suspended,
        tenants_total::bigint AS tenants_total, onboarding_submitted::bigint AS onboarding_submitted,
        support_pending::bigint AS support_pending, support_active::bigint AS support_active,
-       staff_active::bigint AS staff_active, status_requests_pending::bigint AS status_requests_pending
+       staff_active::bigint AS staff_active, status_requests_pending::bigint AS status_requests_pending,
+       emergency_reviews_pending::bigint AS emergency_reviews_pending
 FROM admin_overview($1)
 `
 
 type AdminOverviewRow struct {
-	TenantsActive         int64
-	TenantsSuspended      int64
-	TenantsTotal          int64
-	OnboardingSubmitted   int64
-	SupportPending        int64
-	SupportActive         int64
-	StaffActive           int64
-	StatusRequestsPending int64
+	TenantsActive           int64
+	TenantsSuspended        int64
+	TenantsTotal            int64
+	OnboardingSubmitted     int64
+	SupportPending          int64
+	SupportActive           int64
+	StaffActive             int64
+	StatusRequestsPending   int64
+	EmergencyReviewsPending int64
 }
 
 func (q *Queries) AdminOverview(ctx context.Context, staffID uuid.UUID) (AdminOverviewRow, error) {
@@ -44,6 +46,7 @@ func (q *Queries) AdminOverview(ctx context.Context, staffID uuid.UUID) (AdminOv
 		&i.SupportActive,
 		&i.StaffActive,
 		&i.StatusRequestsPending,
+		&i.EmergencyReviewsPending,
 	)
 	return i, err
 }
@@ -202,6 +205,35 @@ func (q *Queries) DecideTenantStatusRequest(ctx context.Context, arg DecideTenan
 	return i, err
 }
 
+const emergencySuspendTenant = `-- name: EmergencySuspendTenant :one
+SELECT outcome::text AS outcome, COALESCE(request_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS request_id
+FROM admin_emergency_suspend($1, $2, $3, $4::timestamptz)
+`
+
+type EmergencySuspendTenantParams struct {
+	TenantID uuid.UUID
+	StaffID  uuid.UUID
+	Reason   string
+	Now      time.Time
+}
+
+type EmergencySuspendTenantRow struct {
+	Outcome   string
+	RequestID uuid.UUID
+}
+
+func (q *Queries) EmergencySuspendTenant(ctx context.Context, arg EmergencySuspendTenantParams) (EmergencySuspendTenantRow, error) {
+	row := q.db.QueryRow(ctx, emergencySuspendTenant,
+		arg.TenantID,
+		arg.StaffID,
+		arg.Reason,
+		arg.Now,
+	)
+	var i EmergencySuspendTenantRow
+	err := row.Scan(&i.Outcome, &i.RequestID)
+	return i, err
+}
+
 const getStaff = `-- name: GetStaff :one
 SELECT id, email, name, role, status, enroll_token_hash, enroll_expires_at, created_at, created_by FROM staff WHERE id = $1
 `
@@ -272,7 +304,7 @@ func (q *Queries) GetSupportAccessForUpdate(ctx context.Context, id uuid.UUID) (
 }
 
 const getTenantStatusRequest = `-- name: GetTenantStatusRequest :one
-SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note FROM tenant_status_requests WHERE id = $1
+SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests WHERE id = $1
 `
 
 func (q *Queries) GetTenantStatusRequest(ctx context.Context, id uuid.UUID) (TenantStatusRequest, error) {
@@ -289,12 +321,16 @@ func (q *Queries) GetTenantStatusRequest(ctx context.Context, id uuid.UUID) (Ten
 		&i.DecidedBy,
 		&i.DecidedAt,
 		&i.DecisionNote,
+		&i.Emergency,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.ReviewNote,
 	)
 	return i, err
 }
 
 const getTenantStatusRequestForUpdate = `-- name: GetTenantStatusRequestForUpdate :one
-SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note FROM tenant_status_requests WHERE id = $1 FOR UPDATE
+SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests WHERE id = $1 FOR UPDATE
 `
 
 func (q *Queries) GetTenantStatusRequestForUpdate(ctx context.Context, id uuid.UUID) (TenantStatusRequest, error) {
@@ -311,6 +347,10 @@ func (q *Queries) GetTenantStatusRequestForUpdate(ctx context.Context, id uuid.U
 		&i.DecidedBy,
 		&i.DecidedAt,
 		&i.DecisionNote,
+		&i.Emergency,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.ReviewNote,
 	)
 	return i, err
 }
@@ -658,7 +698,7 @@ func (q *Queries) ListSupportAccess(ctx context.Context) ([]SupportAccess, error
 }
 
 const listTenantStatusRequests = `-- name: ListTenantStatusRequests :many
-SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note FROM tenant_status_requests ORDER BY created_at DESC LIMIT 200
+SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests ORDER BY created_at DESC LIMIT 200
 `
 
 func (q *Queries) ListTenantStatusRequests(ctx context.Context) ([]TenantStatusRequest, error) {
@@ -681,6 +721,10 @@ func (q *Queries) ListTenantStatusRequests(ctx context.Context) ([]TenantStatusR
 			&i.DecidedBy,
 			&i.DecidedAt,
 			&i.DecisionNote,
+			&i.Emergency,
+			&i.ReviewedBy,
+			&i.ReviewedAt,
+			&i.ReviewNote,
 		); err != nil {
 			return nil, err
 		}
@@ -723,6 +767,35 @@ DELETE FROM staff_ceremonies WHERE expires_at < $1
 func (q *Queries) PurgeCeremonies(ctx context.Context, now time.Time) error {
 	_, err := q.db.Exec(ctx, purgeCeremonies, now)
 	return err
+}
+
+const reviewEmergencySuspension = `-- name: ReviewEmergencySuspension :one
+SELECT outcome::text AS outcome, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS tenant_id
+FROM admin_review_emergency($1, $2, $3, $4::timestamptz)
+`
+
+type ReviewEmergencySuspensionParams struct {
+	RequestID  uuid.UUID
+	ReviewerID uuid.UUID
+	Note       string
+	Now        time.Time
+}
+
+type ReviewEmergencySuspensionRow struct {
+	Outcome  string
+	TenantID uuid.UUID
+}
+
+func (q *Queries) ReviewEmergencySuspension(ctx context.Context, arg ReviewEmergencySuspensionParams) (ReviewEmergencySuspensionRow, error) {
+	row := q.db.QueryRow(ctx, reviewEmergencySuspension,
+		arg.RequestID,
+		arg.ReviewerID,
+		arg.Note,
+		arg.Now,
+	)
+	var i ReviewEmergencySuspensionRow
+	err := row.Scan(&i.Outcome, &i.TenantID)
+	return i, err
 }
 
 const revokeStaffSession = `-- name: RevokeStaffSession :exec

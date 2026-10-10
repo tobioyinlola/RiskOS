@@ -205,6 +205,9 @@ func (e TenantStatusRequestStatus) Valid() bool {
 
 // AdminOverview defines model for AdminOverview.
 type AdminOverview struct {
+	// EmergencyReviewsPending Emergency suspensions made by someone else that no one has reviewed yet.
+	EmergencyReviewsPending int64 `json:"emergency_reviews_pending"`
+
 	// OnboardingSubmitted Onboarding reviews waiting for a decision.
 	OnboardingSubmitted int64 `json:"onboarding_submitted"`
 	StaffActive         int64 `json:"staff_active"`
@@ -269,6 +272,12 @@ type Ceremony struct {
 
 	// Options WebAuthn options, passed to the browser's credentials API as returned.
 	Options WebAuthnOptions `json:"options"`
+}
+
+// EmergencySuspension defines model for EmergencySuspension.
+type EmergencySuspension struct {
+	// Reason Why, for the staff audit log and the reviewer. The tenant is not shown it.
+	Reason string `json:"reason"`
 }
 
 // EnrollOptionsRequest defines model for EnrollOptionsRequest.
@@ -490,12 +499,18 @@ type TenantStatusRequest struct {
 	DecidedAt    *time.Time                `json:"decided_at,omitempty"`
 	DecidedBy    *StaffRef                 `json:"decided_by,omitempty"`
 	DecisionNote *string                   `json:"decision_note,omitempty"`
-	Id           string                    `json:"id"`
-	Reason       string                    `json:"reason"`
-	RequestedBy  StaffRef                  `json:"requested_by"`
-	Status       TenantStatusRequestStatus `json:"status"`
-	TenantId     string                    `json:"tenant_id"`
-	TenantName   string                    `json:"tenant_name"`
+
+	// Emergency A break-glass suspension, applied at once and awaiting review by someone else.
+	Emergency   bool                      `json:"emergency"`
+	Id          string                    `json:"id"`
+	Reason      string                    `json:"reason"`
+	RequestedBy StaffRef                  `json:"requested_by"`
+	ReviewNote  *string                   `json:"review_note,omitempty"`
+	ReviewedAt  *time.Time                `json:"reviewed_at,omitempty"`
+	ReviewedBy  *StaffRef                 `json:"reviewed_by,omitempty"`
+	Status      TenantStatusRequestStatus `json:"status"`
+	TenantId    string                    `json:"tenant_id"`
+	TenantName  string                    `json:"tenant_name"`
 }
 
 // TenantStatusRequestAction defines model for TenantStatusRequest.Action.
@@ -574,6 +589,12 @@ type ApproveTenantStatusJSONRequestBody = TenantStatusDecision
 // RejectTenantStatusJSONRequestBody defines body for RejectTenantStatus for application/json ContentType.
 type RejectTenantStatusJSONRequestBody = TenantStatusDecision
 
+// ReviewEmergencySuspensionJSONRequestBody defines body for ReviewEmergencySuspension for application/json ContentType.
+type ReviewEmergencySuspensionJSONRequestBody = TenantStatusDecision
+
+// EmergencySuspendTenantJSONRequestBody defines body for EmergencySuspendTenant for application/json ContentType.
+type EmergencySuspendTenantJSONRequestBody = EmergencySuspension
+
 // RequestTenantStatusJSONRequestBody defines body for RequestTenantStatus for application/json ContentType.
 type RequestTenantStatusJSONRequestBody = TenantStatusChange
 
@@ -651,6 +672,9 @@ type ServerInterface interface {
 	// RejectTenantStatus Reject another staff member's request
 	// (POST /api/admin/v1/tenant-status-requests/{request_id}/reject)
 	RejectTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
+	// ReviewEmergencySuspension Review an emergency suspension made by someone else
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/review)
+	ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
 	// WithdrawTenantStatus Take back your own pending request
 	// (POST /api/admin/v1/tenant-status-requests/{request_id}/withdraw)
 	WithdrawTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
@@ -660,6 +684,9 @@ type ServerInterface interface {
 	// GetAdminTenant One tenant (identity, status, counts and staff activity only)
 	// (GET /api/admin/v1/tenants/{tenant_id})
 	GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
+	// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
+	EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID)
 	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
 	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
 	RequestTenantStatus(w http.ResponseWriter, r *http.Request, tenantId TenantID)
@@ -813,6 +840,12 @@ func (_ Unimplemented) RejectTenantStatus(w http.ResponseWriter, r *http.Request
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// ReviewEmergencySuspension Review an emergency suspension made by someone else
+// (POST /api/admin/v1/tenant-status-requests/{request_id}/review)
+func (_ Unimplemented) ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // WithdrawTenantStatus Take back your own pending request
 // (POST /api/admin/v1/tenant-status-requests/{request_id}/withdraw)
 func (_ Unimplemented) WithdrawTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
@@ -828,6 +861,12 @@ func (_ Unimplemented) ListAdminTenants(w http.ResponseWriter, r *http.Request) 
 // GetAdminTenant One tenant (identity, status, counts and staff activity only)
 // (GET /api/admin/v1/tenants/{tenant_id})
 func (_ Unimplemented) GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
+// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
+func (_ Unimplemented) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1321,6 +1360,32 @@ func (siw *ServerInterfaceWrapper) RejectTenantStatus(w http.ResponseWriter, r *
 	handler.ServeHTTP(w, r)
 }
 
+// ReviewEmergencySuspension operation middleware
+func (siw *ServerInterfaceWrapper) ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId StatusRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviewEmergencySuspension(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // WithdrawTenantStatus operation middleware
 func (siw *ServerInterfaceWrapper) WithdrawTenantStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -1378,6 +1443,32 @@ func (siw *ServerInterfaceWrapper) GetAdminTenant(w http.ResponseWriter, r *http
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetAdminTenant(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EmergencySuspendTenant operation middleware
+func (siw *ServerInterfaceWrapper) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EmergencySuspendTenant(w, r, tenantId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1564,6 +1655,12 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/reject", wrapper.RejectTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/emergency-suspension", wrapper.EmergencySuspendTenant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/review", wrapper.ReviewEmergencySuspension)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/withdraw", wrapper.WithdrawTenantStatus)
@@ -3491,6 +3588,116 @@ func (response RejectTenantStatusdefaultJSONResponse) VisitRejectTenantStatusRes
 	return err
 }
 
+type ReviewEmergencySuspensionRequestObject struct {
+	RequestId StatusRequestID `json:"request_id"`
+	Body      *ReviewEmergencySuspensionJSONRequestBody
+}
+
+type ReviewEmergencySuspensionResponseObject interface {
+	VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error
+}
+
+type ReviewEmergencySuspension200JSONResponse TenantStatusRequest
+
+func (response ReviewEmergencySuspension200JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ReviewEmergencySuspension400JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ReviewEmergencySuspension401JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ReviewEmergencySuspension403JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReviewEmergencySuspension404JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ReviewEmergencySuspension409JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspensiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ReviewEmergencySuspensiondefaultJSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type WithdrawTenantStatusRequestObject struct {
 	RequestId StatusRequestID `json:"request_id"`
 }
@@ -3705,6 +3912,116 @@ func (response GetAdminTenantdefaultJSONResponse) VisitGetAdminTenantResponse(w 
 	return err
 }
 
+type EmergencySuspendTenantRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *EmergencySuspendTenantJSONRequestBody
+}
+
+type EmergencySuspendTenantResponseObject interface {
+	VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error
+}
+
+type EmergencySuspendTenant201JSONResponse TenantStatusRequest
+
+func (response EmergencySuspendTenant201JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response EmergencySuspendTenant400JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response EmergencySuspendTenant401JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EmergencySuspendTenant403JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EmergencySuspendTenant404JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant409JSONResponse struct{ ConflictJSONResponse }
+
+func (response EmergencySuspendTenant409JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response EmergencySuspendTenantdefaultJSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RequestTenantStatusRequestObject struct {
 	TenantId TenantID `json:"tenant_id"`
 	Body     *RequestTenantStatusJSONRequestBody
@@ -3875,6 +4192,9 @@ type StrictServerInterface interface {
 	// RejectTenantStatus Reject another staff member's request
 	// (POST /api/admin/v1/tenant-status-requests/{request_id}/reject)
 	RejectTenantStatus(ctx context.Context, request RejectTenantStatusRequestObject) (RejectTenantStatusResponseObject, error)
+	// ReviewEmergencySuspension Review an emergency suspension made by someone else
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/review)
+	ReviewEmergencySuspension(ctx context.Context, request ReviewEmergencySuspensionRequestObject) (ReviewEmergencySuspensionResponseObject, error)
 	// WithdrawTenantStatus Take back your own pending request
 	// (POST /api/admin/v1/tenant-status-requests/{request_id}/withdraw)
 	WithdrawTenantStatus(ctx context.Context, request WithdrawTenantStatusRequestObject) (WithdrawTenantStatusResponseObject, error)
@@ -3884,6 +4204,9 @@ type StrictServerInterface interface {
 	// GetAdminTenant One tenant (identity, status, counts and staff activity only)
 	// (GET /api/admin/v1/tenants/{tenant_id})
 	GetAdminTenant(ctx context.Context, request GetAdminTenantRequestObject) (GetAdminTenantResponseObject, error)
+	// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
+	// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
+	EmergencySuspendTenant(ctx context.Context, request EmergencySuspendTenantRequestObject) (EmergencySuspendTenantResponseObject, error)
 	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
 	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
 	RequestTenantStatus(ctx context.Context, request RequestTenantStatusRequestObject) (RequestTenantStatusResponseObject, error)
@@ -4591,6 +4914,42 @@ func (sh *strictHandler) RejectTenantStatus(w http.ResponseWriter, r *http.Reque
 	}
 }
 
+// ReviewEmergencySuspension operation middleware
+func (sh *strictHandler) ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	var request ReviewEmergencySuspensionRequestObject
+
+	request.RequestId = requestId
+
+	var body ReviewEmergencySuspensionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviewEmergencySuspension(ctx, request.(ReviewEmergencySuspensionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviewEmergencySuspension")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviewEmergencySuspensionResponseObject); ok {
+		if err := validResponse.VisitReviewEmergencySuspensionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // WithdrawTenantStatus operation middleware
 func (sh *strictHandler) WithdrawTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
 	var request WithdrawTenantStatusRequestObject
@@ -4660,6 +5019,39 @@ func (sh *strictHandler) GetAdminTenant(w http.ResponseWriter, r *http.Request, 
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetAdminTenantResponseObject); ok {
 		if err := validResponse.VisitGetAdminTenantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EmergencySuspendTenant operation middleware
+func (sh *strictHandler) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request EmergencySuspendTenantRequestObject
+
+	request.TenantId = tenantId
+
+	var body EmergencySuspendTenantJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EmergencySuspendTenant(ctx, request.(EmergencySuspendTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EmergencySuspendTenant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EmergencySuspendTenantResponseObject); ok {
+		if err := validResponse.VisitEmergencySuspendTenantResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

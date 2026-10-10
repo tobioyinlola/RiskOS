@@ -47,6 +47,23 @@ type Config struct {
 	SMTP      SMTP
 }
 
+// RotationsInProgress names the secrets that have a previous value configured (ADR-0008), with
+// the condition for removing each. Never the values. A previous value left in place keeps
+// accepting what it accepted, so the processes log this at start-up until it is removed.
+func (c Config) RotationsInProgress() map[string]string {
+	out := map[string]string{}
+	if c.Auth.APIKeyPepperPrevious != "" {
+		out["RISKOS_API_KEY_PEPPER_PREVIOUS"] = "remove once riskos.auth.previous_pepper has been zero for 14 days"
+	}
+	if c.Webhooks.PreviousSigningKey != "" {
+		out["RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS"] = "remove once `riskosctl webhooks key-usage` shows no endpoint on its id"
+	}
+	if c.Console.SecretPrevious != "" {
+		out["RISKOS_CONSOLE_SECRET_PREVIOUS"] = "run `riskosctl console reseal` until nothing is left, then remove after the longest session and invite lifetime"
+	}
+	return out
+}
+
 // Console configures the dashboard realm (console sign-in and sessions).
 type Console struct {
 	// Secret keys MFA and SSO secret encryption, CSRF tokens and invite links (at least 32 bytes,

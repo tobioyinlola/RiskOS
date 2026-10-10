@@ -56,11 +56,12 @@ is any other active staff member.
 
 ## Alternatives considered
 
-- **Immediate suspension by one security administrator (break-glass).** Faster in an incident,
-  and a real need. Rejected for now because §16 asks for four eyes and an emergency path that
-  bypasses them needs its own review trail (who may, how it is reviewed afterwards). The status
-  request is a single click for the approver; if that proves too slow in drills, add break-glass
-  as a separate decision.
+- **Immediate suspension by one security administrator (break-glass).** *Amended:* first
+  rejected, because §16 asks for four eyes and an emergency path that bypasses them needs its own
+  review trail. It is now built with that trail: security administrators only, suspension only,
+  applied at once but flagged as an emergency in both audit logs, and unresolved on every other
+  staff member's queue until a different staff member reviews it. The review is the second pair
+  of eyes after the fact. Reactivation never has an emergency path.
 - **Staff creation in the UI.** Rejected as above.
 - **A "disabled" tenant status in the UI.** The column allows it, but it has no defined meaning
   distinct from suspended (offboarding is undecided, ADR-0009), so the console offers only

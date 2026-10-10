@@ -70,8 +70,10 @@ export function AdminOverviewPage() {
         {card(
           "/admin/status-requests",
           "Status requests",
-          o?.status_requests_pending,
-          "suspensions and reactivations to decide",
+          o
+            ? o.status_requests_pending + (o.emergency_reviews_pending ?? 0)
+            : undefined,
+          "to decide, and emergency suspensions to review",
         )}
         {card(
           "/admin/support",

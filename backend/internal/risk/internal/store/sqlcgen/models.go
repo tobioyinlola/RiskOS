@@ -626,6 +626,10 @@ type TenantStatusRequest struct {
 	DecidedBy    *uuid.UUID
 	DecidedAt    *time.Time
 	DecisionNote *string
+	Emergency    bool
+	ReviewedBy   *uuid.UUID
+	ReviewedAt   *time.Time
+	ReviewNote   *string
 }
 
 type User struct {

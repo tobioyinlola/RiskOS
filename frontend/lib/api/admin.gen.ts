@@ -247,6 +247,50 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/tenants/{tenant_id}/emergency-suspension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suspend an active tenant at once (break-glass, security administrators only)
+         * @description For an incident. Applies immediately and is recorded as an emergency in both audit logs; a
+         *     different staff member must then review it, and it stays on every other staff member's
+         *     queue until they do. There is no emergency reactivation, and a waiting request for the
+         *     tenant must be decided or withdrawn first.
+         */
+        post: operations["emergencySuspendTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review an emergency suspension made by someone else
+         * @description Records that you have looked at it. It does not undo the suspension; reactivation is an
+         *     ordinary request.
+         */
+        post: operations["reviewEmergencySuspension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/tenant-status-requests/{request_id}/withdraw": {
         parameters: {
             query?: never;
@@ -579,6 +623,10 @@ export interface components {
         TenantStatusDecision: {
             note?: string;
         };
+        EmergencySuspension: {
+            /** @description Why, for the staff audit log and the reviewer. The tenant is not shown it. */
+            reason: string;
+        };
         TenantStatusRequest: {
             id: string;
             tenant_id: string;
@@ -595,6 +643,12 @@ export interface components {
             /** Format: date-time */
             decided_at?: string;
             decision_note?: string;
+            /** @description A break-glass suspension, applied at once and awaiting review by someone else. */
+            emergency: boolean;
+            reviewed_by?: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            reviewed_at?: string;
+            review_note?: string;
         };
         TenantStatusRequestList: {
             data: components["schemas"]["TenantStatusRequest"][];
@@ -698,6 +752,11 @@ export interface components {
              * @description Requests to suspend or reactivate a tenant, made by someone else, waiting for this staff member's decision.
              */
             status_requests_pending: number;
+            /**
+             * Format: int64
+             * @description Emergency suspensions made by someone else that no one has reviewed yet.
+             */
+            emergency_reviews_pending: number;
         };
         AdminTenantList: {
             data: components["schemas"]["AdminTenant"][];
@@ -1216,6 +1275,70 @@ export interface operations {
         };
         responses: {
             /** @description The rejected request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    emergencySuspendTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmergencySuspension"];
+            };
+        };
+        responses: {
+            /** @description The applied emergency suspension. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    reviewEmergencySuspension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The reviewed request. */
             200: {
                 headers: {
                     [name: string]: unknown;

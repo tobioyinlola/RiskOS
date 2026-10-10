@@ -27,6 +27,7 @@ type TenantStatusRequest struct {
 	TenantName    string
 	RequesterName string
 	DeciderName   string
+	ReviewerName  string
 }
 
 func statusRequestRef(id uuid.UUID) string { return ids.Format(ids.PrefixTenantStatusRequest, id) }
@@ -35,6 +36,9 @@ func enrichStatus(r sqlcgen.TenantStatusRequest, sn, tn map[uuid.UUID]string) Te
 	out := TenantStatusRequest{TenantStatusRequest: r, TenantName: tn[r.TenantID], RequesterName: sn[r.RequestedBy]}
 	if r.DecidedBy != nil {
 		out.DeciderName = sn[*r.DecidedBy]
+	}
+	if r.ReviewedBy != nil {
+		out.ReviewerName = sn[*r.ReviewedBy]
 	}
 	return out
 }
@@ -173,6 +177,96 @@ func (s *Service) DecideTenantStatus(ctx context.Context, sess Session, id uuid.
 				Outcome: audit.OutcomeSuccess, TenantLevel: true,
 				Metadata: map[string]any{"staff_name": sess.Name, "request": statusRequestRef(id)},
 			})
+		}
+		return fmt.Errorf("unexpected outcome %q", res.Outcome)
+	})
+	if err != nil {
+		return TenantStatusRequest{}, err
+	}
+	return s.GetTenantStatusRequest(ctx, id)
+}
+
+// EmergencySuspend suspends an active tenant at once on one security administrator's authority
+// (break-glass). It is never silent: the request is recorded as an emergency in both audit logs,
+// flagged for review, and shown on every other staff member's work queue until one of them
+// reviews it. Reactivation has no emergency path, and a waiting request must be decided first.
+func (s *Service) EmergencySuspend(ctx context.Context, sess Session, tenantID uuid.UUID, reason string) (TenantStatusRequest, error) {
+	if err := requireSecurity(sess); err != nil {
+		return TenantStatusRequest{}, err
+	}
+	reason = strings.TrimSpace(reason)
+	if n := utf8.RuneCountInString(reason); n < 10 || n > 500 {
+		return TenantStatusRequest{}, fmt.Errorf("%w: give a reason of 10 to 500 characters", ErrInvalid)
+	}
+	tctx := s.tenants.StaffTenantScope(ctx, tenantID, sess.Ref())
+	var id uuid.UUID
+	err := s.runner.Run(tctx, func(ctx context.Context) error {
+		q, err := s.store.Scoped(ctx)
+		if err != nil {
+			return err
+		}
+		res, err := q.EmergencySuspendTenant(ctx, sqlcgen.EmergencySuspendTenantParams{
+			TenantID: tenantID, StaffID: sess.StaffID, Reason: reason, Now: s.clock.Now(),
+		})
+		if err != nil {
+			return store.Classify(err, "emergency suspend tenant")
+		}
+		switch res.Outcome {
+		case "forbidden":
+			return fmt.Errorf("%w: only an active security administrator may suspend in an emergency", ErrForbidden)
+		case "not_found":
+			return ErrNotFound
+		case "not_applicable":
+			return fmt.Errorf("%w: the tenant is not active", ErrConflict)
+		case "pending_exists":
+			return fmt.Errorf("%w: a request for this tenant is waiting; decide or withdraw it first", ErrConflict)
+		case "applied":
+			id = res.RequestID
+		default:
+			return fmt.Errorf("unexpected outcome %q", res.Outcome)
+		}
+		if err := s.record(ctx, q, sess.Ref(), "tenant_status.emergency_suspended", &tenantID, statusRequestRef(id), "success",
+			map[string]any{"action": StatusActionSuspend, "reason": reason, "needs_review": true}); err != nil {
+			return err
+		}
+		return s.audit.Record(ctx, audit.Entry{
+			Action: "tenant.suspended", ResourceType: "tenant", ResourceID: ids.Format(ids.PrefixTenant, tenantID),
+			Outcome: audit.OutcomeSuccess, TenantLevel: true,
+			Metadata: map[string]any{"staff_name": sess.Name, "request": statusRequestRef(id), "emergency": true},
+		})
+	})
+	if err != nil {
+		return TenantStatusRequest{}, err
+	}
+	return s.GetTenantStatusRequest(ctx, id)
+}
+
+// ReviewEmergencySuspension records that a staff member other than the one who suspended has
+// looked at an emergency suspension. It does not undo it: reactivation is an ordinary request.
+func (s *Service) ReviewEmergencySuspension(ctx context.Context, sess Session, id uuid.UUID, note string) (TenantStatusRequest, error) {
+	note = strings.TrimSpace(note)
+	if utf8.RuneCountInString(note) > 500 {
+		return TenantStatusRequest{}, fmt.Errorf("%w: a note is at most 500 characters", ErrInvalid)
+	}
+	err := s.store.Tx(ctx, func(q *sqlcgen.Queries) error {
+		res, err := q.ReviewEmergencySuspension(ctx, sqlcgen.ReviewEmergencySuspensionParams{
+			RequestID: id, ReviewerID: sess.StaffID, Note: note, Now: s.clock.Now(),
+		})
+		if err != nil {
+			return store.Classify(err, "review emergency suspension")
+		}
+		switch res.Outcome {
+		case "not_found":
+			return ErrNotFound
+		case "not_emergency":
+			return fmt.Errorf("%w: only emergency suspensions are reviewed", ErrConflict)
+		case "already_reviewed":
+			return fmt.Errorf("%w: it has been reviewed already", ErrConflict)
+		case "own_request":
+			return fmt.Errorf("%w: another staff member must review your emergency suspension", ErrForbidden)
+		case "reviewed":
+			return s.record(ctx, q, sess.Ref(), "tenant_status.emergency_reviewed", &res.TenantID, statusRequestRef(id), "success",
+				map[string]any{"note": note})
 		}
 		return fmt.Errorf("unexpected outcome %q", res.Outcome)
 	})

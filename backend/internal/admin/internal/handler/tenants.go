@@ -53,7 +53,7 @@ func (h *Handlers) GetAdminOverview(ctx context.Context, _ adminapi.GetAdminOver
 		TenantsTotal: o.TenantsTotal, TenantsActive: o.TenantsActive, TenantsSuspended: o.TenantsSuspended,
 		OnboardingSubmitted: o.OnboardingSubmitted, SupportPending: o.SupportPending,
 		SupportActive: o.SupportActive, StaffActive: o.StaffActive,
-		StatusRequestsPending: o.StatusRequestsPending,
+		StatusRequestsPending: o.StatusRequestsPending, EmergencyReviewsPending: o.EmergencyReviewsPending,
 	}, nil
 }
 
