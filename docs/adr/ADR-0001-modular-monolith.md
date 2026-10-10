@@ -19,7 +19,7 @@ modes and operational cost before any of their benefits are needed.
   public root package (service interface, DTOs, constructor); its handlers, services and stores
   live in `internal/<module>/internal/…`, which the Go compiler makes unreachable from other modules.
 - Dependency rules the compiler cannot express are enforced by depguard in CI
-  (see [ARCHITECTURE.md §3](../ARCHITECTURE.md#3-module-boundaries-enforced)).
+  (see [ARCHITECTURE.md §4](../ARCHITECTURE.md#4-module-map-and-layering)).
 - A module owns its tables. Other modules read its data only through its public interface.
 
 ## Alternatives considered

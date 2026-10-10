@@ -163,11 +163,27 @@ The failure drill (`make failure-drill`, [DISASTER_RECOVERY.md](DISASTER_RECOVER
 that such a client loses no event and stores none twice across Redis, PostgreSQL, worker and API
 restarts.
 
-## To be designed (TODO(phase-0))
+## Versioning and deprecation (proposed, to confirm)
 
-- Remaining operations of spec §7 (entities, analytics).
-- Filtering and sorting conventions for lists (event type, decision, time range).
-- Versioning and deprecation policy.
+- The major version is in the path (`/api/v1`). Within a major version, changes are additive:
+  new operations, new optional request fields, new response fields, new enum values in
+  responses that are documented as open. Clients must ignore unknown response fields.
+- A change that removes or renames anything, tightens validation, or changes the meaning of a
+  field is breaking and needs a new major version. Widening a closed enum is breaking for clients
+  that switch exhaustively on it, as the ten decisions were
+  ([compliance/TRACKER.md](compliance/TRACKER.md#decisions-confirmed-phase-3-review)); such a
+  change is announced and noted in the contract's description before it ships.
+- A deprecated operation or field is marked `deprecated: true` in the contract, is announced,
+  and stays for at least six months. Returning a `Deprecation` response header is part of the
+  proposal and is not built. The length is a proposal until customers' integration timelines are
+  known.
+- The contract and generated code change together; CI fails on drift, so the published contract
+  is always the one the server implements.
+
+## Not built yet
+
+- A uniform sort parameter on list operations. Lists are newest first, with the filters named in
+  the table above and cursor pagination; other orders are not offered.
 
 ## Support access by RiskOS staff
 
