@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
@@ -123,6 +124,14 @@ func run() (err error) {
 		})
 		jobs.Register(registry, authModule.InviteEmailJob(sender))
 		jobs.Register(registry, authModule.SignupEmailJob(sender))
+		// Staff accounts created from the console are emailed their enrollment link here.
+		adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
+			Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious),
+		})
+		if err != nil {
+			return err
+		}
+		jobs.Register(registry, adminModule.EnrollmentEmailJob(sender, cfg.Console.URL))
 		logger.InfoContext(ctx, "invite and sign-up emails enabled", slog.String("smtp_host", cfg.SMTP.Host))
 	}
 	jobs.Register(registry, jobs.NoopHandler(logger))

@@ -176,3 +176,26 @@ ON CONFLICT (tenant_id) DO UPDATE SET
 
 -- name: DeleteTenantLimits :execrows
 DELETE FROM tenant_limits WHERE tenant_id = @tenant_id;
+
+-- name: InsertStaffAccountRequest :exec
+INSERT INTO staff_account_requests (id, email, name, role, reason, status, requested_by, created_at)
+VALUES (@id, @email, @name, @role, @reason, 'pending', @requested_by, @now);
+
+-- name: GetStaffAccountRequestForUpdate :one
+SELECT * FROM staff_account_requests WHERE id = @id FOR UPDATE;
+
+-- name: GetStaffAccountRequest :one
+SELECT * FROM staff_account_requests WHERE id = @id;
+
+-- name: ListStaffAccountRequests :many
+SELECT * FROM staff_account_requests ORDER BY created_at DESC LIMIT 200;
+
+-- name: DecideStaffAccountRequest :exec
+UPDATE staff_account_requests
+SET status = @status, decided_by = @decided_by, decided_at = @now::timestamptz,
+    decision_note = sqlc.narg('decision_note'), staff_id = sqlc.narg('staff_id')
+WHERE id = @id;
+
+-- name: WithdrawStaffAccountRequest :execrows
+UPDATE staff_account_requests SET status = 'withdrawn', decided_at = @now::timestamptz
+WHERE id = @id AND requested_by = @staff_id AND status = 'pending';

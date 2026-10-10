@@ -73,6 +73,14 @@ type stackConfig struct {
 	google *auth.GoogleConfig
 	// assigneeCheck makes assigning alerts and cases require an active dashboard user, as in the API.
 	assigneeCheck bool
+	// adminEmail lets the staff console create accounts (enrollment links are emailed).
+	adminEmail bool
+}
+
+// withAdminEmail says the deployment can email enrollment links, so staff accounts can be created
+// from the console.
+func withAdminEmail() stackOption {
+	return func(c *stackConfig) { c.adminEmail = true }
 }
 
 // withAssigneeValidation turns on the assignee check the API binary has.
@@ -194,6 +202,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 				Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger,
 				DefaultLimits: ratelimit.Override{PerKey: limits.PerKey, PerTenant: limits.PerTenant},
 				LimitCacheTTL: 100 * time.Millisecond,
+				Jobs:          queue, EmailEnabled: sc.adminEmail,
 			})
 		require.NoError(t, err)
 		authModule.SetSupport(adminModule)

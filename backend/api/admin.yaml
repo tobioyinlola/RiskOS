@@ -522,6 +522,144 @@ paths:
           $ref: "#/components/responses/Forbidden"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests:
+    get:
+      operationId: listStaffAccountRequests
+      tags: [staff]
+      summary: Requests to create staff accounts, newest first (security administrators only)
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequestList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: requestStaffAccount
+      tags: [staff]
+      summary: Ask for a staff account to be created (security administrators only)
+      description: |
+        A different security administrator must approve it. On approval the account is created and
+        its enrollment link is emailed to the address given; neither administrator is shown the
+        link. Available only when the deployment can send email; otherwise accounts are created with
+        the operator CLI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAccountChange"
+      responses:
+        "201":
+          description: The pending request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests/{request_id}/approve:
+    post:
+      operationId: approveStaffAccount
+      tags: [staff]
+      summary: Approve another security administrator's request
+      parameters:
+        - $ref: "#/components/parameters/AccountRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The approved request. The account exists and its link has been queued for email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests/{request_id}/reject:
+    post:
+      operationId: rejectStaffAccount
+      tags: [staff]
+      summary: Reject another security administrator's request
+      parameters:
+        - $ref: "#/components/parameters/AccountRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests/{request_id}/withdraw:
+    post:
+      operationId: withdrawStaffAccount
+      tags: [staff]
+      summary: Take back your own pending request
+      parameters:
+        - $ref: "#/components/parameters/AccountRequestID"
+      responses:
+        "200":
+          description: The withdrawn request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/staff/{staff_id}/disable:
     post:
       operationId: disableStaff
@@ -860,6 +998,13 @@ components:
       schema:
         type: string
         example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
+    AccountRequestID:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: sar_01j9x2k7m3q4r5s6t7v8w9x0yz
     StaffID:
       name: staff_id
       in: path
@@ -983,6 +1128,66 @@ components:
         created_at:
           type: string
           format: date-time
+    StaffAccountChange:
+      type: object
+      additionalProperties: false
+      required: [email, name, role, reason]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          $ref: "#/components/schemas/StaffRole"
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+    StaffAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role, reason, status, requested_by, created_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/StaffRole"
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, withdrawn]
+        requested_by:
+          $ref: "#/components/schemas/StaffRef"
+        created_at:
+          type: string
+          format: date-time
+        decided_by:
+          $ref: "#/components/schemas/StaffRef"
+        decided_at:
+          type: string
+          format: date-time
+        decision_note:
+          type: string
+        staff_id:
+          type: string
+          description: The account created, once approved.
+    StaffAccountRequestList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffAccountRequest"
     StaffRosterList:
       type: object
       additionalProperties: false

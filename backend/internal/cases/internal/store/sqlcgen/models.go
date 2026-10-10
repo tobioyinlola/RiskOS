@@ -532,6 +532,21 @@ type Staff struct {
 	CreatedBy       string
 }
 
+type StaffAccountRequest struct {
+	ID           uuid.UUID
+	Email        string
+	Name         string
+	Role         string
+	Reason       string
+	Status       string
+	RequestedBy  uuid.UUID
+	CreatedAt    time.Time
+	DecidedBy    *uuid.UUID
+	DecidedAt    *time.Time
+	DecisionNote *string
+	StaffID      *uuid.UUID
+}
+
 type StaffAuditLog struct {
 	ID         uuid.UUID
 	OccurredAt time.Time

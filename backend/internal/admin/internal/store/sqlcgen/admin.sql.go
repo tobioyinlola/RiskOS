@@ -149,6 +149,34 @@ func (q *Queries) ClearEnrollToken(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const decideStaffAccountRequest = `-- name: DecideStaffAccountRequest :exec
+UPDATE staff_account_requests
+SET status = $1, decided_by = $2, decided_at = $3::timestamptz,
+    decision_note = $4, staff_id = $5
+WHERE id = $6
+`
+
+type DecideStaffAccountRequestParams struct {
+	Status       string
+	DecidedBy    *uuid.UUID
+	Now          time.Time
+	DecisionNote *string
+	StaffID      *uuid.UUID
+	ID           uuid.UUID
+}
+
+func (q *Queries) DecideStaffAccountRequest(ctx context.Context, arg DecideStaffAccountRequestParams) error {
+	_, err := q.db.Exec(ctx, decideStaffAccountRequest,
+		arg.Status,
+		arg.DecidedBy,
+		arg.Now,
+		arg.DecisionNote,
+		arg.StaffID,
+		arg.ID,
+	)
+	return err
+}
+
 const decideSupportAccess = `-- name: DecideSupportAccess :exec
 UPDATE support_access SET status = $1, decided_by = $2, decided_at = $3::timestamptz, expires_at = $4
 WHERE id = $5
@@ -263,6 +291,54 @@ func (q *Queries) GetStaff(ctx context.Context, id uuid.UUID) (Staff, error) {
 		&i.EnrollExpiresAt,
 		&i.CreatedAt,
 		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const getStaffAccountRequest = `-- name: GetStaffAccountRequest :one
+SELECT id, email, name, role, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, staff_id FROM staff_account_requests WHERE id = $1
+`
+
+func (q *Queries) GetStaffAccountRequest(ctx context.Context, id uuid.UUID) (StaffAccountRequest, error) {
+	row := q.db.QueryRow(ctx, getStaffAccountRequest, id)
+	var i StaffAccountRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.Reason,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.StaffID,
+	)
+	return i, err
+}
+
+const getStaffAccountRequestForUpdate = `-- name: GetStaffAccountRequestForUpdate :one
+SELECT id, email, name, role, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, staff_id FROM staff_account_requests WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetStaffAccountRequestForUpdate(ctx context.Context, id uuid.UUID) (StaffAccountRequest, error) {
+	row := q.db.QueryRow(ctx, getStaffAccountRequestForUpdate, id)
+	var i StaffAccountRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.Reason,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.StaffID,
 	)
 	return i, err
 }
@@ -443,6 +519,34 @@ func (q *Queries) InsertStaff(ctx context.Context, arg InsertStaffParams) error 
 	return err
 }
 
+const insertStaffAccountRequest = `-- name: InsertStaffAccountRequest :exec
+INSERT INTO staff_account_requests (id, email, name, role, reason, status, requested_by, created_at)
+VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
+`
+
+type InsertStaffAccountRequestParams struct {
+	ID          uuid.UUID
+	Email       string
+	Name        string
+	Role        string
+	Reason      string
+	RequestedBy uuid.UUID
+	Now         time.Time
+}
+
+func (q *Queries) InsertStaffAccountRequest(ctx context.Context, arg InsertStaffAccountRequestParams) error {
+	_, err := q.db.Exec(ctx, insertStaffAccountRequest,
+		arg.ID,
+		arg.Email,
+		arg.Name,
+		arg.Role,
+		arg.Reason,
+		arg.RequestedBy,
+		arg.Now,
+	)
+	return err
+}
+
 const insertStaffAudit = `-- name: InsertStaffAudit :exec
 INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -610,6 +714,43 @@ func (q *Queries) ListStaff(ctx context.Context) ([]Staff, error) {
 			&i.EnrollExpiresAt,
 			&i.CreatedAt,
 			&i.CreatedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffAccountRequests = `-- name: ListStaffAccountRequests :many
+SELECT id, email, name, role, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, staff_id FROM staff_account_requests ORDER BY created_at DESC LIMIT 200
+`
+
+func (q *Queries) ListStaffAccountRequests(ctx context.Context) ([]StaffAccountRequest, error) {
+	rows, err := q.db.Query(ctx, listStaffAccountRequests)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffAccountRequest
+	for rows.Next() {
+		var i StaffAccountRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.Reason,
+			&i.Status,
+			&i.RequestedBy,
+			&i.CreatedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.DecisionNote,
+			&i.StaffID,
 		); err != nil {
 			return nil, err
 		}
@@ -1213,6 +1354,25 @@ func (q *Queries) UpsertTenantLimits(ctx context.Context, arg UpsertTenantLimits
 		arg.Now,
 	)
 	return err
+}
+
+const withdrawStaffAccountRequest = `-- name: WithdrawStaffAccountRequest :execrows
+UPDATE staff_account_requests SET status = 'withdrawn', decided_at = $1::timestamptz
+WHERE id = $2 AND requested_by = $3 AND status = 'pending'
+`
+
+type WithdrawStaffAccountRequestParams struct {
+	Now     time.Time
+	ID      uuid.UUID
+	StaffID uuid.UUID
+}
+
+func (q *Queries) WithdrawStaffAccountRequest(ctx context.Context, arg WithdrawStaffAccountRequestParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withdrawStaffAccountRequest, arg.Now, arg.ID, arg.StaffID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const withdrawTenantStatusRequest = `-- name: WithdrawTenantStatusRequest :execrows

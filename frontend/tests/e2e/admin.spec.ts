@@ -311,6 +311,18 @@ test("staff console: session gate, security view, four-eyes approval", async ({
 test("staff console: the roster is for security administrators, and disabling is one click", async ({
   page,
 }) => {
+  const accountRequests: Record<string, unknown>[] = [
+    {
+      id: "sar_other",
+      email: "new.hire@riskos.example",
+      name: "New Hire",
+      role: "operations_admin",
+      reason: "Joining the on-call rotation: HR-4410",
+      status: "pending",
+      requested_by: { id: "stf_other", name: "Sec C" },
+      created_at: NOW,
+    },
+  ];
   const accounts: Record<string, unknown>[] = [
     {
       id: "stf_me",
@@ -359,6 +371,35 @@ test("staff console: the roster is for security administrators, and disabling is
           expires_at: "2026-10-01T14:00:00Z",
           idle_expires_at: "2026-10-01T10:15:00Z",
         });
+      case "/staff/account-requests": {
+        const req = route.request();
+        if (req.method() === "POST") {
+          const b = req.postDataJSON() as Record<string, string>;
+          const created = {
+            id: "sar_mine",
+            email: b.email,
+            name: b.name,
+            role: b.role,
+            reason: b.reason,
+            status: "pending",
+            requested_by: { id: "stf_me", name: "Sec B" },
+            created_at: NOW,
+          };
+          accountRequests.unshift(created);
+          return json(route, created, 201);
+        }
+        return json(route, { data: accountRequests });
+      }
+      case "/staff/account-requests/sar_other/approve": {
+        Object.assign(accountRequests.find((r) => r.id === "sar_other") ?? {}, {
+          status: "approved",
+          staff_id: "stf_new",
+        });
+        return json(
+          route,
+          accountRequests.find((r) => r.id === "sar_other"),
+        );
+      }
       case "/staff":
         return json(route, { data: accounts });
       case "/staff/stf_ops/disable":
@@ -381,6 +422,23 @@ test("staff console: the roster is for security administrators, and disabling is
   await table.getByRole("button", { name: "Disable" }).click();
   await expect(table).toContainText("Disabled");
   await expect(table.getByRole("button", { name: "Enable" })).toBeVisible();
+
+  // Adding a person: ask, and approve someone else's request. The link is emailed, never shown.
+  const requests = page.getByRole("table", { name: "Account requests" });
+  await expect(requests).toContainText("New Hire");
+  await requests.getByRole("button", { name: "Approve" }).click();
+  await expect(requests).toContainText("Link emailed");
+
+  await page.getByLabel("Email").fill("second.hire@riskos.example");
+  await page.getByLabel("Name").fill("Second Hire");
+  await page
+    .getByLabel("Reason for access")
+    .fill("Covering the weekend rota: HR-4411");
+  await page.getByRole("button", { name: "Request account" }).click();
+  await expect(requests).toContainText("second.hire@riskos.example");
+  await expect(requests).toContainText(
+    "Awaiting another security administrator",
+  );
 });
 
 test("staff console: break-glass suspension is flagged and waits for someone else's review", async ({

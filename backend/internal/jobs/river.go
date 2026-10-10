@@ -175,6 +175,27 @@ func (q *Queue) Enqueue(ctx context.Context, args Args) error {
 	return nil
 }
 
+// TxEnqueuer inserts a job in a transaction the caller holds, for work that is not tenant-scoped
+// (the staff realm): the job exists only if that transaction commits.
+type TxEnqueuer interface {
+	EnqueueTx(ctx context.Context, tx pgx.Tx, args Args) error
+}
+
+var _ TxEnqueuer = (*Queue)(nil)
+
+// EnqueueTx inserts a job in tx, so it is created only if tx commits. It takes the transaction
+// explicitly rather than from the context, so it cannot be used to widen a tenant scope.
+func (q *Queue) EnqueueTx(ctx context.Context, tx pgx.Tx, args Args) error {
+	var opts *river.InsertOpts
+	if qd, ok := args.(Queued); ok {
+		opts = &river.InsertOpts{Queue: qd.Queue()}
+	}
+	if _, err := q.client.InsertTx(ctx, tx, args, opts); err != nil {
+		return fmt.Errorf("enqueue %s job: %w", args.Kind(), err)
+	}
+	return nil
+}
+
 // Start begins fetching and executing jobs. It returns once workers are running.
 func (q *Queue) Start(ctx context.Context) error {
 	if err := q.client.Start(ctx); err != nil {

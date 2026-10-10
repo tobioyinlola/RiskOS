@@ -80,6 +80,30 @@ func (e OnboardingStatus) Valid() bool {
 	}
 }
 
+// Defines values for StaffAccountRequestStatus.
+const (
+	StaffAccountRequestStatusApproved  StaffAccountRequestStatus = "approved"
+	StaffAccountRequestStatusPending   StaffAccountRequestStatus = "pending"
+	StaffAccountRequestStatusRejected  StaffAccountRequestStatus = "rejected"
+	StaffAccountRequestStatusWithdrawn StaffAccountRequestStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the StaffAccountRequestStatus enum.
+func (e StaffAccountRequestStatus) Valid() bool {
+	switch e {
+	case StaffAccountRequestStatusApproved:
+		return true
+	case StaffAccountRequestStatusPending:
+		return true
+	case StaffAccountRequestStatusRejected:
+		return true
+	case StaffAccountRequestStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StaffRole.
 const (
 	OperationsAdmin StaffRole = "operations_admin"
@@ -373,6 +397,40 @@ type Staff struct {
 	Role StaffRole `json:"role"`
 }
 
+// StaffAccountChange defines model for StaffAccountChange.
+type StaffAccountChange struct {
+	Email  string    `json:"email"`
+	Name   string    `json:"name"`
+	Reason string    `json:"reason"`
+	Role   StaffRole `json:"role"`
+}
+
+// StaffAccountRequest defines model for StaffAccountRequest.
+type StaffAccountRequest struct {
+	CreatedAt    time.Time  `json:"created_at"`
+	DecidedAt    *time.Time `json:"decided_at,omitempty"`
+	DecidedBy    *StaffRef  `json:"decided_by,omitempty"`
+	DecisionNote *string    `json:"decision_note,omitempty"`
+	Email        string     `json:"email"`
+	Id           string     `json:"id"`
+	Name         string     `json:"name"`
+	Reason       string     `json:"reason"`
+	RequestedBy  StaffRef   `json:"requested_by"`
+	Role         StaffRole  `json:"role"`
+
+	// StaffId The account created, once approved.
+	StaffId *string                   `json:"staff_id,omitempty"`
+	Status  StaffAccountRequestStatus `json:"status"`
+}
+
+// StaffAccountRequestStatus defines model for StaffAccountRequest.Status.
+type StaffAccountRequestStatus string
+
+// StaffAccountRequestList defines model for StaffAccountRequestList.
+type StaffAccountRequestList struct {
+	Data []StaffAccountRequest `json:"data"`
+}
+
 // StaffAuditEntry defines model for StaffAuditEntry.
 type StaffAuditEntry struct {
 	Action     string                 `json:"action"`
@@ -567,6 +625,9 @@ type WebAuthnOptions map[string]interface{}
 // AccessID Example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
 type AccessID = string
 
+// AccountRequestID Example: sar_01j9x2k7m3q4r5s6t7v8w9x0yz
+type AccountRequestID = string
+
 // StaffID Example: stf_01j9x2k7m3q4r5s6t7v8w9x0yz
 type StaffID = string
 
@@ -616,6 +677,15 @@ type ApproveOnboardingJSONRequestBody = OnboardingDecision
 
 // RejectOnboardingJSONRequestBody defines body for RejectOnboarding for application/json ContentType.
 type RejectOnboardingJSONRequestBody = OnboardingDecision
+
+// RequestStaffAccountJSONRequestBody defines body for RequestStaffAccount for application/json ContentType.
+type RequestStaffAccountJSONRequestBody = StaffAccountChange
+
+// ApproveStaffAccountJSONRequestBody defines body for ApproveStaffAccount for application/json ContentType.
+type ApproveStaffAccountJSONRequestBody = TenantStatusDecision
+
+// RejectStaffAccountJSONRequestBody defines body for RejectStaffAccount for application/json ContentType.
+type RejectStaffAccountJSONRequestBody = TenantStatusDecision
 
 // RequestSupportAccessJSONRequestBody defines body for RequestSupportAccess for application/json ContentType.
 type RequestSupportAccessJSONRequestBody = SupportAccessRequest
@@ -682,6 +752,21 @@ type ServerInterface interface {
 	// ListStaffRoster Staff accounts (security administrators only)
 	// (GET /api/admin/v1/staff)
 	ListStaffRoster(w http.ResponseWriter, r *http.Request)
+	// ListStaffAccountRequests Requests to create staff accounts, newest first (security administrators only)
+	// (GET /api/admin/v1/staff/account-requests)
+	ListStaffAccountRequests(w http.ResponseWriter, r *http.Request)
+	// RequestStaffAccount Ask for a staff account to be created (security administrators only)
+	// (POST /api/admin/v1/staff/account-requests)
+	RequestStaffAccount(w http.ResponseWriter, r *http.Request)
+	// ApproveStaffAccount Approve another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/approve)
+	ApproveStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID)
+	// RejectStaffAccount Reject another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/reject)
+	RejectStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID)
+	// WithdrawStaffAccount Take back your own pending request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/withdraw)
+	WithdrawStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID)
 	// DisableStaff Disable another staff member's account
 	// (POST /api/admin/v1/staff/{staff_id}/disable)
 	DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID)
@@ -826,6 +911,36 @@ func (_ Unimplemented) GetSecurityOverview(w http.ResponseWriter, r *http.Reques
 // ListStaffRoster Staff accounts (security administrators only)
 // (GET /api/admin/v1/staff)
 func (_ Unimplemented) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListStaffAccountRequests Requests to create staff accounts, newest first (security administrators only)
+// (GET /api/admin/v1/staff/account-requests)
+func (_ Unimplemented) ListStaffAccountRequests(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RequestStaffAccount Ask for a staff account to be created (security administrators only)
+// (POST /api/admin/v1/staff/account-requests)
+func (_ Unimplemented) RequestStaffAccount(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveStaffAccount Approve another security administrator's request
+// (POST /api/admin/v1/staff/account-requests/{request_id}/approve)
+func (_ Unimplemented) ApproveStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectStaffAccount Reject another security administrator's request
+// (POST /api/admin/v1/staff/account-requests/{request_id}/reject)
+func (_ Unimplemented) RejectStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// WithdrawStaffAccount Take back your own pending request
+// (POST /api/admin/v1/staff/account-requests/{request_id}/withdraw)
+func (_ Unimplemented) WithdrawStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1194,6 +1309,112 @@ func (siw *ServerInterfaceWrapper) ListStaffRoster(w http.ResponseWriter, r *htt
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListStaffRoster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStaffAccountRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListStaffAccountRequests(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStaffAccountRequests(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) RequestStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestStaffAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) ApproveStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId AccountRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveStaffAccount(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) RejectStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId AccountRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectStaffAccount(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// WithdrawStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId AccountRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WithdrawStaffAccount(w, r, requestId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -1821,6 +2042,21 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/staff", wrapper.ListStaffRoster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/staff/account-requests", wrapper.ListStaffAccountRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests", wrapper.RequestStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests/{request_id}/approve", wrapper.ApproveStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests/{request_id}/reject", wrapper.RejectStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests/{request_id}/withdraw", wrapper.WithdrawStaffAccount)
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/staff/{staff_id}/disable", wrapper.DisableStaff)
@@ -2865,6 +3101,482 @@ type ListStaffRosterdefaultJSONResponse struct {
 }
 
 func (response ListStaffRosterdefaultJSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequestsRequestObject struct {
+}
+
+type ListStaffAccountRequestsResponseObject interface {
+	VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListStaffAccountRequests200JSONResponse StaffAccountRequestList
+
+func (response ListStaffAccountRequests200JSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequests401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListStaffAccountRequests401JSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequests403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListStaffAccountRequests403JSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequestsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListStaffAccountRequestsdefaultJSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccountRequestObject struct {
+	Body *RequestStaffAccountJSONRequestBody
+}
+
+type RequestStaffAccountResponseObject interface {
+	VisitRequestStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type RequestStaffAccount201JSONResponse StaffAccountRequest
+
+func (response RequestStaffAccount201JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RequestStaffAccount400JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RequestStaffAccount401JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RequestStaffAccount403JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RequestStaffAccount409JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RequestStaffAccountdefaultJSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccountRequestObject struct {
+	RequestId AccountRequestID `json:"request_id"`
+	Body      *ApproveStaffAccountJSONRequestBody
+}
+
+type ApproveStaffAccountResponseObject interface {
+	VisitApproveStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type ApproveStaffAccount200JSONResponse StaffAccountRequest
+
+func (response ApproveStaffAccount200JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ApproveStaffAccount400JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApproveStaffAccount401JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveStaffAccount403JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveStaffAccount404JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveStaffAccount409JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ApproveStaffAccountdefaultJSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccountRequestObject struct {
+	RequestId AccountRequestID `json:"request_id"`
+	Body      *RejectStaffAccountJSONRequestBody
+}
+
+type RejectStaffAccountResponseObject interface {
+	VisitRejectStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type RejectStaffAccount200JSONResponse StaffAccountRequest
+
+func (response RejectStaffAccount200JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RejectStaffAccount400JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RejectStaffAccount401JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectStaffAccount403JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectStaffAccount404JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectStaffAccount409JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RejectStaffAccountdefaultJSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccountRequestObject struct {
+	RequestId AccountRequestID `json:"request_id"`
+}
+
+type WithdrawStaffAccountResponseObject interface {
+	VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type WithdrawStaffAccount200JSONResponse StaffAccountRequest
+
+func (response WithdrawStaffAccount200JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response WithdrawStaffAccount401JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response WithdrawStaffAccount403JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response WithdrawStaffAccount404JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response WithdrawStaffAccount409JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response WithdrawStaffAccountdefaultJSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -4532,6 +5244,21 @@ type StrictServerInterface interface {
 	// ListStaffRoster Staff accounts (security administrators only)
 	// (GET /api/admin/v1/staff)
 	ListStaffRoster(ctx context.Context, request ListStaffRosterRequestObject) (ListStaffRosterResponseObject, error)
+	// ListStaffAccountRequests Requests to create staff accounts, newest first (security administrators only)
+	// (GET /api/admin/v1/staff/account-requests)
+	ListStaffAccountRequests(ctx context.Context, request ListStaffAccountRequestsRequestObject) (ListStaffAccountRequestsResponseObject, error)
+	// RequestStaffAccount Ask for a staff account to be created (security administrators only)
+	// (POST /api/admin/v1/staff/account-requests)
+	RequestStaffAccount(ctx context.Context, request RequestStaffAccountRequestObject) (RequestStaffAccountResponseObject, error)
+	// ApproveStaffAccount Approve another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/approve)
+	ApproveStaffAccount(ctx context.Context, request ApproveStaffAccountRequestObject) (ApproveStaffAccountResponseObject, error)
+	// RejectStaffAccount Reject another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/reject)
+	RejectStaffAccount(ctx context.Context, request RejectStaffAccountRequestObject) (RejectStaffAccountResponseObject, error)
+	// WithdrawStaffAccount Take back your own pending request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/withdraw)
+	WithdrawStaffAccount(ctx context.Context, request WithdrawStaffAccountRequestObject) (WithdrawStaffAccountResponseObject, error)
 	// DisableStaff Disable another staff member's account
 	// (POST /api/admin/v1/staff/{staff_id}/disable)
 	DisableStaff(ctx context.Context, request DisableStaffRequestObject) (DisableStaffResponseObject, error)
@@ -5005,6 +5732,159 @@ func (sh *strictHandler) ListStaffRoster(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListStaffRosterResponseObject); ok {
 		if err := validResponse.VisitListStaffRosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListStaffAccountRequests operation middleware
+func (sh *strictHandler) ListStaffAccountRequests(w http.ResponseWriter, r *http.Request) {
+	var request ListStaffAccountRequestsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStaffAccountRequests(ctx, request.(ListStaffAccountRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStaffAccountRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStaffAccountRequestsResponseObject); ok {
+		if err := validResponse.VisitListStaffAccountRequestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestStaffAccount operation middleware
+func (sh *strictHandler) RequestStaffAccount(w http.ResponseWriter, r *http.Request) {
+	var request RequestStaffAccountRequestObject
+
+	var body RequestStaffAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestStaffAccount(ctx, request.(RequestStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestStaffAccountResponseObject); ok {
+		if err := validResponse.VisitRequestStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveStaffAccount operation middleware
+func (sh *strictHandler) ApproveStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	var request ApproveStaffAccountRequestObject
+
+	request.RequestId = requestId
+
+	var body ApproveStaffAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveStaffAccount(ctx, request.(ApproveStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveStaffAccountResponseObject); ok {
+		if err := validResponse.VisitApproveStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectStaffAccount operation middleware
+func (sh *strictHandler) RejectStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	var request RejectStaffAccountRequestObject
+
+	request.RequestId = requestId
+
+	var body RejectStaffAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectStaffAccount(ctx, request.(RejectStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectStaffAccountResponseObject); ok {
+		if err := validResponse.VisitRejectStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// WithdrawStaffAccount operation middleware
+func (sh *strictHandler) WithdrawStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	var request WithdrawStaffAccountRequestObject
+
+	request.RequestId = requestId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.WithdrawStaffAccount(ctx, request.(WithdrawStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WithdrawStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(WithdrawStaffAccountResponseObject); ok {
+		if err := validResponse.VisitWithdrawStaffAccountResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

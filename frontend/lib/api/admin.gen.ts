@@ -354,6 +354,81 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/staff/account-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requests to create staff accounts, newest first (security administrators only) */
+        get: operations["listStaffAccountRequests"];
+        put?: never;
+        /**
+         * Ask for a staff account to be created (security administrators only)
+         * @description A different security administrator must approve it. On approval the account is created and
+         *     its enrollment link is emailed to the address given; neither administrator is shown the
+         *     link. Available only when the deployment can send email; otherwise accounts are created with
+         *     the operator CLI.
+         */
+        post: operations["requestStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve another security administrator's request */
+        post: operations["approveStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject another security administrator's request */
+        post: operations["rejectStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests/{request_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take back your own pending request */
+        post: operations["withdrawStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/staff/{staff_id}/disable": {
         parameters: {
             query?: never;
@@ -634,6 +709,33 @@ export interface components {
             enrollment_pending: boolean;
             /** Format: date-time */
             created_at: string;
+        };
+        StaffAccountChange: {
+            email: string;
+            name: string;
+            role: components["schemas"]["StaffRole"];
+            reason: string;
+        };
+        StaffAccountRequest: {
+            id: string;
+            email: string;
+            name: string;
+            role: components["schemas"]["StaffRole"];
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "withdrawn";
+            requested_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            created_at: string;
+            decided_by?: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            decided_at?: string;
+            decision_note?: string;
+            /** @description The account created, once approved. */
+            staff_id?: string;
+        };
+        StaffAccountRequestList: {
+            data: components["schemas"]["StaffAccountRequest"][];
         };
         StaffRosterList: {
             data: components["schemas"]["StaffRosterEntry"][];
@@ -997,6 +1099,7 @@ export interface components {
     parameters: {
         TenantID: string;
         AccessID: string;
+        AccountRequestID: string;
         StaffID: string;
         StatusRequestID: string;
     };
@@ -1537,6 +1640,149 @@ export interface operations {
             };
             401: components["responses"]["Unauthenticated"];
             403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listStaffAccountRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequestList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    requestStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffAccountChange"];
+            };
+        };
+        responses: {
+            /** @description The pending request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["AccountRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The approved request. The account exists and its link has been queued for email. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["AccountRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The rejected request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    withdrawStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["AccountRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The withdrawn request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
             default: components["responses"]["DefaultError"];
         };
     };

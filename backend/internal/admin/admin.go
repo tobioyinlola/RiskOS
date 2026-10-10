@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/go-chi/chi/v5"
@@ -16,9 +17,11 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/adminapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
@@ -48,6 +51,11 @@ type Config struct {
 	// override; LimitCacheTTL bounds how long an instance keeps an override (zero: 30 s).
 	DefaultLimits ratelimit.Override
 	LimitCacheTTL time.Duration
+	// Jobs queues the enrollment email for an account created from the console, in the same
+	// transaction as the approval, and EmailEnabled says email is configured. Without both the
+	// console cannot create accounts and the operator CLI remains the way.
+	Jobs         jobs.TxEnqueuer
+	EmailEnabled bool
 	// RPID and Origins configure passkeys and allowed origins: the console's.
 	RPID    string
 	Origins []string
@@ -83,6 +91,7 @@ func New(pool Pool, tenantsModule *tenants.Module, runner txn.Runner, rec audit.
 	sc := service.DefaultConfig()
 	sc.Secret, sc.SecretPrevious, sc.RPID, sc.Origins = cfg.Secret, cfg.SecretPrevious, cfg.RPID, cfg.Origins
 	sc.DefaultLimits, sc.LimitCacheTTL = cfg.DefaultLimits, cfg.LimitCacheTTL
+	sc.Jobs, sc.EmailEnabled = cfg.Jobs, cfg.EmailEnabled
 	var lim service.Limiter
 	if cfg.Limiter != nil {
 		lim = limiter{cfg.Limiter}
@@ -161,6 +170,32 @@ func (m *Module) SetStaffStatus(ctx context.Context, email string, active bool, 
 
 // ListStaff returns every staff member (operator CLI).
 func (m *Module) ListStaff(ctx context.Context) ([]Staff, error) { return m.svc.ListStaff(ctx) }
+
+// EnrollmentEmailArgs is the job that emails a staff member created from the console their
+// enrollment link.
+type EnrollmentEmailArgs = service.EnrollmentEmailArgs
+
+// EnrollmentEmailJob returns the worker handler for EnrollmentEmailArgs. Accounts disabled, or
+// whose link was used, expired or replaced before the job runs are skipped. Delivery is at least
+// once: a retry after a send whose confirmation was lost sends the same link again.
+func (m *Module) EnrollmentEmailJob(sender mail.Sender, consoleURL string) func(context.Context, EnrollmentEmailArgs) error {
+	return func(ctx context.Context, a EnrollmentEmailArgs) error {
+		p, err := m.svc.EnrollmentEmail(ctx, a)
+		if err != nil || p == nil {
+			return err
+		}
+		role := strings.ReplaceAll(p.Role, "_", " ")
+		return sender.Send(ctx, mail.Message{
+			To:      p.Email,
+			Subject: "Your RiskOS staff account",
+			Text: "A RiskOS staff account was created for you as " + role + ".\n\n" +
+				"Register a passkey to sign in:\n" + EnrollURL(consoleURL, p.Token) + "\n\n" +
+				"The link works once and expires on " + p.ExpiresAt.UTC().Format("2 January 2006 at 15:04 UTC") + ".\n" +
+				"Open it on the device you will use to sign in.\n\n" +
+				"If you did not expect this, ignore this email and tell your security team.\n",
+		})
+	}
+}
 
 // EnrollURL builds the enrollment link for a token; the token is in the fragment.
 func EnrollURL(consoleURL, token string) string {

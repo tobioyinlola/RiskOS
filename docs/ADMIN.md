@@ -9,7 +9,8 @@ customer API.
 
 - **Separate from tenant users.** Staff are their own accounts (`staff` table), with the internal
   roles `operations_admin` or `security_admin`. Neither role grants any access to tenant data.
-- **Created only by the operator CLI.** There is no API to create staff:
+- **Created by two people, or by the operator CLI.** No single console session can create an
+  account (see [Staff roster](#staff-roster)); the operator CLI, run with shell access, can:
 
   ```bash
   make staff EMAIL=ops@riskos.example NAME="Ops Person" OPERATOR=you@example.com [ROLE=security_admin]
@@ -147,9 +148,28 @@ credential. They may **disable** or **enable** another account:
 - Disabling ends the person's sessions at once, and they cannot sign in again until enabled.
 - Each change is in the staff audit log (`staff.disabled`, `staff.enabled`).
 
-**Creating accounts and issuing enrollment links stay in the operator CLI** (`make staff`, see
-above). That is deliberate: a hijacked staff session that could mint credentials could take over
-any account, so the web console can only remove access, never grant it.
+### Adding a person
+
+A hijacked staff session that could mint credentials could take over any account, so the console
+never lets one session do it. Adding a person is a **four-eyes request between two security
+administrators**, and the credential never passes through either of their sessions:
+
+1. A security administrator requests an account (email, name, role, a reason of 10 to 500
+   characters). One request may be pending per address; an existing account is refused.
+2. A *different* security administrator approves or rejects; the requester may withdraw. An
+   operations administrator can neither request nor decide.
+3. Approval creates the account and queues, in the same transaction, an email to the new
+   person's address with a single-use enrollment link (24 hours). The queued job holds only the
+   account's ID and issue time: the worker derives the token again from the console secret, so it
+   is stored nowhere readable and nobody is shown it. A used, expired, disabled or replaced link
+   is not re-sent.
+4. Every step is in the staff audit log (`staff_account.requested`, `.approved`, `.rejected`,
+   `.withdrawn`).
+
+**Email must be configured** (`RISKOS_SMTP_*`, with the worker running): without it the console
+refuses the request and accounts are created with the operator CLI (`make staff`, above).
+**Re-issuing a link for someone who lost their passkey stays in the CLI**, since it replaces a
+live credential.
 
 ## Not built yet
 

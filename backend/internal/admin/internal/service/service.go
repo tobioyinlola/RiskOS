@@ -22,6 +22,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -55,6 +56,11 @@ type Config struct {
 	// 30 seconds).
 	DefaultLimits ratelimit.Override
 	LimitCacheTTL time.Duration
+	// Jobs queues the enrollment email of an account created from the console, in the approval's
+	// transaction. EmailEnabled says email can actually be sent; without both, accounts can only
+	// be created with the operator CLI.
+	Jobs         jobs.TxEnqueuer
+	EmailEnabled bool
 	// RPID and Origins configure passkeys (the console's).
 	RPID    string
 	Origins []string

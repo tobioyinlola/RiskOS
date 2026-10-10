@@ -18,6 +18,7 @@ import { ApiError, unwrap } from "@/lib/api/client";
 import { formatCount, formatTimestamp, humanize } from "@/lib/format";
 
 import { useStaff } from "./shell";
+import { StaffAccountRequests } from "./staff-accounts";
 
 /** Staff accounts for security administrators: who has access, and switching it off or on. */
 export function StaffRosterPage() {
@@ -64,7 +65,7 @@ export function StaffRosterPage() {
     <>
       <PageHeader
         title="Staff"
-        description="Who can sign in to this console. Disabling an account ends its sessions at once. Accounts are created, and enrollment links issued, with the operator CLI (make staff); that is deliberate, so a hijacked session cannot mint credentials."
+        description="Who can sign in to this console. Disabling an account ends its sessions at once. Adding a person needs two security administrators and the link goes to their mailbox, so no single session can mint a credential. Re-issuing a link for someone who lost their passkey is still done with the operator CLI (make staff)."
       />
       {error ? (
         <div className="mb-4">
@@ -143,6 +144,7 @@ export function StaffRosterPage() {
           <Empty title="No staff accounts" />
         ) : null}
       </Panel>
+      <StaffAccountRequests />
     </>
   );
 }

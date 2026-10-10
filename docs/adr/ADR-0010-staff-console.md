@@ -62,7 +62,14 @@ is any other active staff member.
   applied at once but flagged as an emergency in both audit logs, and unresolved on every other
   staff member's queue until a different staff member reviews it. The review is the second pair
   of eyes after the fact. Reactivation never has an emergency path.
-- **Staff creation in the UI.** Rejected as above.
+- **Staff creation in the UI.** *Amended:* first rejected, because a hijacked session that could
+  mint credentials could take over any account. It is now built so that no single session can: it
+  is a four-eyes request between two security administrators, the enrollment link is emailed to
+  the new person and shown to neither, the token is derived by the worker rather than stored in
+  the job, and it is refused outright where email is not configured (the CLI remains). Two
+  colluding or simultaneously hijacked security administrators could still add an account; that
+  residual risk is why re-issuing a link for an existing account stays in the CLI, and why every
+  step is audited. Staff SSO and a private access path (ADMIN.md) reduce it further.
 - **A "disabled" tenant status in the UI.** The column allows it, but it has no defined meaning
   distinct from suspended (offboarding is undecided, ADR-0009), so the console offers only
   `active` and `suspended`.
