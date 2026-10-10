@@ -24,7 +24,12 @@ import { useStaff } from "./shell";
 type Access = AdminSchemas["SupportAccess"];
 
 /** Security signals across tenants: counts only, never tenant data. */
-export function SecurityOverview() {
+export function SecurityOverview({
+  embedded = false,
+}: {
+  /** Under another page's heading: a section heading instead of the page's own. */
+  embedded?: boolean;
+}) {
   const q = useQuery({
     queryKey: ["staff", "security"],
     queryFn: async () => unwrap(await adminApi().GET("/api/admin/v1/security")),
@@ -42,12 +47,17 @@ export function SecurityOverview() {
       {formatCount(n)}
     </DataCell>
   );
+  const description = `Counts per tenant since ${q.data ? formatTimestamp(q.data.since) : "24 hours ago"}. Security alerts and disabled webhook endpoints are as of now. No tenant data is shown.`;
   return (
     <>
-      <PageHeader
-        title="Security across tenants"
-        description={`Counts per tenant since ${q.data ? formatTimestamp(q.data.since) : "24 hours ago"}. Security alerts and disabled webhook endpoints are as of now. No tenant data is shown.`}
-      />
+      {embedded ? (
+        <header className="mb-3">
+          <h2 className="text-heading-2">Security across tenants</h2>
+          <p className="mt-1 text-body text-text-secondary">{description}</p>
+        </header>
+      ) : (
+        <PageHeader title="Security across tenants" description={description} />
+      )}
       <Panel className="overflow-hidden">
         <Table aria-label="Security across tenants">
           <thead>

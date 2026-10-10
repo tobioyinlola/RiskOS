@@ -112,6 +112,28 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What waits for the signed-in staff member
+         * @description Counts only: tenants by status, onboarding reviews and support requests awaiting a decision
+         *     (requests the caller made themselves are excluded: nobody decides their own), and active
+         *     support access.
+         */
+        get: operations["getAdminOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/tenants": {
         parameters: {
             query?: never;
@@ -119,8 +141,28 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tenants (identity and status only) */
+        /**
+         * Tenants (identity, status and counts only)
+         * @description Never tenant data; that is reached only through approved support access.
+         */
         get: operations["listAdminTenants"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenants/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One tenant (identity, status, counts and staff activity only) */
+        get: operations["getAdminTenant"];
         put?: never;
         post?: never;
         delete?: never;
@@ -390,9 +432,60 @@ export interface components {
         AdminTenant: {
             id: string;
             name: string;
-            status: string;
+            region: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "disabled";
+            /** @enum {string} */
+            origin: "operator" | "self_serve";
+            /** @description Whether the production environment is open (self-serve workspaces open it when onboarding is approved). */
+            production_enabled: boolean;
             /** Format: date-time */
             created_at: string;
+            /** Format: int64 */
+            active_users: number;
+            /**
+             * Format: int64
+             * @description Keys that are neither revoked nor expired, in both environments.
+             */
+            active_api_keys: number;
+            /** @description The compliance onboarding's status, or null for a workspace that has none. */
+            onboarding_status?: string | null;
+        };
+        AdminTenantDetail: {
+            tenant: components["schemas"]["AdminTenant"];
+            security: components["schemas"]["TenantSecurity"];
+            /**
+             * Format: date-time
+             * @description The start of the window the security counts cover.
+             */
+            since: string;
+            /** @description The staff audit entries that name this tenant, newest first. */
+            recent_staff_actions: components["schemas"]["StaffAuditEntry"][];
+        };
+        AdminOverview: {
+            /** Format: int64 */
+            tenants_total: number;
+            /** Format: int64 */
+            tenants_active: number;
+            /** Format: int64 */
+            tenants_suspended: number;
+            /**
+             * Format: int64
+             * @description Onboarding reviews waiting for a decision.
+             */
+            onboarding_submitted: number;
+            /**
+             * Format: int64
+             * @description Support-access requests made by someone else, waiting for this staff member's decision.
+             */
+            support_pending: number;
+            /**
+             * Format: int64
+             * @description Support access that is approved and has not ended.
+             */
+            support_active: number;
+            /** Format: int64 */
+            staff_active: number;
         };
         AdminTenantList: {
             data: components["schemas"]["AdminTenant"][];
@@ -739,6 +832,28 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
+    getAdminOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The counts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
     listAdminTenants: {
         parameters: {
             query?: never;
@@ -758,6 +873,31 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAdminTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTenantDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

@@ -10,6 +10,19 @@ const CSRF = "staff-csrf";
 const me = { id: "stf_me", name: "Ops A" };
 const other = { id: "stf_other", name: "Sec B" };
 
+const tenant = {
+  id: "ten_1",
+  name: "Acme Payments",
+  region: "eu-west-1",
+  status: "active",
+  origin: "self_serve",
+  production_enabled: false,
+  created_at: NOW,
+  active_users: 4,
+  active_api_keys: 2,
+  onboarding_status: "submitted",
+};
+
 function request(status: "pending" | "approved", decidedBy?: typeof me) {
   return {
     id: "sac_1",
@@ -94,14 +107,41 @@ test("staff console: session gate, security view, four-eyes approval", async ({
             },
           ],
         });
-      case "/tenants":
+      case "/overview":
         return json(route, {
-          data: [
+          tenants_total: 12,
+          tenants_active: 10,
+          tenants_suspended: 2,
+          onboarding_submitted: 3,
+          support_pending: 1,
+          support_active: 0,
+          staff_active: 4,
+        });
+      case "/tenants":
+        return json(route, { data: [tenant] });
+      case "/tenants/ten_1":
+        return json(route, {
+          tenant,
+          since: "2026-09-30T10:00:00Z",
+          security: {
+            tenant_id: "ten_1",
+            tenant_name: "Acme Payments",
+            tenant_status: "active",
+            degraded_evaluations: 3,
+            open_security_alerts: 1,
+            failed_logins: 7,
+            disabled_webhooks: 0,
+          },
+          recent_staff_actions: [
             {
-              id: "ten_1",
-              name: "Acme Payments",
-              status: "active",
-              created_at: NOW,
+              id: "1",
+              occurred_at: NOW,
+              actor: "stf_other",
+              action: "support_access.requested",
+              tenant_id: "ten_1",
+              resource_id: "sac_1",
+              outcome: "success",
+              metadata: {},
             },
           ],
         });
@@ -136,9 +176,33 @@ test("staff console: session gate, security view, four-eyes approval", async ({
 
   signedIn = true;
   await page.goto("/admin");
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText("Overview");
+  await expect(
+    page.getByRole("link", { name: /^Onboarding reviews: 3/ }),
+  ).toBeVisible();
+  await expect(
+    page.getByRole("link", { name: /^Support requests: 1/ }),
+  ).toBeVisible();
   const table = page.getByRole("table", { name: "Security across tenants" });
   await expect(table).toContainText("Acme Payments");
   await expect(table).toContainText("7");
+
+  // The directory finds a tenant by name, and its page shows state, signals and staff activity.
+  await page.getByRole("link", { name: "Tenants", exact: true }).click();
+  const tenants = page.getByRole("table", { name: "Tenants" });
+  await expect(tenants).toContainText("Acme Payments");
+  await expect(tenants).toContainText("Locked");
+  await page.getByLabel("Search").fill("nothing like it");
+  await expect(page.getByText("No tenant matches")).toBeVisible();
+  await page.getByLabel("Search").fill("acme");
+  await page.getByRole("link", { name: "Acme Payments" }).click();
+  await expect(page.getByRole("heading", { level: 1 })).toHaveText(
+    "Acme Payments",
+  );
+  await expect(page.getByText("Submitted")).toBeVisible();
+  await expect(
+    page.getByRole("table", { name: "Staff activity on this tenant" }),
+  ).toContainText("support_access.requested");
 
   await page.getByRole("link", { name: "Support access" }).click();
   const requests = page.getByRole("table", { name: "Support access requests" });

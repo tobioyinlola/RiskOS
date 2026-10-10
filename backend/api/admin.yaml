@@ -161,11 +161,32 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [staff]
+      summary: What waits for the signed-in staff member
+      description: |
+        Counts only: tenants by status, onboarding reviews and support requests awaiting a decision
+        (requests the caller made themselves are excluded: nobody decides their own), and active
+        support access.
+      responses:
+        "200":
+          description: The counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/tenants:
     get:
       operationId: listAdminTenants
       tags: [staff]
-      summary: Tenants (identity and status only)
+      summary: Tenants (identity, status and counts only)
+      description: Never tenant data; that is reached only through approved support access.
       responses:
         "200":
           description: Tenants, newest first.
@@ -175,6 +196,26 @@ paths:
                 $ref: "#/components/schemas/AdminTenantList"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}:
+    get:
+      operationId: getAdminTenant
+      tags: [staff]
+      summary: One tenant (identity, status, counts and staff activity only)
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTenantDetail"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/DefaultError"
   /api/admin/v1/security:
@@ -609,17 +650,84 @@ components:
     AdminTenant:
       type: object
       additionalProperties: false
-      required: [id, name, status, created_at]
+      required: [id, name, region, status, origin, production_enabled, created_at, active_users, active_api_keys]
       properties:
         id:
           type: string
         name:
           type: string
+        region:
+          type: string
         status:
           type: string
+          enum: [active, suspended, disabled]
+        origin:
+          type: string
+          enum: [operator, self_serve]
+        production_enabled:
+          type: boolean
+          description: Whether the production environment is open (self-serve workspaces open it when onboarding is approved).
         created_at:
           type: string
           format: date-time
+        active_users:
+          type: integer
+          format: int64
+        active_api_keys:
+          type: integer
+          format: int64
+          description: Keys that are neither revoked nor expired, in both environments.
+        onboarding_status:
+          type: string
+          nullable: true
+          description: The compliance onboarding's status, or null for a workspace that has none.
+    AdminTenantDetail:
+      type: object
+      additionalProperties: false
+      required: [tenant, security, since, recent_staff_actions]
+      properties:
+        tenant:
+          $ref: "#/components/schemas/AdminTenant"
+        security:
+          $ref: "#/components/schemas/TenantSecurity"
+        since:
+          type: string
+          format: date-time
+          description: The start of the window the security counts cover.
+        recent_staff_actions:
+          type: array
+          description: The staff audit entries that name this tenant, newest first.
+          items:
+            $ref: "#/components/schemas/StaffAuditEntry"
+    AdminOverview:
+      type: object
+      additionalProperties: false
+      required: [tenants_total, tenants_active, tenants_suspended, onboarding_submitted, support_pending, support_active, staff_active]
+      properties:
+        tenants_total:
+          type: integer
+          format: int64
+        tenants_active:
+          type: integer
+          format: int64
+        tenants_suspended:
+          type: integer
+          format: int64
+        onboarding_submitted:
+          type: integer
+          format: int64
+          description: Onboarding reviews waiting for a decision.
+        support_pending:
+          type: integer
+          format: int64
+          description: Support-access requests made by someone else, waiting for this staff member's decision.
+        support_active:
+          type: integer
+          format: int64
+          description: Support access that is approved and has not ended.
+        staff_active:
+          type: integer
+          format: int64
     AdminTenantList:
       type: object
       additionalProperties: false

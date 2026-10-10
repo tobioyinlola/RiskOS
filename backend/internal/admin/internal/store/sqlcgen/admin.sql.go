@@ -13,6 +13,91 @@ import (
 	"github.com/google/uuid"
 )
 
+const adminOverview = `-- name: AdminOverview :one
+SELECT tenants_active::bigint AS tenants_active, tenants_suspended::bigint AS tenants_suspended,
+       tenants_total::bigint AS tenants_total, onboarding_submitted::bigint AS onboarding_submitted,
+       support_pending::bigint AS support_pending, support_active::bigint AS support_active,
+       staff_active::bigint AS staff_active
+FROM admin_overview($1)
+`
+
+type AdminOverviewRow struct {
+	TenantsActive       int64
+	TenantsSuspended    int64
+	TenantsTotal        int64
+	OnboardingSubmitted int64
+	SupportPending      int64
+	SupportActive       int64
+	StaffActive         int64
+}
+
+func (q *Queries) AdminOverview(ctx context.Context, staffID uuid.UUID) (AdminOverviewRow, error) {
+	row := q.db.QueryRow(ctx, adminOverview, staffID)
+	var i AdminOverviewRow
+	err := row.Scan(
+		&i.TenantsActive,
+		&i.TenantsSuspended,
+		&i.TenantsTotal,
+		&i.OnboardingSubmitted,
+		&i.SupportPending,
+		&i.SupportActive,
+		&i.StaffActive,
+	)
+	return i, err
+}
+
+const adminTenantDirectory = `-- name: AdminTenantDirectory :many
+SELECT id::uuid AS id, name::text AS name, region::text AS region, status::text AS status, origin::text AS origin,
+       production_enabled::boolean AS production_enabled, created_at::timestamptz AS created_at,
+       active_users::bigint AS active_users, active_api_keys::bigint AS active_api_keys,
+       onboarding_status::text AS onboarding_status
+FROM admin_tenant_directory()
+`
+
+type AdminTenantDirectoryRow struct {
+	ID                uuid.UUID
+	Name              string
+	Region            string
+	Status            string
+	Origin            string
+	ProductionEnabled bool
+	CreatedAt         time.Time
+	ActiveUsers       int64
+	ActiveApiKeys     int64
+	OnboardingStatus  string
+}
+
+func (q *Queries) AdminTenantDirectory(ctx context.Context) ([]AdminTenantDirectoryRow, error) {
+	rows, err := q.db.Query(ctx, adminTenantDirectory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminTenantDirectoryRow
+	for rows.Next() {
+		var i AdminTenantDirectoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Region,
+			&i.Status,
+			&i.Origin,
+			&i.ProductionEnabled,
+			&i.CreatedAt,
+			&i.ActiveUsers,
+			&i.ActiveApiKeys,
+			&i.OnboardingStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const adminTenants = `-- name: AdminTenants :many
 SELECT id::uuid AS id, name::text AS name, status::text AS status, created_at::timestamptz AS created_at
 FROM admin_tenants()
@@ -366,6 +451,44 @@ SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata
 
 func (q *Queries) ListStaffAudit(ctx context.Context, lim int32) ([]StaffAuditLog, error) {
 	rows, err := q.db.Query(ctx, listStaffAudit, lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffAuditLog
+	for rows.Next() {
+		var i StaffAuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredAt,
+			&i.Actor,
+			&i.Action,
+			&i.TenantID,
+			&i.ResourceID,
+			&i.Outcome,
+			&i.Metadata,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffAuditForTenant = `-- name: ListStaffAuditForTenant :many
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata FROM staff_audit_log WHERE tenant_id = $1 ORDER BY occurred_at DESC, id DESC LIMIT $2
+`
+
+type ListStaffAuditForTenantParams struct {
+	TenantID *uuid.UUID
+	Lim      int32
+}
+
+func (q *Queries) ListStaffAuditForTenant(ctx context.Context, arg ListStaffAuditForTenantParams) ([]StaffAuditLog, error) {
+	rows, err := q.db.Query(ctx, listStaffAuditForTenant, arg.TenantID, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

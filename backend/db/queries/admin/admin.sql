@@ -96,6 +96,23 @@ SELECT * FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT @lim;
 SELECT id::uuid AS id, name::text AS name, status::text AS status, created_at::timestamptz AS created_at
 FROM admin_tenants();
 
+-- name: AdminTenantDirectory :many
+SELECT id::uuid AS id, name::text AS name, region::text AS region, status::text AS status, origin::text AS origin,
+       production_enabled::boolean AS production_enabled, created_at::timestamptz AS created_at,
+       active_users::bigint AS active_users, active_api_keys::bigint AS active_api_keys,
+       onboarding_status::text AS onboarding_status
+FROM admin_tenant_directory();
+
+-- name: AdminOverview :one
+SELECT tenants_active::bigint AS tenants_active, tenants_suspended::bigint AS tenants_suspended,
+       tenants_total::bigint AS tenants_total, onboarding_submitted::bigint AS onboarding_submitted,
+       support_pending::bigint AS support_pending, support_active::bigint AS support_active,
+       staff_active::bigint AS staff_active
+FROM admin_overview(@staff_id);
+
+-- name: ListStaffAuditForTenant :many
+SELECT * FROM staff_audit_log WHERE tenant_id = @tenant_id ORDER BY occurred_at DESC, id DESC LIMIT @lim;
+
 -- name: SecurityOverview :many
 SELECT tenant_id::uuid AS tenant_id, tenant_name::text AS tenant_name, tenant_status::text AS tenant_status,
        degraded_evaluations::bigint AS degraded_evaluations, open_security_alerts::bigint AS open_security_alerts,

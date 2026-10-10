@@ -17,6 +17,45 @@ import (
 	"github.com/oapi-codegen/runtime"
 )
 
+// Defines values for AdminTenantOrigin.
+const (
+	Operator  AdminTenantOrigin = "operator"
+	SelfServe AdminTenantOrigin = "self_serve"
+)
+
+// Valid indicates whether the value is a known member of the AdminTenantOrigin enum.
+func (e AdminTenantOrigin) Valid() bool {
+	switch e {
+	case Operator:
+		return true
+	case SelfServe:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminTenantStatus.
+const (
+	Active    AdminTenantStatus = "active"
+	Disabled  AdminTenantStatus = "disabled"
+	Suspended AdminTenantStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AdminTenantStatus enum.
+func (e AdminTenantStatus) Valid() bool {
+	switch e {
+	case Active:
+		return true
+	case Disabled:
+		return true
+	case Suspended:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for OnboardingStatus.
 const (
 	OnboardingStatusApproved  OnboardingStatus = "approved"
@@ -86,12 +125,56 @@ func (e SupportAccessStatus) Valid() bool {
 	}
 }
 
+// AdminOverview defines model for AdminOverview.
+type AdminOverview struct {
+	// OnboardingSubmitted Onboarding reviews waiting for a decision.
+	OnboardingSubmitted int64 `json:"onboarding_submitted"`
+	StaffActive         int64 `json:"staff_active"`
+
+	// SupportActive Support access that is approved and has not ended.
+	SupportActive int64 `json:"support_active"`
+
+	// SupportPending Support-access requests made by someone else, waiting for this staff member's decision.
+	SupportPending   int64 `json:"support_pending"`
+	TenantsActive    int64 `json:"tenants_active"`
+	TenantsSuspended int64 `json:"tenants_suspended"`
+	TenantsTotal     int64 `json:"tenants_total"`
+}
+
 // AdminTenant defines model for AdminTenant.
 type AdminTenant struct {
-	CreatedAt time.Time `json:"created_at"`
-	Id        string    `json:"id"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"`
+	// ActiveApiKeys Keys that are neither revoked nor expired, in both environments.
+	ActiveApiKeys int64     `json:"active_api_keys"`
+	ActiveUsers   int64     `json:"active_users"`
+	CreatedAt     time.Time `json:"created_at"`
+	Id            string    `json:"id"`
+	Name          string    `json:"name"`
+
+	// OnboardingStatus The compliance onboarding's status, or null for a workspace that has none.
+	OnboardingStatus *string           `json:"onboarding_status,omitempty"`
+	Origin           AdminTenantOrigin `json:"origin"`
+
+	// ProductionEnabled Whether the production environment is open (self-serve workspaces open it when onboarding is approved).
+	ProductionEnabled bool              `json:"production_enabled"`
+	Region            string            `json:"region"`
+	Status            AdminTenantStatus `json:"status"`
+}
+
+// AdminTenantOrigin defines model for AdminTenant.Origin.
+type AdminTenantOrigin string
+
+// AdminTenantStatus defines model for AdminTenant.Status.
+type AdminTenantStatus string
+
+// AdminTenantDetail defines model for AdminTenantDetail.
+type AdminTenantDetail struct {
+	// RecentStaffActions The staff audit entries that name this tenant, newest first.
+	RecentStaffActions []StaffAuditEntry `json:"recent_staff_actions"`
+	Security           TenantSecurity    `json:"security"`
+
+	// Since The start of the window the security counts cover.
+	Since  time.Time   `json:"since"`
+	Tenant AdminTenant `json:"tenant"`
 }
 
 // AdminTenantList defines model for AdminTenantList.
@@ -366,6 +449,9 @@ type ServerInterface interface {
 	// RejectOnboarding Send a submitted onboarding back with a note
 	// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
 	RejectOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// GetAdminOverview What waits for the signed-in staff member
+	// (GET /api/admin/v1/overview)
+	GetAdminOverview(w http.ResponseWriter, r *http.Request)
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(w http.ResponseWriter, r *http.Request)
@@ -384,9 +470,12 @@ type ServerInterface interface {
 	// RevokeSupportAccess End approved access early, or withdraw a pending request
 	// (POST /api/admin/v1/support-access/{access_id}/revoke)
 	RevokeSupportAccess(w http.ResponseWriter, r *http.Request, accessId AccessID)
-	// ListAdminTenants Tenants (identity and status only)
+	// ListAdminTenants Tenants (identity, status and counts only)
 	// (GET /api/admin/v1/tenants)
 	ListAdminTenants(w http.ResponseWriter, r *http.Request)
+	// GetAdminTenant One tenant (identity, status, counts and staff activity only)
+	// (GET /api/admin/v1/tenants/{tenant_id})
+	GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -459,6 +548,12 @@ func (_ Unimplemented) RejectOnboarding(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetAdminOverview What waits for the signed-in staff member
+// (GET /api/admin/v1/overview)
+func (_ Unimplemented) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetSecurityOverview Security signals across tenants
 // (GET /api/admin/v1/security)
 func (_ Unimplemented) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
@@ -495,9 +590,15 @@ func (_ Unimplemented) RevokeSupportAccess(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ListAdminTenants Tenants (identity and status only)
+// ListAdminTenants Tenants (identity, status and counts only)
 // (GET /api/admin/v1/tenants)
 func (_ Unimplemented) ListAdminTenants(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminTenant One tenant (identity, status, counts and staff activity only)
+// (GET /api/admin/v1/tenants/{tenant_id})
+func (_ Unimplemented) GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -719,6 +820,20 @@ func (siw *ServerInterfaceWrapper) RejectOnboarding(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSecurityOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
 
@@ -844,6 +959,32 @@ func (siw *ServerInterfaceWrapper) ListAdminTenants(w http.ResponseWriter, r *ht
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAdminTenants(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminTenant operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminTenant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminTenant(w, r, tenantId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -985,7 +1126,13 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/v1/auth/logout", wrapper.StaffLogout)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/overview", wrapper.GetAdminOverview)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/tenants", wrapper.ListAdminTenants)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}", wrapper.GetAdminTenant)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/security", wrapper.GetSecurityOverview)
@@ -1865,6 +2012,58 @@ func (response RejectOnboardingdefaultJSONResponse) VisitRejectOnboardingRespons
 	return err
 }
 
+type GetAdminOverviewRequestObject struct {
+}
+
+type GetAdminOverviewResponseObject interface {
+	VisitGetAdminOverviewResponse(w http.ResponseWriter) error
+}
+
+type GetAdminOverview200JSONResponse AdminOverview
+
+func (response GetAdminOverview200JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverview401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetAdminOverview401JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverviewdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminOverviewdefaultJSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSecurityOverviewRequestObject struct {
 }
 
@@ -2387,6 +2586,73 @@ func (response ListAdminTenantsdefaultJSONResponse) VisitListAdminTenantsRespons
 	return err
 }
 
+type GetAdminTenantRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetAdminTenantResponseObject interface {
+	VisitGetAdminTenantResponse(w http.ResponseWriter) error
+}
+
+type GetAdminTenant200JSONResponse AdminTenantDetail
+
+func (response GetAdminTenant200JSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTenant401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetAdminTenant401JSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTenant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminTenant404JSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTenantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminTenantdefaultJSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListStaffAudit The staff audit log, newest first
@@ -2422,6 +2688,9 @@ type StrictServerInterface interface {
 	// RejectOnboarding Send a submitted onboarding back with a note
 	// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
 	RejectOnboarding(ctx context.Context, request RejectOnboardingRequestObject) (RejectOnboardingResponseObject, error)
+	// GetAdminOverview What waits for the signed-in staff member
+	// (GET /api/admin/v1/overview)
+	GetAdminOverview(ctx context.Context, request GetAdminOverviewRequestObject) (GetAdminOverviewResponseObject, error)
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(ctx context.Context, request GetSecurityOverviewRequestObject) (GetSecurityOverviewResponseObject, error)
@@ -2440,9 +2709,12 @@ type StrictServerInterface interface {
 	// RevokeSupportAccess End approved access early, or withdraw a pending request
 	// (POST /api/admin/v1/support-access/{access_id}/revoke)
 	RevokeSupportAccess(ctx context.Context, request RevokeSupportAccessRequestObject) (RevokeSupportAccessResponseObject, error)
-	// ListAdminTenants Tenants (identity and status only)
+	// ListAdminTenants Tenants (identity, status and counts only)
 	// (GET /api/admin/v1/tenants)
 	ListAdminTenants(ctx context.Context, request ListAdminTenantsRequestObject) (ListAdminTenantsResponseObject, error)
+	// GetAdminTenant One tenant (identity, status, counts and staff activity only)
+	// (GET /api/admin/v1/tenants/{tenant_id})
+	GetAdminTenant(ctx context.Context, request GetAdminTenantRequestObject) (GetAdminTenantResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2794,6 +3066,30 @@ func (sh *strictHandler) RejectOnboarding(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetAdminOverview operation middleware
+func (sh *strictHandler) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminOverviewRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminOverview(ctx, request.(GetAdminOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminOverviewResponseObject); ok {
+		if err := validResponse.VisitGetAdminOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetSecurityOverview operation middleware
 func (sh *strictHandler) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
 	var request GetSecurityOverviewRequestObject
@@ -2968,6 +3264,32 @@ func (sh *strictHandler) ListAdminTenants(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAdminTenantsResponseObject); ok {
 		if err := validResponse.VisitListAdminTenantsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminTenant operation middleware
+func (sh *strictHandler) GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetAdminTenantRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminTenant(ctx, request.(GetAdminTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminTenant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminTenantResponseObject); ok {
+		if err := validResponse.VisitGetAdminTenantResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

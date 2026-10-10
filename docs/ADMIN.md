@@ -48,9 +48,23 @@ The tenant's own audit log records the request, the decision, the revocation and
 made with the access (`support_access.*`, actor type `staff`), so the customer can see who looked
 at what and why.
 
+## Overview and tenant directory
+
+Design: [ADR-0010](adr/ADR-0010-staff-console.md). The console opens on **Overview**: what waits
+for the signed-in staff member, each count linking to the page that clears it (onboarding
+reviews waiting, support requests made by *someone else*, tenants by status, support access in
+use), with the security view below.
+
+**Tenants** lists every workspace with identity, status, origin, whether production is open,
+active users, active API keys and onboarding status, searchable by name or ID and filterable by
+status. A tenant's page adds the security counters for it and the staff audit entries that name
+it. Like the security view, the figures come from `SECURITY DEFINER` functions
+(`admin_tenant_directory()`, `admin_overview()`) that return identity and counts only; what a
+tenant stores is reached only through support access.
+
 ## Cross-tenant security view
 
-The staff console's Security page lists, per tenant, counts only, never tenant data:
+The security view, on the Overview page, lists, per tenant, counts only, never tenant data:
 
 - open security alerts (degradation, disabled webhook endpoints);
 - evaluations with degraded signals in the last 24 hours;

@@ -263,13 +263,13 @@ func (h *Handlers) StaffLogout(ctx context.Context, _ adminapi.StaffLogoutReques
 
 // ListAdminTenants implements GET /api/admin/v1/tenants.
 func (h *Handlers) ListAdminTenants(ctx context.Context, _ adminapi.ListAdminTenantsRequestObject) (adminapi.ListAdminTenantsResponseObject, error) {
-	rows, err := h.svc.Tenants(ctx)
+	rows, err := h.svc.TenantDirectory(ctx)
 	if err != nil {
 		return nil, mapError(err)
 	}
 	out := adminapi.ListAdminTenants200JSONResponse{Data: make([]adminapi.AdminTenant, len(rows))}
 	for i, t := range rows {
-		out.Data[i] = adminapi.AdminTenant{Id: ids.Format(ids.PrefixTenant, t.ID), Name: t.Name, Status: t.Status, CreatedAt: t.CreatedAt}
+		out.Data[i] = tenantToAPI(t)
 	}
 	return out, nil
 }
