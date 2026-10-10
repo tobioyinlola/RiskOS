@@ -53,6 +53,10 @@ type Config struct {
 	// DisableAfter disables an endpoint that has failed every attempt for this long; zero means
 	// domain.DisableAfter.
 	DisableAfter time.Duration
+	// TenantConcurrency bounds how many deliveries of one tenant a worker runs at once, so slow
+	// endpoints of one tenant cannot occupy every delivery slot. A delivery over the bound is
+	// deferred (snoozed) without using an attempt. Zero means no bound.
+	TenantConcurrency int
 	// Metrics records delivery outcomes; nil records nothing.
 	Metrics *appmetrics.Metrics
 }
@@ -125,6 +129,8 @@ type Service struct {
 	cfg      Config
 	notifier Notifier
 	logger   *slog.Logger
+	// gate bounds one tenant's concurrent deliveries; nil is unbounded.
+	gate *tenantGate
 }
 
 // New returns a Service. notifier may be nil (the API process never delivers).
@@ -137,7 +143,7 @@ func New(runner txn.Runner, rec audit.Recorder, clk clock.Clock, enq jobs.Enqueu
 	}
 	return &Service{
 		runner: runner, audit: rec, clock: clk, jobs: enq, client: egress.New(cfg.Timeout), cfg: cfg,
-		notifier: notifier, logger: logger,
+		notifier: notifier, logger: logger, gate: newTenantGate(cfg.TenantConcurrency),
 	}
 }
 
@@ -557,6 +563,13 @@ func (s *Service) Deliver(ctx context.Context, deliveryID uuid.UUID) error {
 	if err != nil {
 		return err
 	}
+	// A tenant already running its share of deliveries here waits its turn, without using an
+	// attempt and without holding a worker slot: the job is snoozed for a moment.
+	if !s.gate.tryAcquire(scope.TenantID) {
+		s.cfg.Metrics.DeliveryDeferred(ctx)
+		return jobs.Snooze(jitter(time.Second))
+	}
+	defer s.gate.release(scope.TenantID)
 	var d domain.Delivery
 	var e domain.Endpoint
 	skip := false

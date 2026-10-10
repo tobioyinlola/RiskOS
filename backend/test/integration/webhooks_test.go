@@ -40,8 +40,13 @@ type receiver struct {
 	srv    *httptest.Server
 	got    chan received
 	status atomic.Int32
-	mu     sync.Mutex
-	all    []received
+	// delay holds each response back (nanoseconds); inflight and peak count requests being
+	// served at once, to show how many deliveries reach the receiver together.
+	delay    atomic.Int64
+	inflight atomic.Int32
+	peak     atomic.Int32
+	mu       sync.Mutex
+	all      []received
 	// held are received deliveries not yet consumed by nextOfType (test goroutine only).
 	held []received
 }
@@ -51,6 +56,17 @@ func newReceiver(t *testing.T) *receiver {
 	r := &receiver{got: make(chan received, 100)}
 	r.status.Store(http.StatusOK)
 	r.srv = httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, req *http.Request) {
+		n := r.inflight.Add(1)
+		defer r.inflight.Add(-1)
+		for {
+			p := r.peak.Load()
+			if n <= p || r.peak.CompareAndSwap(p, n) {
+				break
+			}
+		}
+		if d := time.Duration(r.delay.Load()); d > 0 {
+			time.Sleep(d)
+		}
 		var rec received
 		rec.header = req.Header.Clone()
 		rec.body, _ = io.ReadAll(req.Body)

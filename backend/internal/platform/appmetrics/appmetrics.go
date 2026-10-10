@@ -174,6 +174,15 @@ func (m *Metrics) Delivered(ctx context.Context, result string, d time.Duration)
 	m.deliveryTime.Record(ctx, d.Seconds(), attrs)
 }
 
+// DeliveryDeferred counts a webhook delivery put off because its tenant already held its share of
+// the worker's delivery slots. It is not an attempt, so it has no duration.
+func (m *Metrics) DeliveryDeferred(ctx context.Context) {
+	if !m.ok() {
+		return
+	}
+	m.deliveries.Add(ctx, 1, metric.WithAttributes(attribute.String("result", "deferred")))
+}
+
 // JobRan records one job execution.
 func (m *Metrics) JobRan(ctx context.Context, kind, outcome string, d time.Duration) {
 	if !m.ok() {

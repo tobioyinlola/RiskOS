@@ -31,7 +31,7 @@ suffixes.
 | `riskos.ratelimit.errors` | counter | none | api | Checks that failed open because Redis was unavailable |
 | `riskos.auth.failures` | counter | none | api | API requests answered 401 |
 | `riskos.auth.previous_pepper` | counter | `rehashed`: `true`, `false` | api | Pepper rotation progress ([ADR-0008](adr/ADR-0008-secret-rotation.md)): keys still verifying under the previous pepper. Zero for the retirement period means it can be removed |
-| `riskos.webhooks.deliveries` | counter | `result`: `succeeded`, `retrying`, `failed` | worker | Webhook success. `failed` means the schedule is exhausted or the endpoint was disabled |
+| `riskos.webhooks.deliveries` | counter | `result`: `succeeded`, `retrying`, `failed`, `deferred` | worker | Webhook success. `failed` means the schedule is exhausted or the endpoint was disabled; `deferred` is a delivery put off because its tenant held its share of slots (not an attempt, so not in the duration histogram) and is excluded from the success ratio |
 | `riskos.webhooks.delivery.duration` | histogram, s | `result` | worker | Receiver latency, as seen by RiskOS |
 | `riskos.jobs.duration` | histogram, s | `kind`, `outcome`: `succeeded`, `failed`, `snoozed` | worker | Worker latency and failure rate by job kind. A snooze is a webhook retry, not a failure |
 | `riskos.jobs.queue.depth` | gauge | `queue`, `state`: `available`, `scheduled`, `retryable`, `running` | worker | Queue depth |

@@ -92,7 +92,8 @@ func run() (err error) {
 		SigningKey: []byte(cfg.Webhooks.SigningKey), SigningKeyID: cfg.Webhooks.SigningKeyID,
 		PreviousSigningKey: []byte(cfg.Webhooks.PreviousSigningKey), PreviousSigningKeyID: cfg.Webhooks.PreviousSigningKeyID,
 		Timeout: cfg.Webhooks.Timeout, AllowPrivateTest: cfg.Webhooks.AllowPrivateTest,
-		Metrics: appMetrics,
+		TenantConcurrency: cfg.Webhooks.EffectiveTenantConcurrency(),
+		Metrics:           appMetrics,
 	}
 	// Refuse to start without a signing key some endpoint still uses (ADR-0008).
 	if err := webhooks.VerifyKeyring(ctx, pool, webhookCfg); err != nil {

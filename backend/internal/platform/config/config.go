@@ -164,9 +164,22 @@ type Webhooks struct {
 	Timeout time.Duration
 	// Concurrency is the number of deliveries the worker runs at once.
 	Concurrency int
+	// TenantConcurrency bounds how many of those one tenant may hold, so a tenant with slow
+	// endpoints cannot starve the others. Zero in the struct means the default, half of
+	// Concurrency (at least 1); it never exceeds Concurrency.
+	TenantConcurrency int
 	// AllowPrivateTest lets test-environment endpoints use http:// and private addresses, for
 	// local development only. Refused when RISKOS_ENV=production.
 	AllowPrivateTest bool
+}
+
+// EffectiveTenantConcurrency is the per-tenant bound in force: TenantConcurrency, or half of
+// Concurrency (at least 1) when unset.
+func (w Webhooks) EffectiveTenantConcurrency() int {
+	if w.TenantConcurrency > 0 {
+		return w.TenantConcurrency
+	}
+	return max(1, w.Concurrency/2)
 }
 
 // Validate checks the webhook settings; call it in binaries that sign or deliver webhooks.
@@ -198,6 +211,9 @@ func (w Webhooks) Validate() error {
 	}
 	if w.Concurrency < 1 {
 		errs = append(errs, errors.New("RISKOS_WEBHOOK_CONCURRENCY: must be at least 1"))
+	}
+	if w.TenantConcurrency < 0 || (w.Concurrency >= 1 && w.TenantConcurrency > w.Concurrency) {
+		errs = append(errs, errors.New("RISKOS_WEBHOOK_TENANT_CONCURRENCY: must be between 1 and RISKOS_WEBHOOK_CONCURRENCY (0 for the default)"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
@@ -431,6 +447,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			PreviousSigningKeyID: r.integer("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS_ID", 0),
 			Timeout:              r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
 			Concurrency:          r.integer("RISKOS_WEBHOOK_CONCURRENCY", 10),
+			TenantConcurrency:    r.integer("RISKOS_WEBHOOK_TENANT_CONCURRENCY", 0),
 			AllowPrivateTest:     r.boolean("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST", false),
 		},
 		Risk: Risk{
