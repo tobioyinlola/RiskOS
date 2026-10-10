@@ -140,6 +140,28 @@ func (q *Queries) AdminTenants(ctx context.Context) ([]AdminTenantsRow, error) {
 	return items, nil
 }
 
+const bindStaffSSOIdentity = `-- name: BindStaffSSOIdentity :exec
+INSERT INTO staff_sso_identities (staff_id, issuer, subject, bound_at)
+VALUES ($1, $2, $3, $4)
+`
+
+type BindStaffSSOIdentityParams struct {
+	StaffID uuid.UUID
+	Issuer  string
+	Subject string
+	Now     time.Time
+}
+
+func (q *Queries) BindStaffSSOIdentity(ctx context.Context, arg BindStaffSSOIdentityParams) error {
+	_, err := q.db.Exec(ctx, bindStaffSSOIdentity,
+		arg.StaffID,
+		arg.Issuer,
+		arg.Subject,
+		arg.Now,
+	)
+	return err
+}
+
 const clearEnrollToken = `-- name: ClearEnrollToken :exec
 UPDATE staff SET enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = $1
 `
@@ -1251,6 +1273,33 @@ func (q *Queries) StaffByEnrollToken(ctx context.Context, tokenHash []byte) (Sta
 	return i, err
 }
 
+const staffBySSOSubject = `-- name: StaffBySSOSubject :one
+SELECT s.id, s.email, s.name, s.role, s.status, s.enroll_token_hash, s.enroll_expires_at, s.created_at, s.created_by FROM staff s JOIN staff_sso_identities i ON i.staff_id = s.id
+WHERE i.issuer = $1 AND i.subject = $2
+`
+
+type StaffBySSOSubjectParams struct {
+	Issuer  string
+	Subject string
+}
+
+func (q *Queries) StaffBySSOSubject(ctx context.Context, arg StaffBySSOSubjectParams) (Staff, error) {
+	row := q.db.QueryRow(ctx, staffBySSOSubject, arg.Issuer, arg.Subject)
+	var i Staff
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.Status,
+		&i.EnrollTokenHash,
+		&i.EnrollExpiresAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
 const staffPasskeys = `-- name: StaffPasskeys :many
 SELECT id, staff_id, name, public_key, attestation_type, aaguid, sign_count, transports, flags, created_at, last_used_at FROM staff_passkeys WHERE staff_id = $1 ORDER BY created_at
 `
@@ -1339,6 +1388,22 @@ func (q *Queries) StaffRoster(ctx context.Context) ([]StaffRosterRow, error) {
 	return items, nil
 }
 
+const staffSSOIdentity = `-- name: StaffSSOIdentity :one
+SELECT staff_id, issuer, subject, bound_at FROM staff_sso_identities WHERE staff_id = $1
+`
+
+func (q *Queries) StaffSSOIdentity(ctx context.Context, staffID uuid.UUID) (StaffSsoIdentity, error) {
+	row := q.db.QueryRow(ctx, staffSSOIdentity, staffID)
+	var i StaffSsoIdentity
+	err := row.Scan(
+		&i.StaffID,
+		&i.Issuer,
+		&i.Subject,
+		&i.BoundAt,
+	)
+	return i, err
+}
+
 const staffSessionByToken = `-- name: StaffSessionByToken :one
 SELECT s.id, s.staff_id, s.created_at, s.last_seen_at, s.expires_at, s.revoked_at,
        st.email, st.name, st.role, st.status
@@ -1412,6 +1477,18 @@ type TouchStaffSessionParams struct {
 func (q *Queries) TouchStaffSession(ctx context.Context, arg TouchStaffSessionParams) error {
 	_, err := q.db.Exec(ctx, touchStaffSession, arg.Now, arg.ID)
 	return err
+}
+
+const unbindStaffSSOIdentity = `-- name: UnbindStaffSSOIdentity :execrows
+DELETE FROM staff_sso_identities WHERE staff_id = $1
+`
+
+func (q *Queries) UnbindStaffSSOIdentity(ctx context.Context, staffID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, unbindStaffSSOIdentity, staffID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const updateStaffPasskeyUse = `-- name: UpdateStaffPasskeyUse :exec

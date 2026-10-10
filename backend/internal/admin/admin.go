@@ -42,6 +42,9 @@ var (
 	ErrConflict = service.ErrConflict
 )
 
+// SSOConfig is the identity provider staff sign in through before their passkey.
+type SSOConfig = service.SSOConfig
+
 // Config configures the admin realm.
 type Config struct {
 	// Secret derives the realm's CSRF key: the console secret.
@@ -60,6 +63,8 @@ type Config struct {
 	// RPID and Origins configure passkeys and allowed origins: the console's.
 	RPID    string
 	Origins []string
+	// SSO is the identity provider for staff sign-in; the zero value disables it.
+	SSO SSOConfig
 	// CookieSecure sets Secure on the staff session cookie (required in production).
 	CookieSecure bool
 	// Limiter throttles passkey ceremonies per client address; nil disables throttling.
@@ -93,6 +98,7 @@ func New(pool Pool, tenantsModule *tenants.Module, runner txn.Runner, rec audit.
 	sc.Secret, sc.SecretPrevious, sc.RPID, sc.Origins = cfg.Secret, cfg.SecretPrevious, cfg.RPID, cfg.Origins
 	sc.DefaultLimits, sc.LimitCacheTTL = cfg.DefaultLimits, cfg.LimitCacheTTL
 	sc.Jobs, sc.EmailEnabled = cfg.Jobs, cfg.EmailEnabled
+	sc.SSO = cfg.SSO
 	var lim service.Limiter
 	if cfg.Limiter != nil {
 		lim = limiter{cfg.Limiter}
@@ -222,3 +228,9 @@ func trimSlash(s string) string {
 
 // EnrollTTL is how long an enrollment link stays valid.
 const EnrollTTL = 24 * time.Hour
+
+// UnbindSSO forgets a staff member's identity provider subject and ends their sessions, so the
+// next single sign-on binds afresh (operator CLI).
+func (m *Module) UnbindSSO(ctx context.Context, email, operator string) error {
+	return m.svc.UnbindSSO(ctx, email, operator)
+}

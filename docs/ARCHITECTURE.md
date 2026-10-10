@@ -251,7 +251,7 @@ RiskOS separates three authentication realms so a compromise in one cannot becom
 | --- | --- | --- | --- |
 | API | Customer systems | Scoped API key per environment | No sessions, no cookies; rate limited per key |
 | Dashboard | Customer analysts, developers, admins | Password plus MFA (passkeys preferred), server-side session | Session and device tracking; re-authentication for high-impact actions |
-| Internal admin | RiskOS operations and security staff | SSO plus mandatory MFA or hardware key | Separate route prefix and session store; can later move to its own deployable |
+| Internal admin | RiskOS operations and security staff | Passkey with user verification; optionally behind the platform identity provider (SSO), which can be made mandatory | Separate route prefix and session store; can later move to its own deployable |
 
 **API keys**
 

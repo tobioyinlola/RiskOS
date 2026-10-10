@@ -18,7 +18,7 @@ dashboard and internal admin accounts; backups.
 1. Internet → edge (WAF, gateway, TLS).
 2. Customer systems → API realm (API keys).
 3. Customer users → dashboard realm (sessions, MFA).
-4. RiskOS staff → internal admin realm (passkeys only, short sessions, four-eyes read-only support access; SSO and a private access path to come, [ADMIN.md](ADMIN.md)).
+4. RiskOS staff → internal admin realm (passkeys only, optionally behind the identity provider, short sessions, four-eyes read-only support access; a private access path to come, [ADMIN.md](ADMIN.md)).
 5. Application → data zone (PostgreSQL with RLS, Redis).
 6. Workers → customer webhook endpoints (egress proxy, SSRF-safe dialer).
 7. Production account → backup and log-archive accounts.

@@ -602,6 +602,13 @@ type StaffSession struct {
 	UserAgent  string
 }
 
+type StaffSsoIdentity struct {
+	StaffID uuid.UUID
+	Issuer  string
+	Subject string
+	BoundAt time.Time
+}
+
 type SupportAccess struct {
 	ID              uuid.UUID
 	TenantID        uuid.UUID

@@ -23,6 +23,25 @@ customer API.
 - **Passkeys only.** No passwords, no authenticator codes. Sign-in uses discoverable credentials
   with user verification, so the sign-in page asks for no email. A passkey whose signature
   counter goes backwards (a possible clone) is refused.
+- **Single sign-on (optional).** A deployment can name one identity provider for staff
+  (`RISKOS_STAFF_SSO_ISSUER`, `_CLIENT_ID`, `_CLIENT_SECRET`; register
+  `<console URL>/admin/sso/callback` as the redirect URI). The sign-in page then offers
+  "Continue with single sign-on": authorization code flow with PKCE (S256), state and nonce, the
+  ID token's signature, issuer, audience, expiry and nonce checked, provider requests through the
+  platform egress client. The provider only *identifies* the person; the roster stays the
+  authority for who is staff, their role and their status, and **the passkey is still required**
+  to open a session. At the first SSO sign-in the provider must vouch for the account's email
+  (`email_verified`), and its subject is bound to the staff member; later sign-ins match by
+  subject, so an email reassigned at the provider reaches nothing. The person must already have a
+  passkey (enrolled from the invitation link). Every failure is the same answer to the caller
+  (`SSO_FAILED`) and is audited with its reason (`staff.sso_failed`: `subject_mismatch`,
+  `email_unverified`, `no_passkey`, `staff_disabled`, `token_rejected`, `unknown_staff`).
+  `RISKOS_STAFF_SSO_REQUIRED=true` makes the provider the first step of every sign-in: direct
+  passkey sign-in answers `403 SSO_REQUIRED`, and enrolling a passkey from a link registers it
+  without opening a session. If a person's account at the provider is replaced, `riskosctl staff
+  unbind-sso --operator NAME --email EMAIL` forgets the bound subject and ends their sessions; the
+  next sign-in binds afresh. Disabling a person at the provider does not by itself end an open
+  console session (at most 4 hours, 15 idle); disable them in the roster too.
 - **Short sessions.** 15 minutes idle, 4 hours at most, in the `riskos_staff` cookie (HttpOnly,
   SameSite=Strict, Secure outside local development). Unsafe requests need the session's CSRF
   token and an allowed `Origin`. Passkey ceremonies are throttled per client address.
@@ -185,5 +204,5 @@ live credential.
 - Quotas other than request rate (storage, event volume) per tenant. TODO(phase-9)
 - A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
   hardware-key attestation for staff passkeys. TODO(phase-9)
-- SSO for staff. TODO(phase-9)
+- Group or role claims from the provider (roles stay in the roster), and a second provider.
 - Anchoring the staff and tenant audit chains' heads in write-once storage. TODO(phase-8)

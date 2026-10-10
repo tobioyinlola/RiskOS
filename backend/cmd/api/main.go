@@ -201,6 +201,7 @@ func run() (err error) {
 		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
 		// Accounts can be created from the console only when the enrollment link can be emailed.
 		Jobs: queue, EmailEnabled: cfg.SMTP.Enabled(),
+		SSO: staffSSO(cfg.Console),
 		DefaultLimits: ratelimit.Override{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
 			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},
@@ -285,4 +286,16 @@ func consoleConfig(c config.Console) auth.ConsoleConfig {
 		cc.Breach = auth.PwnedPasswords(c.BreachedPasswordURL, 3*time.Second)
 	}
 	return cc
+}
+
+// staffSSO is the identity provider staff sign in through before their passkey, or the zero
+// value when none is configured. The provider redirects to the console's callback page.
+func staffSSO(c config.Console) admin.SSOConfig {
+	if c.StaffSSOIssuer == "" {
+		return admin.SSOConfig{}
+	}
+	return admin.SSOConfig{
+		Issuer: c.StaffSSOIssuer, ClientID: c.StaffSSOClientID, ClientSecret: c.StaffSSOClientSecret,
+		RedirectURL: c.URL + "/admin/sso/callback", Required: c.StaffSSORequired, AllowPrivate: c.SSOAllowPrivate,
+	}
 }

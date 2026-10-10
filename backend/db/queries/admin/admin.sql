@@ -214,3 +214,17 @@ WHERE id = @id;
 -- name: WithdrawStaffAccountRequest :execrows
 UPDATE staff_account_requests SET status = 'withdrawn', decided_at = @now::timestamptz
 WHERE id = @id AND requested_by = @staff_id AND status = 'pending';
+
+-- name: StaffSSOIdentity :one
+SELECT * FROM staff_sso_identities WHERE staff_id = @staff_id;
+
+-- name: StaffBySSOSubject :one
+SELECT s.* FROM staff s JOIN staff_sso_identities i ON i.staff_id = s.id
+WHERE i.issuer = @issuer AND i.subject = @subject;
+
+-- name: BindStaffSSOIdentity :exec
+INSERT INTO staff_sso_identities (staff_id, issuer, subject, bound_at)
+VALUES (@staff_id, @issuer, @subject, @now);
+
+-- name: UnbindStaffSSOIdentity :execrows
+DELETE FROM staff_sso_identities WHERE staff_id = @staff_id;

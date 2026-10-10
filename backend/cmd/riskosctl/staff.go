@@ -96,6 +96,13 @@ func staffCommand(ctx context.Context, cfg config.Config, verb string, args []st
 		_, err = fmt.Fprintf(out, "New passkey link for %s; it works once, within 24 hours:\n  %s\n",
 			strings.ToLower(strings.TrimSpace(*email)), admin.EnrollURL(cfg.Console.URL, token))
 		return err
+	case "unbind-sso":
+		if err := m.UnbindSSO(ctx, *email, op); err != nil {
+			return err
+		}
+		_, err = fmt.Fprintf(out, "Single sign-on identity of %s removed and their sessions ended. Their next single sign-on binds afresh.\n",
+			strings.ToLower(strings.TrimSpace(*email)))
+		return err
 	case "disable", "enable":
 		if err := m.SetStaffStatus(ctx, *email, verb == "enable", op); err != nil {
 			return err

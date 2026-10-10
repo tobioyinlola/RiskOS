@@ -11,6 +11,7 @@
 //	riskosctl staff create --operator NAME --email EMAIL --name NAME [--role operations_admin|security_admin]
 //	riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
 //	riskosctl staff list
+//	riskosctl staff unbind-sso --operator NAME --email EMAIL
 //	riskosctl webhooks key-usage
 //	riskosctl console reseal
 //
@@ -47,6 +48,7 @@ const usage = `usage:
   riskosctl staff create --operator NAME --email EMAIL --name NAME [--role operations_admin|security_admin]
   riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
   riskosctl staff list
+  riskosctl staff unbind-sso --operator NAME --email EMAIL
   riskosctl webhooks key-usage
   riskosctl console reseal
   riskosctl staff-audit verify`
@@ -87,7 +89,7 @@ func run(args []string, out io.Writer) error {
 		return auditVerify(ctx, cfg, args[2:], out)
 	case "user invite":
 		return userInvite(ctx, cfg, args[2:], out)
-	case "staff create", "staff enroll", "staff disable", "staff enable", "staff list":
+	case "staff create", "staff enroll", "staff disable", "staff enable", "staff list", "staff unbind-sso":
 		return staffCommand(ctx, cfg, args[1], args[2:], out)
 	case "webhooks key-usage":
 		return webhooksKeyUsage(ctx, cfg, out)

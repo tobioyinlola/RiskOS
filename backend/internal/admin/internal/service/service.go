@@ -27,6 +27,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
@@ -67,6 +68,8 @@ type Config struct {
 	// IdleTimeout ends a session not used for this long; MaxAge ends it regardless.
 	IdleTimeout time.Duration
 	MaxAge      time.Duration
+	// SSO is the platform identity provider for staff sign-in; the zero value disables it.
+	SSO SSOConfig
 	// EnrollTTL bounds the enrollment link the operator CLI prints.
 	EnrollTTL time.Duration
 }
@@ -110,6 +113,10 @@ type Service struct {
 	cfg             Config
 	limiter         Limiter
 	logger          *slog.Logger
+	// sso talks to the identity provider (nil when unconfigured); ssoKey derives each request's
+	// PKCE verifier and nonce.
+	sso    *sso.Client
+	ssoKey []byte
 	// limits caches tenants' rate-limit overrides for the request path.
 	limits *overrideCache
 }
@@ -147,10 +154,26 @@ func New(st store.Store, tenants Tenants, tenantErr TenantErrors, runner txn.Run
 		p.Write([]byte("riskos-staff-csrf-key"))
 		previous = p.Sum(nil)
 	}
+	var ssoClient *sso.Client
+	var ssoKey []byte
+	if cfg.SSO.Enabled() {
+		ssoClient = sso.New(ssoTimeout, cfg.SSO.AllowPrivate)
+		if err := ssoClient.CheckIssuer(cfg.SSO.Issuer); err != nil {
+			return nil, fmt.Errorf("admin: staff sso: %w", err)
+		}
+		if cfg.SSO.ClientID == "" || cfg.SSO.ClientSecret == "" || cfg.SSO.RedirectURL == "" {
+			return nil, errors.New("admin: staff sso needs a client ID, client secret and redirect URL")
+		}
+		k := hmac.New(sha256.New, cfg.Secret)
+		k.Write([]byte("riskos-staff-sso-key"))
+		ssoKey = k.Sum(nil)
+	} else if cfg.SSO.Required {
+		return nil, errors.New("admin: staff sso is required but no identity provider is configured")
+	}
 	return &Service{
 		store: st, tenants: tenants, tenantErr: tenantErr, runner: runner, audit: rec, clock: clk,
 		wa: wa, csrfKey: m.Sum(nil), csrfKeyPrevious: previous, cfg: cfg, limiter: limiter, logger: logger,
-		limits: newOverrideCache(limitTTL),
+		limits: newOverrideCache(limitTTL), sso: ssoClient, ssoKey: ssoKey,
 	}, nil
 }
 

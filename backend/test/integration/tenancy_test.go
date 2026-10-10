@@ -75,6 +75,8 @@ type stackConfig struct {
 	assigneeCheck bool
 	// adminEmail lets the staff console create accounts (enrollment links are emailed).
 	adminEmail bool
+	// staffSSO configures staff single sign-on.
+	staffSSO admin.SSOConfig
 }
 
 // withAdminEmail says the deployment can email enrollment links, so staff accounts can be created
@@ -203,6 +205,7 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 				DefaultLimits: ratelimit.Override{PerKey: limits.PerKey, PerTenant: limits.PerTenant},
 				LimitCacheTTL: 100 * time.Millisecond,
 				Jobs:          queue, EmailEnabled: sc.adminEmail,
+				SSO: sc.staffSSO,
 			})
 		require.NoError(t, err)
 		authModule.SetSupport(adminModule)
@@ -712,3 +715,6 @@ func TestSuspendedTenantIsRejected(t *testing.T) {
 	_, err = s.tenants.OperatorScope(t.Context(), a.id, tenancy.EnvironmentProduction, "riskosctl:integration")
 	assert.ErrorIs(t, err, tenants.ErrNotActive, "operators cannot issue keys for a suspended tenant either")
 }
+
+// withStaffSSO configures the identity provider staff sign in through.
+func withStaffSSO(c admin.SSOConfig) stackOption { return func(s *stackConfig) { s.staffSSO = c } }

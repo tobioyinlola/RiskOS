@@ -112,6 +112,89 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/auth/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How staff can sign in on this deployment
+         * @description Public, so the sign-in page can show the right options.
+         */
+        get: operations["getStaffAuthMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/sso/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in with the platform's identity provider
+         * @description Returns where to send the browser. The request is bound to this browser by a short-lived
+         *     cookie and must be finished within ten minutes. Single sign-on does not replace the
+         *     passkey: the callback answers with the passkey step, and only that opens a session.
+         */
+        post: operations["startStaffSSO"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/sso/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish the identity provider step
+         * @description Called by the console's callback page with the provider's `code` and `state`. The ID token
+         *     must verify. The first SSO sign-in also needs the provider to confirm the account's email
+         *     and binds the provider's subject to the staff member; later sign-ins must present the same
+         *     subject. The staff member must already have a passkey. Answers with the passkey assertion
+         *     to complete at `auth/sso/login`. Failures get 401 `SSO_FAILED`.
+         */
+        post: operations["finishStaffSSO"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/sso/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish signing in after the identity provider step */
+        post: operations["staffSSOLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/overview": {
         parameters: {
             query?: never;
@@ -818,6 +901,22 @@ export interface components {
                 [key: string]: unknown;
             };
         };
+        StaffAuthMethods: {
+            /** @description Single sign-on is configured. */
+            sso_enabled: boolean;
+            /**
+             * @description Every sign-in needs single sign-on first; direct passkey sign-in is refused with
+             *     403 `SSO_REQUIRED`.
+             */
+            sso_required: boolean;
+        };
+        StaffSSOStart: {
+            redirect_url: string;
+        };
+        StaffSSOCallbackRequest: {
+            state: string;
+            code: string;
+        };
         LoginRequest: {
             ceremony_id: string;
             credential: {
@@ -1260,6 +1359,113 @@ export interface operations {
                 content?: never;
             };
             401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getStaffAuthMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The enabled methods. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAuthMethods"];
+                };
+            };
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startStaffSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The provider's authorization URL. */
+            200: {
+                headers: {
+                    /** @description Binds the request to this browser. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSSOStart"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    finishStaffSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_staff_sso?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffSSOCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn assertion options and the ceremony to finish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ceremony"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    staffSSOLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session. */
+            200: {
+                headers: {
+                    /** @description The staff session cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSession"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            429: components["responses"]["RateLimited"];
             default: components["responses"]["DefaultError"];
         };
     };

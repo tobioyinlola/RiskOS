@@ -448,6 +448,16 @@ type StaffAuditList struct {
 	Data []StaffAuditEntry `json:"data"`
 }
 
+// StaffAuthMethods defines model for StaffAuthMethods.
+type StaffAuthMethods struct {
+	// SsoEnabled Single sign-on is configured.
+	SsoEnabled bool `json:"sso_enabled"`
+
+	// SsoRequired Every sign-in needs single sign-on first; direct passkey sign-in is refused with
+	// 403 `SSO_REQUIRED`.
+	SsoRequired bool `json:"sso_required"`
+}
+
 // StaffRef defines model for StaffRef.
 type StaffRef struct {
 	Id   string `json:"id"`
@@ -480,6 +490,17 @@ type StaffRosterEntryStatus string
 // StaffRosterList defines model for StaffRosterList.
 type StaffRosterList struct {
 	Data []StaffRosterEntry `json:"data"`
+}
+
+// StaffSSOCallbackRequest defines model for StaffSSOCallbackRequest.
+type StaffSSOCallbackRequest struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+}
+
+// StaffSSOStart defines model for StaffSSOStart.
+type StaffSSOStart struct {
+	RedirectUrl string `json:"redirect_url"`
 }
 
 // StaffSession defines model for StaffSession.
@@ -663,6 +684,11 @@ type ListStaffAuditParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// FinishStaffSSOParams defines parameters for FinishStaffSSO.
+type FinishStaffSSOParams struct {
+	RiskosStaffSso *string `form:"riskos_staff_sso,omitempty" json:"riskos_staff_sso,omitempty"`
+}
+
 // StaffEnrollJSONRequestBody defines body for StaffEnroll for application/json ContentType.
 type StaffEnrollJSONRequestBody = EnrollRequest
 
@@ -671,6 +697,12 @@ type StaffEnrollOptionsJSONRequestBody = EnrollOptionsRequest
 
 // StaffLoginJSONRequestBody defines body for StaffLogin for application/json ContentType.
 type StaffLoginJSONRequestBody = LoginRequest
+
+// FinishStaffSSOJSONRequestBody defines body for FinishStaffSSO for application/json ContentType.
+type FinishStaffSSOJSONRequestBody = StaffSSOCallbackRequest
+
+// StaffSSOLoginJSONRequestBody defines body for StaffSSOLogin for application/json ContentType.
+type StaffSSOLoginJSONRequestBody = LoginRequest
 
 // ApproveOnboardingJSONRequestBody defines body for ApproveOnboarding for application/json ContentType.
 type ApproveOnboardingJSONRequestBody = OnboardingDecision
@@ -728,9 +760,21 @@ type ServerInterface interface {
 	// StaffLogout End the staff session
 	// (POST /api/admin/v1/auth/logout)
 	StaffLogout(w http.ResponseWriter, r *http.Request)
+	// GetStaffAuthMethods How staff can sign in on this deployment
+	// (GET /api/admin/v1/auth/methods)
+	GetStaffAuthMethods(w http.ResponseWriter, r *http.Request)
 	// GetStaffSession The current staff session
 	// (GET /api/admin/v1/auth/session)
 	GetStaffSession(w http.ResponseWriter, r *http.Request)
+	// FinishStaffSSO Finish the identity provider step
+	// (POST /api/admin/v1/auth/sso/callback)
+	FinishStaffSSO(w http.ResponseWriter, r *http.Request, params FinishStaffSSOParams)
+	// StaffSSOLogin Finish signing in after the identity provider step
+	// (POST /api/admin/v1/auth/sso/login)
+	StaffSSOLogin(w http.ResponseWriter, r *http.Request)
+	// StartStaffSSO Start signing in with the platform's identity provider
+	// (POST /api/admin/v1/auth/sso/start)
+	StartStaffSSO(w http.ResponseWriter, r *http.Request)
 	// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
 	// (GET /api/admin/v1/onboarding)
 	ListOnboardingReviews(w http.ResponseWriter, r *http.Request)
@@ -866,9 +910,33 @@ func (_ Unimplemented) StaffLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetStaffAuthMethods How staff can sign in on this deployment
+// (GET /api/admin/v1/auth/methods)
+func (_ Unimplemented) GetStaffAuthMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetStaffSession The current staff session
 // (GET /api/admin/v1/auth/session)
 func (_ Unimplemented) GetStaffSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// FinishStaffSSO Finish the identity provider step
+// (POST /api/admin/v1/auth/sso/callback)
+func (_ Unimplemented) FinishStaffSSO(w http.ResponseWriter, r *http.Request, params FinishStaffSSOParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StaffSSOLogin Finish signing in after the identity provider step
+// (POST /api/admin/v1/auth/sso/login)
+func (_ Unimplemented) StaffSSOLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartStaffSSO Start signing in with the platform's identity provider
+// (POST /api/admin/v1/auth/sso/start)
+func (_ Unimplemented) StartStaffSSO(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1170,11 +1238,88 @@ func (siw *ServerInterfaceWrapper) StaffLogout(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetStaffAuthMethods operation middleware
+func (siw *ServerInterfaceWrapper) GetStaffAuthMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStaffAuthMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetStaffSession operation middleware
 func (siw *ServerInterfaceWrapper) GetStaffSession(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetStaffSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishStaffSSO operation middleware
+func (siw *ServerInterfaceWrapper) FinishStaffSSO(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishStaffSSOParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("riskos_staff_sso"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "riskos_staff_sso", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "riskos_staff_sso", Err: err})
+				return
+			}
+			params.RiskosStaffSso = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishStaffSSO(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StaffSSOLogin operation middleware
+func (siw *ServerInterfaceWrapper) StaffSSOLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StaffSSOLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartStaffSSO operation middleware
+func (siw *ServerInterfaceWrapper) StartStaffSSO(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartStaffSSO(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -2002,6 +2147,18 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/v1/auth/logout", wrapper.StaffLogout)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/auth/methods", wrapper.GetStaffAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/auth/sso/start", wrapper.StartStaffSSO)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/auth/sso/callback", wrapper.FinishStaffSSO)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/auth/sso/login", wrapper.StaffSSOLogin)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/overview", wrapper.GetAdminOverview)
 	})
 	r.Group(func(r chi.Router) {
@@ -2537,6 +2694,44 @@ func (response StaffLogoutdefaultJSONResponse) VisitStaffLogoutResponse(w http.R
 	return err
 }
 
+type GetStaffAuthMethodsRequestObject struct {
+}
+
+type GetStaffAuthMethodsResponseObject interface {
+	VisitGetStaffAuthMethodsResponse(w http.ResponseWriter) error
+}
+
+type GetStaffAuthMethods200JSONResponse StaffAuthMethods
+
+func (response GetStaffAuthMethods200JSONResponse) VisitGetStaffAuthMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStaffAuthMethodsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetStaffAuthMethodsdefaultJSONResponse) VisitGetStaffAuthMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetStaffSessionRequestObject struct {
 }
 
@@ -2578,6 +2773,269 @@ type GetStaffSessiondefaultJSONResponse struct {
 }
 
 func (response GetStaffSessiondefaultJSONResponse) VisitGetStaffSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSORequestObject struct {
+	Params FinishStaffSSOParams
+	Body   *FinishStaffSSOJSONRequestBody
+}
+
+type FinishStaffSSOResponseObject interface {
+	VisitFinishStaffSSOResponse(w http.ResponseWriter) error
+}
+
+type FinishStaffSSO200JSONResponse Ceremony
+
+func (response FinishStaffSSO200JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response FinishStaffSSO400JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response FinishStaffSSO401JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response FinishStaffSSO404JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response FinishStaffSSO429JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSOdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response FinishStaffSSOdefaultJSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLoginRequestObject struct {
+	Body *StaffSSOLoginJSONRequestBody
+}
+
+type StaffSSOLoginResponseObject interface {
+	VisitStaffSSOLoginResponse(w http.ResponseWriter) error
+}
+
+type StaffSSOLogin200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StaffSSOLogin200JSONResponse struct {
+	Body    StaffSession
+	Headers StaffSSOLogin200ResponseHeaders
+}
+
+func (response StaffSSOLogin200JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogin400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response StaffSSOLogin400JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogin401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response StaffSSOLogin401JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogin429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response StaffSSOLogin429JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogindefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response StaffSSOLogindefaultJSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSORequestObject struct {
+}
+
+type StartStaffSSOResponseObject interface {
+	VisitStartStaffSSOResponse(w http.ResponseWriter) error
+}
+
+type StartStaffSSO200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StartStaffSSO200JSONResponse struct {
+	Body    StaffSSOStart
+	Headers StartStaffSSO200ResponseHeaders
+}
+
+func (response StartStaffSSO200JSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSO404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StartStaffSSO404JSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSO429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response StartStaffSSO429JSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSOdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response StartStaffSSOdefaultJSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -5220,9 +5678,21 @@ type StrictServerInterface interface {
 	// StaffLogout End the staff session
 	// (POST /api/admin/v1/auth/logout)
 	StaffLogout(ctx context.Context, request StaffLogoutRequestObject) (StaffLogoutResponseObject, error)
+	// GetStaffAuthMethods How staff can sign in on this deployment
+	// (GET /api/admin/v1/auth/methods)
+	GetStaffAuthMethods(ctx context.Context, request GetStaffAuthMethodsRequestObject) (GetStaffAuthMethodsResponseObject, error)
 	// GetStaffSession The current staff session
 	// (GET /api/admin/v1/auth/session)
 	GetStaffSession(ctx context.Context, request GetStaffSessionRequestObject) (GetStaffSessionResponseObject, error)
+	// FinishStaffSSO Finish the identity provider step
+	// (POST /api/admin/v1/auth/sso/callback)
+	FinishStaffSSO(ctx context.Context, request FinishStaffSSORequestObject) (FinishStaffSSOResponseObject, error)
+	// StaffSSOLogin Finish signing in after the identity provider step
+	// (POST /api/admin/v1/auth/sso/login)
+	StaffSSOLogin(ctx context.Context, request StaffSSOLoginRequestObject) (StaffSSOLoginResponseObject, error)
+	// StartStaffSSO Start signing in with the platform's identity provider
+	// (POST /api/admin/v1/auth/sso/start)
+	StartStaffSSO(ctx context.Context, request StartStaffSSORequestObject) (StartStaffSSOResponseObject, error)
 	// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
 	// (GET /api/admin/v1/onboarding)
 	ListOnboardingReviews(ctx context.Context, request ListOnboardingReviewsRequestObject) (ListOnboardingReviewsResponseObject, error)
@@ -5524,6 +5994,30 @@ func (sh *strictHandler) StaffLogout(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetStaffAuthMethods operation middleware
+func (sh *strictHandler) GetStaffAuthMethods(w http.ResponseWriter, r *http.Request) {
+	var request GetStaffAuthMethodsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStaffAuthMethods(ctx, request.(GetStaffAuthMethodsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStaffAuthMethods")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStaffAuthMethodsResponseObject); ok {
+		if err := validResponse.VisitGetStaffAuthMethodsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetStaffSession operation middleware
 func (sh *strictHandler) GetStaffSession(w http.ResponseWriter, r *http.Request) {
 	var request GetStaffSessionRequestObject
@@ -5541,6 +6035,94 @@ func (sh *strictHandler) GetStaffSession(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetStaffSessionResponseObject); ok {
 		if err := validResponse.VisitGetStaffSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishStaffSSO operation middleware
+func (sh *strictHandler) FinishStaffSSO(w http.ResponseWriter, r *http.Request, params FinishStaffSSOParams) {
+	var request FinishStaffSSORequestObject
+
+	request.Params = params
+
+	var body FinishStaffSSOJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishStaffSSO(ctx, request.(FinishStaffSSORequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishStaffSSO")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishStaffSSOResponseObject); ok {
+		if err := validResponse.VisitFinishStaffSSOResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffSSOLogin operation middleware
+func (sh *strictHandler) StaffSSOLogin(w http.ResponseWriter, r *http.Request) {
+	var request StaffSSOLoginRequestObject
+
+	var body StaffSSOLoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffSSOLogin(ctx, request.(StaffSSOLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffSSOLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StaffSSOLoginResponseObject); ok {
+		if err := validResponse.VisitStaffSSOLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartStaffSSO operation middleware
+func (sh *strictHandler) StartStaffSSO(w http.ResponseWriter, r *http.Request) {
+	var request StartStaffSSORequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartStaffSSO(ctx, request.(StartStaffSSORequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartStaffSSO")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartStaffSSOResponseObject); ok {
+		if err := validResponse.VisitStartStaffSSOResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

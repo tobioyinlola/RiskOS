@@ -69,7 +69,7 @@ is any other active staff member.
   the job, and it is refused outright where email is not configured (the CLI remains). Two
   colluding or simultaneously hijacked security administrators could still add an account; that
   residual risk is why re-issuing a link for an existing account stays in the CLI, and why every
-  step is audited. Staff SSO and a private access path (ADMIN.md) reduce it further.
+  step is audited. Staff SSO (built; ADMIN.md) and a private access path reduce it further.
 - **A "disabled" tenant status in the UI.** The column allows it, but it has no defined meaning
   distinct from suspended (offboarding is undecided, ADR-0009), so the console offers only
   `active` and `suspended`.
@@ -88,7 +88,16 @@ is any other active staff member.
   control working, and the runbook for incidents should say who the second approver is.
 - The roster is the only place staff accounts can be disabled without a shell, and it is
   restricted to one role and audited.
-- Follow-ups unchanged from ADMIN.md: private access path, hardware-key attestation, staff SSO,
+- **Staff SSO.** *Amended:* first listed as a follow-up. Built as the platform's single
+  deployment-wide OpenID Connect provider (environment configuration, not data, so no staff
+  member can repoint it), and never as a replacement for the passkey: the provider identifies the
+  person, the staff member's passkey with user verification opens the session, so a compromised
+  provider account alone reaches nothing and a stolen passkey alone reaches nothing where SSO is
+  required. The roster stays the authority for role and status; the provider's subject is bound
+  at the first sign-in, which needs `email_verified`, and is cleared only by the operator CLI.
+  Not built: roles from provider claims (they would let the provider mint a security
+  administrator), and a second provider.
+- Follow-ups unchanged from ADMIN.md: private access path, hardware-key attestation,
   hash chain on the staff audit log; and now break-glass suspension and per-tenant limits.
 
 ## Implementation

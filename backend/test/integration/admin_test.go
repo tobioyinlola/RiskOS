@@ -127,6 +127,8 @@ type staffBrowser struct {
 	cookie string
 	csrf   string
 	grant  string
+	// sso is the cookie binding a single sign-on request to this browser.
+	sso string
 }
 
 func (b *staffBrowser) do(t *testing.T, method, path string, body any) response {
@@ -147,6 +149,9 @@ func (b *staffBrowser) do(t *testing.T, method, path string, body any) response 
 	if b.cookie != "" {
 		req.AddCookie(&http.Cookie{Name: "riskos_staff", Value: b.cookie})
 	}
+	if b.sso != "" {
+		req.AddCookie(&http.Cookie{Name: "riskos_staff_sso", Value: b.sso})
+	}
 	if b.csrf != "" {
 		req.Header.Set("X-CSRF-Token", b.csrf)
 	}
@@ -156,6 +161,9 @@ func (b *staffBrowser) do(t *testing.T, method, path string, body any) response 
 	rec := httptest.NewRecorder()
 	b.s.handler.ServeHTTP(rec, req)
 	for _, c := range rec.Result().Cookies() { //nolint:bodyclose // recorder
+		if c.Name == "riskos_staff_sso" {
+			b.sso = c.Value
+		}
 		if c.Name == "riskos_staff" {
 			b.cookie = c.Value
 		}

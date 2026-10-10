@@ -161,6 +161,119 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/methods:
+    get:
+      operationId: getStaffAuthMethods
+      tags: [staff-session]
+      summary: How staff can sign in on this deployment
+      description: Public, so the sign-in page can show the right options.
+      responses:
+        "200":
+          description: The enabled methods.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAuthMethods"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/sso/start:
+    post:
+      operationId: startStaffSSO
+      tags: [staff-session]
+      summary: Start signing in with the platform's identity provider
+      description: |
+        Returns where to send the browser. The request is bound to this browser by a short-lived
+        cookie and must be finished within ten minutes. Single sign-on does not replace the
+        passkey: the callback answers with the passkey step, and only that opens a session.
+      responses:
+        "200":
+          description: The provider's authorization URL.
+          headers:
+            Set-Cookie:
+              description: Binds the request to this browser.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSSOStart"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/sso/callback:
+    post:
+      operationId: finishStaffSSO
+      tags: [staff-session]
+      summary: Finish the identity provider step
+      description: |
+        Called by the console's callback page with the provider's `code` and `state`. The ID token
+        must verify. The first SSO sign-in also needs the provider to confirm the account's email
+        and binds the provider's subject to the staff member; later sign-ins must present the same
+        subject. The staff member must already have a passkey. Answers with the passkey assertion
+        to complete at `auth/sso/login`. Failures get 401 `SSO_FAILED`.
+      parameters:
+        - name: riskos_staff_sso
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffSSOCallbackRequest"
+      responses:
+        "200":
+          description: WebAuthn assertion options and the ceremony to finish.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ceremony"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/sso/login:
+    post:
+      operationId: staffSSOLogin
+      tags: [staff-session]
+      summary: Finish signing in after the identity provider step
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: The new session.
+          headers:
+            Set-Cookie:
+              description: The staff session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSession"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/overview:
     get:
       operationId: getAdminOverview
@@ -1358,6 +1471,37 @@ components:
         credential:
           type: object
           additionalProperties: true
+    StaffAuthMethods:
+      type: object
+      additionalProperties: false
+      required: [sso_enabled, sso_required]
+      properties:
+        sso_enabled:
+          type: boolean
+          description: Single sign-on is configured.
+        sso_required:
+          type: boolean
+          description: |
+            Every sign-in needs single sign-on first; direct passkey sign-in is refused with
+            403 `SSO_REQUIRED`.
+    StaffSSOStart:
+      type: object
+      additionalProperties: false
+      required: [redirect_url]
+      properties:
+        redirect_url:
+          type: string
+    StaffSSOCallbackRequest:
+      type: object
+      additionalProperties: false
+      required: [state, code]
+      properties:
+        state:
+          type: string
+          maxLength: 256
+        code:
+          type: string
+          maxLength: 4096
     LoginRequest:
       type: object
       additionalProperties: false

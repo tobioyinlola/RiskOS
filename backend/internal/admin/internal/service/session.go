@@ -116,6 +116,12 @@ func (s *Service) saveCeremony(ctx context.Context, q *sqlcgen.Queries, kind str
 	if err != nil {
 		return "", fmt.Errorf("encode ceremony: %w", err)
 	}
+	return s.saveCeremonyRaw(ctx, q, kind, staffID, raw, ceremonyTTL)
+}
+
+// saveCeremonyRaw stores a ceremony or request in flight for ttl and returns its ID, which the
+// browser holds; only its hash is kept.
+func (s *Service) saveCeremonyRaw(ctx context.Context, q *sqlcgen.Queries, kind string, staffID *uuid.UUID, raw []byte, ttl time.Duration) (string, error) {
 	id, hash, err := newToken()
 	if err != nil {
 		return "", err
@@ -125,7 +131,7 @@ func (s *Service) saveCeremony(ctx context.Context, q *sqlcgen.Queries, kind str
 		return "", store.Classify(err, "purge ceremonies")
 	}
 	if err := q.InsertCeremony(ctx, sqlcgen.InsertCeremonyParams{
-		IDHash: hash, Kind: kind, StaffID: staffID, Data: raw, ExpiresAt: now.Add(ceremonyTTL),
+		IDHash: hash, Kind: kind, StaffID: staffID, Data: raw, ExpiresAt: now.Add(ttl),
 	}); err != nil {
 		return "", store.Classify(err, "save ceremony")
 	}
@@ -257,17 +263,28 @@ func (s *Service) Enroll(ctx context.Context, token, ceremony, name string, cred
 		if err := s.record(ctx, q, staffRef(st.ID), "staff.passkey_enrolled", nil, staffRef(st.ID), "success", map[string]any{"name": name}); err != nil {
 			return err
 		}
-		sess, sessionToken, err = s.openSession(ctx, q, st, cl)
+		if s.ssoRequired() {
+			// The passkey is registered, but the person has not been through the identity
+			// provider: no session until they do.
+			return nil
+		}
+		sess, sessionToken, err = s.openSession(ctx, q, st, cl, "enrollment")
 		return err
 	})
 	if err != nil {
 		return Session{}, "", err
+	}
+	if s.ssoRequired() {
+		return Session{}, "", ErrSSORequired
 	}
 	return sess, sessionToken, nil
 }
 
 // LoginOptions starts a discoverable passkey sign-in.
 func (s *Service) LoginOptions(ctx context.Context, cl Client) (string, json.RawMessage, error) {
+	if s.ssoRequired() {
+		return "", nil, ErrSSORequired
+	}
 	if err := s.throttle(ctx, cl); err != nil {
 		return "", nil, err
 	}
@@ -290,6 +307,9 @@ func (s *Service) LoginOptions(ctx context.Context, cl Client) (string, json.Raw
 
 // Login finishes a passkey sign-in.
 func (s *Service) Login(ctx context.Context, ceremony string, credential []byte, cl Client) (Session, string, error) {
+	if s.ssoRequired() {
+		return Session{}, "", ErrSSORequired
+	}
 	if err := s.throttle(ctx, cl); err != nil {
 		return Session{}, "", err
 	}
@@ -339,7 +359,7 @@ func (s *Service) Login(ctx context.Context, ceremony string, credential []byte,
 		}); err != nil {
 			return store.Classify(err, "update staff passkey")
 		}
-		sess, sessionToken, err = s.openSession(ctx, q, who, cl)
+		sess, sessionToken, err = s.openSession(ctx, q, who, cl, "passkey")
 		return err
 	})
 	if err != nil {
@@ -354,7 +374,7 @@ func (s *Service) Login(ctx context.Context, ceremony string, credential []byte,
 	return sess, sessionToken, nil
 }
 
-func (s *Service) openSession(ctx context.Context, q *sqlcgen.Queries, st sqlcgen.Staff, cl Client) (Session, string, error) {
+func (s *Service) openSession(ctx context.Context, q *sqlcgen.Queries, st sqlcgen.Staff, cl Client, method string) (Session, string, error) {
 	token, hash, err := newToken()
 	if err != nil {
 		return Session{}, "", err
@@ -370,7 +390,7 @@ func (s *Service) openSession(ctx context.Context, q *sqlcgen.Queries, st sqlcge
 	}); err != nil {
 		return Session{}, "", store.Classify(err, "insert staff session")
 	}
-	meta := map[string]any{}
+	meta := map[string]any{"method": method}
 	if cl.IP != nil {
 		meta["ip"] = cl.IP.String()
 	}

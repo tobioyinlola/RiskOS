@@ -97,6 +97,14 @@ type Console struct {
 	// with the redirect URI <console URL>/signup/google). Both or neither; needs SignupEnabled.
 	GoogleClientID     string
 	GoogleClientSecret string
+	// StaffSSOIssuer, StaffSSOClientID and StaffSSOClientSecret register the platform's identity
+	// provider for staff sign-in (all three or none; the redirect URI is <console URL>/admin/sso/callback).
+	// StaffSSORequired makes it the first step of every staff sign-in; the passkey is still
+	// required after it.
+	StaffSSOIssuer       string
+	StaffSSOClientID     string
+	StaffSSOClientSecret string
+	StaffSSORequired     bool
 }
 
 // signupRegionPattern is a tenant region (the tenants table's check).
@@ -128,6 +136,13 @@ func (c Console) Validate(env Environment) error {
 	}
 	if c.GoogleClientID != "" && !c.SignupEnabled {
 		errs = append(errs, errors.New("RISKOS_GOOGLE_CLIENT_ID: Google sign-in needs RISKOS_SIGNUP_ENABLED=true"))
+	}
+	if set := c.StaffSSOIssuer != "" || c.StaffSSOClientID != "" || c.StaffSSOClientSecret != ""; set {
+		if c.StaffSSOIssuer == "" || c.StaffSSOClientID == "" || c.StaffSSOClientSecret == "" {
+			errs = append(errs, errors.New("RISKOS_STAFF_SSO_ISSUER, RISKOS_STAFF_SSO_CLIENT_ID and RISKOS_STAFF_SSO_CLIENT_SECRET: set all three or none"))
+		}
+	} else if c.StaffSSORequired {
+		errs = append(errs, errors.New("RISKOS_STAFF_SSO_REQUIRED: needs the staff identity provider (RISKOS_STAFF_SSO_ISSUER and its client)"))
 	}
 	if c.BreachedPasswordCheck != "" && c.BreachedPasswordCheck != "pwned" && c.BreachedPasswordCheck != "off" {
 		errs = append(errs, errors.New("RISKOS_BREACHED_PASSWORD_CHECK: must be pwned or off"))
@@ -814,6 +829,10 @@ func consoleConfig(r *reader) Console {
 		SignupRegion:          r.str("RISKOS_SIGNUP_REGION", ""),
 		GoogleClientID:        r.str("RISKOS_GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret:    r.str("RISKOS_GOOGLE_CLIENT_SECRET", ""),
+		StaffSSOIssuer:        r.str("RISKOS_STAFF_SSO_ISSUER", ""),
+		StaffSSOClientID:      r.str("RISKOS_STAFF_SSO_CLIENT_ID", ""),
+		StaffSSOClientSecret:  r.str("RISKOS_STAFF_SSO_CLIENT_SECRET", ""),
+		StaffSSORequired:      r.boolean("RISKOS_STAFF_SSO_REQUIRED", false),
 	}
 	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
 		for _, o := range strings.Split(raw, ",") {

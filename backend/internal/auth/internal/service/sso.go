@@ -15,12 +15,12 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/console"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
-	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 )
 
