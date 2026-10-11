@@ -447,6 +447,79 @@ paths:
           $ref: "#/components/responses/Conflict"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/quota:
+    get:
+      operationId: getTenantQuota
+      tags: [staff]
+      summary: A tenant's monthly event-volume quota and what it has used
+      description: |
+        A soft limit: events are never refused for it. The worker counts the month's events hourly,
+        so `usage` can be up to an hour old (`usage.checked_at`).
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The quota, or no quota.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: setTenantQuota
+      tags: [staff]
+      summary: Set a tenant's monthly event-volume quota
+      description: |
+        The first time the month's events pass it, staff are told (the staff audit log) and so is the
+        tenant (`tenant.quota_exceeded` in its audit log), once a month. Nothing is refused. The staff
+        audit log keeps the reason; the tenant's log records the new quota (`tenant.quota_changed`).
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantQuotaChange"
+      responses:
+        "200":
+          description: The quota now in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: clearTenantQuota
+      tags: [staff]
+      summary: Remove a tenant's quota
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: No quota now.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/tenants/{tenant_id}/limits:
     get:
       operationId: getTenantLimits
@@ -1394,6 +1467,69 @@ components:
               $ref: "#/components/schemas/RateLimit"
         override:
           $ref: "#/components/schemas/TenantLimitsOverride"
+    TenantQuotaChange:
+      type: object
+      additionalProperties: false
+      required: [monthly_events, reason]
+      properties:
+        monthly_events:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+          description: Events a month (UTC calendar month) the tenant is expected to stay within.
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why. For the staff audit log; the tenant is not shown it.
+    TenantQuota:
+      type: object
+      additionalProperties: false
+      required: [quota]
+      properties:
+        quota:
+          allOf:
+            - $ref: "#/components/schemas/TenantQuotaDetail"
+          nullable: true
+          description: Null when the tenant has no quota.
+    TenantQuotaDetail:
+      type: object
+      additionalProperties: false
+      required: [monthly_events, reason, updated_by, updated_at, usage]
+      properties:
+        monthly_events:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        updated_by:
+          $ref: "#/components/schemas/StaffRef"
+        updated_at:
+          type: string
+          format: date-time
+        usage:
+          $ref: "#/components/schemas/TenantQuotaUsage"
+    TenantQuotaUsage:
+      type: object
+      additionalProperties: false
+      required: [month, events, checked_at, exceeded]
+      properties:
+        month:
+          type: string
+          format: date
+          nullable: true
+          description: The month measured (its first day, UTC); null before the first measurement.
+        events:
+          type: integer
+          format: int64
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        exceeded:
+          type: boolean
+          description: Whether the measured month is over the quota.
     EmergencySuspension:
       type: object
       additionalProperties: false

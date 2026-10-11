@@ -222,6 +222,20 @@ func (m *Module) EnrollmentEmailJob(sender mail.Sender, consoleURL string) func(
 	}
 }
 
+// UsageCheckArgs is the hourly measurement of tenants' monthly event quotas. It carries nothing:
+// the job visits every tenant that has a quota.
+type UsageCheckArgs struct{}
+
+// Kind implements jobs.Args. Stable across releases.
+func (UsageCheckArgs) Kind() string { return "admin_usage_check" }
+
+// UsageJob returns the worker handler for UsageCheckArgs: it counts each quota-holding tenant's
+// events this month and announces overages once a month, to staff and in the tenant's own audit
+// log. It never refuses events. One tenant failing does not stop the others.
+func (m *Module) UsageJob() func(context.Context, UsageCheckArgs) error {
+	return func(ctx context.Context, _ UsageCheckArgs) error { return m.svc.CheckUsage(ctx, m.logger) }
+}
+
 // EnrollURL builds the enrollment link for a token; the token is in the fragment.
 func EnrollURL(consoleURL, token string) string {
 	return trimSlash(consoleURL) + "/admin/enroll#token=" + token

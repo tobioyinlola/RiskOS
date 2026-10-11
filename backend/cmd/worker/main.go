@@ -109,6 +109,14 @@ func run() (err error) {
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 
 	registry := jobs.NewRegistry()
+	// The staff realm: its enrollment emails (below, with email) and the hourly usage check.
+	adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
+		Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious), Logger: logger,
+	})
+	if err != nil {
+		return err
+	}
+	jobs.RegisterPeriodic(registry, time.Hour, admin.UsageCheckArgs{}, adminModule.UsageJob())
 	if cfg.SMTP.Enabled() {
 		sender, err := mail.NewSMTP(mail.Config{
 			Host: cfg.SMTP.Host, Port: cfg.SMTP.Port, Username: cfg.SMTP.Username, Password: cfg.SMTP.Password,
@@ -126,12 +134,6 @@ func run() (err error) {
 		jobs.Register(registry, authModule.InviteEmailJob(sender))
 		jobs.Register(registry, authModule.SignupEmailJob(sender))
 		// Staff accounts created from the console are emailed their enrollment link here.
-		adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
-			Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious),
-		})
-		if err != nil {
-			return err
-		}
 		jobs.Register(registry, adminModule.EnrollmentEmailJob(sender, cfg.Console.URL))
 		logger.InfoContext(ctx, "invite and sign-up emails enabled", slog.String("smtp_host", cfg.SMTP.Host))
 	}

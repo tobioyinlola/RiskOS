@@ -17,6 +17,7 @@ import { formatCount, formatTimestamp, humanize } from "@/lib/format";
 
 import { SecurityOverview } from "./pages";
 import { TenantLimitsPanel } from "./tenant-limits";
+import { TenantQuotaPanel } from "./tenant-quota";
 import { TenantStatusPanel } from "./tenant-status";
 
 type Tenant = AdminSchemas["AdminTenant"];
@@ -298,6 +299,7 @@ export function TenantDetailPage({ id }: { id: string }) {
       </div>
       {t ? <TenantStatusPanel tenant={t} /> : null}
       {t ? <TenantLimitsPanel tenantId={t.id} /> : null}
+      {t ? <TenantQuotaPanel tenantId={t.id} /> : null}
       <Panel className="overflow-hidden">
         <PanelHeader
           title="Staff activity on this tenant"

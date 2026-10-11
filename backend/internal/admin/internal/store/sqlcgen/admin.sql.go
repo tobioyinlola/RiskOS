@@ -171,6 +171,22 @@ func (q *Queries) ClearEnrollToken(ctx context.Context, id uuid.UUID) error {
 	return err
 }
 
+const countTenantEvents = `-- name: CountTenantEvents :one
+SELECT admin_count_events($1::uuid, $2::timestamptz)::bigint
+`
+
+type CountTenantEventsParams struct {
+	TenantID uuid.UUID
+	Since    time.Time
+}
+
+func (q *Queries) CountTenantEvents(ctx context.Context, arg CountTenantEventsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTenantEvents, arg.TenantID, arg.Since)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const decideStaffAccountRequest = `-- name: DecideStaffAccountRequest :exec
 UPDATE staff_account_requests
 SET status = $1, decided_by = $2, decided_at = $3::timestamptz,
@@ -261,6 +277,18 @@ DELETE FROM tenant_limits WHERE tenant_id = $1
 
 func (q *Queries) DeleteTenantLimits(ctx context.Context, tenantID uuid.UUID) (int64, error) {
 	result, err := q.db.Exec(ctx, deleteTenantLimits, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteTenantQuota = `-- name: DeleteTenantQuota :execrows
+DELETE FROM tenant_quotas WHERE tenant_id = $1
+`
+
+func (q *Queries) DeleteTenantQuota(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTenantQuota, tenantID)
 	if err != nil {
 		return 0, err
 	}
@@ -445,6 +473,27 @@ func (q *Queries) GetTenantLimits(ctx context.Context, tenantID uuid.UUID) (Tena
 		&i.Reason,
 		&i.UpdatedBy,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTenantQuota = `-- name: GetTenantQuota :one
+SELECT tenant_id, monthly_events, reason, updated_by, updated_at, usage_month, usage_events, usage_checked_at, exceeded_month FROM tenant_quotas WHERE tenant_id = $1
+`
+
+func (q *Queries) GetTenantQuota(ctx context.Context, tenantID uuid.UUID) (TenantQuota, error) {
+	row := q.db.QueryRow(ctx, getTenantQuota, tenantID)
+	var i TenantQuota
+	err := row.Scan(
+		&i.TenantID,
+		&i.MonthlyEvents,
+		&i.Reason,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
+		&i.UsageMonth,
+		&i.UsageEvents,
+		&i.UsageCheckedAt,
+		&i.ExceededMonth,
 	)
 	return i, err
 }
@@ -977,6 +1026,40 @@ func (q *Queries) ListSupportAccess(ctx context.Context) ([]SupportAccess, error
 	return items, nil
 }
 
+const listTenantQuotas = `-- name: ListTenantQuotas :many
+SELECT tenant_id, monthly_events, reason, updated_by, updated_at, usage_month, usage_events, usage_checked_at, exceeded_month FROM tenant_quotas ORDER BY tenant_id
+`
+
+func (q *Queries) ListTenantQuotas(ctx context.Context) ([]TenantQuota, error) {
+	rows, err := q.db.Query(ctx, listTenantQuotas)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TenantQuota
+	for rows.Next() {
+		var i TenantQuota
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.MonthlyEvents,
+			&i.Reason,
+			&i.UpdatedBy,
+			&i.UpdatedAt,
+			&i.UsageMonth,
+			&i.UsageEvents,
+			&i.UsageCheckedAt,
+			&i.ExceededMonth,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTenantStatusRequests = `-- name: ListTenantStatusRequests :many
 SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests ORDER BY created_at DESC LIMIT 200
 `
@@ -1054,6 +1137,26 @@ func (q *Queries) LockStaffAuditHead(ctx context.Context) (LockStaffAuditHeadRow
 	var i LockStaffAuditHeadRow
 	err := row.Scan(&i.Seq, &i.Hash)
 	return i, err
+}
+
+const markTenantQuotaExceeded = `-- name: MarkTenantQuotaExceeded :execrows
+UPDATE tenant_quotas SET exceeded_month = $1
+WHERE tenant_id = $2 AND exceeded_month IS DISTINCT FROM $1
+`
+
+type MarkTenantQuotaExceededParams struct {
+	Month    *time.Time
+	TenantID uuid.UUID
+}
+
+// Claims the announcement for the month: only the first caller gets a row, so an overage is
+// announced once even with several workers.
+func (q *Queries) MarkTenantQuotaExceeded(ctx context.Context, arg MarkTenantQuotaExceededParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markTenantQuotaExceeded, arg.Month, arg.TenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }
 
 const purgeCeremonies = `-- name: PurgeCeremonies :exec
@@ -1229,6 +1332,28 @@ func (q *Queries) SetStaffStatus(ctx context.Context, arg SetStaffStatusParams) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setTenantQuotaUsage = `-- name: SetTenantQuotaUsage :exec
+UPDATE tenant_quotas SET usage_month = $1, usage_events = $2, usage_checked_at = $3
+WHERE tenant_id = $4
+`
+
+type SetTenantQuotaUsageParams struct {
+	UsageMonth  *time.Time
+	UsageEvents int64
+	Now         *time.Time
+	TenantID    uuid.UUID
+}
+
+func (q *Queries) SetTenantQuotaUsage(ctx context.Context, arg SetTenantQuotaUsageParams) error {
+	_, err := q.db.Exec(ctx, setTenantQuotaUsage,
+		arg.UsageMonth,
+		arg.UsageEvents,
+		arg.Now,
+		arg.TenantID,
+	)
+	return err
 }
 
 const staffByEmail = `-- name: StaffByEmail :one
@@ -1541,6 +1666,34 @@ func (q *Queries) UpsertTenantLimits(ctx context.Context, arg UpsertTenantLimits
 		arg.PerKeyBurst,
 		arg.PerTenantPerSecond,
 		arg.PerTenantBurst,
+		arg.Reason,
+		arg.UpdatedBy,
+		arg.Now,
+	)
+	return err
+}
+
+const upsertTenantQuota = `-- name: UpsertTenantQuota :exec
+INSERT INTO tenant_quotas (tenant_id, monthly_events, reason, updated_by, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (tenant_id) DO UPDATE SET
+  monthly_events = EXCLUDED.monthly_events, reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by,
+  updated_at = EXCLUDED.updated_at, usage_checked_at = NULL
+`
+
+type UpsertTenantQuotaParams struct {
+	TenantID      uuid.UUID
+	MonthlyEvents int64
+	Reason        string
+	UpdatedBy     uuid.UUID
+	Now           time.Time
+}
+
+// A new quota starts a new measurement: the worker counts the month again on its next run.
+func (q *Queries) UpsertTenantQuota(ctx context.Context, arg UpsertTenantQuotaParams) error {
+	_, err := q.db.Exec(ctx, upsertTenantQuota,
+		arg.TenantID,
+		arg.MonthlyEvents,
 		arg.Reason,
 		arg.UpdatedBy,
 		arg.Now,

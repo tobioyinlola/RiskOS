@@ -192,6 +192,36 @@ ON CONFLICT (tenant_id) DO UPDATE SET
 -- name: DeleteTenantLimits :execrows
 DELETE FROM tenant_limits WHERE tenant_id = @tenant_id;
 
+-- name: GetTenantQuota :one
+SELECT * FROM tenant_quotas WHERE tenant_id = @tenant_id;
+
+-- name: UpsertTenantQuota :exec
+-- A new quota starts a new measurement: the worker counts the month again on its next run.
+INSERT INTO tenant_quotas (tenant_id, monthly_events, reason, updated_by, updated_at)
+VALUES (@tenant_id, @monthly_events, @reason, @updated_by, @now)
+ON CONFLICT (tenant_id) DO UPDATE SET
+  monthly_events = EXCLUDED.monthly_events, reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by,
+  updated_at = EXCLUDED.updated_at, usage_checked_at = NULL;
+
+-- name: DeleteTenantQuota :execrows
+DELETE FROM tenant_quotas WHERE tenant_id = @tenant_id;
+
+-- name: ListTenantQuotas :many
+SELECT * FROM tenant_quotas ORDER BY tenant_id;
+
+-- name: CountTenantEvents :one
+SELECT admin_count_events(@tenant_id::uuid, @since::timestamptz)::bigint;
+
+-- name: SetTenantQuotaUsage :exec
+UPDATE tenant_quotas SET usage_month = @usage_month, usage_events = @usage_events, usage_checked_at = @now
+WHERE tenant_id = @tenant_id;
+
+-- name: MarkTenantQuotaExceeded :execrows
+-- Claims the announcement for the month: only the first caller gets a row, so an overage is
+-- announced once even with several workers.
+UPDATE tenant_quotas SET exceeded_month = @month
+WHERE tenant_id = @tenant_id AND exceeded_month IS DISTINCT FROM @month;
+
 -- name: InsertStaffAccountRequest :exec
 INSERT INTO staff_account_requests (id, email, name, role, reason, status, requested_by, created_at)
 VALUES (@id, @email, @name, @role, @reason, 'pending', @requested_by, @now);

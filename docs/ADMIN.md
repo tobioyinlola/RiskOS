@@ -165,6 +165,24 @@ characters; **Remove override** restores the platform's.
   `tenant_limits.cleared`); the tenant's own log records `tenant.limits_changed` with the new
   values and not the reason.
 
+## Event-volume quotas
+
+On a tenant's page, staff may set a **monthly event quota** (events per UTC calendar month),
+with a reason of 10 to 500 characters. It is a **soft limit**: no event is ever refused for it,
+because refusing a fraud check costs the customer more than the overage costs RiskOS. It exists
+so that volume is seen and talked about.
+
+- **Measuring.** The worker counts each quota-holding tenant's events (both environments) every
+  hour, so the figure on the page can be up to an hour old (it says when it was counted). A
+  newly set quota is counted at the next run.
+- **Announcing.** The first time a month's count is over the quota, once per month: the staff
+  audit log records `tenant_quota.exceeded` and the tenant's own audit log records
+  `tenant.quota_exceeded` with the month, the quota and the count. A new month announces again.
+  Tenants see it in their audit log; there is no banner.
+- **Both logs.** The staff log keeps the reason (`tenant_quota.set`, `tenant_quota.cleared`);
+  the tenant's log records `tenant.quota_changed` with the new quota and not the reason.
+- **Storage** quotas are not built: nothing measures a tenant's stored bytes yet.
+
 ## Staff roster
 
 Security administrators (`security_admin`) see **Staff** in the console: every account with its
@@ -223,7 +241,8 @@ warning. Empty (the default) allows every address.
 
 ## Not built yet
 
-- Quotas other than request rate (storage, event volume) per tenant. TODO(phase-9)
+- Storage quotas per tenant, and a quota that refuses (a hard limit): decided against for event
+  volume; see [Event-volume quotas](#event-volume-quotas). TODO(phase-9) for storage
 - A private access path (zero-trust proxy or VPN) in front of `/admin`: it is deployment
   infrastructure. TODO(phase-8)
 - Hardware-key attestation for staff passkeys (needs a decision on which authenticators to

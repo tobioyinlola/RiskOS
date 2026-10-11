@@ -15,6 +15,7 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
 
 // Defines values for AdminTenantOrigin.
@@ -578,6 +579,42 @@ type TenantLimitsOverride struct {
 	UpdatedBy StaffRef  `json:"updated_by"`
 }
 
+// TenantQuota defines model for TenantQuota.
+type TenantQuota struct {
+	// Quota Null when the tenant has no quota.
+	Quota *TenantQuotaDetail `json:"quota"`
+}
+
+// TenantQuotaChange defines model for TenantQuotaChange.
+type TenantQuotaChange struct {
+	// MonthlyEvents Events a month (UTC calendar month) the tenant is expected to stay within.
+	MonthlyEvents int64 `json:"monthly_events"`
+
+	// Reason Why. For the staff audit log; the tenant is not shown it.
+	Reason string `json:"reason"`
+}
+
+// TenantQuotaDetail defines model for TenantQuotaDetail.
+type TenantQuotaDetail struct {
+	MonthlyEvents int64            `json:"monthly_events"`
+	Reason        string           `json:"reason"`
+	UpdatedAt     time.Time        `json:"updated_at"`
+	UpdatedBy     StaffRef         `json:"updated_by"`
+	Usage         TenantQuotaUsage `json:"usage"`
+}
+
+// TenantQuotaUsage defines model for TenantQuotaUsage.
+type TenantQuotaUsage struct {
+	CheckedAt *time.Time `json:"checked_at"`
+	Events    int64      `json:"events"`
+
+	// Exceeded Whether the measured month is over the quota.
+	Exceeded bool `json:"exceeded"`
+
+	// Month The month measured (its first day, UTC); null before the first measurement.
+	Month *openapi_types.Date `json:"month"`
+}
+
 // TenantSecurity defines model for TenantSecurity.
 type TenantSecurity struct {
 	// DegradedEvaluations Evaluations with degraded signals in the window.
@@ -737,6 +774,9 @@ type EmergencySuspendTenantJSONRequestBody = EmergencySuspension
 // SetTenantLimitsJSONRequestBody defines body for SetTenantLimits for application/json ContentType.
 type SetTenantLimitsJSONRequestBody = TenantLimitsChange
 
+// SetTenantQuotaJSONRequestBody defines body for SetTenantQuota for application/json ContentType.
+type SetTenantQuotaJSONRequestBody = TenantQuotaChange
+
 // RequestTenantStatusJSONRequestBody defines body for RequestTenantStatus for application/json ContentType.
 type RequestTenantStatusJSONRequestBody = TenantStatusChange
 
@@ -865,6 +905,15 @@ type ServerInterface interface {
 	// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
 	// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
 	SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// ClearTenantQuota Remove a tenant's quota
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/quota)
+	ClearTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// GetTenantQuota A tenant's monthly event-volume quota and what it has used
+	// (GET /api/admin/v1/tenants/{tenant_id}/quota)
+	GetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// SetTenantQuota Set a tenant's monthly event-volume quota
+	// (PUT /api/admin/v1/tenants/{tenant_id}/quota)
+	SetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID)
 	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
 	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
 	RequestTenantStatus(w http.ResponseWriter, r *http.Request, tenantId TenantID)
@@ -1117,6 +1166,24 @@ func (_ Unimplemented) GetTenantLimits(w http.ResponseWriter, r *http.Request, t
 // SetTenantLimits Replace a tenant's per-key and per-tenant request limits
 // (PUT /api/admin/v1/tenants/{tenant_id}/limits)
 func (_ Unimplemented) SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ClearTenantQuota Remove a tenant's quota
+// (DELETE /api/admin/v1/tenants/{tenant_id}/quota)
+func (_ Unimplemented) ClearTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTenantQuota A tenant's monthly event-volume quota and what it has used
+// (GET /api/admin/v1/tenants/{tenant_id}/quota)
+func (_ Unimplemented) GetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetTenantQuota Set a tenant's monthly event-volume quota
+// (PUT /api/admin/v1/tenants/{tenant_id}/quota)
+func (_ Unimplemented) SetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -1989,6 +2056,84 @@ func (siw *ServerInterfaceWrapper) SetTenantLimits(w http.ResponseWriter, r *htt
 	handler.ServeHTTP(w, r)
 }
 
+// ClearTenantQuota operation middleware
+func (siw *ServerInterfaceWrapper) ClearTenantQuota(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearTenantQuota(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTenantQuota operation middleware
+func (siw *ServerInterfaceWrapper) GetTenantQuota(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTenantQuota(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetTenantQuota operation middleware
+func (siw *ServerInterfaceWrapper) SetTenantQuota(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetTenantQuota(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // RequestTenantStatus operation middleware
 func (siw *ServerInterfaceWrapper) RequestTenantStatus(w http.ResponseWriter, r *http.Request) {
 
@@ -2178,6 +2323,15 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 	})
 	r.Group(func(r chi.Router) {
 		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/reject", wrapper.RejectTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/quota", wrapper.ClearTenantQuota)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/quota", wrapper.GetTenantQuota)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/quota", wrapper.SetTenantQuota)
 	})
 	r.Group(func(r chi.Router) {
 		r.Delete(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.ClearTenantLimits)
@@ -5562,6 +5716,222 @@ func (response SetTenantLimitsdefaultJSONResponse) VisitSetTenantLimitsResponse(
 	return err
 }
 
+type ClearTenantQuotaRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type ClearTenantQuotaResponseObject interface {
+	VisitClearTenantQuotaResponse(w http.ResponseWriter) error
+}
+
+type ClearTenantQuota200JSONResponse TenantQuota
+
+func (response ClearTenantQuota200JSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuota401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ClearTenantQuota401JSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuota404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClearTenantQuota404JSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuotadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ClearTenantQuotadefaultJSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuotaRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetTenantQuotaResponseObject interface {
+	VisitGetTenantQuotaResponse(w http.ResponseWriter) error
+}
+
+type GetTenantQuota200JSONResponse TenantQuota
+
+func (response GetTenantQuota200JSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuota401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetTenantQuota401JSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuota404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTenantQuota404JSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuotadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetTenantQuotadefaultJSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuotaRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *SetTenantQuotaJSONRequestBody
+}
+
+type SetTenantQuotaResponseObject interface {
+	VisitSetTenantQuotaResponse(w http.ResponseWriter) error
+}
+
+type SetTenantQuota200JSONResponse TenantQuota
+
+func (response SetTenantQuota200JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuota400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SetTenantQuota400JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuota401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SetTenantQuota401JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuota404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetTenantQuota404JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuotadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SetTenantQuotadefaultJSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type RequestTenantStatusRequestObject struct {
 	TenantId TenantID `json:"tenant_id"`
 	Body     *RequestTenantStatusJSONRequestBody
@@ -5783,6 +6153,15 @@ type StrictServerInterface interface {
 	// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
 	// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
 	SetTenantLimits(ctx context.Context, request SetTenantLimitsRequestObject) (SetTenantLimitsResponseObject, error)
+	// ClearTenantQuota Remove a tenant's quota
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/quota)
+	ClearTenantQuota(ctx context.Context, request ClearTenantQuotaRequestObject) (ClearTenantQuotaResponseObject, error)
+	// GetTenantQuota A tenant's monthly event-volume quota and what it has used
+	// (GET /api/admin/v1/tenants/{tenant_id}/quota)
+	GetTenantQuota(ctx context.Context, request GetTenantQuotaRequestObject) (GetTenantQuotaResponseObject, error)
+	// SetTenantQuota Set a tenant's monthly event-volume quota
+	// (PUT /api/admin/v1/tenants/{tenant_id}/quota)
+	SetTenantQuota(ctx context.Context, request SetTenantQuotaRequestObject) (SetTenantQuotaResponseObject, error)
 	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
 	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
 	RequestTenantStatus(ctx context.Context, request RequestTenantStatusRequestObject) (RequestTenantStatusResponseObject, error)
@@ -6978,6 +7357,91 @@ func (sh *strictHandler) SetTenantLimits(w http.ResponseWriter, r *http.Request,
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(SetTenantLimitsResponseObject); ok {
 		if err := validResponse.VisitSetTenantLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearTenantQuota operation middleware
+func (sh *strictHandler) ClearTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request ClearTenantQuotaRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearTenantQuota(ctx, request.(ClearTenantQuotaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearTenantQuota")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearTenantQuotaResponseObject); ok {
+		if err := validResponse.VisitClearTenantQuotaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTenantQuota operation middleware
+func (sh *strictHandler) GetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetTenantQuotaRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTenantQuota(ctx, request.(GetTenantQuotaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTenantQuota")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTenantQuotaResponseObject); ok {
+		if err := validResponse.VisitGetTenantQuotaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetTenantQuota operation middleware
+func (sh *strictHandler) SetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request SetTenantQuotaRequestObject
+
+	request.TenantId = tenantId
+
+	var body SetTenantQuotaJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetTenantQuota(ctx, request.(SetTenantQuotaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetTenantQuota")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetTenantQuotaResponseObject); ok {
+		if err := validResponse.VisitSetTenantQuotaResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

@@ -330,6 +330,34 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/tenants/{tenant_id}/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A tenant's monthly event-volume quota and what it has used
+         * @description A soft limit: events are never refused for it. The worker counts the month's events hourly,
+         *     so `usage` can be up to an hour old (`usage.checked_at`).
+         */
+        get: operations["getTenantQuota"];
+        /**
+         * Set a tenant's monthly event-volume quota
+         * @description The first time the month's events pass it, staff are told (the staff audit log) and so is the
+         *     tenant (`tenant.quota_exceeded` in its audit log), once a month. Nothing is refused. The staff
+         *     audit log keeps the reason; the tenant's log records the new quota (`tenant.quota_changed`).
+         */
+        put: operations["setTenantQuota"];
+        post?: never;
+        /** Remove a tenant's quota */
+        delete: operations["clearTenantQuota"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/tenants/{tenant_id}/limits": {
         parameters: {
             query?: never;
@@ -862,6 +890,41 @@ export interface components {
                 per_tenant: components["schemas"]["RateLimit"];
             };
             override?: components["schemas"]["TenantLimitsOverride"];
+        };
+        TenantQuotaChange: {
+            /**
+             * Format: int64
+             * @description Events a month (UTC calendar month) the tenant is expected to stay within.
+             */
+            monthly_events: number;
+            /** @description Why. For the staff audit log; the tenant is not shown it. */
+            reason: string;
+        };
+        TenantQuota: {
+            /** @description Null when the tenant has no quota. */
+            quota: components["schemas"]["TenantQuotaDetail"] | null;
+        };
+        TenantQuotaDetail: {
+            /** Format: int64 */
+            monthly_events: number;
+            reason: string;
+            updated_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            updated_at: string;
+            usage: components["schemas"]["TenantQuotaUsage"];
+        };
+        TenantQuotaUsage: {
+            /**
+             * Format: date
+             * @description The month measured (its first day, UTC); null before the first measurement.
+             */
+            month: string | null;
+            /** Format: int64 */
+            events: number;
+            /** Format: date-time */
+            checked_at: string | null;
+            /** @description Whether the measured month is over the quota. */
+            exceeded: boolean;
         };
         EmergencySuspension: {
             /** @description Why, for the staff audit log and the reviewer. The tenant is not shown it. */
@@ -1652,6 +1715,86 @@ export interface operations {
             403: components["responses"]["Forbidden"];
             404: components["responses"]["NotFound"];
             409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quota, or no quota. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    setTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantQuotaChange"];
+            };
+        };
+        responses: {
+            /** @description The quota now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    clearTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No quota now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

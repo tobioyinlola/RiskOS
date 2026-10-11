@@ -670,6 +670,18 @@ type TenantOnboarding struct {
 	ReviewNote  *string
 }
 
+type TenantQuota struct {
+	TenantID       uuid.UUID
+	MonthlyEvents  int64
+	Reason         string
+	UpdatedBy      uuid.UUID
+	UpdatedAt      time.Time
+	UsageMonth     *time.Time
+	UsageEvents    int64
+	UsageCheckedAt *time.Time
+	ExceededMonth  *time.Time
+}
+
 type TenantStatusRequest struct {
 	ID           uuid.UUID
 	TenantID     uuid.UUID

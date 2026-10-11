@@ -49,6 +49,7 @@ test("staff console: session gate, security view, four-eyes approval", async ({
 }) => {
   let signedIn = false;
   let limitsOverride: Record<string, unknown> | undefined;
+  let quota: Record<string, unknown> | undefined;
   let status: "pending" | "approved" = "pending";
   const statusRequests: Record<string, unknown>[] = [
     {
@@ -155,6 +156,27 @@ test("staff console: session gate, security view, four-eyes approval", async ({
           },
           ...(limitsOverride ? { override: limitsOverride } : {}),
         });
+      }
+      case "/tenants/ten_1/quota": {
+        if (req.method() === "PUT") {
+          const body = req.postDataJSON() as {
+            monthly_events: number;
+            reason: string;
+          };
+          quota = {
+            monthly_events: body.monthly_events,
+            reason: body.reason,
+            updated_by: me,
+            updated_at: NOW,
+            usage: {
+              month: "2026-09-01",
+              events: 1250,
+              checked_at: NOW,
+              exceeded: 1250 > body.monthly_events,
+            },
+          };
+        }
+        return json(route, { quota: quota ?? null });
       }
       case "/tenants/ten_1/status-requests": {
         const body = req.postDataJSON() as { action: string; reason: string };
@@ -288,6 +310,17 @@ test("staff console: session gate, security view, four-eyes approval", async ({
   await expect(page.getByText("Override in force")).toBeVisible();
   await expect(
     page.getByRole("button", { name: "Remove override" }),
+  ).toBeVisible();
+
+  // A monthly event quota is a soft limit: saving one shows what the month has used so far.
+  await expect(page.getByText("No quota")).toBeVisible();
+  await page.getByLabel("Events a month").fill("1000");
+  await page.getByLabel("Quota reason").fill("Contract signed: ticket OPS-90");
+  await page.getByRole("button", { name: "Save quota" }).click();
+  await expect(page.getByText("Over quota")).toBeVisible();
+  await expect(page.getByText(/1,250 events, counted/)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Remove quota" }),
   ).toBeVisible();
 
   await page.getByRole("link", { name: "Status requests" }).click();
@@ -504,6 +537,8 @@ test("staff console: break-glass suspension is flagged and waits for someone els
             per_tenant: { per_second: 500, burst: 1000 },
           },
         });
+      case "/tenants/ten_1/quota":
+        return json(route, { quota: null });
       case "/tenants/ten_1/emergency-suspension": {
         const body = req.postDataJSON() as { reason: string };
         const created = {
