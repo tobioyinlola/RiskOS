@@ -30,7 +30,7 @@ import (
 // Events and evaluations are spread evenly over the last 30 days for one tenant, with 50,000 users
 // and two signals per evaluation. The method and results are in docs/PERFORMANCE_BASELINE.md.
 func TestAnalyticsAtVolume(t *testing.T) {
-	raw, ok := os.LookupEnv("RISKOS_ANALYTICS_ROWS")
+	raw, ok := os.LookupEnv("RISKOS_ANALYTICS_ROWS") //nolint:forbidigo // a measurement switch of this test, not configuration
 	if !ok || raw == "" {
 		t.Skip("set RISKOS_ANALYTICS_ROWS to measure analytics against that many events")
 	}
