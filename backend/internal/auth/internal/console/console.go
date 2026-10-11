@@ -144,11 +144,15 @@ func EqualToken(token string, hash []byte) bool {
 	return hmac.Equal(HashToken(token), hash)
 }
 
-// Sealer encrypts TOTP secrets at rest with AES-256-GCM under a server-side key.
-type Sealer struct{ aead cipher.AEAD }
+// Sealer encrypts TOTP and SSO client secrets at rest with AES-256-GCM under a server-side key.
+// During a key rotation (ADR-0008) it also holds the previous key, which opens what was sealed
+// before; Seal always uses the current key.
+type Sealer struct {
+	aead cipher.AEAD
+	prev cipher.AEAD // nil outside a rotation
+}
 
-// NewSealer derives the AES key from key (at least 32 bytes).
-func NewSealer(key []byte) (*Sealer, error) {
+func newAEAD(key []byte) (cipher.AEAD, error) {
 	if len(key) < 32 {
 		return nil, errors.New("encryption key must be at least 32 bytes")
 	}
@@ -161,7 +165,23 @@ func NewSealer(key []byte) (*Sealer, error) {
 	if err != nil {
 		return nil, fmt.Errorf("gcm: %w", err)
 	}
-	return &Sealer{aead: aead}, nil
+	return aead, nil
+}
+
+// NewSealer derives the AES key from key (at least 32 bytes). The optional previous key, set
+// during a rotation, is only used to open.
+func NewSealer(key []byte, previous ...[]byte) (*Sealer, error) {
+	aead, err := newAEAD(key)
+	if err != nil {
+		return nil, err
+	}
+	s := &Sealer{aead: aead}
+	if len(previous) > 0 && len(previous[0]) > 0 {
+		if s.prev, err = newAEAD(previous[0]); err != nil {
+			return nil, fmt.Errorf("previous key: %w", err)
+		}
+	}
+	return s, nil
 }
 
 // Seal encrypts plaintext, binding it to aad (the user ID) so a ciphertext cannot be moved to
@@ -174,17 +194,39 @@ func (s *Sealer) Seal(plaintext, aad []byte) ([]byte, error) {
 	return s.aead.Seal(nonce, nonce, plaintext, aad), nil
 }
 
-// Open decrypts a Seal output.
+// Open decrypts a Seal output, with the current key or, during a rotation, the previous one.
 func (s *Sealer) Open(ciphertext, aad []byte) ([]byte, error) {
+	out, _, err := s.open(ciphertext, aad)
+	return out, err
+}
+
+// open also reports whether the previous key was needed.
+func (s *Sealer) open(ciphertext, aad []byte) (plaintext []byte, usedPrevious bool, err error) {
 	n := s.aead.NonceSize()
 	if len(ciphertext) < n {
-		return nil, errors.New("ciphertext too short")
+		return nil, false, errors.New("ciphertext too short")
 	}
 	out, err := s.aead.Open(nil, ciphertext[:n], ciphertext[n:], aad)
-	if err != nil {
-		return nil, fmt.Errorf("decrypt: %w", err)
+	if err == nil {
+		return out, false, nil
 	}
-	return out, nil
+	if s.prev != nil {
+		if out, perr := s.prev.Open(nil, ciphertext[:n], ciphertext[n:], aad); perr == nil {
+			return out, true, nil
+		}
+	}
+	return nil, false, fmt.Errorf("decrypt: %w", err)
+}
+
+// Reseal opens ciphertext and, when it was sealed under the previous key, returns it sealed under
+// the current one (upgraded is nil when it already was). Used by the operator's reseal command to
+// retire the previous key.
+func (s *Sealer) Reseal(ciphertext, aad []byte) (upgraded []byte, err error) {
+	plain, usedPrevious, err := s.open(ciphertext, aad)
+	if err != nil || !usedPrevious {
+		return nil, err
+	}
+	return s.Seal(plain, aad)
 }
 
 // TOTP (RFC 6238): HMAC-SHA1, 6 digits, 30-second steps.

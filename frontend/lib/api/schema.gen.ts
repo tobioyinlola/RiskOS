@@ -680,7 +680,10 @@ export interface paths {
          *     to any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and
          *     `resolved` are final. Alerts are escalated by creating a case with them
          *     (`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty
-         *     `assignee` unassigns. A change that alters nothing is a no-op.
+         *     `assignee` unassigns; any other value must be the email of an active dashboard user of the
+         *     workspace (compared without regard to case, stored as the user's own email), otherwise the
+         *     request is refused with 400. A value that is not changed is not checked again. A change
+         *     that alters nothing is a no-op.
          */
         patch: operations["updateAlert"];
         trace?: never;
@@ -733,7 +736,8 @@ export interface paths {
          * @description Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a
          *     `resolution` and closes the case's alerts: `false_positive` when the resolution is
          *     `false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.
-         *     An empty `assignee` unassigns.
+         *     An empty `assignee` unassigns; any other value must be the email of an active dashboard
+         *     user of the workspace, as for alerts. A case's `assignee` can also be set when it is created.
          */
         patch: operations["updateCase"];
         trace?: never;
@@ -1304,8 +1308,9 @@ export interface paths {
          * @description For a person whose tenant uses single sign-on (OpenID Connect). Returns the provider's
          *     authorization URL to send the browser to, and sets a short-lived cookie binding the request to
          *     this browser. Unknown emails, disabled accounts and tenants without SSO all get 404
-         *     `SSO_NOT_CONFIGURED`. Throttled per email and per IP (429). SSO signs in existing accounts only,
-         *     and RiskOS still asks for its own second factor afterwards.
+         *     `SSO_NOT_CONFIGURED`. Throttled per email and per IP (429). SSO signs in existing accounts, and
+         *     creates one for a new person whose email is at a domain a workspace has verified and lets in
+         *     just in time. RiskOS still asks for its own second factor afterwards.
          */
         post: operations["startSSO"];
         delete?: never;
@@ -2628,6 +2633,77 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/v1/sso/domains": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * The email domains the workspace claims for single sign-on
+         * @description Requires `team:read`. Each domain carries the DNS TXT record that proves it. Only a verified
+         *     domain lets people in just in time.
+         */
+        get: operations["listSSODomains"];
+        put?: never;
+        /**
+         * Claim an email domain
+         * @description Requires `team:write` and, from the console, re-authentication within the last 10 minutes.
+         *     Needs a single sign-on connection. A workspace can claim at most 20 domains. Audited. The
+         *     claim counts only after the TXT record in the response is published and verified.
+         */
+        post: operations["addSSODomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sso/domains/{domain}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Verify a claimed domain from its DNS TXT record
+         * @description Requires `team:write` and, from the console, re-authentication. RiskOS looks up the TXT
+         *     record named in the claim (`txt_host`) and compares it with `txt_value`. DNS changes can take
+         *     a while to appear: a 400 means the record was not found yet. Only one workspace can hold a
+         *     domain verified (409). Audited.
+         */
+        post: operations["verifySSODomain"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/v1/sso/domains/{domain}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        /**
+         * Release a claimed domain
+         * @description Requires `team:write` and, from the console, re-authentication. Accounts already created
+         *     through the domain stay. Audited.
+         */
+        delete: operations["removeSSODomain"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
 }
 export type webhooks = Record<string, never>;
 export interface components {
@@ -3480,6 +3556,17 @@ export interface components {
             client_id: string;
             /** @description When false, the connection is kept but nobody can sign in with it. */
             enabled: boolean;
+            /**
+             * @description When true, single sign-on is the only way in: password and Google sign-in are refused
+             *     for the workspace's people (403 `SSO_REQUIRED`). It needs `enabled`.
+             */
+            required: boolean;
+            /**
+             * @description When true, a person with no account whose email is at a verified domain is let in at
+             *     their first single sign-on, with `jit_role`. It needs `enabled` and a verified domain.
+             */
+            jit_enabled: boolean;
+            jit_role: components["schemas"]["JITRole"];
             /** Format: date-time */
             updated_at: string;
             updated_by: string;
@@ -3495,6 +3582,52 @@ export interface components {
             /** @description Required the first time; leave out to keep the stored secret. */
             client_secret?: string;
             enabled: boolean;
+            /**
+             * @description Make single sign-on the only way in. Leave out to keep the stored value (false on a
+             *     first save). It is accepted only for a saved, enabled connection whose issuer is
+             *     unchanged, and only from a person who has themselves signed in through the provider, so
+             *     the workspace cannot lock itself out. Changing the issuer needs it off. The operator
+             *     tool can lift it if the provider is unavailable.
+             */
+            required?: boolean;
+            /**
+             * @description Let people at a verified domain in without an invite. Leave out to keep the stored
+             *     value (false on a first save). Needs `enabled` and a verified domain.
+             */
+            jit_enabled?: boolean;
+            jit_role?: components["schemas"]["JITRole"];
+        };
+        /**
+         * @description The role of an account created just in time: never `customer_admin`. Leave out in a request
+         *     to keep the stored value (`auditor`, read-only, on a first save).
+         * @enum {string}
+         */
+        JITRole: "developer" | "risk_manager" | "analyst" | "compliance_officer" | "auditor";
+        SSODomainInput: {
+            /** @example example.com */
+            domain: string;
+        };
+        SSODomain: {
+            /** @example example.com */
+            domain: string;
+            verified: boolean;
+            /** Format: date-time */
+            verified_at: string | null;
+            /** Format: date-time */
+            created_at: string;
+            /**
+             * @description The DNS name to publish the proof at.
+             * @example _riskos-challenge.example.com
+             */
+            txt_host: string;
+            /**
+             * @description The TXT record's value.
+             * @example riskos-verification=abcdefghijklmnopqrstuvwxyz234567
+             */
+            txt_value: string;
+        };
+        SSODomainList: {
+            data: components["schemas"]["SSODomain"][];
         };
         LoginRequest: {
             email: string;
@@ -4932,6 +5065,7 @@ export interface components {
         /** @description The `next_cursor` of the previous page. */
         Cursor: string;
         KeyId: string;
+        DomainName: string;
     };
     requestBodies: never;
     headers: {
@@ -8941,6 +9075,114 @@ export interface operations {
         requestBody?: never;
         responses: {
             /** @description Removed. */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listSSODomains: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The claimed domains. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSODomainList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    addSSODomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["SSODomainInput"];
+            };
+        };
+        responses: {
+            /** @description The claim, unverified. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSODomain"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    verifySSODomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: components["parameters"]["DomainName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The domain, verified. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SSODomain"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    removeSSODomain: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                domain: components["parameters"]["DomainName"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Released. */
             204: {
                 headers: {
                     [name: string]: unknown;

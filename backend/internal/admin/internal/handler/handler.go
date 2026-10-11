@@ -25,10 +25,12 @@ const CookieName = "riskos_staff"
 // csrfHeader carries the staff session's CSRF token.
 const csrfHeader = "X-CSRF-Token"
 
-// publicPaths are reachable without a session: the passkey ceremonies.
+// publicPaths are reachable without a session: the sign-in ceremonies.
 var publicPaths = []string{ //nolint:gochecknoglobals // immutable list
 	"/api/admin/v1/auth/enroll/options", "/api/admin/v1/auth/enroll",
 	"/api/admin/v1/auth/login/options", "/api/admin/v1/auth/login",
+	"/api/admin/v1/auth/methods", "/api/admin/v1/auth/sso/start", "/api/admin/v1/auth/sso/callback",
+	"/api/admin/v1/auth/sso/login",
 }
 
 type sessionKey struct{}
@@ -98,6 +100,14 @@ func mapError(err error) error {
 		return httpx.NewError(http.StatusUnauthorized, httpx.CodeUnauthenticated, "Sign in with your staff passkey.", err)
 	case errors.Is(err, service.ErrPasskey):
 		return httpx.NewError(http.StatusUnauthorized, httpx.CodeUnauthenticated, "The passkey could not be verified. Try again.", err)
+	case errors.Is(err, service.ErrSSORequired):
+		return httpx.NewError(http.StatusForbidden, CodeSSORequired, "Sign in through single sign-on.", err)
+	case errors.Is(err, service.ErrSSOFailed):
+		return httpx.NewError(http.StatusUnauthorized, CodeSSOFailed, "Single sign-on did not complete. Start again from the sign-in page.", err)
+	case errors.Is(err, service.ErrSSOProvider):
+		return httpx.NewError(http.StatusBadGateway, CodeSSOProvider, "The identity provider could not be reached. Try again shortly.", err)
+	case errors.Is(err, service.ErrSSONotConfigured):
+		return httpx.NewError(http.StatusNotFound, CodeSSONotConfigured, "Single sign-on is not set up for staff.", err)
 	case errors.Is(err, service.ErrRateLimited):
 		return httpx.NewError(http.StatusTooManyRequests, httpx.CodeRateLimited, "Too many attempts. Try again in a minute.", err).
 			WithHeader("Retry-After", "60")
@@ -263,13 +273,13 @@ func (h *Handlers) StaffLogout(ctx context.Context, _ adminapi.StaffLogoutReques
 
 // ListAdminTenants implements GET /api/admin/v1/tenants.
 func (h *Handlers) ListAdminTenants(ctx context.Context, _ adminapi.ListAdminTenantsRequestObject) (adminapi.ListAdminTenantsResponseObject, error) {
-	rows, err := h.svc.Tenants(ctx)
+	rows, err := h.svc.TenantDirectory(ctx)
 	if err != nil {
 		return nil, mapError(err)
 	}
 	out := adminapi.ListAdminTenants200JSONResponse{Data: make([]adminapi.AdminTenant, len(rows))}
 	for i, t := range rows {
-		out.Data[i] = adminapi.AdminTenant{Id: ids.Format(ids.PrefixTenant, t.ID), Name: t.Name, Status: t.Status, CreatedAt: t.CreatedAt}
+		out.Data[i] = tenantToAPI(t)
 	}
 	return out, nil
 }

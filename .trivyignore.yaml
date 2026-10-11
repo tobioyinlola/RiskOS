@@ -1,15 +1,7 @@
 # Trivy exceptions. Every entry needs: the reason it is not exploitable here, who accepted it,
 # and an expiry date after which CI fails again and the exception must be re-reviewed.
 # Prefer upgrading over ignoring; only add an entry when no fixed artifact exists yet.
-vulnerabilities:
-  - id: CVE-2026-75804
-    statement: >-
-      libssl3t64 in gcr.io/distroless/nodejs24-debian13. DoS via QUIC connection flow control;
-      the Next.js server does not use QUIC. Debian has fixed it (3.5.7-1~deb13u3) but no rebuilt
-      distroless image was published as of 2026-09-30. Remove when Dependabot bumps the digest.
-    expired_at: 2026-10-14
-  - id: CVE-2026-84782
-    statement: >-
-      libssl3t64 in gcr.io/distroless/nodejs24-debian13. Information disclosure via DTLS handshake
-      retransmission; the Next.js server does not use DTLS. Same fix status as CVE-2026-75804.
-    expired_at: 2026-10-14
+#
+# Empty since 2026-10-10: the distroless Node digest that fixed CVE-2026-75804 and
+# CVE-2026-84782 is pinned, and a scan of all four images without exceptions is clean.
+vulnerabilities: []

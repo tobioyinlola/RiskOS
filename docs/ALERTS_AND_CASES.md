@@ -75,10 +75,19 @@ Notes on alerts go into the alert's timeline.
 
 ## Assignment
 
-Dashboard user accounts arrive with the console (build step 7). Until then, `assignee` is a
-free-text reference to the analyst (an email or staff ID, at most 254 characters, empty to
-unassign). It is not validated against any user list and grants nothing. TODO(phase-7): replace it
-with a reference to a dashboard user.
+`assignee` is the email of an active dashboard user of the workspace (at most 254 characters;
+empty to unassign). On a change the value is looked up among the workspace's active users,
+compared without regard to case, and stored as the user's own lowercase email; a value that
+names no such user is refused with 400. Assignment grants nothing: it records who is expected to
+act, and permissions are the user's role.
+
+- **Only a change is checked.** Re-sending the value an alert or case already has passes whatever
+  it is, so records assigned before this check (free text such as a staff ID) stay readable and
+  can be updated for other fields; they can be unassigned or reassigned to a real user.
+- **Why email:** it is what the field already held in practice, so no client or stored value
+  changes shape. A user's identifier would be sturdier if emails could change; revisit then.
+- **Disabled users** can no longer be assigned. Work already assigned to a user who is later
+  disabled keeps the assignment until someone changes it.
 
 ## Permissions
 

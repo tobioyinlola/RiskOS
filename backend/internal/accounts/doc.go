@@ -8,5 +8,5 @@
 //	internal/service  business logic; calls the store and other modules' public interfaces only
 //	internal/store    the only code that touches this module's tables (sqlc queries)
 //
-// Design and implementation: TODO(phase-0). See docs/ARCHITECTURE.md for the boundary rules.
+// Not implemented yet: this module has no behaviour. See docs/ARCHITECTURE.md for the boundary rules.
 package accounts

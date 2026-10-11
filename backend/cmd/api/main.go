@@ -24,6 +24,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/httpapi"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
@@ -108,6 +109,10 @@ func run() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, tel.Shutdown(context.WithoutCancel(ctx))) }()
+	appMetrics, err := appmetrics.New(tel.MeterProvider)
+	if err != nil {
+		return err
+	}
 
 	pool, err := db.NewPool(ctx, cfg.Postgres)
 	if err != nil {
@@ -140,9 +145,11 @@ func run() (err error) {
 	auditModule := audit.New(runner, clk)
 	tenantsModule := tenants.New(runner, auditModule.Recorder())
 	authCfg := auth.Config{
-		Pepper:   []byte(cfg.Auth.APIKeyPepper),
-		CacheTTL: cfg.Auth.APIKeyCacheTTL,
-		Console:  consoleConfig(cfg.Console),
+		Pepper:         []byte(cfg.Auth.APIKeyPepper),
+		PepperPrevious: []byte(cfg.Auth.APIKeyPepperPrevious),
+		Metrics:        appMetrics,
+		CacheTTL:       cfg.Auth.APIKeyCacheTTL,
+		Console:        consoleConfig(cfg.Console),
 		Cookie: auth.CookieConfig{
 			Secure: cfg.Console.CookieSecure, Origins: cfg.Console.Origins, ConsoleURL: cfg.Console.URL,
 		},
@@ -165,20 +172,43 @@ func run() (err error) {
 		FeatureTimeout: cfg.Risk.FeatureTimeout,
 		StateDB:        pool,
 		HistoryWarmup:  cfg.Risk.HistoryWarmup,
+
+		BaselineMaxPerHour: cfg.Risk.BaselineMaxPerHour,
 	})
 	riskModule.WatchFeatureState(ctx)
-	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk)
+	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, appMetrics)
+	// Refuse to start without a signing key some endpoint still uses (ADR-0008), and say when a
+	// previous key is no longer needed.
+	if err := webhooks.VerifyKeyring(ctx, pool, webhookConfig(cfg.Webhooks)); err != nil {
+		return err
+	}
+	logging.WarnRotations(ctx, logger, cfg.RotationsInProgress())
+	if unused, err := webhooks.PreviousKeyUnused(ctx, pool, webhookConfig(cfg.Webhooks)); err == nil && unused {
+		logger.WarnContext(ctx, "no webhook endpoint uses the previous signing key any more; remove RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS")
+	}
 	// The API publishes webhook events and manages endpoints; it never delivers (no notifier).
 	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, queue, webhookConfig(cfg.Webhooks), nil, logger)
 	alertsModule := alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 	rulesModule.ConnectWorkflow(alertsModule, casesModule)
+	// Work is assigned only to the workspace's active dashboard users.
+	alertsModule.SetAssignees(authModule)
+	casesModule.SetAssignees(authModule)
 
 	// The internal admin realm: staff passkeys use the console's relying party and origins.
 	rpid, origins := authModule.PasskeyRP()
 	adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
-		Secret: []byte(cfg.Console.Secret), RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
+		Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious),
+		RPID: rpid, Origins: origins, CookieSecure: cfg.Console.CookieSecure,
 		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
+		// Accounts can be created from the console only when the enrollment link can be emailed.
+		Jobs: queue, EmailEnabled: cfg.SMTP.Enabled(),
+		SSO:              staffSSO(cfg.Console),
+		AllowedAddresses: cfg.HTTP.AdminAllowedCIDRs,
+		DefaultLimits: ratelimit.Override{
+			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
+			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},
+		},
 	})
 	if err != nil {
 		return err
@@ -201,7 +231,9 @@ func run() (err error) {
 		Tenants:   tenantsModule,
 		Rules:     rulesModule,
 		Admin:     adminModule,
+		Overrides: adminModule,
 		Limiter:   ratelimit.New(rdb, cfg.RateLimit.Timeout),
+		Metrics:   appMetrics,
 		RateLimits: httpapi.RateLimits{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
 			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},
@@ -228,7 +260,11 @@ func run() (err error) {
 }
 
 func webhookConfig(c config.Webhooks) webhooks.Config {
-	return webhooks.Config{SigningKey: []byte(c.SigningKey), Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest}
+	return webhooks.Config{
+		SigningKey: []byte(c.SigningKey), SigningKeyID: c.SigningKeyID,
+		PreviousSigningKey: []byte(c.PreviousSigningKey), PreviousSigningKeyID: c.PreviousSigningKeyID,
+		Timeout: c.Timeout, AllowPrivateTest: c.AllowPrivateTest,
+	}
 }
 
 // selfServeTenants creates the workspaces of public sign-up (auth.TenantCreator): pinned to the
@@ -247,9 +283,22 @@ func (s selfServeTenants) CreateSelfServe(ctx context.Context, name, actor strin
 func consoleConfig(c config.Console) auth.ConsoleConfig {
 	cc := auth.DefaultConsole()
 	cc.Secret, cc.RPID, cc.Origins = []byte(c.Secret), c.RPID, c.Origins
+	cc.SecretPrevious = []byte(c.SecretPrevious)
 	cc.SSOAllowPrivate = c.SSOAllowPrivate
 	if c.BreachedPasswordCheck == "pwned" {
 		cc.Breach = auth.PwnedPasswords(c.BreachedPasswordURL, 3*time.Second)
 	}
 	return cc
+}
+
+// staffSSO is the identity provider staff sign in through before their passkey, or the zero
+// value when none is configured. The provider redirects to the console's callback page.
+func staffSSO(c config.Console) admin.SSOConfig {
+	if c.StaffSSOIssuer == "" {
+		return admin.SSOConfig{}
+	}
+	return admin.SSOConfig{
+		Issuer: c.StaffSSOIssuer, ClientID: c.StaffSSOClientID, ClientSecret: c.StaffSSOClientSecret,
+		RedirectURL: c.URL + "/admin/sso/callback", Required: c.StaffSSORequired, AllowPrivate: c.SSOAllowPrivate,
+	}
 }

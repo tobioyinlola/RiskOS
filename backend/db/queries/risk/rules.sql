@@ -67,7 +67,8 @@ ON CONFLICT (tenant_id, environment_id) DO UPDATE SET
   updated_by = EXCLUDED.updated_by;
 
 -- name: CountRules :one
-SELECT count(*) FROM rules;
+SELECT count(*) FROM rules
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id;
 
 -- Rule changes awaiting two-person approval (production) -------------------------------------
 

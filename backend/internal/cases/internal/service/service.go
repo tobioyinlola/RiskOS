@@ -14,6 +14,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/present"
 	"github.com/tobioyinlola/RiskOS/backend/internal/cases/internal/store"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/assignee"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -30,11 +31,32 @@ type Service struct {
 	audit   audit.Recorder
 	clock   clock.Clock
 	webhook webhooks.Publisher
+	// assignees validates who a case is assigned to; nil accepts any reference.
+	assignees assignee.Resolver
 }
 
 // New returns a Service.
 func New(runner txn.Runner, linker alerts.Linker, rec audit.Recorder, clk clock.Clock, pub webhooks.Publisher) *Service {
 	return &Service{runner: runner, alerts: linker, audit: rec, clock: clk, webhook: pub}
+}
+
+// SetAssignees makes assignment require an active dashboard user of the workspace, found by r.
+func (s *Service) SetAssignees(r assignee.Resolver) { s.assignees = r }
+
+// resolveAssignee returns the canonical reference of the user ref names, or an invalid-input
+// error when the workspace has no such active user. It runs in the caller's transaction.
+func (s *Service) resolveAssignee(ctx context.Context, ref string) (string, error) {
+	if s.assignees == nil {
+		return ref, nil
+	}
+	canonical, ok, err := s.assignees.ResolveAssignee(ctx, ref)
+	if err != nil {
+		return "", err
+	}
+	if !ok {
+		return "", invalid("assignee must be the email of an active dashboard user of this workspace")
+	}
+	return canonical, nil
 }
 
 // Detail is a case with its alerts, notes and timeline.
@@ -93,6 +115,13 @@ func (s *Service) Create(ctx context.Context, in domain.CreateInput) (domain.Cas
 		c.Assignee = &in.Assignee
 	}
 	err = s.runner.Run(ctx, func(ctx context.Context) error {
+		if c.Assignee != nil {
+			canonical, err := s.resolveAssignee(ctx, *c.Assignee)
+			if err != nil {
+				return err
+			}
+			c.Assignee, in.Assignee = &canonical, canonical
+		}
 		derive := c.Priority == ""
 		if derive {
 			c.Priority = domain.DefaultPriority
@@ -201,6 +230,14 @@ func (s *Service) Update(ctx context.Context, id uuid.UUID, p domain.Patch) (dom
 		}
 		if cur.Status == domain.StatusResolved {
 			return fmt.Errorf("%w: the case is resolved; add a note instead", domain.ErrConflict)
+		}
+		// Only a change of assignee is checked: a legacy value kept as it is stays valid.
+		if p.Assignee != nil && *p.Assignee != "" && *p.Assignee != deref(cur.Assignee) {
+			canonical, err := s.resolveAssignee(ctx, *p.Assignee)
+			if err != nil {
+				return err
+			}
+			p.Assignee = &canonical
 		}
 		next, changes := apply(cur, p)
 		if len(changes) == 0 {

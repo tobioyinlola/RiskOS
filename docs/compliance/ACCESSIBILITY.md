@@ -24,6 +24,7 @@ rules catch only part of what matters, so the checks below were made by hand.
 | Code blocks (a rule's definition and engineering logic, event payloads) scroll but could not be reached by keyboard | 2.1.1 | `CodeBlock` is a labelled, focusable region ("Rule definition", "Engineering logic") |
 | A table wider than its card (mobile) scrolled sideways without keyboard access | 2.1.1 | The table's scroll container becomes a focusable region named after the table, only while it scrolls |
 | Every task row's button was named "Open" | 2.4.6 | Named after the task: "Open Suspicious transaction report for usr_4812" |
+| The risk badge (alerts, cases, entity profiles, analytics) put `aria-label` on a `span`, which has no role that takes a name, so the name ("High, score 81") was not reliably announced | 4.1.2 | The badge is `role="img"` with the same label |
 
 ## Checked by hand (several countries)
 
@@ -55,5 +56,15 @@ rules catch only part of what matters, so the checks below were made by hand.
 
 - A screen-reader pass with NVDA or VoiceOver on real hardware (the checks above use the
   accessibility tree): schedule with the next console release (TODO(phase-8)).
-- Pages outside the rule pack were not reviewed in this pass; the shared component fixes above
-  apply to them too.
+- Pages outside the rule pack have the automated check only (below), not the hand checks above.
+
+## Pages outside the rule pack
+
+`frontend/tests/e2e/a11y-console.spec.ts` runs the same axe-core rules (WCAG 2.1 A and AA), on
+desktop and mobile, over the overview, alerts, cases and a case, events, transactions, the live
+monitor, an entity profile, analytics, deny lists, the audit log, account security, settings,
+team, developer, a webhook endpoint and single sign-on, signed in with the mock API's data, and
+over sign-in, sign-up and the landing page. The footer's oversized wordmark is excluded: it is
+`aria-hidden` decoration, which WCAG 1.4.3 exempts. Not covered: the staff console (`/admin`),
+which has its own end-to-end specs, and dialogs and drawers on these pages other than those
+already opened by the rule pack tests.

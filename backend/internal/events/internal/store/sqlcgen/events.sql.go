@@ -215,30 +215,39 @@ func (q *Queries) DeviceProfile(ctx context.Context, arg DeviceProfileParams) (D
 }
 
 const eventTimeline = `-- name: EventTimeline :many
-SELECT date_bin($1::interval, received_at, $2::timestamptz)::timestamptz AS bucket,
-       count(*)::bigint AS events,
-       coalesce(round(avg(risk_score)), 0)::int AS mean_score,
-       jsonb_build_object(
-         'allow', count(*) FILTER (WHERE decision = 'allow'),
-         'fee', count(*) FILTER (WHERE decision = 'fee'),
-         'flag', count(*) FILTER (WHERE decision = 'flag'),
-         'step_up', count(*) FILTER (WHERE decision = 'step_up'),
-         'review', count(*) FILTER (WHERE decision = 'review'),
-         'restrict', count(*) FILTER (WHERE decision = 'restrict'),
-         'hold', count(*) FILTER (WHERE decision = 'hold'),
-         'block_session', count(*) FILTER (WHERE decision = 'block_session'),
-         'decline', count(*) FILTER (WHERE decision = 'decline'),
-         'block', count(*) FILTER (WHERE decision = 'block')
-       ) AS decisions,
-       count(*) FILTER (WHERE risk_level = 'minimal')::bigint AS minimal,
-       count(*) FILTER (WHERE risk_level = 'low')::bigint AS low,
-       count(*) FILTER (WHERE risk_level = 'elevated')::bigint AS elevated,
-       count(*) FILTER (WHERE risk_level = 'high')::bigint AS high,
-       count(*) FILTER (WHERE risk_level = 'critical')::bigint AS critical
-FROM events
-WHERE tenant_id = $3 AND environment_id = $4 AND received_at >= $5
-GROUP BY bucket
-ORDER BY bucket
+WITH hours AS (
+  SELECT h.bucket, h.events, h.score_sum, h.allow, h.fee, h.flag, h.step_up, h.review, h.restrict, h.hold,
+         h.block_session, h.decline, h.block, h.minimal, h.low, h.elevated, h.high, h.critical
+  FROM analytics_hourly h
+  WHERE h.tenant_id = $3 AND h.environment_id = $4
+    AND h.bucket >= GREATEST($5::timestamptz, $6::timestamptz) AND h.bucket < $7::timestamptz
+  UNION ALL
+  SELECT date_bin('1 hour', e.received_at, '2000-01-01T00:00:00Z'::timestamptz), count(*), sum(e.risk_score),
+         count(*) FILTER (WHERE e.decision = 'allow'), count(*) FILTER (WHERE e.decision = 'fee'),
+         count(*) FILTER (WHERE e.decision = 'flag'), count(*) FILTER (WHERE e.decision = 'step_up'),
+         count(*) FILTER (WHERE e.decision = 'review'), count(*) FILTER (WHERE e.decision = 'restrict'),
+         count(*) FILTER (WHERE e.decision = 'hold'), count(*) FILTER (WHERE e.decision = 'block_session'),
+         count(*) FILTER (WHERE e.decision = 'decline'), count(*) FILTER (WHERE e.decision = 'block'),
+         count(*) FILTER (WHERE e.risk_level = 'minimal'), count(*) FILTER (WHERE e.risk_level = 'low'),
+         count(*) FILTER (WHERE e.risk_level = 'elevated'), count(*) FILTER (WHERE e.risk_level = 'high'),
+         count(*) FILTER (WHERE e.risk_level = 'critical')
+  FROM events e
+  WHERE e.tenant_id = $3 AND e.environment_id = $4
+    AND ((e.received_at >= $5 AND e.received_at < $6)
+      OR e.received_at >= GREATEST($5::timestamptz, $7::timestamptz))
+  GROUP BY 1
+)
+SELECT date_bin($1::interval, bucket, $2::timestamptz)::timestamptz AS bucket,
+       sum(events)::bigint AS events, sum(score_sum)::bigint AS score_sum,
+       sum(allow)::bigint AS allow, sum(fee)::bigint AS fee, sum(flag)::bigint AS flag,
+       sum(step_up)::bigint AS step_up, sum(review)::bigint AS review, sum(restrict)::bigint AS restrict,
+       sum(hold)::bigint AS hold, sum(block_session)::bigint AS block_session,
+       sum(decline)::bigint AS decline, sum(block)::bigint AS block,
+       sum(minimal)::bigint AS minimal, sum(low)::bigint AS low, sum(elevated)::bigint AS elevated,
+       sum(high)::bigint AS high, sum(critical)::bigint AS critical
+FROM hours
+GROUP BY 1
+ORDER BY 1
 `
 
 type EventTimelineParams struct {
@@ -247,21 +256,36 @@ type EventTimelineParams struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID
 	Since         time.Time
+	CoveredFrom   time.Time
+	RolledThrough time.Time
 }
 
 type EventTimelineRow struct {
-	Bucket    time.Time
-	Events    int64
-	MeanScore int32
-	Decisions []byte
-	Minimal   int64
-	Low       int64
-	Elevated  int64
-	High      int64
-	Critical  int64
+	Bucket       time.Time
+	Events       int64
+	ScoreSum     int64
+	Allow        int64
+	Fee          int64
+	Flag         int64
+	StepUp       int64
+	Review       int64
+	Restrict     int64
+	Hold         int64
+	BlockSession int64
+	Decline      int64
+	Block        int64
+	Minimal      int64
+	Low          int64
+	Elevated     int64
+	High         int64
+	Critical     int64
 }
 
-// Analytics: events per time bucket since @since (non-dry-run evaluations are events).
+// Analytics: events per time bucket since @since (non-dry-run evaluations are events). Hours
+// [@covered_from, @rolled_through) come from the hourly rollup; the rest is read from events. With
+// no rollup, pass both as @since: the rollup part is then empty and everything is read raw.
+// Buckets are re-binned from hours, which is exact because @step is a whole number of hours and
+// @origin is on the hour.
 func (q *Queries) EventTimeline(ctx context.Context, arg EventTimelineParams) ([]EventTimelineRow, error) {
 	rows, err := q.db.Query(ctx, eventTimeline,
 		arg.Step,
@@ -269,6 +293,8 @@ func (q *Queries) EventTimeline(ctx context.Context, arg EventTimelineParams) ([
 		arg.TenantID,
 		arg.EnvironmentID,
 		arg.Since,
+		arg.CoveredFrom,
+		arg.RolledThrough,
 	)
 	if err != nil {
 		return nil, err
@@ -280,8 +306,17 @@ func (q *Queries) EventTimeline(ctx context.Context, arg EventTimelineParams) ([
 		if err := rows.Scan(
 			&i.Bucket,
 			&i.Events,
-			&i.MeanScore,
-			&i.Decisions,
+			&i.ScoreSum,
+			&i.Allow,
+			&i.Fee,
+			&i.Flag,
+			&i.StepUp,
+			&i.Review,
+			&i.Restrict,
+			&i.Hold,
+			&i.BlockSession,
+			&i.Decline,
+			&i.Block,
 			&i.Minimal,
 			&i.Low,
 			&i.Elevated,
@@ -366,6 +401,29 @@ func (q *Queries) GetEventKey(ctx context.Context, arg GetEventKeyParams) (GetEv
 	row := q.db.QueryRow(ctx, getEventKey, arg.TenantID, arg.EnvironmentID, arg.EventKey)
 	var i GetEventKeyRow
 	err := row.Scan(&i.PayloadHash, &i.EventID, &i.Response)
+	return i, err
+}
+
+const getRollupState = `-- name: GetRollupState :one
+SELECT covered_from, rolled_through FROM rollup_state
+WHERE tenant_id = $1 AND environment_id = $2 AND name = $3
+`
+
+type GetRollupStateParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Name          string
+}
+
+type GetRollupStateRow struct {
+	CoveredFrom   time.Time
+	RolledThrough time.Time
+}
+
+func (q *Queries) GetRollupState(ctx context.Context, arg GetRollupStateParams) (GetRollupStateRow, error) {
+	row := q.db.QueryRow(ctx, getRollupState, arg.TenantID, arg.EnvironmentID, arg.Name)
+	var i GetRollupStateRow
+	err := row.Scan(&i.CoveredFrom, &i.RolledThrough)
 	return i, err
 }
 
@@ -539,6 +597,82 @@ func (q *Queries) ListEvents(ctx context.Context, arg ListEventsParams) ([]ListE
 	return items, nil
 }
 
+const putRollupState = `-- name: PutRollupState :exec
+INSERT INTO rollup_state (tenant_id, environment_id, name, covered_from, rolled_through, updated_at)
+VALUES ($1, $2, $3, $4, $5, $6)
+ON CONFLICT (tenant_id, environment_id, name) DO UPDATE SET
+  rolled_through = EXCLUDED.rolled_through, updated_at = EXCLUDED.updated_at
+`
+
+type PutRollupStateParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Name          string
+	CoveredFrom   time.Time
+	RolledThrough time.Time
+	Now           time.Time
+}
+
+func (q *Queries) PutRollupState(ctx context.Context, arg PutRollupStateParams) error {
+	_, err := q.db.Exec(ctx, putRollupState,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Name,
+		arg.CoveredFrom,
+		arg.RolledThrough,
+		arg.Now,
+	)
+	return err
+}
+
+const rollupEventHours = `-- name: RollupEventHours :execrows
+INSERT INTO analytics_hourly (tenant_id, environment_id, bucket, events, score_sum, minimal, low, elevated,
+                              high, critical, allow, fee, flag, step_up, review, restrict, hold,
+                              block_session, decline, block)
+SELECT $1, $2, date_bin('1 hour', received_at, '2000-01-01T00:00:00Z'::timestamptz),
+       count(*), sum(risk_score),
+       count(*) FILTER (WHERE risk_level = 'minimal'), count(*) FILTER (WHERE risk_level = 'low'),
+       count(*) FILTER (WHERE risk_level = 'elevated'), count(*) FILTER (WHERE risk_level = 'high'),
+       count(*) FILTER (WHERE risk_level = 'critical'),
+       count(*) FILTER (WHERE decision = 'allow'), count(*) FILTER (WHERE decision = 'fee'),
+       count(*) FILTER (WHERE decision = 'flag'), count(*) FILTER (WHERE decision = 'step_up'),
+       count(*) FILTER (WHERE decision = 'review'), count(*) FILTER (WHERE decision = 'restrict'),
+       count(*) FILTER (WHERE decision = 'hold'), count(*) FILTER (WHERE decision = 'block_session'),
+       count(*) FILTER (WHERE decision = 'decline'), count(*) FILTER (WHERE decision = 'block')
+FROM events
+WHERE tenant_id = $1 AND environment_id = $2
+  AND received_at >= $3::timestamptz AND received_at < $4::timestamptz
+GROUP BY 3
+ON CONFLICT (tenant_id, environment_id, bucket) DO UPDATE SET
+  events = EXCLUDED.events, score_sum = EXCLUDED.score_sum, minimal = EXCLUDED.minimal, low = EXCLUDED.low,
+  elevated = EXCLUDED.elevated, high = EXCLUDED.high, critical = EXCLUDED.critical, allow = EXCLUDED.allow,
+  fee = EXCLUDED.fee, flag = EXCLUDED.flag, step_up = EXCLUDED.step_up, review = EXCLUDED.review,
+  restrict = EXCLUDED.restrict, hold = EXCLUDED.hold, block_session = EXCLUDED.block_session,
+  decline = EXCLUDED.decline, block = EXCLUDED.block
+`
+
+type RollupEventHoursParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RangeStart    time.Time
+	RangeEnd      time.Time
+}
+
+// Recomputes the hourly aggregates of [@range_start, @range_end) (whole hours) from events. A rollup row is a
+// function of its hour's immutable events, so this is idempotent and picks up late commits.
+func (q *Queries) RollupEventHours(ctx context.Context, arg RollupEventHoursParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rollupEventHours,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.RangeStart,
+		arg.RangeEnd,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const setEventKeyResponse = `-- name: SetEventKeyResponse :exec
 UPDATE event_idempotency SET response = $1
 WHERE tenant_id = $2 AND environment_id = $3 AND event_key = $4
@@ -559,6 +693,53 @@ func (q *Queries) SetEventKeyResponse(ctx context.Context, arg SetEventKeyRespon
 		arg.EventKey,
 	)
 	return err
+}
+
+const topScoreEvents = `-- name: TopScoreEvents :many
+SELECT user_ref, risk_score::int AS risk_score
+FROM events
+WHERE tenant_id = $1 AND environment_id = $2 AND received_at >= $3
+ORDER BY risk_score DESC, received_at DESC
+LIMIT $4
+`
+
+type TopScoreEventsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	RowLimit      int32
+}
+
+type TopScoreEventsRow struct {
+	UserRef   string
+	RiskScore int32
+}
+
+// Analytics: the users of the window's highest-scoring events, best first. Read in score order
+// (events_by_score), so it stops after @row_limit rows instead of aggregating the window.
+func (q *Queries) TopScoreEvents(ctx context.Context, arg TopScoreEventsParams) ([]TopScoreEventsRow, error) {
+	rows, err := q.db.Query(ctx, topScoreEvents,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopScoreEventsRow
+	for rows.Next() {
+		var i TopScoreEventsRow
+		if err := rows.Scan(&i.UserRef, &i.RiskScore); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const topUsers = `-- name: TopUsers :many
@@ -701,4 +882,104 @@ func (q *Queries) UserProfile(ctx context.Context, arg UserProfileParams) (UserP
 		&i.Ips,
 	)
 	return i, err
+}
+
+const userWindowStats = `-- name: UserWindowStats :many
+SELECT user_ref, max(risk_score)::int AS max_score, count(*)::bigint AS events,
+       count(*) FILTER (WHERE decision IN ('review', 'block'))::bigint AS flagged,
+       max(received_at)::timestamptz AS last_seen
+FROM events
+WHERE tenant_id = $1 AND environment_id = $2 AND received_at >= $3
+  AND user_ref = ANY($4::text[])
+GROUP BY user_ref
+`
+
+type UserWindowStatsParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	Users         []string
+}
+
+type UserWindowStatsRow struct {
+	UserRef  string
+	MaxScore int32
+	Events   int64
+	Flagged  int64
+	LastSeen time.Time
+}
+
+// Analytics: what the window holds for each of the given users.
+func (q *Queries) UserWindowStats(ctx context.Context, arg UserWindowStatsParams) ([]UserWindowStatsRow, error) {
+	rows, err := q.db.Query(ctx, userWindowStats,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.Users,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []UserWindowStatsRow
+	for rows.Next() {
+		var i UserWindowStatsRow
+		if err := rows.Scan(
+			&i.UserRef,
+			&i.MaxScore,
+			&i.Events,
+			&i.Flagged,
+			&i.LastSeen,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const usersAtScore = `-- name: UsersAtScore :many
+SELECT DISTINCT user_ref
+FROM events
+WHERE tenant_id = $1 AND environment_id = $2 AND received_at >= $3
+  AND risk_score >= $4
+LIMIT $5
+`
+
+type UsersAtScoreParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Since         time.Time
+	MinScore      int16
+	RowLimit      int32
+}
+
+// Analytics: every user with an event of at least @min_score since @since.
+func (q *Queries) UsersAtScore(ctx context.Context, arg UsersAtScoreParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, usersAtScore,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.MinScore,
+		arg.RowLimit,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var user_ref string
+		if err := rows.Scan(&user_ref); err != nil {
+			return nil, err
+		}
+		items = append(items, user_ref)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }

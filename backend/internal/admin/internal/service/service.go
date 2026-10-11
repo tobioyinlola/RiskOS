@@ -22,9 +22,12 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/admin/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
@@ -46,12 +49,27 @@ var (
 type Config struct {
 	// Secret derives the CSRF key (the console secret; the derivation keeps the keys distinct).
 	Secret []byte
+	// SecretPrevious, during a rotation (ADR-0008), is the console secret in force before Secret;
+	// CSRF tokens derived from it are still accepted.
+	SecretPrevious []byte
+	// DefaultLimits are the platform's per-key and per-tenant limits, shown beside a tenant's
+	// override. LimitCacheTTL bounds how long an API instance keeps a tenant's override (zero:
+	// 30 seconds).
+	DefaultLimits ratelimit.Override
+	LimitCacheTTL time.Duration
+	// Jobs queues the enrollment email of an account created from the console, in the approval's
+	// transaction. EmailEnabled says email can actually be sent; without both, accounts can only
+	// be created with the operator CLI.
+	Jobs         jobs.TxEnqueuer
+	EmailEnabled bool
 	// RPID and Origins configure passkeys (the console's).
 	RPID    string
 	Origins []string
 	// IdleTimeout ends a session not used for this long; MaxAge ends it regardless.
 	IdleTimeout time.Duration
 	MaxAge      time.Duration
+	// SSO is the platform identity provider for staff sign-in; the zero value disables it.
+	SSO SSOConfig
 	// EnrollTTL bounds the enrollment link the operator CLI prints.
 	EnrollTTL time.Duration
 }
@@ -64,6 +82,7 @@ func DefaultConfig() Config {
 // Tenants gives staff a tenant scope (the tenants module).
 type Tenants interface {
 	StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenancy.EnvironmentKind, staffRef string, permissions []string) (context.Context, error)
+	StaffTenantScope(ctx context.Context, tenantID uuid.UUID, staffRef string) context.Context
 	StaffOnboarding(ctx context.Context) (tenants.Onboarding, error)
 	ReviewOnboarding(ctx context.Context, approve bool, note string, now time.Time) (tenants.Onboarding, error)
 }
@@ -89,9 +108,17 @@ type Service struct {
 	clock     clock.Clock
 	wa        *webauthn.WebAuthn
 	csrfKey   []byte
-	cfg       Config
-	limiter   Limiter
-	logger    *slog.Logger
+	// csrfKeyPrevious is derived from Config.SecretPrevious during a rotation, nil otherwise.
+	csrfKeyPrevious []byte
+	cfg             Config
+	limiter         Limiter
+	logger          *slog.Logger
+	// sso talks to the identity provider (nil when unconfigured); ssoKey derives each request's
+	// PKCE verifier and nonce.
+	sso    *sso.Client
+	ssoKey []byte
+	// limits caches tenants' rate-limit overrides for the request path.
+	limits *overrideCache
 }
 
 // New returns the service.
@@ -115,11 +142,38 @@ func New(st store.Store, tenants Tenants, tenantErr TenantErrors, runner txn.Run
 	if err != nil {
 		return nil, fmt.Errorf("admin: configure passkeys: %w", err)
 	}
+	limitTTL := cfg.LimitCacheTTL
+	if limitTTL <= 0 {
+		limitTTL = 30 * time.Second
+	}
 	m := hmac.New(sha256.New, cfg.Secret)
 	m.Write([]byte("riskos-staff-csrf-key"))
+	var previous []byte
+	if len(cfg.SecretPrevious) > 0 {
+		p := hmac.New(sha256.New, cfg.SecretPrevious)
+		p.Write([]byte("riskos-staff-csrf-key"))
+		previous = p.Sum(nil)
+	}
+	var ssoClient *sso.Client
+	var ssoKey []byte
+	if cfg.SSO.Enabled() {
+		ssoClient = sso.New(ssoTimeout, cfg.SSO.AllowPrivate)
+		if err := ssoClient.CheckIssuer(cfg.SSO.Issuer); err != nil {
+			return nil, fmt.Errorf("admin: staff sso: %w", err)
+		}
+		if cfg.SSO.ClientID == "" || cfg.SSO.ClientSecret == "" || cfg.SSO.RedirectURL == "" {
+			return nil, errors.New("admin: staff sso needs a client ID, client secret and redirect URL")
+		}
+		k := hmac.New(sha256.New, cfg.Secret)
+		k.Write([]byte("riskos-staff-sso-key"))
+		ssoKey = k.Sum(nil)
+	} else if cfg.SSO.Required {
+		return nil, errors.New("admin: staff sso is required but no identity provider is configured")
+	}
 	return &Service{
 		store: st, tenants: tenants, tenantErr: tenantErr, runner: runner, audit: rec, clock: clk,
-		wa: wa, csrfKey: m.Sum(nil), cfg: cfg, limiter: limiter, logger: logger,
+		wa: wa, csrfKey: m.Sum(nil), csrfKeyPrevious: previous, cfg: cfg, limiter: limiter, logger: logger,
+		limits: newOverrideCache(limitTTL), sso: ssoClient, ssoKey: ssoKey,
 	}, nil
 }
 
@@ -145,19 +199,46 @@ func hashToken(token string) []byte {
 
 func staffRef(id uuid.UUID) string { return ids.Format(ids.PrefixStaff, id) }
 
-// record writes the staff audit log with q, so the entry commits with the change it records.
+// record appends to the hash-chained staff audit log with q, so the entry commits with the change
+// it records. q must be bound to a transaction: the chain's head is locked until it commits, which
+// is what serializes appends. Callers without one use recordAlone.
 func (s *Service) record(ctx context.Context, q *sqlcgen.Queries, actor, action string, tenantID *uuid.UUID, resource, outcome string, meta map[string]any) error {
 	if meta == nil {
 		meta = map[string]any{}
 	}
+	// encoding/json sorts map keys, so this is canonical: the hash covers exactly these bytes.
 	raw, err := json.Marshal(meta)
 	if err != nil {
 		return fmt.Errorf("encode staff audit metadata: %w", err)
 	}
-	return store.Classify(q.InsertStaffAudit(ctx, sqlcgen.InsertStaffAuditParams{
-		ID: ids.NewV7(), Now: s.clock.Now(), Actor: actor, Action: action, TenantID: tenantID,
+	head, err := q.LockStaffAuditHead(ctx)
+	if err != nil {
+		return store.Classify(err, "lock staff audit head")
+	}
+	// PostgreSQL stores microseconds; truncating first keeps the hashed time identical to the stored one.
+	entry := ChainEntry{
+		Seq: head.Seq + 1, ID: ids.NewV7(), OccurredAt: s.clock.Now().UTC().Truncate(time.Microsecond),
+		Actor: actor, Action: action, TenantID: tenantID, ResourceID: resource, Outcome: outcome,
+		MetadataText: string(raw), PrevHash: head.Hash,
+	}
+	hash := ComputeChainHash(entry)
+	text := string(raw)
+	if err := q.InsertStaffAudit(ctx, sqlcgen.InsertStaffAuditParams{
+		ID: entry.ID, Now: entry.OccurredAt, Actor: actor, Action: action, TenantID: tenantID,
 		ResourceID: resource, Outcome: outcome, Metadata: raw,
-	}), "record staff audit")
+		Seq: &entry.Seq, PrevHash: entry.PrevHash, Hash: hash, MetadataText: &text,
+	}); err != nil {
+		return store.Classify(err, "record staff audit")
+	}
+	return store.Classify(q.SetStaffAuditHead(ctx, sqlcgen.SetStaffAuditHeadParams{Seq: entry.Seq, Hash: hash}), "advance staff audit head")
+}
+
+// recordAlone appends one entry in its own transaction, for callers that have no change to commit
+// it with (a failed sign-in).
+func (s *Service) recordAlone(ctx context.Context, actor, action string, tenantID *uuid.UUID, resource, outcome string, meta map[string]any) error {
+	return s.store.Tx(ctx, func(q *sqlcgen.Queries) error {
+		return s.record(ctx, q, actor, action, tenantID, resource, outcome, meta)
+	})
 }
 
 // Staff is a staff member.

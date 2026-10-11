@@ -74,6 +74,57 @@ func TestSealer(t *testing.T) {
 	assert.Error(t, err)
 }
 
+func TestSealerRotation(t *testing.T) {
+	oldKey, newKey := []byte(strings.Repeat("o", 32)), []byte(strings.Repeat("n", 32))
+	aad := []byte("usr_1")
+	oldSealer, err := console.NewSealer(oldKey)
+	require.NoError(t, err)
+	sealedOld, err := oldSealer.Seal([]byte("totp-secret"), aad)
+	require.NoError(t, err)
+
+	t.Run("the new key alone cannot open what the old one sealed", func(t *testing.T) {
+		s, err := console.NewSealer(newKey)
+		require.NoError(t, err)
+		_, err = s.Open(sealedOld, aad)
+		assert.Error(t, err)
+	})
+
+	s, err := console.NewSealer(newKey, oldKey)
+	require.NoError(t, err)
+	t.Run("with the previous key it opens both", func(t *testing.T) {
+		pt, err := s.Open(sealedOld, aad)
+		require.NoError(t, err)
+		assert.Equal(t, "totp-secret", string(pt))
+		sealedNew, err := s.Seal([]byte("fresh"), aad)
+		require.NoError(t, err)
+		pt, err = s.Open(sealedNew, aad)
+		require.NoError(t, err)
+		assert.Equal(t, "fresh", string(pt))
+	})
+	t.Run("reseal upgrades only what the previous key sealed", func(t *testing.T) {
+		upgraded, err := s.Reseal(sealedOld, aad)
+		require.NoError(t, err)
+		require.NotNil(t, upgraded)
+		onlyNew, err := console.NewSealer(newKey)
+		require.NoError(t, err)
+		pt, err := onlyNew.Open(upgraded, aad)
+		require.NoError(t, err)
+		assert.Equal(t, "totp-secret", string(pt), "the new key alone opens the resealed value")
+
+		again, err := s.Reseal(upgraded, aad)
+		require.NoError(t, err)
+		assert.Nil(t, again, "already current")
+	})
+	t.Run("the binding survives the upgrade", func(t *testing.T) {
+		_, err := s.Reseal(sealedOld, []byte("usr_2"))
+		assert.Error(t, err, "another user's identifier cannot open it with either key")
+	})
+	t.Run("a weak previous key is refused", func(t *testing.T) {
+		_, err := console.NewSealer(newKey, []byte("short"))
+		assert.Error(t, err)
+	})
+}
+
 func TestTokensAndRecoveryCodes(t *testing.T) {
 	tok, hash, err := console.NewToken()
 	require.NoError(t, err)

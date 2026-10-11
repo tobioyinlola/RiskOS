@@ -170,6 +170,18 @@ func (s *Service) StaffScope(ctx context.Context, tenantID uuid.UUID, kind tenan
 	return tenancy.WithScope(ctx, scope), nil
 }
 
+// StaffTenantScope returns ctx scoped to the tenant itself, whatever its status, for a staff
+// member recording a status change in the tenant's audit log (suspending, or reactivating a
+// tenant that StaffScope would refuse). It names no environment and holds no permissions, so it
+// can write only tenant-level records. Only the admin module calls it, with the decision of an
+// approved status request.
+func (s *Service) StaffTenantScope(ctx context.Context, tenantID uuid.UUID, staffRef string) context.Context {
+	return tenancy.WithScope(ctx, tenancy.Scope{
+		TenantID:  tenantID,
+		Principal: tenancy.Principal{Type: tenancy.PrincipalStaff, ID: staffRef},
+	})
+}
+
 // JobScope returns ctx scoped to an environment of an active tenant for a background job, acting
 // as actor with exactly permissions. Jobs carry tenant and environment IDs that the server wrote
 // when it enqueued them; this re-checks that both exist and that the tenant is still active.

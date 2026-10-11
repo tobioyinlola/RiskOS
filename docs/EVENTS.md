@@ -129,4 +129,7 @@ identifiers.
   keeps partitions `db.PartitionMonthsAhead` (3) months ahead; there is no default partition.
 - Both tables are insert-only (grants and trigger). Raw and normalized payloads are stored
   separately. Partitions are reachable only through the RLS-protected parent tables.
-- Retention (dropping old partitions per tenant policy) is not built yet (TODO(phase-7)).
+- Retention: partitions are never dropped yet, by decision. The rule packs require records to be
+  kept for five to ten years, so nothing is eligible before 2031; see
+  [ADR-0009](adr/ADR-0009-retention.md) for the floor, the conditions under which the sweep is
+  built, and how it will work.

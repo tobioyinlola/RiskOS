@@ -9,18 +9,21 @@ import (
 	"errors"
 	"fmt"
 	"log/slog"
+	"slices"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/console"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
-	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 )
 
@@ -29,20 +32,37 @@ const ssoLoginTTL = 10 * time.Minute
 
 // SSOConnection is a tenant's identity provider registration, without its secret.
 type SSOConnection struct {
-	Issuer    string
-	ClientID  string
-	Enabled   bool
-	UpdatedAt time.Time
-	UpdatedBy string
+	Issuer   string
+	ClientID string
+	Enabled  bool
+	// Required refuses password and Google sign-in for the tenant's people.
+	Required bool
+	// JITEnabled lets people at a verified domain in without an invite, with JITRole.
+	JITEnabled bool
+	JITRole    string
+	UpdatedAt  time.Time
+	UpdatedBy  string
 }
 
-// SSOInput changes the connection. A nil ClientSecret keeps the stored one.
+// SSOInput changes the connection. A nil ClientSecret, Required, JITEnabled or JITRole keeps the
+// stored value (the defaults on a first save are off, off and auditor).
 type SSOInput struct {
 	Issuer       string
 	ClientID     string
 	ClientSecret *string
 	Enabled      bool
+	// Required makes single sign-on the only way in. It needs Enabled, the same issuer as the
+	// stored connection, and the caller to have signed in through the provider themselves.
+	Required *bool
+	// JITEnabled creates accounts at the first sign-in of people whose email is at a verified
+	// domain. It needs Enabled and a verified domain; JITRole is their role, never an
+	// administrator.
+	JITEnabled *bool
+	JITRole    *string
 }
+
+// jitRoles are the roles a just-in-time account can be given: everything but customer_admin.
+var jitRoles = []string{"developer", "risk_manager", "analyst", "compliance_officer", "auditor"} //nolint:gochecknoglobals // immutable list
 
 // SSOStart is where to send the browser, and the token binding the request to it (a cookie).
 type SSOStart struct {
@@ -76,7 +96,10 @@ func (c *Console) GetSSO(ctx context.Context) (*SSOConnection, error) {
 		if err != nil || conn == nil {
 			return err
 		}
-		out = &SSOConnection{Issuer: conn.Issuer, ClientID: conn.ClientID, Enabled: conn.Enabled, UpdatedAt: conn.UpdatedAt, UpdatedBy: conn.UpdatedBy}
+		out = &SSOConnection{
+			Issuer: conn.Issuer, ClientID: conn.ClientID, Enabled: conn.Enabled, Required: conn.Required,
+			JITEnabled: conn.JitEnabled, JITRole: conn.JitRole, UpdatedAt: conn.UpdatedAt, UpdatedBy: conn.UpdatedBy,
+		}
 		return nil
 	})
 	return out, err
@@ -108,12 +131,63 @@ func (c *Console) PutSSO(ctx context.Context, in SSOInput) (SSOConnection, error
 		c.logger.InfoContext(ctx, "sso discovery failed", slog.Any("error", err))
 		return SSOConnection{}, fmt.Errorf("%w: RiskOS could not read the provider's OpenID configuration at this issuer", domain.ErrInvalidInput)
 	}
+	if in.JITRole != nil && !slices.Contains(jitRoles, *in.JITRole) {
+		return SSOConnection{}, fmt.Errorf("%w: a just-in-time account's role must be one of %s", domain.ErrInvalidInput, strings.Join(jitRoles, ", "))
+	}
 	now := c.clock.Now()
-	out := SSOConnection{Issuer: in.Issuer, ClientID: in.ClientID, Enabled: in.Enabled, UpdatedAt: now, UpdatedBy: scope.Principal.ID}
+	var out SSOConnection
 	err = c.runner.Run(ctx, func(ctx context.Context) error {
 		old, err := c.store.SSOConnection(ctx)
 		if err != nil {
 			return err
+		}
+		// Omitted settings keep what is stored, so a client that does not know them cannot
+		// switch them off by saving something else.
+		required, jit, jitRole := false, false, "auditor"
+		if old != nil {
+			required, jit, jitRole = old.Required, old.JitEnabled, old.JitRole
+		}
+		if in.Required != nil {
+			required = *in.Required
+		}
+		if in.JITEnabled != nil {
+			jit = *in.JITEnabled
+		}
+		if in.JITRole != nil {
+			jitRole = *in.JITRole
+		}
+		if required && !in.Enabled {
+			return fmt.Errorf("%w: single sign-on cannot be required while it is switched off", domain.ErrInvalidInput)
+		}
+		if jit && !in.Enabled {
+			return fmt.Errorf("%w: accounts cannot be created while single sign-on is switched off", domain.ErrInvalidInput)
+		}
+		if jit && (old == nil || !old.JitEnabled) {
+			n, err := c.store.VerifiedSSODomains(ctx)
+			if err != nil {
+				return err
+			}
+			if n == 0 {
+				return fmt.Errorf("%w: verify an email domain before letting people in without an invite", domain.ErrInvalidInput)
+			}
+		}
+		if required {
+			// A requirement that nobody can satisfy locks the tenant out, so the person asking
+			// must have signed in through this provider themselves (their subject is bound).
+			if old == nil || old.Issuer != in.Issuer {
+				return fmt.Errorf("%w: save the connection and sign in through it before requiring it; "+
+					"to change provider, turn the requirement off first", domain.ErrInvalidInput)
+			}
+			if !old.Required {
+				// Turning it on needs a connection that has worked: enabled, unchanged in this
+				// request, and used by the person asking (their provider subject is bound).
+				if !old.Enabled || in.ClientSecret != nil || old.ClientID != in.ClientID {
+					return fmt.Errorf("%w: require single sign-on without changing the connection in the same step", domain.ErrInvalidInput)
+				}
+				if err := c.requireSignedInThroughSSO(ctx, scope); err != nil {
+					return err
+				}
+			}
 		}
 		var sealed []byte
 		switch {
@@ -132,12 +206,20 @@ func (c *Console) PutSSO(ctx context.Context, in SSOInput) (SSOConnection, error
 			}
 		}
 		if err := c.store.PutSSOConnection(ctx, sqlcgen.UpsertSSOConnectionParams{
-			Issuer: in.Issuer, ClientID: in.ClientID, ClientSecretEnc: sealed, Enabled: in.Enabled, Now: now, UpdatedBy: scope.Principal.ID,
+			Issuer: in.Issuer, ClientID: in.ClientID, ClientSecretEnc: sealed, Enabled: in.Enabled,
+			Required: required, JitEnabled: jit, JitRole: jitRole, Now: now, UpdatedBy: scope.Principal.ID,
 		}); err != nil {
 			return err
 		}
+		out = SSOConnection{
+			Issuer: in.Issuer, ClientID: in.ClientID, Enabled: in.Enabled, Required: required,
+			JITEnabled: jit, JITRole: jitRole, UpdatedAt: now, UpdatedBy: scope.Principal.ID,
+		}
 		return c.record(ctx, "sso.configured", "sso_connection", ids.Format(ids.PrefixTenant, scope.TenantID), audit.OutcomeSuccess,
-			map[string]any{"issuer": in.Issuer, "client_id": in.ClientID, "enabled": in.Enabled, "secret_changed": in.ClientSecret != nil})
+			map[string]any{
+				"issuer": in.Issuer, "client_id": in.ClientID, "enabled": in.Enabled, "required": required,
+				"jit_enabled": jit, "jit_role": jitRole, "secret_changed": in.ClientSecret != nil,
+			})
 	})
 	if err != nil {
 		return SSOConnection{}, err
@@ -164,6 +246,9 @@ func (c *Console) DeleteSSO(ctx context.Context) error {
 			return domain.ErrSSONotFound
 		}
 		if err := c.store.ClearSSOSubjects(ctx); err != nil {
+			return err
+		}
+		if err := c.store.DeleteSSODomains(ctx); err != nil {
 			return err
 		}
 		return c.record(ctx, "sso.removed", "sso_connection", ids.Format(ids.PrefixTenant, scope.TenantID), audit.OutcomeSuccess, nil)
@@ -199,13 +284,28 @@ func (c *Console) StartSSO(ctx context.Context, email string, cl Client) (SSOSta
 	if err != nil {
 		return SSOStart{}, err
 	}
-	if u == nil || !u.Enabled || u.UserStatus != "active" || u.TenantStatus != tenantStatusActive {
-		return SSOStart{}, domain.ErrSSONotConfigured
+	var tenantID, userID uuid.UUID
+	if u != nil {
+		if !u.Enabled || u.UserStatus != "active" || u.TenantStatus != tenantStatusActive {
+			return SSOStart{}, domain.ErrSSONotConfigured
+		}
+		tenantID, userID = u.TenantID, u.UserID
+	} else {
+		// No account. A workspace that has verified the email's domain and lets people in just in
+		// time gets them; anyone else is told what an unknown email is told.
+		d, err := c.jitWorkspace(ctx, email)
+		if err != nil {
+			return SSOStart{}, err
+		}
+		if d == nil {
+			return SSOStart{}, domain.ErrSSONotConfigured
+		}
+		tenantID = d.TenantID
 	}
 	var conn *sso.Connection
-	err = c.runner.Run(tenantCtx(ctx, u.TenantID, ssoPrincipal()), func(ctx context.Context) error {
+	err = c.runner.Run(tenantCtx(ctx, tenantID, ssoPrincipal()), func(ctx context.Context) error {
 		var err error
-		conn, _, err = c.connection(ctx, u.TenantID)
+		conn, _, err = c.connection(ctx, tenantID)
 		return err
 	})
 	if err != nil {
@@ -229,7 +329,7 @@ func (c *Console) StartSSO(ctx context.Context, email string, cl Client) (SSOSta
 	}
 	now := c.clock.Now()
 	if err := c.store.InsertSSOLogin(ctx, store.SSOLogin{
-		StateHash: stateHash, BrowserHash: browserHash, TenantID: u.TenantID, UserID: u.UserID,
+		StateHash: stateHash, BrowserHash: browserHash, TenantID: tenantID, UserID: userID, Email: email,
 	}, now, now.Add(ssoLoginTTL)); err != nil {
 		return SSOStart{}, err
 	}
@@ -255,6 +355,9 @@ func (c *Console) FinishSSO(ctx context.Context, state, code, browser string, cl
 	}
 	if login == nil || subtle.ConstantTimeCompare(login.BrowserHash, console.HashToken(browser)) != 1 {
 		return SignIn{}, domain.ErrSSOFailed
+	}
+	if login.UserID == uuid.Nil {
+		return c.finishJIT(ctx, login, state, code, cl)
 	}
 	userRef := ids.Format(ids.PrefixUser, login.UserID)
 	tctx := tenantCtx(ctx, login.TenantID, tenancy.Principal{Type: tenancy.PrincipalUser, ID: userRef})
@@ -339,6 +442,58 @@ func (c *Console) FinishSSO(ctx context.Context, state, code, browser string, cl
 		return fail(reason, nil)
 	}
 	return out, nil
+}
+
+// requireSignedInThroughSSO refuses unless the person making the change has themselves signed in
+// through the provider, which is what binds their provider subject. Requiring single sign-on
+// without that proof could lock out everyone, the person asking included.
+func (c *Console) requireSignedInThroughSSO(ctx context.Context, scope tenancy.Scope) error {
+	notYet := fmt.Errorf("%w: sign in through single sign-on yourself first, then require it", domain.ErrInvalidInput)
+	if scope.Principal.Type != tenancy.PrincipalUser {
+		return notYet
+	}
+	id, err := ids.Parse(ids.PrefixUser, scope.Principal.ID)
+	if err != nil {
+		return notYet
+	}
+	u, err := c.store.GetUser(ctx, id, false)
+	if err != nil {
+		return err
+	}
+	if u.SsoSubject == nil {
+		return notYet
+	}
+	return nil
+}
+
+// ssoRequired reports whether the tenant in ctx allows only single sign-on. It runs in the
+// tenant's transaction.
+func (c *Console) ssoRequired(ctx context.Context) (bool, error) {
+	conn, err := c.store.SSOConnection(ctx)
+	if err != nil || conn == nil {
+		return false, err
+	}
+	return conn.Enabled && conn.Required, nil
+}
+
+// LiftSSORequirement stops requiring single sign-on for the tenant in ctx and reports whether it
+// was required. It is the operator's way out when a provider is unavailable and nobody can sign
+// in (riskosctl sso optional); audited under the operator's name.
+func (c *Console) LiftSSORequirement(ctx context.Context) (bool, error) {
+	scope, err := tenancy.FromContext(ctx)
+	if err != nil {
+		return false, err
+	}
+	var lifted bool
+	err = c.runner.Run(ctx, func(ctx context.Context) error {
+		n, err := c.store.SetSSOOptional(ctx, c.clock.Now(), scope.Principal.ID)
+		if err != nil || !n {
+			return err
+		}
+		lifted = true
+		return c.record(ctx, "sso.requirement_lifted", "sso_connection", ids.Format(ids.PrefixTenant, scope.TenantID), audit.OutcomeSuccess, nil)
+	})
+	return lifted, err
 }
 
 func ssoPrincipal() tenancy.Principal {

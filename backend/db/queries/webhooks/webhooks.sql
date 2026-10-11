@@ -3,10 +3,10 @@
 -- name: InsertEndpoint :exec
 INSERT INTO webhook_endpoints (
   tenant_id, environment_id, id, url, description, event_types, status, secret_version,
-  created_at, created_by, updated_at
+  secret_key_id, created_at, created_by, updated_at
 ) VALUES (
   @tenant_id, @environment_id, @id, @url, @description, @event_types, 'active', 1,
-  @now, @created_by, @now
+  @secret_key_id, @now, @created_by, @now
 );
 
 -- name: CountEndpoints :one
@@ -45,8 +45,10 @@ WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id;
 -- name: RotateEndpointSecret :exec
 UPDATE webhook_endpoints SET
   previous_secret_version = secret_version,
+  previous_secret_key_id = secret_key_id,
   previous_secret_valid_until = @previous_valid_until,
   secret_version = secret_version + 1,
+  secret_key_id = @secret_key_id,
   updated_at = @now
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND id = @id;
 

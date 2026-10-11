@@ -68,6 +68,10 @@ const (
 	PrefixActivation      = "jac"
 	// PrefixActivationChange identifies a change to a country activation.
 	PrefixActivationChange = "jch"
+	// PrefixTenantStatusRequest identifies a staff request to suspend or reactivate a tenant.
+	PrefixTenantStatusRequest = "tsr"
+	// PrefixStaffAccountRequest identifies a request to create a staff account.
+	PrefixStaffAccountRequest = "sar"
 )
 
 // ErrInvalid is returned when an external ID is malformed or has the wrong prefix.

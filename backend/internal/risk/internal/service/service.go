@@ -321,6 +321,56 @@ func nonNilStrings(s []string) []string {
 	return s
 }
 
+// How the signal rollup is kept: the first run covers rollupHistory back (the longest analytics
+// window is 30 days), a run recomputes the last rollupRecompute hours again so an evaluation that
+// committed late is picked up, and a run catches up at most rollupMaxSpan at a time.
+const (
+	rollupHistory   = 31 * 24 * time.Hour
+	rollupRecompute = 3 * time.Hour
+	rollupMaxSpan   = 7 * 24 * time.Hour
+)
+
+// RollupSignals brings the hourly signal counts of the scope in ctx up to date (analytics). It is
+// idempotent and the page reads a rollup only for hours it has finished, so a run that is behind
+// makes the page slower, never wrong. No permission is checked: it is for the worker's job scope.
+func (s *Service) RollupSignals(ctx context.Context, now time.Time) error {
+	now = now.UTC()
+	end := now.Truncate(time.Hour)
+	// The first run is a back-fill of a month, in chunks of rollupMaxSpan, one transaction each.
+	for range int(rollupHistory/rollupMaxSpan) + 2 {
+		var caughtUp bool
+		err := s.runner.Run(ctx, func(ctx context.Context) error {
+			covered := end.Add(-rollupHistory)
+			from := covered
+			if st, err := s.store.SignalsRollup(ctx); err != nil {
+				return err
+			} else if st != nil {
+				covered = st.CoveredFrom
+				from = st.RolledThrough.Add(-rollupRecompute)
+				if from.Before(covered) {
+					from = covered
+				}
+			}
+			until := from.Add(rollupMaxSpan)
+			if !until.Before(end) {
+				until, caughtUp = end, true
+			}
+			if !until.After(from) {
+				caughtUp = true
+				return nil
+			}
+			return s.store.RollupSignals(ctx, covered, from, until, now)
+		})
+		if err != nil {
+			return err
+		}
+		if caughtUp {
+			break
+		}
+	}
+	return nil
+}
+
 // TopSignals counts how often each signal fired in events since since. Requires events:read.
 func (s *Service) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCount, error) {
 	if err := authz.Require(ctx, authz.EventsRead); err != nil {

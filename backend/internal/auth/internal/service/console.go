@@ -24,7 +24,6 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/console"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
-	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
@@ -32,6 +31,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/txn"
 )
@@ -53,6 +53,10 @@ type ConsoleConfig struct {
 	// Secret keys MFA secret encryption and CSRF tokens (at least 32 bytes, from the secrets
 	// manager).
 	Secret []byte
+	// SecretPrevious, during a rotation (ADR-0008), is the secret in force before Secret: it opens
+	// what was sealed under it and accepts the CSRF tokens and invite links derived from it, while
+	// everything new uses Secret. Empty outside a rotation.
+	SecretPrevious []byte
 	// SessionTTL is the absolute lifetime of a signed-in session; IdleTimeout ends one unused
 	// for that long.
 	SessionTTL  time.Duration
@@ -73,6 +77,9 @@ type ConsoleConfig struct {
 	// SSOAllowPrivate lets identity providers be http and on private addresses (local
 	// development and tests only; configuration refuses it in production).
 	SSOAllowPrivate bool
+	// TXTLookup resolves DNS TXT records, for proving an email domain; nil uses the system
+	// resolver.
+	TXTLookup func(ctx context.Context, name string) ([]string, error)
 }
 
 // BreachChecker reports whether a password appears in known data breaches.
@@ -119,6 +126,10 @@ type Console struct {
 	logger  *slog.Logger
 	// inviteKey derives invite tokens (console.InviteToken).
 	inviteKey []byte
+	// csrfKeyPrevious and inviteKeyPrevious are derived from the previous secret during a
+	// rotation (ADR-0008), and nil otherwise.
+	csrfKeyPrevious   []byte
+	inviteKeyPrevious []byte
 	// emails queues invite emails; nil when email is not configured.
 	emails jobs.Enqueuer
 	// sso talks to identity providers; ssoKey derives each request's PKCE verifier and nonce.
@@ -127,6 +138,12 @@ type Console struct {
 	// signup configures self-serve sign-up; signupKey derives its emailed codes.
 	signup    SignupConfig
 	signupKey []byte
+}
+
+// ResolveAssignee finds the active user of the caller's workspace whose email is ref (compared
+// without regard to case), for assigning alerts and cases. It runs in the caller's transaction.
+func (c *Console) ResolveAssignee(ctx context.Context, ref string) (string, bool, error) {
+	return c.store.ActiveUserEmail(ctx, strings.ToLower(strings.TrimSpace(ref)))
 }
 
 // PasskeyRP returns the passkey relying party ID and allowed origins.
@@ -140,9 +157,17 @@ const ssoTimeout = 5 * time.Second
 
 // NewConsole returns the dashboard realm service.
 func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock.Clock, limiter Limiter, cfg ConsoleConfig, logger *slog.Logger) (*Console, error) {
-	sealer, err := console.NewSealer(cfg.Secret)
+	sealer, err := console.NewSealer(cfg.Secret, cfg.SecretPrevious)
 	if err != nil {
 		return nil, err
+	}
+	derive := func(secret []byte, label string) []byte {
+		if len(secret) == 0 {
+			return nil
+		}
+		m := hmac.New(sha256.New, secret)
+		m.Write([]byte(label))
+		return m.Sum(nil)
 	}
 	csrf := hmac.New(sha256.New, cfg.Secret)
 	csrf.Write([]byte("riskos-csrf-key"))
@@ -159,19 +184,31 @@ func NewConsole(st store.Store, runner txn.Runner, rec audit.Recorder, clk clock
 	return &Console{
 		store: st, runner: runner, audit: rec, clock: clk, limiter: limiter, sealer: sealer,
 		csrfKey: csrf.Sum(nil), wa: wa, cfg: cfg, logger: logger, inviteKey: invite.Sum(nil),
-		sso: sso.New(ssoTimeout, cfg.SSOAllowPrivate), ssoKey: ssoKey.Sum(nil), signupKey: signupKey.Sum(nil),
+		csrfKeyPrevious:   derive(cfg.SecretPrevious, "riskos-csrf-key"),
+		inviteKeyPrevious: derive(cfg.SecretPrevious, "riskos-invite-key"),
+		sso:               sso.New(ssoTimeout, cfg.SSOAllowPrivate), ssoKey: ssoKey.Sum(nil), signupKey: signupKey.Sum(nil),
 	}, nil
 }
 
-func (c *Console) csrfFor(sessionID uuid.UUID) string {
-	m := hmac.New(sha256.New, c.csrfKey)
+func csrfWith(key []byte, sessionID uuid.UUID) string {
+	m := hmac.New(sha256.New, key)
 	m.Write(sessionID[:])
 	return base64.RawURLEncoding.EncodeToString(m.Sum(nil))
 }
 
-// CheckCSRF verifies a presented CSRF token for a session in constant time.
+func (c *Console) csrfFor(sessionID uuid.UUID) string { return csrfWith(c.csrfKey, sessionID) }
+
+// CheckCSRF verifies a presented CSRF token for a session in constant time. During a secret
+// rotation a token issued under the previous secret is still accepted, so open pages keep working.
 func (c *Console) CheckCSRF(sess Session, token string) bool {
-	return token != "" && hmac.Equal([]byte(token), []byte(c.csrfFor(sess.ID)))
+	if token == "" {
+		return false
+	}
+	ok := hmac.Equal([]byte(token), []byte(c.csrfFor(sess.ID)))
+	if c.csrfKeyPrevious != nil {
+		ok = hmac.Equal([]byte(token), []byte(csrfWith(c.csrfKeyPrevious, sess.ID))) || ok
+	}
+	return ok
 }
 
 // ReauthWindow returns the configured window.
@@ -328,6 +365,14 @@ func (c *Console) Login(ctx context.Context, email, password string, cl Client) 
 		if err != nil {
 			return err
 		}
+		required, err := c.ssoRequired(ctx)
+		if err != nil {
+			return err
+		}
+		if required {
+			// The password was right, so saying why is not an enumeration; no session is opened.
+			return c.record(ctx, "user.login_failed", "user", sys.ID, audit.OutcomeFailure, map[string]any{"reason": "sso_required"})
+		}
 		state := StateEnrollmentRequired
 		if user.TotpSecretEnc != nil || len(creds) > 0 {
 			state = StateMFARequired
@@ -335,6 +380,9 @@ func (c *Console) Login(ctx context.Context, email, password string, cl Client) 
 		out, err = c.openSession(ctx, u.ID, state, cl)
 		return err
 	})
+	if err == nil && out.Token == "" {
+		return SignIn{}, domain.ErrSSORequired // the workspace allows only single sign-on
+	}
 	return out, err
 }
 
@@ -964,6 +1012,12 @@ const emailActor = "system:email"
 func (c *Console) PendingInviteForEmail(ctx context.Context, a InviteEmailArgs) (*PendingInvite, error) {
 	token := console.InviteToken(c.inviteKey, a.InviteID)
 	inv, err := c.store.InviteByToken(ctx, console.HashToken(token))
+	if err == nil && inv == nil && c.inviteKeyPrevious != nil {
+		// An invite created before the secret was rotated: its stored hash is of the link
+		// derived with the previous secret.
+		token = console.InviteToken(c.inviteKeyPrevious, a.InviteID)
+		inv, err = c.store.InviteByToken(ctx, console.HashToken(token))
+	}
 	if err != nil || inv == nil {
 		return nil, err
 	}
@@ -1090,9 +1144,17 @@ func (c *Console) AcceptInvite(ctx context.Context, token, name, password string
 			map[string]any{"role": inv.Role, "invite_id": ids.Format(ids.PrefixInvite, inv.ID)}); err != nil {
 			return err
 		}
+		required, err := c.ssoRequired(ctx)
+		if err != nil || required {
+			// The account exists, but a password is not a way in here: no session is opened.
+			return err
+		}
 		out, err = c.openSession(ctx, userID, StateEnrollmentRequired, cl)
 		return err
 	})
+	if err == nil && out.Token == "" {
+		return SignIn{}, domain.ErrSSORequired
+	}
 	return out, err
 }
 

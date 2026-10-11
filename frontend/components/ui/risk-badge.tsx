@@ -61,6 +61,8 @@ export function RiskBadge({
         BAND_BADGE[b],
         className,
       )}
+      // A span has no role that takes a name; role="img" lets one name the badge as a unit.
+      role="img"
       aria-label={label}
       title={label}
     >

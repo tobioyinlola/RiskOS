@@ -1,9 +1,9 @@
 import type { Metadata } from "next";
 
-import { SecurityOverview } from "@/features/admin/pages";
+import { AdminOverviewPage } from "@/features/admin/tenants";
 
-export const metadata: Metadata = { title: "Staff: security" };
+export const metadata: Metadata = { title: "Staff: overview" };
 
 export default function Page() {
-  return <SecurityOverview />;
+  return <AdminOverviewPage />;
 }

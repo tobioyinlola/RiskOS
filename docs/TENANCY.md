@@ -37,7 +37,7 @@ for authorization and rejected if it disagrees with the credential.
 
 | Layer | Mechanism | Proof |
 |---|---|---|
-| Application | Every sqlc query on a tenant table takes `tenant_id` and `environment_id` parameters, filled from the scope by the store; stores only run inside a scoped transaction | Code review (an automated SQL check is a TODO(phase-7) hardening item); RLS catches any miss |
+| Application | Every sqlc query on a tenant table takes `tenant_id` and `environment_id` parameters, filled from the scope by the store; stores only run inside a scoped transaction | `TestQueriesNameTheirScope` (`internal/platform/db/scope_test.go`) fails any query on a row-level-security table that omits `tenant_id` or `environment_id`, unless it is listed with its reason; code review; RLS catches any miss |
 | Database | Row-level security policies compare each row to `current_setting('app.tenant_id')` and `app.environment_id`, set with `SET LOCAL` inside each transaction. The application role has no `BYPASSRLS` and does not own the tables | Integration test: a query without the setting returns no rows |
 | Test | A matrix calls every ID-taking operation with IDs of another tenant and of the other environment, and expects the same 404 as a nonexistent ID | `backend/test/integration/tenancy_test.go`, required in CI |
 

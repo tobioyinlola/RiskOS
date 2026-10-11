@@ -138,10 +138,16 @@ coordinated with customers.
 - **Egress proxy:** outbound traffic is not yet forced through an egress proxy with an allow
   policy; the resolved-IP check is the control until deployment infrastructure exists.
   TODO(phase-8).
-- **Per-tenant queues:** deliveries share one `webhooks` queue with a global concurrency limit;
-  per-tenant fairness (so one tenant's slow endpoints cannot occupy every delivery worker) is not
-  built. TODO(phase-8).
+- **Per-tenant fairness (built):** deliveries share one `webhooks` queue with a global
+  concurrency limit, and each worker lets one tenant hold at most
+  `RISKOS_WEBHOOK_TENANT_CONCURRENCY` of those slots (default half of
+  `RISKOS_WEBHOOK_CONCURRENCY`, at least 1). A tenant over its share has the delivery snoozed for
+  about a second without using an attempt and without holding a slot, so a tenant whose endpoints
+  hang for the full timeout cannot starve the others. The bound is per worker process: with
+  several workers a tenant can hold its share in each, which still leaves each worker's other
+  slots to everyone else. Separate queues per tenant are not needed for this and are not built.
 - **Signing key:** an environment variable locally; the secrets manager comes with deployment.
   TODO(phase-8).
-- **Retention:** deliveries and attempts (including payloads) are kept until the retention sweep
-  exists. TODO(phase-7).
+- **Retention:** deliveries and attempts (including payloads) are kept, by decision: they are
+  `other` records under the retention floors, and no sweep exists yet
+  ([ADR-0009](adr/ADR-0009-retention.md)).

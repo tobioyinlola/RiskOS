@@ -51,6 +51,16 @@ type FeatureStore struct {
 	scriptsLoaded atomic.Bool
 	// state reports a warm-up after a reset; nil when reset detection is off.
 	state *StateWatcher
+	// baselineMaxPerHour caps the amount observations one user's baseline takes per hour in one
+	// currency; zero means no cap.
+	baselineMaxPerHour int
+}
+
+// WithBaselineCap limits how many transactions per hour teach one user's amount baseline in one
+// currency (RISK_ENGINE.md, behavioral baselines). Zero removes the limit.
+func (s *FeatureStore) WithBaselineCap(perHour int) *FeatureStore {
+	s.baselineMaxPerHour = perHour
+	return s
 }
 
 // WithState makes observations report a history warm-up while w detects one.
@@ -123,7 +133,26 @@ return {m1, m15, m60, day}
 // amountScript adds ARGV[1] to a running mean/variance (Welford). Beyond ARGV[2] observations
 // the history is scaled down so the baseline tracks recent behavior and a single burst of
 // unusual amounts cannot dominate it.
+//
+// ARGV[4] caps the updates one baseline takes per clock hour (ARGV[5], the hour number); 0 means
+// no cap. Beyond it the amount is not learned and the script returns -1, so a burst of
+// transactions, or an attacker spreading small amounts to drag the mean, moves the baseline
+// by at most that many observations an hour.
 const amountScript = `
+local maxu = tonumber(ARGV[4])
+if maxu > 0 then
+  local hour = tonumber(ARGV[5])
+  local uh = tonumber(redis.call('HGET', KEYS[1], 'uh') or '-1')
+  local uc = tonumber(redis.call('HGET', KEYS[1], 'uc') or '0')
+  if uh ~= hour then
+    uh = hour
+    uc = 0
+  end
+  if uc >= maxu then
+    return -1
+  end
+  redis.call('HSET', KEYS[1], 'uh', uh, 'uc', uc + 1)
+end
 local n = tonumber(redis.call('HGET', KEYS[1], 'n') or '0')
 local mean = tonumber(redis.call('HGET', KEYS[1], 'mean') or '0')
 local m2 = tonumber(redis.call('HGET', KEYS[1], 'm2') or '0')
@@ -429,7 +458,9 @@ func (s *FeatureStore) RecordAmount(ctx context.Context, e features.Event) error
 	ctx, cancel := context.WithTimeout(ctx, s.timeout)
 	defer cancel()
 	key := s.keys(scope).entity("u", e.Actor.UserID) + ":amt:" + e.Transaction.Currency
-	if err := s.amount.Run(ctx, s.rdb, []string{key}, e.Transaction.Amount, amountBaselineN, int(historyTTL.Seconds())).Err(); err != nil {
+	hour := time.Now().Unix() / 3600
+	if err := s.amount.Run(ctx, s.rdb, []string{key}, e.Transaction.Amount, amountBaselineN,
+		int(historyTTL.Seconds()), s.baselineMaxPerHour, hour).Err(); err != nil {
 		return fmt.Errorf("record amount baseline: %w", err)
 	}
 	return nil

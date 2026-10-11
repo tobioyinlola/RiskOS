@@ -15,7 +15,47 @@ import (
 
 	"github.com/go-chi/chi/v5"
 	"github.com/oapi-codegen/runtime"
+	openapi_types "github.com/oapi-codegen/runtime/types"
 )
+
+// Defines values for AdminTenantOrigin.
+const (
+	Operator  AdminTenantOrigin = "operator"
+	SelfServe AdminTenantOrigin = "self_serve"
+)
+
+// Valid indicates whether the value is a known member of the AdminTenantOrigin enum.
+func (e AdminTenantOrigin) Valid() bool {
+	switch e {
+	case Operator:
+		return true
+	case SelfServe:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for AdminTenantStatus.
+const (
+	AdminTenantStatusActive    AdminTenantStatus = "active"
+	AdminTenantStatusDisabled  AdminTenantStatus = "disabled"
+	AdminTenantStatusSuspended AdminTenantStatus = "suspended"
+)
+
+// Valid indicates whether the value is a known member of the AdminTenantStatus enum.
+func (e AdminTenantStatus) Valid() bool {
+	switch e {
+	case AdminTenantStatusActive:
+		return true
+	case AdminTenantStatusDisabled:
+		return true
+	case AdminTenantStatusSuspended:
+		return true
+	default:
+		return false
+	}
+}
 
 // Defines values for OnboardingStatus.
 const (
@@ -41,6 +81,30 @@ func (e OnboardingStatus) Valid() bool {
 	}
 }
 
+// Defines values for StaffAccountRequestStatus.
+const (
+	StaffAccountRequestStatusApproved  StaffAccountRequestStatus = "approved"
+	StaffAccountRequestStatusPending   StaffAccountRequestStatus = "pending"
+	StaffAccountRequestStatusRejected  StaffAccountRequestStatus = "rejected"
+	StaffAccountRequestStatusWithdrawn StaffAccountRequestStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the StaffAccountRequestStatus enum.
+func (e StaffAccountRequestStatus) Valid() bool {
+	switch e {
+	case StaffAccountRequestStatusApproved:
+		return true
+	case StaffAccountRequestStatusPending:
+		return true
+	case StaffAccountRequestStatusRejected:
+		return true
+	case StaffAccountRequestStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
 // Defines values for StaffRole.
 const (
 	OperationsAdmin StaffRole = "operations_admin"
@@ -53,6 +117,24 @@ func (e StaffRole) Valid() bool {
 	case OperationsAdmin:
 		return true
 	case SecurityAdmin:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for StaffRosterEntryStatus.
+const (
+	StaffRosterEntryStatusActive   StaffRosterEntryStatus = "active"
+	StaffRosterEntryStatusDisabled StaffRosterEntryStatus = "disabled"
+)
+
+// Valid indicates whether the value is a known member of the StaffRosterEntryStatus enum.
+func (e StaffRosterEntryStatus) Valid() bool {
+	switch e {
+	case StaffRosterEntryStatusActive:
+		return true
+	case StaffRosterEntryStatusDisabled:
 		return true
 	default:
 		return false
@@ -86,12 +168,122 @@ func (e SupportAccessStatus) Valid() bool {
 	}
 }
 
+// Defines values for TenantStatusChangeAction.
+const (
+	TenantStatusChangeActionReactivate TenantStatusChangeAction = "reactivate"
+	TenantStatusChangeActionSuspend    TenantStatusChangeAction = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the TenantStatusChangeAction enum.
+func (e TenantStatusChangeAction) Valid() bool {
+	switch e {
+	case TenantStatusChangeActionReactivate:
+		return true
+	case TenantStatusChangeActionSuspend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TenantStatusRequestAction.
+const (
+	TenantStatusRequestActionReactivate TenantStatusRequestAction = "reactivate"
+	TenantStatusRequestActionSuspend    TenantStatusRequestAction = "suspend"
+)
+
+// Valid indicates whether the value is a known member of the TenantStatusRequestAction enum.
+func (e TenantStatusRequestAction) Valid() bool {
+	switch e {
+	case TenantStatusRequestActionReactivate:
+		return true
+	case TenantStatusRequestActionSuspend:
+		return true
+	default:
+		return false
+	}
+}
+
+// Defines values for TenantStatusRequestStatus.
+const (
+	TenantStatusRequestStatusApproved  TenantStatusRequestStatus = "approved"
+	TenantStatusRequestStatusPending   TenantStatusRequestStatus = "pending"
+	TenantStatusRequestStatusRejected  TenantStatusRequestStatus = "rejected"
+	TenantStatusRequestStatusWithdrawn TenantStatusRequestStatus = "withdrawn"
+)
+
+// Valid indicates whether the value is a known member of the TenantStatusRequestStatus enum.
+func (e TenantStatusRequestStatus) Valid() bool {
+	switch e {
+	case TenantStatusRequestStatusApproved:
+		return true
+	case TenantStatusRequestStatusPending:
+		return true
+	case TenantStatusRequestStatusRejected:
+		return true
+	case TenantStatusRequestStatusWithdrawn:
+		return true
+	default:
+		return false
+	}
+}
+
+// AdminOverview defines model for AdminOverview.
+type AdminOverview struct {
+	// EmergencyReviewsPending Emergency suspensions made by someone else that no one has reviewed yet.
+	EmergencyReviewsPending int64 `json:"emergency_reviews_pending"`
+
+	// OnboardingSubmitted Onboarding reviews waiting for a decision.
+	OnboardingSubmitted int64 `json:"onboarding_submitted"`
+	StaffActive         int64 `json:"staff_active"`
+
+	// StatusRequestsPending Requests to suspend or reactivate a tenant, made by someone else, waiting for this staff member's decision.
+	StatusRequestsPending int64 `json:"status_requests_pending"`
+
+	// SupportActive Support access that is approved and has not ended.
+	SupportActive int64 `json:"support_active"`
+
+	// SupportPending Support-access requests made by someone else, waiting for this staff member's decision.
+	SupportPending   int64 `json:"support_pending"`
+	TenantsActive    int64 `json:"tenants_active"`
+	TenantsSuspended int64 `json:"tenants_suspended"`
+	TenantsTotal     int64 `json:"tenants_total"`
+}
+
 // AdminTenant defines model for AdminTenant.
 type AdminTenant struct {
-	CreatedAt time.Time `json:"created_at"`
-	Id        string    `json:"id"`
-	Name      string    `json:"name"`
-	Status    string    `json:"status"`
+	// ActiveApiKeys Keys that are neither revoked nor expired, in both environments.
+	ActiveApiKeys int64     `json:"active_api_keys"`
+	ActiveUsers   int64     `json:"active_users"`
+	CreatedAt     time.Time `json:"created_at"`
+	Id            string    `json:"id"`
+	Name          string    `json:"name"`
+
+	// OnboardingStatus The compliance onboarding's status, or null for a workspace that has none.
+	OnboardingStatus *string           `json:"onboarding_status,omitempty"`
+	Origin           AdminTenantOrigin `json:"origin"`
+
+	// ProductionEnabled Whether the production environment is open (self-serve workspaces open it when onboarding is approved).
+	ProductionEnabled bool              `json:"production_enabled"`
+	Region            string            `json:"region"`
+	Status            AdminTenantStatus `json:"status"`
+}
+
+// AdminTenantOrigin defines model for AdminTenant.Origin.
+type AdminTenantOrigin string
+
+// AdminTenantStatus defines model for AdminTenant.Status.
+type AdminTenantStatus string
+
+// AdminTenantDetail defines model for AdminTenantDetail.
+type AdminTenantDetail struct {
+	// RecentStaffActions The staff audit entries that name this tenant, newest first.
+	RecentStaffActions []StaffAuditEntry `json:"recent_staff_actions"`
+	Security           TenantSecurity    `json:"security"`
+
+	// Since The start of the window the security counts cover.
+	Since  time.Time   `json:"since"`
+	Tenant AdminTenant `json:"tenant"`
 }
 
 // AdminTenantList defines model for AdminTenantList.
@@ -105,6 +297,12 @@ type Ceremony struct {
 
 	// Options WebAuthn options, passed to the browser's credentials API as returned.
 	Options WebAuthnOptions `json:"options"`
+}
+
+// EmergencySuspension defines model for EmergencySuspension.
+type EmergencySuspension struct {
+	// Reason Why, for the staff audit log and the reviewer. The tenant is not shown it.
+	Reason string `json:"reason"`
 }
 
 // EnrollOptionsRequest defines model for EnrollOptionsRequest.
@@ -175,6 +373,15 @@ type OnboardingReview struct {
 // OnboardingStatus defines model for OnboardingStatus.
 type OnboardingStatus string
 
+// RateLimit defines model for RateLimit.
+type RateLimit struct {
+	// Burst How many requests may arrive at once before the rate applies.
+	Burst int `json:"burst"`
+
+	// PerSecond The sustained rate.
+	PerSecond float64 `json:"per_second"`
+}
+
 // SecurityOverview defines model for SecurityOverview.
 type SecurityOverview struct {
 	Data  []TenantSecurity `json:"data"`
@@ -189,6 +396,40 @@ type Staff struct {
 	Id   string    `json:"id"`
 	Name string    `json:"name"`
 	Role StaffRole `json:"role"`
+}
+
+// StaffAccountChange defines model for StaffAccountChange.
+type StaffAccountChange struct {
+	Email  string    `json:"email"`
+	Name   string    `json:"name"`
+	Reason string    `json:"reason"`
+	Role   StaffRole `json:"role"`
+}
+
+// StaffAccountRequest defines model for StaffAccountRequest.
+type StaffAccountRequest struct {
+	CreatedAt    time.Time  `json:"created_at"`
+	DecidedAt    *time.Time `json:"decided_at,omitempty"`
+	DecidedBy    *StaffRef  `json:"decided_by,omitempty"`
+	DecisionNote *string    `json:"decision_note,omitempty"`
+	Email        string     `json:"email"`
+	Id           string     `json:"id"`
+	Name         string     `json:"name"`
+	Reason       string     `json:"reason"`
+	RequestedBy  StaffRef   `json:"requested_by"`
+	Role         StaffRole  `json:"role"`
+
+	// StaffId The account created, once approved.
+	StaffId *string                   `json:"staff_id,omitempty"`
+	Status  StaffAccountRequestStatus `json:"status"`
+}
+
+// StaffAccountRequestStatus defines model for StaffAccountRequest.Status.
+type StaffAccountRequestStatus string
+
+// StaffAccountRequestList defines model for StaffAccountRequestList.
+type StaffAccountRequestList struct {
+	Data []StaffAccountRequest `json:"data"`
 }
 
 // StaffAuditEntry defines model for StaffAuditEntry.
@@ -208,6 +449,16 @@ type StaffAuditList struct {
 	Data []StaffAuditEntry `json:"data"`
 }
 
+// StaffAuthMethods defines model for StaffAuthMethods.
+type StaffAuthMethods struct {
+	// SsoEnabled Single sign-on is configured.
+	SsoEnabled bool `json:"sso_enabled"`
+
+	// SsoRequired Every sign-in needs single sign-on first; direct passkey sign-in is refused with
+	// 403 `SSO_REQUIRED`.
+	SsoRequired bool `json:"sso_required"`
+}
+
 // StaffRef defines model for StaffRef.
 type StaffRef struct {
 	Id   string `json:"id"`
@@ -216,6 +467,42 @@ type StaffRef struct {
 
 // StaffRole defines model for StaffRole.
 type StaffRole string
+
+// StaffRosterEntry defines model for StaffRosterEntry.
+type StaffRosterEntry struct {
+	CreatedAt time.Time `json:"created_at"`
+	Email     string    `json:"email"`
+
+	// EnrollmentPending An enrollment link has been issued and has not been used or expired.
+	EnrollmentPending bool       `json:"enrollment_pending"`
+	Id                string     `json:"id"`
+	LastSignIn        *time.Time `json:"last_sign_in,omitempty"`
+	Name              string     `json:"name"`
+
+	// Passkeys Registered passkeys. Zero until the person has enrolled.
+	Passkeys int64                  `json:"passkeys"`
+	Role     StaffRole              `json:"role"`
+	Status   StaffRosterEntryStatus `json:"status"`
+}
+
+// StaffRosterEntryStatus defines model for StaffRosterEntry.Status.
+type StaffRosterEntryStatus string
+
+// StaffRosterList defines model for StaffRosterList.
+type StaffRosterList struct {
+	Data []StaffRosterEntry `json:"data"`
+}
+
+// StaffSSOCallbackRequest defines model for StaffSSOCallbackRequest.
+type StaffSSOCallbackRequest struct {
+	Code  string `json:"code"`
+	State string `json:"state"`
+}
+
+// StaffSSOStart defines model for StaffSSOStart.
+type StaffSSOStart struct {
+	RedirectUrl string `json:"redirect_url"`
+}
 
 // StaffSession defines model for StaffSession.
 type StaffSession struct {
@@ -264,6 +551,70 @@ type SupportAccessRequest struct {
 	TenantId string `json:"tenant_id"`
 }
 
+// TenantLimits defines model for TenantLimits.
+type TenantLimits struct {
+	// Defaults The platform's limits, which apply when there is no override.
+	Defaults struct {
+		PerKey    RateLimit `json:"per_key"`
+		PerTenant RateLimit `json:"per_tenant"`
+	} `json:"defaults"`
+	Override *TenantLimitsOverride `json:"override,omitempty"`
+}
+
+// TenantLimitsChange defines model for TenantLimitsChange.
+type TenantLimitsChange struct {
+	PerKey    RateLimit `json:"per_key"`
+	PerTenant RateLimit `json:"per_tenant"`
+
+	// Reason Why. For the staff audit log; the tenant is not shown it.
+	Reason string `json:"reason"`
+}
+
+// TenantLimitsOverride defines model for TenantLimitsOverride.
+type TenantLimitsOverride struct {
+	PerKey    RateLimit `json:"per_key"`
+	PerTenant RateLimit `json:"per_tenant"`
+	Reason    string    `json:"reason"`
+	UpdatedAt time.Time `json:"updated_at"`
+	UpdatedBy StaffRef  `json:"updated_by"`
+}
+
+// TenantQuota defines model for TenantQuota.
+type TenantQuota struct {
+	// Quota Null when the tenant has no quota.
+	Quota *TenantQuotaDetail `json:"quota"`
+}
+
+// TenantQuotaChange defines model for TenantQuotaChange.
+type TenantQuotaChange struct {
+	// MonthlyEvents Events a month (UTC calendar month) the tenant is expected to stay within.
+	MonthlyEvents int64 `json:"monthly_events"`
+
+	// Reason Why. For the staff audit log; the tenant is not shown it.
+	Reason string `json:"reason"`
+}
+
+// TenantQuotaDetail defines model for TenantQuotaDetail.
+type TenantQuotaDetail struct {
+	MonthlyEvents int64            `json:"monthly_events"`
+	Reason        string           `json:"reason"`
+	UpdatedAt     time.Time        `json:"updated_at"`
+	UpdatedBy     StaffRef         `json:"updated_by"`
+	Usage         TenantQuotaUsage `json:"usage"`
+}
+
+// TenantQuotaUsage defines model for TenantQuotaUsage.
+type TenantQuotaUsage struct {
+	CheckedAt *time.Time `json:"checked_at"`
+	Events    int64      `json:"events"`
+
+	// Exceeded Whether the measured month is over the quota.
+	Exceeded bool `json:"exceeded"`
+
+	// Month The month measured (its first day, UTC); null before the first measurement.
+	Month *openapi_types.Date `json:"month"`
+}
+
 // TenantSecurity defines model for TenantSecurity.
 type TenantSecurity struct {
 	// DegradedEvaluations Evaluations with degraded signals in the window.
@@ -278,11 +629,68 @@ type TenantSecurity struct {
 	TenantStatus       string `json:"tenant_status"`
 }
 
+// TenantStatusChange defines model for TenantStatusChange.
+type TenantStatusChange struct {
+	Action TenantStatusChangeAction `json:"action"`
+
+	// Reason Why. For the staff audit log and the approver; the tenant is not shown it.
+	Reason string `json:"reason"`
+}
+
+// TenantStatusChangeAction defines model for TenantStatusChange.Action.
+type TenantStatusChangeAction string
+
+// TenantStatusDecision defines model for TenantStatusDecision.
+type TenantStatusDecision struct {
+	Note *string `json:"note,omitempty"`
+}
+
+// TenantStatusRequest defines model for TenantStatusRequest.
+type TenantStatusRequest struct {
+	Action       TenantStatusRequestAction `json:"action"`
+	CreatedAt    time.Time                 `json:"created_at"`
+	DecidedAt    *time.Time                `json:"decided_at,omitempty"`
+	DecidedBy    *StaffRef                 `json:"decided_by,omitempty"`
+	DecisionNote *string                   `json:"decision_note,omitempty"`
+
+	// Emergency A break-glass suspension, applied at once and awaiting review by someone else.
+	Emergency   bool                      `json:"emergency"`
+	Id          string                    `json:"id"`
+	Reason      string                    `json:"reason"`
+	RequestedBy StaffRef                  `json:"requested_by"`
+	ReviewNote  *string                   `json:"review_note,omitempty"`
+	ReviewedAt  *time.Time                `json:"reviewed_at,omitempty"`
+	ReviewedBy  *StaffRef                 `json:"reviewed_by,omitempty"`
+	Status      TenantStatusRequestStatus `json:"status"`
+	TenantId    string                    `json:"tenant_id"`
+	TenantName  string                    `json:"tenant_name"`
+}
+
+// TenantStatusRequestAction defines model for TenantStatusRequest.Action.
+type TenantStatusRequestAction string
+
+// TenantStatusRequestStatus defines model for TenantStatusRequest.Status.
+type TenantStatusRequestStatus string
+
+// TenantStatusRequestList defines model for TenantStatusRequestList.
+type TenantStatusRequestList struct {
+	Data []TenantStatusRequest `json:"data"`
+}
+
 // WebAuthnOptions WebAuthn options, passed to the browser's credentials API as returned.
 type WebAuthnOptions map[string]interface{}
 
 // AccessID Example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
 type AccessID = string
+
+// AccountRequestID Example: sar_01j9x2k7m3q4r5s6t7v8w9x0yz
+type AccountRequestID = string
+
+// StaffID Example: stf_01j9x2k7m3q4r5s6t7v8w9x0yz
+type StaffID = string
+
+// StatusRequestID Example: tsr_01j9x2k7m3q4r5s6t7v8w9x0yz
+type StatusRequestID = string
 
 // TenantID Example: ten_01j9x2k7m3q4r5s6t7v8w9x0yz
 type TenantID = string
@@ -313,6 +721,11 @@ type ListStaffAuditParams struct {
 	Limit *int `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// FinishStaffSSOParams defines parameters for FinishStaffSSO.
+type FinishStaffSSOParams struct {
+	RiskosStaffSso *string `form:"riskos_staff_sso,omitempty" json:"riskos_staff_sso,omitempty"`
+}
+
 // StaffEnrollJSONRequestBody defines body for StaffEnroll for application/json ContentType.
 type StaffEnrollJSONRequestBody = EnrollRequest
 
@@ -322,14 +735,50 @@ type StaffEnrollOptionsJSONRequestBody = EnrollOptionsRequest
 // StaffLoginJSONRequestBody defines body for StaffLogin for application/json ContentType.
 type StaffLoginJSONRequestBody = LoginRequest
 
+// FinishStaffSSOJSONRequestBody defines body for FinishStaffSSO for application/json ContentType.
+type FinishStaffSSOJSONRequestBody = StaffSSOCallbackRequest
+
+// StaffSSOLoginJSONRequestBody defines body for StaffSSOLogin for application/json ContentType.
+type StaffSSOLoginJSONRequestBody = LoginRequest
+
 // ApproveOnboardingJSONRequestBody defines body for ApproveOnboarding for application/json ContentType.
 type ApproveOnboardingJSONRequestBody = OnboardingDecision
 
 // RejectOnboardingJSONRequestBody defines body for RejectOnboarding for application/json ContentType.
 type RejectOnboardingJSONRequestBody = OnboardingDecision
 
+// RequestStaffAccountJSONRequestBody defines body for RequestStaffAccount for application/json ContentType.
+type RequestStaffAccountJSONRequestBody = StaffAccountChange
+
+// ApproveStaffAccountJSONRequestBody defines body for ApproveStaffAccount for application/json ContentType.
+type ApproveStaffAccountJSONRequestBody = TenantStatusDecision
+
+// RejectStaffAccountJSONRequestBody defines body for RejectStaffAccount for application/json ContentType.
+type RejectStaffAccountJSONRequestBody = TenantStatusDecision
+
 // RequestSupportAccessJSONRequestBody defines body for RequestSupportAccess for application/json ContentType.
 type RequestSupportAccessJSONRequestBody = SupportAccessRequest
+
+// ApproveTenantStatusJSONRequestBody defines body for ApproveTenantStatus for application/json ContentType.
+type ApproveTenantStatusJSONRequestBody = TenantStatusDecision
+
+// RejectTenantStatusJSONRequestBody defines body for RejectTenantStatus for application/json ContentType.
+type RejectTenantStatusJSONRequestBody = TenantStatusDecision
+
+// ReviewEmergencySuspensionJSONRequestBody defines body for ReviewEmergencySuspension for application/json ContentType.
+type ReviewEmergencySuspensionJSONRequestBody = TenantStatusDecision
+
+// EmergencySuspendTenantJSONRequestBody defines body for EmergencySuspendTenant for application/json ContentType.
+type EmergencySuspendTenantJSONRequestBody = EmergencySuspension
+
+// SetTenantLimitsJSONRequestBody defines body for SetTenantLimits for application/json ContentType.
+type SetTenantLimitsJSONRequestBody = TenantLimitsChange
+
+// SetTenantQuotaJSONRequestBody defines body for SetTenantQuota for application/json ContentType.
+type SetTenantQuotaJSONRequestBody = TenantQuotaChange
+
+// RequestTenantStatusJSONRequestBody defines body for RequestTenantStatus for application/json ContentType.
+type RequestTenantStatusJSONRequestBody = TenantStatusChange
 
 // ServerInterface represents all server handlers.
 type ServerInterface interface {
@@ -351,9 +800,21 @@ type ServerInterface interface {
 	// StaffLogout End the staff session
 	// (POST /api/admin/v1/auth/logout)
 	StaffLogout(w http.ResponseWriter, r *http.Request)
+	// GetStaffAuthMethods How staff can sign in on this deployment
+	// (GET /api/admin/v1/auth/methods)
+	GetStaffAuthMethods(w http.ResponseWriter, r *http.Request)
 	// GetStaffSession The current staff session
 	// (GET /api/admin/v1/auth/session)
 	GetStaffSession(w http.ResponseWriter, r *http.Request)
+	// FinishStaffSSO Finish the identity provider step
+	// (POST /api/admin/v1/auth/sso/callback)
+	FinishStaffSSO(w http.ResponseWriter, r *http.Request, params FinishStaffSSOParams)
+	// StaffSSOLogin Finish signing in after the identity provider step
+	// (POST /api/admin/v1/auth/sso/login)
+	StaffSSOLogin(w http.ResponseWriter, r *http.Request)
+	// StartStaffSSO Start signing in with the platform's identity provider
+	// (POST /api/admin/v1/auth/sso/start)
+	StartStaffSSO(w http.ResponseWriter, r *http.Request)
 	// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
 	// (GET /api/admin/v1/onboarding)
 	ListOnboardingReviews(w http.ResponseWriter, r *http.Request)
@@ -366,9 +827,36 @@ type ServerInterface interface {
 	// RejectOnboarding Send a submitted onboarding back with a note
 	// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
 	RejectOnboarding(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// GetAdminOverview What waits for the signed-in staff member
+	// (GET /api/admin/v1/overview)
+	GetAdminOverview(w http.ResponseWriter, r *http.Request)
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(w http.ResponseWriter, r *http.Request)
+	// ListStaffRoster Staff accounts (security administrators only)
+	// (GET /api/admin/v1/staff)
+	ListStaffRoster(w http.ResponseWriter, r *http.Request)
+	// ListStaffAccountRequests Requests to create staff accounts, newest first (security administrators only)
+	// (GET /api/admin/v1/staff/account-requests)
+	ListStaffAccountRequests(w http.ResponseWriter, r *http.Request)
+	// RequestStaffAccount Ask for a staff account to be created (security administrators only)
+	// (POST /api/admin/v1/staff/account-requests)
+	RequestStaffAccount(w http.ResponseWriter, r *http.Request)
+	// ApproveStaffAccount Approve another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/approve)
+	ApproveStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID)
+	// RejectStaffAccount Reject another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/reject)
+	RejectStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID)
+	// WithdrawStaffAccount Take back your own pending request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/withdraw)
+	WithdrawStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID)
+	// DisableStaff Disable another staff member's account
+	// (POST /api/admin/v1/staff/{staff_id}/disable)
+	DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID)
+	// EnableStaff Enable a disabled staff account
+	// (POST /api/admin/v1/staff/{staff_id}/enable)
+	EnableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID)
 	// ListSupportAccess Support access requests, newest first
 	// (GET /api/admin/v1/support-access)
 	ListSupportAccess(w http.ResponseWriter, r *http.Request)
@@ -384,9 +872,51 @@ type ServerInterface interface {
 	// RevokeSupportAccess End approved access early, or withdraw a pending request
 	// (POST /api/admin/v1/support-access/{access_id}/revoke)
 	RevokeSupportAccess(w http.ResponseWriter, r *http.Request, accessId AccessID)
-	// ListAdminTenants Tenants (identity and status only)
+	// ListTenantStatusRequests Requests to suspend or reactivate tenants, newest first
+	// (GET /api/admin/v1/tenant-status-requests)
+	ListTenantStatusRequests(w http.ResponseWriter, r *http.Request)
+	// ApproveTenantStatus Approve another staff member's request
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/approve)
+	ApproveTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
+	// RejectTenantStatus Reject another staff member's request
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/reject)
+	RejectTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
+	// ReviewEmergencySuspension Review an emergency suspension made by someone else
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/review)
+	ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
+	// WithdrawTenantStatus Take back your own pending request
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/withdraw)
+	WithdrawTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID)
+	// ListAdminTenants Tenants (identity, status and counts only)
 	// (GET /api/admin/v1/tenants)
 	ListAdminTenants(w http.ResponseWriter, r *http.Request)
+	// GetAdminTenant One tenant (identity, status, counts and staff activity only)
+	// (GET /api/admin/v1/tenants/{tenant_id})
+	GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
+	// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
+	EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// ClearTenantLimits Remove a tenant's override, so the platform's limits apply again
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/limits)
+	ClearTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// GetTenantLimits A tenant's request limits, and the platform's beside them
+	// (GET /api/admin/v1/tenants/{tenant_id}/limits)
+	GetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
+	// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
+	SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// ClearTenantQuota Remove a tenant's quota
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/quota)
+	ClearTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// GetTenantQuota A tenant's monthly event-volume quota and what it has used
+	// (GET /api/admin/v1/tenants/{tenant_id}/quota)
+	GetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// SetTenantQuota Set a tenant's monthly event-volume quota
+	// (PUT /api/admin/v1/tenants/{tenant_id}/quota)
+	SetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID)
+	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
+	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
+	RequestTenantStatus(w http.ResponseWriter, r *http.Request, tenantId TenantID)
 }
 
 // Unimplemented server implementation that returns http.StatusNotImplemented for each endpoint.
@@ -429,9 +959,33 @@ func (_ Unimplemented) StaffLogout(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetStaffAuthMethods How staff can sign in on this deployment
+// (GET /api/admin/v1/auth/methods)
+func (_ Unimplemented) GetStaffAuthMethods(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetStaffSession The current staff session
 // (GET /api/admin/v1/auth/session)
 func (_ Unimplemented) GetStaffSession(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// FinishStaffSSO Finish the identity provider step
+// (POST /api/admin/v1/auth/sso/callback)
+func (_ Unimplemented) FinishStaffSSO(w http.ResponseWriter, r *http.Request, params FinishStaffSSOParams) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StaffSSOLogin Finish signing in after the identity provider step
+// (POST /api/admin/v1/auth/sso/login)
+func (_ Unimplemented) StaffSSOLogin(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// StartStaffSSO Start signing in with the platform's identity provider
+// (POST /api/admin/v1/auth/sso/start)
+func (_ Unimplemented) StartStaffSSO(w http.ResponseWriter, r *http.Request) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -459,9 +1013,63 @@ func (_ Unimplemented) RejectOnboarding(w http.ResponseWriter, r *http.Request, 
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
+// GetAdminOverview What waits for the signed-in staff member
+// (GET /api/admin/v1/overview)
+func (_ Unimplemented) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
 // GetSecurityOverview Security signals across tenants
 // (GET /api/admin/v1/security)
 func (_ Unimplemented) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListStaffRoster Staff accounts (security administrators only)
+// (GET /api/admin/v1/staff)
+func (_ Unimplemented) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListStaffAccountRequests Requests to create staff accounts, newest first (security administrators only)
+// (GET /api/admin/v1/staff/account-requests)
+func (_ Unimplemented) ListStaffAccountRequests(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RequestStaffAccount Ask for a staff account to be created (security administrators only)
+// (POST /api/admin/v1/staff/account-requests)
+func (_ Unimplemented) RequestStaffAccount(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveStaffAccount Approve another security administrator's request
+// (POST /api/admin/v1/staff/account-requests/{request_id}/approve)
+func (_ Unimplemented) ApproveStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectStaffAccount Reject another security administrator's request
+// (POST /api/admin/v1/staff/account-requests/{request_id}/reject)
+func (_ Unimplemented) RejectStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// WithdrawStaffAccount Take back your own pending request
+// (POST /api/admin/v1/staff/account-requests/{request_id}/withdraw)
+func (_ Unimplemented) WithdrawStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// DisableStaff Disable another staff member's account
+// (POST /api/admin/v1/staff/{staff_id}/disable)
+func (_ Unimplemented) DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EnableStaff Enable a disabled staff account
+// (POST /api/admin/v1/staff/{staff_id}/enable)
+func (_ Unimplemented) EnableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -495,9 +1103,93 @@ func (_ Unimplemented) RevokeSupportAccess(w http.ResponseWriter, r *http.Reques
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
-// ListAdminTenants Tenants (identity and status only)
+// ListTenantStatusRequests Requests to suspend or reactivate tenants, newest first
+// (GET /api/admin/v1/tenant-status-requests)
+func (_ Unimplemented) ListTenantStatusRequests(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ApproveTenantStatus Approve another staff member's request
+// (POST /api/admin/v1/tenant-status-requests/{request_id}/approve)
+func (_ Unimplemented) ApproveTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RejectTenantStatus Reject another staff member's request
+// (POST /api/admin/v1/tenant-status-requests/{request_id}/reject)
+func (_ Unimplemented) RejectTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ReviewEmergencySuspension Review an emergency suspension made by someone else
+// (POST /api/admin/v1/tenant-status-requests/{request_id}/review)
+func (_ Unimplemented) ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// WithdrawTenantStatus Take back your own pending request
+// (POST /api/admin/v1/tenant-status-requests/{request_id}/withdraw)
+func (_ Unimplemented) WithdrawTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ListAdminTenants Tenants (identity, status and counts only)
 // (GET /api/admin/v1/tenants)
 func (_ Unimplemented) ListAdminTenants(w http.ResponseWriter, r *http.Request) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetAdminTenant One tenant (identity, status, counts and staff activity only)
+// (GET /api/admin/v1/tenants/{tenant_id})
+func (_ Unimplemented) GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
+// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
+func (_ Unimplemented) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ClearTenantLimits Remove a tenant's override, so the platform's limits apply again
+// (DELETE /api/admin/v1/tenants/{tenant_id}/limits)
+func (_ Unimplemented) ClearTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTenantLimits A tenant's request limits, and the platform's beside them
+// (GET /api/admin/v1/tenants/{tenant_id}/limits)
+func (_ Unimplemented) GetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
+// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
+func (_ Unimplemented) SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// ClearTenantQuota Remove a tenant's quota
+// (DELETE /api/admin/v1/tenants/{tenant_id}/quota)
+func (_ Unimplemented) ClearTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// GetTenantQuota A tenant's monthly event-volume quota and what it has used
+// (GET /api/admin/v1/tenants/{tenant_id}/quota)
+func (_ Unimplemented) GetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// SetTenantQuota Set a tenant's monthly event-volume quota
+// (PUT /api/admin/v1/tenants/{tenant_id}/quota)
+func (_ Unimplemented) SetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	w.WriteHeader(http.StatusNotImplemented)
+}
+
+// RequestTenantStatus Ask for a tenant to be suspended or reactivated
+// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
+func (_ Unimplemented) RequestTenantStatus(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
 	w.WriteHeader(http.StatusNotImplemented)
 }
 
@@ -613,11 +1305,88 @@ func (siw *ServerInterfaceWrapper) StaffLogout(w http.ResponseWriter, r *http.Re
 	handler.ServeHTTP(w, r)
 }
 
+// GetStaffAuthMethods operation middleware
+func (siw *ServerInterfaceWrapper) GetStaffAuthMethods(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetStaffAuthMethods(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetStaffSession operation middleware
 func (siw *ServerInterfaceWrapper) GetStaffSession(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetStaffSession(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// FinishStaffSSO operation middleware
+func (siw *ServerInterfaceWrapper) FinishStaffSSO(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// Parameter object where we will unmarshal all parameters from the context
+	var params FinishStaffSSOParams
+
+	{
+		var cookie *http.Cookie
+
+		if cookie, err = r.Cookie("riskos_staff_sso"); err == nil {
+			var value string
+			err = runtime.BindStyledParameterWithOptions("simple", "riskos_staff_sso", cookie.Value, &value, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationCookie, Explode: true, Required: false, Type: "string", Format: ""})
+			if err != nil {
+				siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "riskos_staff_sso", Err: err})
+				return
+			}
+			params.RiskosStaffSso = &value
+
+		}
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.FinishStaffSSO(w, r, params)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StaffSSOLogin operation middleware
+func (siw *ServerInterfaceWrapper) StaffSSOLogin(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StaffSSOLogin(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// StartStaffSSO operation middleware
+func (siw *ServerInterfaceWrapper) StartStaffSSO(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.StartStaffSSO(w, r)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -719,11 +1488,197 @@ func (siw *ServerInterfaceWrapper) RejectOnboarding(w http.ResponseWriter, r *ht
 	handler.ServeHTTP(w, r)
 }
 
+// GetAdminOverview operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // GetSecurityOverview operation middleware
 func (siw *ServerInterfaceWrapper) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.GetSecurityOverview(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStaffRoster operation middleware
+func (siw *ServerInterfaceWrapper) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStaffRoster(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ListStaffAccountRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListStaffAccountRequests(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListStaffAccountRequests(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) RequestStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestStaffAccount(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) ApproveStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId AccountRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveStaffAccount(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) RejectStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId AccountRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectStaffAccount(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// WithdrawStaffAccount operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawStaffAccount(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId AccountRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WithdrawStaffAccount(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// DisableStaff operation middleware
+func (siw *ServerInterfaceWrapper) DisableStaff(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "staff_id" -------------
+	var staffId StaffID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "staff_id", chi.URLParam(r, "staff_id"), &staffId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "staff_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.DisableStaff(w, r, staffId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EnableStaff operation middleware
+func (siw *ServerInterfaceWrapper) EnableStaff(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "staff_id" -------------
+	var staffId StaffID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "staff_id", chi.URLParam(r, "staff_id"), &staffId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "staff_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EnableStaff(w, r, staffId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -839,11 +1794,363 @@ func (siw *ServerInterfaceWrapper) RevokeSupportAccess(w http.ResponseWriter, r 
 	handler.ServeHTTP(w, r)
 }
 
+// ListTenantStatusRequests operation middleware
+func (siw *ServerInterfaceWrapper) ListTenantStatusRequests(w http.ResponseWriter, r *http.Request) {
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ListTenantStatusRequests(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ApproveTenantStatus operation middleware
+func (siw *ServerInterfaceWrapper) ApproveTenantStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId StatusRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ApproveTenantStatus(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RejectTenantStatus operation middleware
+func (siw *ServerInterfaceWrapper) RejectTenantStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId StatusRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RejectTenantStatus(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ReviewEmergencySuspension operation middleware
+func (siw *ServerInterfaceWrapper) ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId StatusRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ReviewEmergencySuspension(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// WithdrawTenantStatus operation middleware
+func (siw *ServerInterfaceWrapper) WithdrawTenantStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "request_id" -------------
+	var requestId StatusRequestID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "request_id", chi.URLParam(r, "request_id"), &requestId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "request_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.WithdrawTenantStatus(w, r, requestId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
 // ListAdminTenants operation middleware
 func (siw *ServerInterfaceWrapper) ListAdminTenants(w http.ResponseWriter, r *http.Request) {
 
 	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		siw.Handler.ListAdminTenants(w, r)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetAdminTenant operation middleware
+func (siw *ServerInterfaceWrapper) GetAdminTenant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetAdminTenant(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// EmergencySuspendTenant operation middleware
+func (siw *ServerInterfaceWrapper) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.EmergencySuspendTenant(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClearTenantLimits operation middleware
+func (siw *ServerInterfaceWrapper) ClearTenantLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearTenantLimits(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTenantLimits operation middleware
+func (siw *ServerInterfaceWrapper) GetTenantLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTenantLimits(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetTenantLimits operation middleware
+func (siw *ServerInterfaceWrapper) SetTenantLimits(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetTenantLimits(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// ClearTenantQuota operation middleware
+func (siw *ServerInterfaceWrapper) ClearTenantQuota(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.ClearTenantQuota(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// GetTenantQuota operation middleware
+func (siw *ServerInterfaceWrapper) GetTenantQuota(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.GetTenantQuota(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// SetTenantQuota operation middleware
+func (siw *ServerInterfaceWrapper) SetTenantQuota(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.SetTenantQuota(w, r, tenantId)
+	}))
+
+	for _, middleware := range siw.HandlerMiddlewares {
+		handler = middleware(handler)
+	}
+
+	handler.ServeHTTP(w, r)
+}
+
+// RequestTenantStatus operation middleware
+func (siw *ServerInterfaceWrapper) RequestTenantStatus(w http.ResponseWriter, r *http.Request) {
+
+	var err error
+	_ = err
+
+	// ------------- Path parameter "tenant_id" -------------
+	var tenantId TenantID
+
+	err = runtime.BindStyledParameterWithOptions("simple", "tenant_id", chi.URLParam(r, "tenant_id"), &tenantId, runtime.BindStyledParameterOptions{ParamLocation: runtime.ParamLocationPath, Explode: false, Required: true, Type: "string", Format: "", ValueIsUnescaped: r.URL.RawPath == ""})
+	if err != nil {
+		siw.ErrorHandlerFunc(w, r, &InvalidParamFormatError{ParamName: "tenant_id", Err: err})
+		return
+	}
+
+	handler := http.Handler(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		siw.Handler.RequestTenantStatus(w, r, tenantId)
 	}))
 
 	for _, middleware := range siw.HandlerMiddlewares {
@@ -985,7 +2292,88 @@ func HandlerWithOptions(si ServerInterface, options ChiServerOptions) http.Handl
 		r.Post(options.BaseURL+"/api/admin/v1/auth/logout", wrapper.StaffLogout)
 	})
 	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/auth/methods", wrapper.GetStaffAuthMethods)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/auth/sso/start", wrapper.StartStaffSSO)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/auth/sso/callback", wrapper.FinishStaffSSO)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/auth/sso/login", wrapper.StaffSSOLogin)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/overview", wrapper.GetAdminOverview)
+	})
+	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/tenants", wrapper.ListAdminTenants)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}", wrapper.GetAdminTenant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/status-requests", wrapper.RequestTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenant-status-requests", wrapper.ListTenantStatusRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/approve", wrapper.ApproveTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/reject", wrapper.RejectTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/quota", wrapper.ClearTenantQuota)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/quota", wrapper.GetTenantQuota)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/quota", wrapper.SetTenantQuota)
+	})
+	r.Group(func(r chi.Router) {
+		r.Delete(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.ClearTenantLimits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.GetTenantLimits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Put(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/limits", wrapper.SetTenantLimits)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenants/{tenant_id}/emergency-suspension", wrapper.EmergencySuspendTenant)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/review", wrapper.ReviewEmergencySuspension)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/tenant-status-requests/{request_id}/withdraw", wrapper.WithdrawTenantStatus)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/staff", wrapper.ListStaffRoster)
+	})
+	r.Group(func(r chi.Router) {
+		r.Get(options.BaseURL+"/api/admin/v1/staff/account-requests", wrapper.ListStaffAccountRequests)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests", wrapper.RequestStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests/{request_id}/approve", wrapper.ApproveStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests/{request_id}/reject", wrapper.RejectStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/account-requests/{request_id}/withdraw", wrapper.WithdrawStaffAccount)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/{staff_id}/disable", wrapper.DisableStaff)
+	})
+	r.Group(func(r chi.Router) {
+		r.Post(options.BaseURL+"/api/admin/v1/staff/{staff_id}/enable", wrapper.EnableStaff)
 	})
 	r.Group(func(r chi.Router) {
 		r.Get(options.BaseURL+"/api/admin/v1/security", wrapper.GetSecurityOverview)
@@ -1460,6 +2848,44 @@ func (response StaffLogoutdefaultJSONResponse) VisitStaffLogoutResponse(w http.R
 	return err
 }
 
+type GetStaffAuthMethodsRequestObject struct {
+}
+
+type GetStaffAuthMethodsResponseObject interface {
+	VisitGetStaffAuthMethodsResponse(w http.ResponseWriter) error
+}
+
+type GetStaffAuthMethods200JSONResponse StaffAuthMethods
+
+func (response GetStaffAuthMethods200JSONResponse) VisitGetStaffAuthMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetStaffAuthMethodsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetStaffAuthMethodsdefaultJSONResponse) VisitGetStaffAuthMethodsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetStaffSessionRequestObject struct {
 }
 
@@ -1501,6 +2927,269 @@ type GetStaffSessiondefaultJSONResponse struct {
 }
 
 func (response GetStaffSessiondefaultJSONResponse) VisitGetStaffSessionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSORequestObject struct {
+	Params FinishStaffSSOParams
+	Body   *FinishStaffSSOJSONRequestBody
+}
+
+type FinishStaffSSOResponseObject interface {
+	VisitFinishStaffSSOResponse(w http.ResponseWriter) error
+}
+
+type FinishStaffSSO200JSONResponse Ceremony
+
+func (response FinishStaffSSO200JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response FinishStaffSSO400JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response FinishStaffSSO401JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response FinishStaffSSO404JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSO429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response FinishStaffSSO429JSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type FinishStaffSSOdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response FinishStaffSSOdefaultJSONResponse) VisitFinishStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLoginRequestObject struct {
+	Body *StaffSSOLoginJSONRequestBody
+}
+
+type StaffSSOLoginResponseObject interface {
+	VisitStaffSSOLoginResponse(w http.ResponseWriter) error
+}
+
+type StaffSSOLogin200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StaffSSOLogin200JSONResponse struct {
+	Body    StaffSession
+	Headers StaffSSOLogin200ResponseHeaders
+}
+
+func (response StaffSSOLogin200JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogin400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response StaffSSOLogin400JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogin401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response StaffSSOLogin401JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogin429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response StaffSSOLogin429JSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StaffSSOLogindefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response StaffSSOLogindefaultJSONResponse) VisitStaffSSOLoginResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSORequestObject struct {
+}
+
+type StartStaffSSOResponseObject interface {
+	VisitStartStaffSSOResponse(w http.ResponseWriter) error
+}
+
+type StartStaffSSO200ResponseHeaders struct {
+	SetCookie *string
+}
+
+type StartStaffSSO200JSONResponse struct {
+	Body    StaffSSOStart
+	Headers StartStaffSSO200ResponseHeaders
+}
+
+func (response StartStaffSSO200JSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	if response.Headers.SetCookie != nil {
+		w.Header().Set("Set-Cookie", fmt.Sprint(*response.Headers.SetCookie))
+	}
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSO404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response StartStaffSSO404JSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSO429JSONResponse struct{ RateLimitedJSONResponse }
+
+func (response StartStaffSSO429JSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(429)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type StartStaffSSOdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response StartStaffSSOdefaultJSONResponse) VisitStartStaffSSOResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -1865,6 +3554,58 @@ func (response RejectOnboardingdefaultJSONResponse) VisitRejectOnboardingRespons
 	return err
 }
 
+type GetAdminOverviewRequestObject struct {
+}
+
+type GetAdminOverviewResponseObject interface {
+	VisitGetAdminOverviewResponse(w http.ResponseWriter) error
+}
+
+type GetAdminOverview200JSONResponse AdminOverview
+
+func (response GetAdminOverview200JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverview401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetAdminOverview401JSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminOverviewdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminOverviewdefaultJSONResponse) VisitGetAdminOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type GetSecurityOverviewRequestObject struct {
 }
 
@@ -1906,6 +3647,724 @@ type GetSecurityOverviewdefaultJSONResponse struct {
 }
 
 func (response GetSecurityOverviewdefaultJSONResponse) VisitGetSecurityOverviewResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRosterRequestObject struct {
+}
+
+type ListStaffRosterResponseObject interface {
+	VisitListStaffRosterResponse(w http.ResponseWriter) error
+}
+
+type ListStaffRoster200JSONResponse StaffRosterList
+
+func (response ListStaffRoster200JSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRoster401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListStaffRoster401JSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRoster403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListStaffRoster403JSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffRosterdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListStaffRosterdefaultJSONResponse) VisitListStaffRosterResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequestsRequestObject struct {
+}
+
+type ListStaffAccountRequestsResponseObject interface {
+	VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListStaffAccountRequests200JSONResponse StaffAccountRequestList
+
+func (response ListStaffAccountRequests200JSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequests401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListStaffAccountRequests401JSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequests403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ListStaffAccountRequests403JSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListStaffAccountRequestsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListStaffAccountRequestsdefaultJSONResponse) VisitListStaffAccountRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccountRequestObject struct {
+	Body *RequestStaffAccountJSONRequestBody
+}
+
+type RequestStaffAccountResponseObject interface {
+	VisitRequestStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type RequestStaffAccount201JSONResponse StaffAccountRequest
+
+func (response RequestStaffAccount201JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RequestStaffAccount400JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RequestStaffAccount401JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RequestStaffAccount403JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RequestStaffAccount409JSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RequestStaffAccountdefaultJSONResponse) VisitRequestStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccountRequestObject struct {
+	RequestId AccountRequestID `json:"request_id"`
+	Body      *ApproveStaffAccountJSONRequestBody
+}
+
+type ApproveStaffAccountResponseObject interface {
+	VisitApproveStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type ApproveStaffAccount200JSONResponse StaffAccountRequest
+
+func (response ApproveStaffAccount200JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ApproveStaffAccount400JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApproveStaffAccount401JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveStaffAccount403JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveStaffAccount404JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveStaffAccount409JSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ApproveStaffAccountdefaultJSONResponse) VisitApproveStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccountRequestObject struct {
+	RequestId AccountRequestID `json:"request_id"`
+	Body      *RejectStaffAccountJSONRequestBody
+}
+
+type RejectStaffAccountResponseObject interface {
+	VisitRejectStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type RejectStaffAccount200JSONResponse StaffAccountRequest
+
+func (response RejectStaffAccount200JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RejectStaffAccount400JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RejectStaffAccount401JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectStaffAccount403JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectStaffAccount404JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectStaffAccount409JSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RejectStaffAccountdefaultJSONResponse) VisitRejectStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccountRequestObject struct {
+	RequestId AccountRequestID `json:"request_id"`
+}
+
+type WithdrawStaffAccountResponseObject interface {
+	VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error
+}
+
+type WithdrawStaffAccount200JSONResponse StaffAccountRequest
+
+func (response WithdrawStaffAccount200JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response WithdrawStaffAccount401JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response WithdrawStaffAccount403JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response WithdrawStaffAccount404JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccount409JSONResponse struct{ ConflictJSONResponse }
+
+func (response WithdrawStaffAccount409JSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawStaffAccountdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response WithdrawStaffAccountdefaultJSONResponse) VisitWithdrawStaffAccountResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaffRequestObject struct {
+	StaffId StaffID `json:"staff_id"`
+}
+
+type DisableStaffResponseObject interface {
+	VisitDisableStaffResponse(w http.ResponseWriter) error
+}
+
+type DisableStaff200JSONResponse StaffRosterEntry
+
+func (response DisableStaff200JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response DisableStaff401JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response DisableStaff403JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response DisableStaff404JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaff409JSONResponse struct{ ConflictJSONResponse }
+
+func (response DisableStaff409JSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type DisableStaffdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response DisableStaffdefaultJSONResponse) VisitDisableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaffRequestObject struct {
+	StaffId StaffID `json:"staff_id"`
+}
+
+type EnableStaffResponseObject interface {
+	VisitEnableStaffResponse(w http.ResponseWriter) error
+}
+
+type EnableStaff200JSONResponse StaffRosterEntry
+
+func (response EnableStaff200JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaff401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response EnableStaff401JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaff403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EnableStaff403JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaff404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EnableStaff404JSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EnableStaffdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response EnableStaffdefaultJSONResponse) VisitEnableStaffResponse(w http.ResponseWriter) error {
 
 	var buf bytes.Buffer
 	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
@@ -2335,6 +4794,483 @@ func (response RevokeSupportAccessdefaultJSONResponse) VisitRevokeSupportAccessR
 	return err
 }
 
+type ListTenantStatusRequestsRequestObject struct {
+}
+
+type ListTenantStatusRequestsResponseObject interface {
+	VisitListTenantStatusRequestsResponse(w http.ResponseWriter) error
+}
+
+type ListTenantStatusRequests200JSONResponse TenantStatusRequestList
+
+func (response ListTenantStatusRequests200JSONResponse) VisitListTenantStatusRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTenantStatusRequests401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ListTenantStatusRequests401JSONResponse) VisitListTenantStatusRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ListTenantStatusRequestsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ListTenantStatusRequestsdefaultJSONResponse) VisitListTenantStatusRequestsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatusRequestObject struct {
+	RequestId StatusRequestID `json:"request_id"`
+	Body      *ApproveTenantStatusJSONRequestBody
+}
+
+type ApproveTenantStatusResponseObject interface {
+	VisitApproveTenantStatusResponse(w http.ResponseWriter) error
+}
+
+type ApproveTenantStatus200JSONResponse TenantStatusRequest
+
+func (response ApproveTenantStatus200JSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatus400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ApproveTenantStatus400JSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatus401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ApproveTenantStatus401JSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ApproveTenantStatus403JSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ApproveTenantStatus404JSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ApproveTenantStatus409JSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ApproveTenantStatusdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ApproveTenantStatusdefaultJSONResponse) VisitApproveTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatusRequestObject struct {
+	RequestId StatusRequestID `json:"request_id"`
+	Body      *RejectTenantStatusJSONRequestBody
+}
+
+type RejectTenantStatusResponseObject interface {
+	VisitRejectTenantStatusResponse(w http.ResponseWriter) error
+}
+
+type RejectTenantStatus200JSONResponse TenantStatusRequest
+
+func (response RejectTenantStatus200JSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatus400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RejectTenantStatus400JSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatus401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RejectTenantStatus401JSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response RejectTenantStatus403JSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RejectTenantStatus404JSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RejectTenantStatus409JSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RejectTenantStatusdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RejectTenantStatusdefaultJSONResponse) VisitRejectTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspensionRequestObject struct {
+	RequestId StatusRequestID `json:"request_id"`
+	Body      *ReviewEmergencySuspensionJSONRequestBody
+}
+
+type ReviewEmergencySuspensionResponseObject interface {
+	VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error
+}
+
+type ReviewEmergencySuspension200JSONResponse TenantStatusRequest
+
+func (response ReviewEmergencySuspension200JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response ReviewEmergencySuspension400JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ReviewEmergencySuspension401JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response ReviewEmergencySuspension403JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ReviewEmergencySuspension404JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspension409JSONResponse struct{ ConflictJSONResponse }
+
+func (response ReviewEmergencySuspension409JSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ReviewEmergencySuspensiondefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ReviewEmergencySuspensiondefaultJSONResponse) VisitReviewEmergencySuspensionResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawTenantStatusRequestObject struct {
+	RequestId StatusRequestID `json:"request_id"`
+}
+
+type WithdrawTenantStatusResponseObject interface {
+	VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error
+}
+
+type WithdrawTenantStatus200JSONResponse TenantStatusRequest
+
+func (response WithdrawTenantStatus200JSONResponse) VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawTenantStatus401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response WithdrawTenantStatus401JSONResponse) VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawTenantStatus403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response WithdrawTenantStatus403JSONResponse) VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawTenantStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response WithdrawTenantStatus404JSONResponse) VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawTenantStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response WithdrawTenantStatus409JSONResponse) VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type WithdrawTenantStatusdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response WithdrawTenantStatusdefaultJSONResponse) VisitWithdrawTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 type ListAdminTenantsRequestObject struct {
 }
 
@@ -2387,6 +5323,711 @@ func (response ListAdminTenantsdefaultJSONResponse) VisitListAdminTenantsRespons
 	return err
 }
 
+type GetAdminTenantRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetAdminTenantResponseObject interface {
+	VisitGetAdminTenantResponse(w http.ResponseWriter) error
+}
+
+type GetAdminTenant200JSONResponse AdminTenantDetail
+
+func (response GetAdminTenant200JSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTenant401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetAdminTenant401JSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTenant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetAdminTenant404JSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetAdminTenantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetAdminTenantdefaultJSONResponse) VisitGetAdminTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenantRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *EmergencySuspendTenantJSONRequestBody
+}
+
+type EmergencySuspendTenantResponseObject interface {
+	VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error
+}
+
+type EmergencySuspendTenant201JSONResponse TenantStatusRequest
+
+func (response EmergencySuspendTenant201JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response EmergencySuspendTenant400JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response EmergencySuspendTenant401JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant403JSONResponse struct{ ForbiddenJSONResponse }
+
+func (response EmergencySuspendTenant403JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(403)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response EmergencySuspendTenant404JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenant409JSONResponse struct{ ConflictJSONResponse }
+
+func (response EmergencySuspendTenant409JSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type EmergencySuspendTenantdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response EmergencySuspendTenantdefaultJSONResponse) VisitEmergencySuspendTenantResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimitsRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type ClearTenantLimitsResponseObject interface {
+	VisitClearTenantLimitsResponse(w http.ResponseWriter) error
+}
+
+type ClearTenantLimits200JSONResponse TenantLimits
+
+func (response ClearTenantLimits200JSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimits401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ClearTenantLimits401JSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimits404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClearTenantLimits404JSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantLimitsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ClearTenantLimitsdefaultJSONResponse) VisitClearTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimitsRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetTenantLimitsResponseObject interface {
+	VisitGetTenantLimitsResponse(w http.ResponseWriter) error
+}
+
+type GetTenantLimits200JSONResponse TenantLimits
+
+func (response GetTenantLimits200JSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimits401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetTenantLimits401JSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimits404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTenantLimits404JSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantLimitsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetTenantLimitsdefaultJSONResponse) VisitGetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimitsRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *SetTenantLimitsJSONRequestBody
+}
+
+type SetTenantLimitsResponseObject interface {
+	VisitSetTenantLimitsResponse(w http.ResponseWriter) error
+}
+
+type SetTenantLimits200JSONResponse TenantLimits
+
+func (response SetTenantLimits200JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimits400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SetTenantLimits400JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimits401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SetTenantLimits401JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimits404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetTenantLimits404JSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantLimitsdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SetTenantLimitsdefaultJSONResponse) VisitSetTenantLimitsResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuotaRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type ClearTenantQuotaResponseObject interface {
+	VisitClearTenantQuotaResponse(w http.ResponseWriter) error
+}
+
+type ClearTenantQuota200JSONResponse TenantQuota
+
+func (response ClearTenantQuota200JSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuota401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response ClearTenantQuota401JSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuota404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response ClearTenantQuota404JSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type ClearTenantQuotadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response ClearTenantQuotadefaultJSONResponse) VisitClearTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuotaRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+}
+
+type GetTenantQuotaResponseObject interface {
+	VisitGetTenantQuotaResponse(w http.ResponseWriter) error
+}
+
+type GetTenantQuota200JSONResponse TenantQuota
+
+func (response GetTenantQuota200JSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuota401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response GetTenantQuota401JSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuota404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response GetTenantQuota404JSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type GetTenantQuotadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response GetTenantQuotadefaultJSONResponse) VisitGetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuotaRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *SetTenantQuotaJSONRequestBody
+}
+
+type SetTenantQuotaResponseObject interface {
+	VisitSetTenantQuotaResponse(w http.ResponseWriter) error
+}
+
+type SetTenantQuota200JSONResponse TenantQuota
+
+func (response SetTenantQuota200JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuota400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response SetTenantQuota400JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuota401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response SetTenantQuota401JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuota404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response SetTenantQuota404JSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type SetTenantQuotadefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response SetTenantQuotadefaultJSONResponse) VisitSetTenantQuotaResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestTenantStatusRequestObject struct {
+	TenantId TenantID `json:"tenant_id"`
+	Body     *RequestTenantStatusJSONRequestBody
+}
+
+type RequestTenantStatusResponseObject interface {
+	VisitRequestTenantStatusResponse(w http.ResponseWriter) error
+}
+
+type RequestTenantStatus201JSONResponse TenantStatusRequest
+
+func (response RequestTenantStatus201JSONResponse) VisitRequestTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(201)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestTenantStatus400JSONResponse struct{ InvalidRequestJSONResponse }
+
+func (response RequestTenantStatus400JSONResponse) VisitRequestTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(400)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestTenantStatus401JSONResponse struct{ UnauthenticatedJSONResponse }
+
+func (response RequestTenantStatus401JSONResponse) VisitRequestTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(401)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestTenantStatus404JSONResponse struct{ NotFoundJSONResponse }
+
+func (response RequestTenantStatus404JSONResponse) VisitRequestTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(404)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestTenantStatus409JSONResponse struct{ ConflictJSONResponse }
+
+func (response RequestTenantStatus409JSONResponse) VisitRequestTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(409)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
+type RequestTenantStatusdefaultJSONResponse struct {
+	Body       Error
+	StatusCode int
+}
+
+func (response RequestTenantStatusdefaultJSONResponse) VisitRequestTenantStatusResponse(w http.ResponseWriter) error {
+
+	var buf bytes.Buffer
+	if err := json.NewEncoder(&buf).Encode(response.Body); err != nil {
+		return err
+	}
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(response.StatusCode)
+	_, err := buf.WriteTo(w)
+	return err
+}
+
 // StrictServerInterface represents all server handlers.
 type StrictServerInterface interface {
 	// ListStaffAudit The staff audit log, newest first
@@ -2407,9 +6048,21 @@ type StrictServerInterface interface {
 	// StaffLogout End the staff session
 	// (POST /api/admin/v1/auth/logout)
 	StaffLogout(ctx context.Context, request StaffLogoutRequestObject) (StaffLogoutResponseObject, error)
+	// GetStaffAuthMethods How staff can sign in on this deployment
+	// (GET /api/admin/v1/auth/methods)
+	GetStaffAuthMethods(ctx context.Context, request GetStaffAuthMethodsRequestObject) (GetStaffAuthMethodsResponseObject, error)
 	// GetStaffSession The current staff session
 	// (GET /api/admin/v1/auth/session)
 	GetStaffSession(ctx context.Context, request GetStaffSessionRequestObject) (GetStaffSessionResponseObject, error)
+	// FinishStaffSSO Finish the identity provider step
+	// (POST /api/admin/v1/auth/sso/callback)
+	FinishStaffSSO(ctx context.Context, request FinishStaffSSORequestObject) (FinishStaffSSOResponseObject, error)
+	// StaffSSOLogin Finish signing in after the identity provider step
+	// (POST /api/admin/v1/auth/sso/login)
+	StaffSSOLogin(ctx context.Context, request StaffSSOLoginRequestObject) (StaffSSOLoginResponseObject, error)
+	// StartStaffSSO Start signing in with the platform's identity provider
+	// (POST /api/admin/v1/auth/sso/start)
+	StartStaffSSO(ctx context.Context, request StartStaffSSORequestObject) (StartStaffSSOResponseObject, error)
 	// ListOnboardingReviews Self-serve workspaces' compliance onboarding, submitted first
 	// (GET /api/admin/v1/onboarding)
 	ListOnboardingReviews(ctx context.Context, request ListOnboardingReviewsRequestObject) (ListOnboardingReviewsResponseObject, error)
@@ -2422,9 +6075,36 @@ type StrictServerInterface interface {
 	// RejectOnboarding Send a submitted onboarding back with a note
 	// (POST /api/admin/v1/onboarding/{tenant_id}/reject)
 	RejectOnboarding(ctx context.Context, request RejectOnboardingRequestObject) (RejectOnboardingResponseObject, error)
+	// GetAdminOverview What waits for the signed-in staff member
+	// (GET /api/admin/v1/overview)
+	GetAdminOverview(ctx context.Context, request GetAdminOverviewRequestObject) (GetAdminOverviewResponseObject, error)
 	// GetSecurityOverview Security signals across tenants
 	// (GET /api/admin/v1/security)
 	GetSecurityOverview(ctx context.Context, request GetSecurityOverviewRequestObject) (GetSecurityOverviewResponseObject, error)
+	// ListStaffRoster Staff accounts (security administrators only)
+	// (GET /api/admin/v1/staff)
+	ListStaffRoster(ctx context.Context, request ListStaffRosterRequestObject) (ListStaffRosterResponseObject, error)
+	// ListStaffAccountRequests Requests to create staff accounts, newest first (security administrators only)
+	// (GET /api/admin/v1/staff/account-requests)
+	ListStaffAccountRequests(ctx context.Context, request ListStaffAccountRequestsRequestObject) (ListStaffAccountRequestsResponseObject, error)
+	// RequestStaffAccount Ask for a staff account to be created (security administrators only)
+	// (POST /api/admin/v1/staff/account-requests)
+	RequestStaffAccount(ctx context.Context, request RequestStaffAccountRequestObject) (RequestStaffAccountResponseObject, error)
+	// ApproveStaffAccount Approve another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/approve)
+	ApproveStaffAccount(ctx context.Context, request ApproveStaffAccountRequestObject) (ApproveStaffAccountResponseObject, error)
+	// RejectStaffAccount Reject another security administrator's request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/reject)
+	RejectStaffAccount(ctx context.Context, request RejectStaffAccountRequestObject) (RejectStaffAccountResponseObject, error)
+	// WithdrawStaffAccount Take back your own pending request
+	// (POST /api/admin/v1/staff/account-requests/{request_id}/withdraw)
+	WithdrawStaffAccount(ctx context.Context, request WithdrawStaffAccountRequestObject) (WithdrawStaffAccountResponseObject, error)
+	// DisableStaff Disable another staff member's account
+	// (POST /api/admin/v1/staff/{staff_id}/disable)
+	DisableStaff(ctx context.Context, request DisableStaffRequestObject) (DisableStaffResponseObject, error)
+	// EnableStaff Enable a disabled staff account
+	// (POST /api/admin/v1/staff/{staff_id}/enable)
+	EnableStaff(ctx context.Context, request EnableStaffRequestObject) (EnableStaffResponseObject, error)
 	// ListSupportAccess Support access requests, newest first
 	// (GET /api/admin/v1/support-access)
 	ListSupportAccess(ctx context.Context, request ListSupportAccessRequestObject) (ListSupportAccessResponseObject, error)
@@ -2440,9 +6120,51 @@ type StrictServerInterface interface {
 	// RevokeSupportAccess End approved access early, or withdraw a pending request
 	// (POST /api/admin/v1/support-access/{access_id}/revoke)
 	RevokeSupportAccess(ctx context.Context, request RevokeSupportAccessRequestObject) (RevokeSupportAccessResponseObject, error)
-	// ListAdminTenants Tenants (identity and status only)
+	// ListTenantStatusRequests Requests to suspend or reactivate tenants, newest first
+	// (GET /api/admin/v1/tenant-status-requests)
+	ListTenantStatusRequests(ctx context.Context, request ListTenantStatusRequestsRequestObject) (ListTenantStatusRequestsResponseObject, error)
+	// ApproveTenantStatus Approve another staff member's request
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/approve)
+	ApproveTenantStatus(ctx context.Context, request ApproveTenantStatusRequestObject) (ApproveTenantStatusResponseObject, error)
+	// RejectTenantStatus Reject another staff member's request
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/reject)
+	RejectTenantStatus(ctx context.Context, request RejectTenantStatusRequestObject) (RejectTenantStatusResponseObject, error)
+	// ReviewEmergencySuspension Review an emergency suspension made by someone else
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/review)
+	ReviewEmergencySuspension(ctx context.Context, request ReviewEmergencySuspensionRequestObject) (ReviewEmergencySuspensionResponseObject, error)
+	// WithdrawTenantStatus Take back your own pending request
+	// (POST /api/admin/v1/tenant-status-requests/{request_id}/withdraw)
+	WithdrawTenantStatus(ctx context.Context, request WithdrawTenantStatusRequestObject) (WithdrawTenantStatusResponseObject, error)
+	// ListAdminTenants Tenants (identity, status and counts only)
 	// (GET /api/admin/v1/tenants)
 	ListAdminTenants(ctx context.Context, request ListAdminTenantsRequestObject) (ListAdminTenantsResponseObject, error)
+	// GetAdminTenant One tenant (identity, status, counts and staff activity only)
+	// (GET /api/admin/v1/tenants/{tenant_id})
+	GetAdminTenant(ctx context.Context, request GetAdminTenantRequestObject) (GetAdminTenantResponseObject, error)
+	// EmergencySuspendTenant Suspend an active tenant at once (break-glass, security administrators only)
+	// (POST /api/admin/v1/tenants/{tenant_id}/emergency-suspension)
+	EmergencySuspendTenant(ctx context.Context, request EmergencySuspendTenantRequestObject) (EmergencySuspendTenantResponseObject, error)
+	// ClearTenantLimits Remove a tenant's override, so the platform's limits apply again
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/limits)
+	ClearTenantLimits(ctx context.Context, request ClearTenantLimitsRequestObject) (ClearTenantLimitsResponseObject, error)
+	// GetTenantLimits A tenant's request limits, and the platform's beside them
+	// (GET /api/admin/v1/tenants/{tenant_id}/limits)
+	GetTenantLimits(ctx context.Context, request GetTenantLimitsRequestObject) (GetTenantLimitsResponseObject, error)
+	// SetTenantLimits Replace a tenant's per-key and per-tenant request limits
+	// (PUT /api/admin/v1/tenants/{tenant_id}/limits)
+	SetTenantLimits(ctx context.Context, request SetTenantLimitsRequestObject) (SetTenantLimitsResponseObject, error)
+	// ClearTenantQuota Remove a tenant's quota
+	// (DELETE /api/admin/v1/tenants/{tenant_id}/quota)
+	ClearTenantQuota(ctx context.Context, request ClearTenantQuotaRequestObject) (ClearTenantQuotaResponseObject, error)
+	// GetTenantQuota A tenant's monthly event-volume quota and what it has used
+	// (GET /api/admin/v1/tenants/{tenant_id}/quota)
+	GetTenantQuota(ctx context.Context, request GetTenantQuotaRequestObject) (GetTenantQuotaResponseObject, error)
+	// SetTenantQuota Set a tenant's monthly event-volume quota
+	// (PUT /api/admin/v1/tenants/{tenant_id}/quota)
+	SetTenantQuota(ctx context.Context, request SetTenantQuotaRequestObject) (SetTenantQuotaResponseObject, error)
+	// RequestTenantStatus Ask for a tenant to be suspended or reactivated
+	// (POST /api/admin/v1/tenants/{tenant_id}/status-requests)
+	RequestTenantStatus(ctx context.Context, request RequestTenantStatusRequestObject) (RequestTenantStatusResponseObject, error)
 }
 
 type StrictHandlerFunc func(ctx context.Context, w http.ResponseWriter, r *http.Request, request any) (any, error)
@@ -2651,6 +6373,30 @@ func (sh *strictHandler) StaffLogout(w http.ResponseWriter, r *http.Request) {
 	}
 }
 
+// GetStaffAuthMethods operation middleware
+func (sh *strictHandler) GetStaffAuthMethods(w http.ResponseWriter, r *http.Request) {
+	var request GetStaffAuthMethodsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetStaffAuthMethods(ctx, request.(GetStaffAuthMethodsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetStaffAuthMethods")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetStaffAuthMethodsResponseObject); ok {
+		if err := validResponse.VisitGetStaffAuthMethodsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetStaffSession operation middleware
 func (sh *strictHandler) GetStaffSession(w http.ResponseWriter, r *http.Request) {
 	var request GetStaffSessionRequestObject
@@ -2668,6 +6414,94 @@ func (sh *strictHandler) GetStaffSession(w http.ResponseWriter, r *http.Request)
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetStaffSessionResponseObject); ok {
 		if err := validResponse.VisitGetStaffSessionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// FinishStaffSSO operation middleware
+func (sh *strictHandler) FinishStaffSSO(w http.ResponseWriter, r *http.Request, params FinishStaffSSOParams) {
+	var request FinishStaffSSORequestObject
+
+	request.Params = params
+
+	var body FinishStaffSSOJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.FinishStaffSSO(ctx, request.(FinishStaffSSORequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "FinishStaffSSO")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(FinishStaffSSOResponseObject); ok {
+		if err := validResponse.VisitFinishStaffSSOResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StaffSSOLogin operation middleware
+func (sh *strictHandler) StaffSSOLogin(w http.ResponseWriter, r *http.Request) {
+	var request StaffSSOLoginRequestObject
+
+	var body StaffSSOLoginJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StaffSSOLogin(ctx, request.(StaffSSOLoginRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StaffSSOLogin")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StaffSSOLoginResponseObject); ok {
+		if err := validResponse.VisitStaffSSOLoginResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// StartStaffSSO operation middleware
+func (sh *strictHandler) StartStaffSSO(w http.ResponseWriter, r *http.Request) {
+	var request StartStaffSSORequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.StartStaffSSO(ctx, request.(StartStaffSSORequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "StartStaffSSO")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(StartStaffSSOResponseObject); ok {
+		if err := validResponse.VisitStartStaffSSOResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2794,6 +6628,30 @@ func (sh *strictHandler) RejectOnboarding(w http.ResponseWriter, r *http.Request
 	}
 }
 
+// GetAdminOverview operation middleware
+func (sh *strictHandler) GetAdminOverview(w http.ResponseWriter, r *http.Request) {
+	var request GetAdminOverviewRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminOverview(ctx, request.(GetAdminOverviewRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminOverview")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminOverviewResponseObject); ok {
+		if err := validResponse.VisitGetAdminOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // GetSecurityOverview operation middleware
 func (sh *strictHandler) GetSecurityOverview(w http.ResponseWriter, r *http.Request) {
 	var request GetSecurityOverviewRequestObject
@@ -2811,6 +6669,235 @@ func (sh *strictHandler) GetSecurityOverview(w http.ResponseWriter, r *http.Requ
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(GetSecurityOverviewResponseObject); ok {
 		if err := validResponse.VisitGetSecurityOverviewResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListStaffRoster operation middleware
+func (sh *strictHandler) ListStaffRoster(w http.ResponseWriter, r *http.Request) {
+	var request ListStaffRosterRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStaffRoster(ctx, request.(ListStaffRosterRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStaffRoster")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStaffRosterResponseObject); ok {
+		if err := validResponse.VisitListStaffRosterResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ListStaffAccountRequests operation middleware
+func (sh *strictHandler) ListStaffAccountRequests(w http.ResponseWriter, r *http.Request) {
+	var request ListStaffAccountRequestsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListStaffAccountRequests(ctx, request.(ListStaffAccountRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListStaffAccountRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListStaffAccountRequestsResponseObject); ok {
+		if err := validResponse.VisitListStaffAccountRequestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestStaffAccount operation middleware
+func (sh *strictHandler) RequestStaffAccount(w http.ResponseWriter, r *http.Request) {
+	var request RequestStaffAccountRequestObject
+
+	var body RequestStaffAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestStaffAccount(ctx, request.(RequestStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestStaffAccountResponseObject); ok {
+		if err := validResponse.VisitRequestStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveStaffAccount operation middleware
+func (sh *strictHandler) ApproveStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	var request ApproveStaffAccountRequestObject
+
+	request.RequestId = requestId
+
+	var body ApproveStaffAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveStaffAccount(ctx, request.(ApproveStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveStaffAccountResponseObject); ok {
+		if err := validResponse.VisitApproveStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectStaffAccount operation middleware
+func (sh *strictHandler) RejectStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	var request RejectStaffAccountRequestObject
+
+	request.RequestId = requestId
+
+	var body RejectStaffAccountJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectStaffAccount(ctx, request.(RejectStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectStaffAccountResponseObject); ok {
+		if err := validResponse.VisitRejectStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// WithdrawStaffAccount operation middleware
+func (sh *strictHandler) WithdrawStaffAccount(w http.ResponseWriter, r *http.Request, requestId AccountRequestID) {
+	var request WithdrawStaffAccountRequestObject
+
+	request.RequestId = requestId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.WithdrawStaffAccount(ctx, request.(WithdrawStaffAccountRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WithdrawStaffAccount")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(WithdrawStaffAccountResponseObject); ok {
+		if err := validResponse.VisitWithdrawStaffAccountResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// DisableStaff operation middleware
+func (sh *strictHandler) DisableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
+	var request DisableStaffRequestObject
+
+	request.StaffId = staffId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.DisableStaff(ctx, request.(DisableStaffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "DisableStaff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(DisableStaffResponseObject); ok {
+		if err := validResponse.VisitDisableStaffResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EnableStaff operation middleware
+func (sh *strictHandler) EnableStaff(w http.ResponseWriter, r *http.Request, staffId StaffID) {
+	var request EnableStaffRequestObject
+
+	request.StaffId = staffId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EnableStaff(ctx, request.(EnableStaffRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EnableStaff")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EnableStaffResponseObject); ok {
+		if err := validResponse.VisitEnableStaffResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {
@@ -2951,6 +7038,164 @@ func (sh *strictHandler) RevokeSupportAccess(w http.ResponseWriter, r *http.Requ
 	}
 }
 
+// ListTenantStatusRequests operation middleware
+func (sh *strictHandler) ListTenantStatusRequests(w http.ResponseWriter, r *http.Request) {
+	var request ListTenantStatusRequestsRequestObject
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ListTenantStatusRequests(ctx, request.(ListTenantStatusRequestsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ListTenantStatusRequests")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ListTenantStatusRequestsResponseObject); ok {
+		if err := validResponse.VisitListTenantStatusRequestsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ApproveTenantStatus operation middleware
+func (sh *strictHandler) ApproveTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	var request ApproveTenantStatusRequestObject
+
+	request.RequestId = requestId
+
+	var body ApproveTenantStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ApproveTenantStatus(ctx, request.(ApproveTenantStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ApproveTenantStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ApproveTenantStatusResponseObject); ok {
+		if err := validResponse.VisitApproveTenantStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RejectTenantStatus operation middleware
+func (sh *strictHandler) RejectTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	var request RejectTenantStatusRequestObject
+
+	request.RequestId = requestId
+
+	var body RejectTenantStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RejectTenantStatus(ctx, request.(RejectTenantStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RejectTenantStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RejectTenantStatusResponseObject); ok {
+		if err := validResponse.VisitRejectTenantStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ReviewEmergencySuspension operation middleware
+func (sh *strictHandler) ReviewEmergencySuspension(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	var request ReviewEmergencySuspensionRequestObject
+
+	request.RequestId = requestId
+
+	var body ReviewEmergencySuspensionJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		if !errors.Is(err, io.EOF) {
+			sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+			return
+		}
+	} else {
+		request.Body = &body
+	}
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ReviewEmergencySuspension(ctx, request.(ReviewEmergencySuspensionRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ReviewEmergencySuspension")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ReviewEmergencySuspensionResponseObject); ok {
+		if err := validResponse.VisitReviewEmergencySuspensionResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// WithdrawTenantStatus operation middleware
+func (sh *strictHandler) WithdrawTenantStatus(w http.ResponseWriter, r *http.Request, requestId StatusRequestID) {
+	var request WithdrawTenantStatusRequestObject
+
+	request.RequestId = requestId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.WithdrawTenantStatus(ctx, request.(WithdrawTenantStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "WithdrawTenantStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(WithdrawTenantStatusResponseObject); ok {
+		if err := validResponse.VisitWithdrawTenantStatusResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
 // ListAdminTenants operation middleware
 func (sh *strictHandler) ListAdminTenants(w http.ResponseWriter, r *http.Request) {
 	var request ListAdminTenantsRequestObject
@@ -2968,6 +7213,268 @@ func (sh *strictHandler) ListAdminTenants(w http.ResponseWriter, r *http.Request
 		sh.options.ResponseErrorHandlerFunc(w, r, err)
 	} else if validResponse, ok := response.(ListAdminTenantsResponseObject); ok {
 		if err := validResponse.VisitListAdminTenantsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetAdminTenant operation middleware
+func (sh *strictHandler) GetAdminTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetAdminTenantRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetAdminTenant(ctx, request.(GetAdminTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetAdminTenant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetAdminTenantResponseObject); ok {
+		if err := validResponse.VisitGetAdminTenantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// EmergencySuspendTenant operation middleware
+func (sh *strictHandler) EmergencySuspendTenant(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request EmergencySuspendTenantRequestObject
+
+	request.TenantId = tenantId
+
+	var body EmergencySuspendTenantJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.EmergencySuspendTenant(ctx, request.(EmergencySuspendTenantRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "EmergencySuspendTenant")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(EmergencySuspendTenantResponseObject); ok {
+		if err := validResponse.VisitEmergencySuspendTenantResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearTenantLimits operation middleware
+func (sh *strictHandler) ClearTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request ClearTenantLimitsRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearTenantLimits(ctx, request.(ClearTenantLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearTenantLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearTenantLimitsResponseObject); ok {
+		if err := validResponse.VisitClearTenantLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTenantLimits operation middleware
+func (sh *strictHandler) GetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetTenantLimitsRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTenantLimits(ctx, request.(GetTenantLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTenantLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTenantLimitsResponseObject); ok {
+		if err := validResponse.VisitGetTenantLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetTenantLimits operation middleware
+func (sh *strictHandler) SetTenantLimits(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request SetTenantLimitsRequestObject
+
+	request.TenantId = tenantId
+
+	var body SetTenantLimitsJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetTenantLimits(ctx, request.(SetTenantLimitsRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetTenantLimits")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetTenantLimitsResponseObject); ok {
+		if err := validResponse.VisitSetTenantLimitsResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// ClearTenantQuota operation middleware
+func (sh *strictHandler) ClearTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request ClearTenantQuotaRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.ClearTenantQuota(ctx, request.(ClearTenantQuotaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "ClearTenantQuota")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(ClearTenantQuotaResponseObject); ok {
+		if err := validResponse.VisitClearTenantQuotaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// GetTenantQuota operation middleware
+func (sh *strictHandler) GetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request GetTenantQuotaRequestObject
+
+	request.TenantId = tenantId
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.GetTenantQuota(ctx, request.(GetTenantQuotaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "GetTenantQuota")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(GetTenantQuotaResponseObject); ok {
+		if err := validResponse.VisitGetTenantQuotaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// SetTenantQuota operation middleware
+func (sh *strictHandler) SetTenantQuota(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request SetTenantQuotaRequestObject
+
+	request.TenantId = tenantId
+
+	var body SetTenantQuotaJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.SetTenantQuota(ctx, request.(SetTenantQuotaRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "SetTenantQuota")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(SetTenantQuotaResponseObject); ok {
+		if err := validResponse.VisitSetTenantQuotaResponse(w); err != nil {
+			sh.options.ResponseErrorHandlerFunc(w, r, err)
+		}
+	} else if response != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, fmt.Errorf("unexpected response type: %T", response))
+	}
+}
+
+// RequestTenantStatus operation middleware
+func (sh *strictHandler) RequestTenantStatus(w http.ResponseWriter, r *http.Request, tenantId TenantID) {
+	var request RequestTenantStatusRequestObject
+
+	request.TenantId = tenantId
+
+	var body RequestTenantStatusJSONRequestBody
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		sh.options.RequestErrorHandlerFunc(w, r, fmt.Errorf("can't decode JSON body: %w", err))
+		return
+	}
+	request.Body = &body
+
+	handler := func(ctx context.Context, w http.ResponseWriter, r *http.Request, request interface{}) (interface{}, error) {
+		return sh.ssi.RequestTenantStatus(ctx, request.(RequestTenantStatusRequestObject))
+	}
+	for _, middleware := range sh.middlewares {
+		handler = middleware(handler, "RequestTenantStatus")
+	}
+
+	response, err := handler(r.Context(), w, r, request)
+
+	if err != nil {
+		sh.options.ResponseErrorHandlerFunc(w, r, err)
+	} else if validResponse, ok := response.(RequestTenantStatusResponseObject); ok {
+		if err := validResponse.VisitRequestTenantStatusResponse(w); err != nil {
 			sh.options.ResponseErrorHandlerFunc(w, r, err)
 		}
 	} else if response != nil {

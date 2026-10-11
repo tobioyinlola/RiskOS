@@ -1887,7 +1887,7 @@
      "alerts"
     ],
     "summary": "Triage an alert (status, assignee, note)",
-    "description": "Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`\nto any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and\n`resolved` are final. Alerts are escalated by creating a case with them\n(`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty\n`assignee` unassigns. A change that alters nothing is a no-op.\n",
+    "description": "Requires scope `alerts:write`. Audited. Allowed status changes: `open` and `investigating`\nto any of `open`, `investigating`, `false_positive`, `resolved`. `false_positive` and\n`resolved` are final. Alerts are escalated by creating a case with them\n(`POST /api/v1/cases`); an escalated alert is closed by resolving its case. An empty\n`assignee` unassigns; any other value must be the email of an active dashboard user of the\nworkspace (compared without regard to case, stored as the user's own email), otherwise the\nrequest is refused with 400. A value that is not changed is not checked again. A change\nthat alters nothing is a no-op.\n",
     "parameters": [
      {
       "name": "alert_id",
@@ -2103,7 +2103,7 @@
      "cases"
     ],
     "summary": "Update or resolve a case",
-    "description": "Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a\n`resolution` and closes the case's alerts: `false_positive` when the resolution is\n`false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.\nAn empty `assignee` unassigns.\n",
+    "description": "Requires scope `cases:write`. Audited. Resolving (`status: resolved`) requires a\n`resolution` and closes the case's alerts: `false_positive` when the resolution is\n`false_positive`, otherwise `resolved`. A resolved case is final; notes can still be added.\nAn empty `assignee` unassigns; any other value must be the email of an active dashboard\nuser of the workspace, as for alerts. A case's `assignee` can also be set when it is created.\n",
     "parameters": [
      {
       "name": "case_id",
@@ -3534,7 +3534,7 @@
     ],
     "summary": "Start signing in with the tenant's identity provider",
     "security": [],
-    "description": "For a person whose tenant uses single sign-on (OpenID Connect). Returns the provider's\nauthorization URL to send the browser to, and sets a short-lived cookie binding the request to\nthis browser. Unknown emails, disabled accounts and tenants without SSO all get 404\n`SSO_NOT_CONFIGURED`. Throttled per email and per IP (429). SSO signs in existing accounts only,\nand RiskOS still asks for its own second factor afterwards.\n",
+    "description": "For a person whose tenant uses single sign-on (OpenID Connect). Returns the provider's\nauthorization URL to send the browser to, and sets a short-lived cookie binding the request to\nthis browser. Unknown emails, disabled accounts and tenants without SSO all get 404\n`SSO_NOT_CONFIGURED`. Throttled per email and per IP (429). SSO signs in existing accounts, and\ncreates one for a new person whose email is at a domain a workspace has verified and lets in\njust in time. RiskOS still asks for its own second factor afterwards.\n",
     "requestBody": {
      "required": true,
      "content": {
@@ -7142,6 +7142,171 @@
      }
     }
    }
+  },
+  "/api/v1/sso/domains": {
+   "get": {
+    "operationId": "listSSODomains",
+    "tags": [
+     "team"
+    ],
+    "summary": "The email domains the workspace claims for single sign-on",
+    "description": "Requires `team:read`. Each domain carries the DNS TXT record that proves it. Only a verified\ndomain lets people in just in time.\n",
+    "responses": {
+     "200": {
+      "description": "The claimed domains.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SSODomainList"
+        }
+       }
+      }
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "429": {
+      "$ref": "#/components/responses/RateLimited"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   },
+   "post": {
+    "operationId": "addSSODomain",
+    "tags": [
+     "team"
+    ],
+    "summary": "Claim an email domain",
+    "description": "Requires `team:write` and, from the console, re-authentication within the last 10 minutes.\nNeeds a single sign-on connection. A workspace can claim at most 20 domains. Audited. The\nclaim counts only after the TXT record in the response is published and verified.\n",
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/SSODomainInput"
+       }
+      }
+     }
+    },
+    "responses": {
+     "201": {
+      "description": "The claim, unverified.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SSODomain"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/InvalidRequest"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "409": {
+      "$ref": "#/components/responses/Conflict"
+     },
+     "429": {
+      "$ref": "#/components/responses/RateLimited"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
+  "/api/v1/sso/domains/{domain}/verify": {
+   "post": {
+    "operationId": "verifySSODomain",
+    "tags": [
+     "team"
+    ],
+    "summary": "Verify a claimed domain from its DNS TXT record",
+    "description": "Requires `team:write` and, from the console, re-authentication. RiskOS looks up the TXT\nrecord named in the claim (`txt_host`) and compares it with `txt_value`. DNS changes can take\na while to appear: a 400 means the record was not found yet. Only one workspace can hold a\ndomain verified (409). Audited.\n",
+    "parameters": [
+     {
+      "$ref": "#/components/parameters/DomainName"
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "The domain, verified.",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SSODomain"
+        }
+       }
+      }
+     },
+     "400": {
+      "$ref": "#/components/responses/InvalidRequest"
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "409": {
+      "$ref": "#/components/responses/Conflict"
+     },
+     "429": {
+      "$ref": "#/components/responses/RateLimited"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
+  },
+  "/api/v1/sso/domains/{domain}": {
+   "delete": {
+    "operationId": "removeSSODomain",
+    "tags": [
+     "team"
+    ],
+    "summary": "Release a claimed domain",
+    "description": "Requires `team:write` and, from the console, re-authentication. Accounts already created\nthrough the domain stay. Audited.\n",
+    "parameters": [
+     {
+      "$ref": "#/components/parameters/DomainName"
+     }
+    ],
+    "responses": {
+     "204": {
+      "description": "Released."
+     },
+     "401": {
+      "$ref": "#/components/responses/Unauthenticated"
+     },
+     "403": {
+      "$ref": "#/components/responses/Forbidden"
+     },
+     "404": {
+      "$ref": "#/components/responses/NotFound"
+     },
+     "429": {
+      "$ref": "#/components/responses/RateLimited"
+     },
+     "default": {
+      "$ref": "#/components/responses/DefaultError"
+     }
+    }
+   }
   }
  },
  "components": {
@@ -7190,6 +7355,16 @@
     "schema": {
      "type": "string",
      "example": "key_01j9x2k7m3q4r5s6t7v8w9x0yz"
+    }
+   },
+   "DomainName": {
+    "name": "domain",
+    "in": "path",
+    "required": true,
+    "schema": {
+     "type": "string",
+     "maxLength": 253,
+     "example": "example.com"
     }
    }
   },
@@ -10195,6 +10370,9 @@
      "issuer",
      "client_id",
      "enabled",
+     "required",
+     "jit_enabled",
+     "jit_role",
      "updated_at",
      "updated_by"
     ],
@@ -10209,6 +10387,17 @@
      "enabled": {
       "type": "boolean",
       "description": "When false, the connection is kept but nobody can sign in with it."
+     },
+     "required": {
+      "type": "boolean",
+      "description": "When true, single sign-on is the only way in: password and Google sign-in are refused\nfor the workspace's people (403 `SSO_REQUIRED`). It needs `enabled`.\n"
+     },
+     "jit_enabled": {
+      "type": "boolean",
+      "description": "When true, a person with no account whose email is at a verified domain is let in at\ntheir first single sign-on, with `jit_role`. It needs `enabled` and a verified domain.\n"
+     },
+     "jit_role": {
+      "$ref": "#/components/schemas/JITRole"
      },
      "updated_at": {
       "type": "string",
@@ -10266,6 +10455,97 @@
      },
      "enabled": {
       "type": "boolean"
+     },
+     "required": {
+      "type": "boolean",
+      "description": "Make single sign-on the only way in. Leave out to keep the stored value (false on a\nfirst save). It is accepted only for a saved, enabled connection whose issuer is\nunchanged, and only from a person who has themselves signed in through the provider, so\nthe workspace cannot lock itself out. Changing the issuer needs it off. The operator\ntool can lift it if the provider is unavailable.\n"
+     },
+     "jit_enabled": {
+      "type": "boolean",
+      "description": "Let people at a verified domain in without an invite. Leave out to keep the stored\nvalue (false on a first save). Needs `enabled` and a verified domain.\n"
+     },
+     "jit_role": {
+      "$ref": "#/components/schemas/JITRole"
+     }
+    }
+   },
+   "JITRole": {
+    "type": "string",
+    "enum": [
+     "developer",
+     "risk_manager",
+     "analyst",
+     "compliance_officer",
+     "auditor"
+    ],
+    "description": "The role of an account created just in time: never `customer_admin`. Leave out in a request\nto keep the stored value (`auditor`, read-only, on a first save).\n"
+   },
+   "SSODomainInput": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "domain"
+    ],
+    "properties": {
+     "domain": {
+      "type": "string",
+      "maxLength": 253,
+      "example": "example.com"
+     }
+    }
+   },
+   "SSODomain": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "domain",
+     "verified",
+     "verified_at",
+     "created_at",
+     "txt_host",
+     "txt_value"
+    ],
+    "properties": {
+     "domain": {
+      "type": "string",
+      "example": "example.com"
+     },
+     "verified": {
+      "type": "boolean"
+     },
+     "verified_at": {
+      "type": "string",
+      "format": "date-time",
+      "nullable": true
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time"
+     },
+     "txt_host": {
+      "type": "string",
+      "description": "The DNS name to publish the proof at.",
+      "example": "_riskos-challenge.example.com"
+     },
+     "txt_value": {
+      "type": "string",
+      "description": "The TXT record's value.",
+      "example": "riskos-verification=abcdefghijklmnopqrstuvwxyz234567"
+     }
+    }
+   },
+   "SSODomainList": {
+    "type": "object",
+    "additionalProperties": false,
+    "required": [
+     "data"
+    ],
+    "properties": {
+     "data": {
+      "type": "array",
+      "items": {
+       "$ref": "#/components/schemas/SSODomain"
+      }
      }
     }
    },

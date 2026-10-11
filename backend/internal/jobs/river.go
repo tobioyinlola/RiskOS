@@ -2,6 +2,7 @@ package jobs
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log/slog"
 	"time"
@@ -11,7 +12,9 @@ import (
 	"github.com/riverqueue/river"
 	"github.com/riverqueue/river/riverdriver/riverpgxv5"
 	"github.com/riverqueue/river/rivermigrate"
+	"github.com/riverqueue/river/rivertype"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 )
 
@@ -39,6 +42,56 @@ type QueueConfig struct {
 	JobTimeout time.Duration
 	// Queues are additional queues (see Queued) and their maximum concurrent jobs.
 	Queues map[string]int
+	// Metrics records job durations and queue depth; nil records nothing.
+	Metrics *appmetrics.Metrics
+}
+
+// jobMetrics times each job and records its outcome by kind.
+type jobMetrics struct {
+	river.WorkerMiddlewareDefaults
+	m *appmetrics.Metrics
+}
+
+func (j *jobMetrics) Work(ctx context.Context, job *rivertype.JobRow, doInner func(context.Context) error) error {
+	start := time.Now()
+	err := doInner(ctx)
+	outcome := appmetrics.JobSucceeded
+	var snooze *river.JobSnoozeError
+	switch {
+	case errors.As(err, &snooze):
+		outcome = appmetrics.JobSnoozed
+	case err != nil:
+		outcome = appmetrics.JobFailed
+	}
+	j.m.JobRan(ctx, job.Kind, outcome, time.Since(start))
+	return err
+}
+
+// queueDepth counts jobs not yet finished, by queue and state. The state filter keeps it on the
+// partial index River keeps for fetching, so it stays cheap as finished jobs accumulate.
+func queueDepth(pool *pgxpool.Pool) func(context.Context) ([]appmetrics.QueueDepth, error) {
+	return func(ctx context.Context) ([]appmetrics.QueueDepth, error) {
+		ctx, cancel := context.WithTimeout(ctx, 5*time.Second)
+		defer cancel()
+		rows, err := pool.Query(ctx, `
+			SELECT queue, state::text, count(*)
+			FROM river_job
+			WHERE state IN ('available', 'retryable', 'scheduled', 'running')
+			GROUP BY queue, state`)
+		if err != nil {
+			return nil, fmt.Errorf("count queued jobs: %w", err)
+		}
+		defer rows.Close()
+		var out []appmetrics.QueueDepth
+		for rows.Next() {
+			var d appmetrics.QueueDepth
+			if err := rows.Scan(&d.Queue, &d.State, &d.Count); err != nil {
+				return nil, fmt.Errorf("scan queued jobs: %w", err)
+			}
+			out = append(out, d)
+		}
+		return out, rows.Err()
+	}
 }
 
 // Snooze returns an error that makes the queue run the job again after d, without counting an
@@ -72,9 +125,17 @@ func NewQueue(pool *pgxpool.Pool, registry *Registry, cfg QueueConfig, logger *s
 	if cfg.JobTimeout > 0 {
 		rescueAfter = cfg.JobTimeout + time.Minute
 	}
+	var middleware []rivertype.Middleware
+	if cfg.Metrics != nil {
+		middleware = append(middleware, &jobMetrics{m: cfg.Metrics})
+		if err := cfg.Metrics.ObserveQueueDepth(queueDepth(pool)); err != nil {
+			return nil, err
+		}
+	}
 	client, err := river.NewClient(riverpgxv5.New(pool), &river.Config{
 		Logger:               logger,
 		JobTimeout:           cfg.JobTimeout,
+		Middleware:           middleware,
 		RescueStuckJobsAfter: rescueAfter,
 		Workers:              workers,
 		PeriodicJobs:         periodic,
@@ -109,6 +170,27 @@ func (q *Queue) Enqueue(ctx context.Context, args Args) error {
 		_, err = q.client.Insert(ctx, args, opts)
 	}
 	if err != nil {
+		return fmt.Errorf("enqueue %s job: %w", args.Kind(), err)
+	}
+	return nil
+}
+
+// TxEnqueuer inserts a job in a transaction the caller holds, for work that is not tenant-scoped
+// (the staff realm): the job exists only if that transaction commits.
+type TxEnqueuer interface {
+	EnqueueTx(ctx context.Context, tx pgx.Tx, args Args) error
+}
+
+var _ TxEnqueuer = (*Queue)(nil)
+
+// EnqueueTx inserts a job in tx, so it is created only if tx commits. It takes the transaction
+// explicitly rather than from the context, so it cannot be used to widen a tenant scope.
+func (q *Queue) EnqueueTx(ctx context.Context, tx pgx.Tx, args Args) error {
+	var opts *river.InsertOpts
+	if qd, ok := args.(Queued); ok {
+		opts = &river.InsertOpts{Queue: qd.Queue()}
+	}
+	if _, err := q.client.InsertTx(ctx, tx, args, opts); err != nil {
 		return fmt.Errorf("enqueue %s job: %w", args.Kind(), err)
 	}
 	return nil

@@ -81,7 +81,59 @@ func (h *ConsoleHandlers) FinishSSO(ctx context.Context, req apigen.FinishSSOReq
 }
 
 func ssoToAPI(c service.SSOConnection) apigen.SSOConnection {
-	return apigen.SSOConnection{Issuer: c.Issuer, ClientId: c.ClientID, Enabled: c.Enabled, UpdatedAt: c.UpdatedAt, UpdatedBy: c.UpdatedBy}
+	return apigen.SSOConnection{
+		Issuer: c.Issuer, ClientId: c.ClientID, Enabled: c.Enabled, Required: c.Required,
+		JitEnabled: c.JITEnabled, JitRole: apigen.JITRole(c.JITRole), UpdatedAt: c.UpdatedAt, UpdatedBy: c.UpdatedBy,
+	}
+}
+
+func ssoDomainToAPI(d service.SSODomain) apigen.SSODomain {
+	return apigen.SSODomain{
+		Domain: d.Domain, Verified: d.Verified, VerifiedAt: d.VerifiedAt, CreatedAt: d.CreatedAt,
+		TxtHost: d.TXTHost, TxtValue: d.TXTValue,
+	}
+}
+
+// ListSSODomains implements GET /api/v1/sso/domains.
+func (h *ConsoleHandlers) ListSSODomains(ctx context.Context, _ apigen.ListSSODomainsRequestObject) (apigen.ListSSODomainsResponseObject, error) {
+	list, err := h.con.ListSSODomains(ctx)
+	if err != nil {
+		return nil, mapSSOError(err)
+	}
+	out := apigen.ListSSODomains200JSONResponse{Data: make([]apigen.SSODomain, 0, len(list))}
+	for _, d := range list {
+		out.Data = append(out.Data, ssoDomainToAPI(d))
+	}
+	return out, nil
+}
+
+// AddSSODomain implements POST /api/v1/sso/domains.
+func (h *ConsoleHandlers) AddSSODomain(ctx context.Context, req apigen.AddSSODomainRequestObject) (apigen.AddSSODomainResponseObject, error) {
+	if req.Body == nil {
+		return nil, httpx.InvalidRequest("A request body is required.", nil)
+	}
+	d, err := h.con.AddSSODomain(ctx, req.Body.Domain)
+	if err != nil {
+		return nil, mapSSOError(err)
+	}
+	return apigen.AddSSODomain201JSONResponse(ssoDomainToAPI(d)), nil
+}
+
+// VerifySSODomain implements POST /api/v1/sso/domains/{domain}/verify.
+func (h *ConsoleHandlers) VerifySSODomain(ctx context.Context, req apigen.VerifySSODomainRequestObject) (apigen.VerifySSODomainResponseObject, error) {
+	d, err := h.con.VerifySSODomain(ctx, req.Domain)
+	if err != nil {
+		return nil, mapSSOError(err)
+	}
+	return apigen.VerifySSODomain200JSONResponse(ssoDomainToAPI(d)), nil
+}
+
+// RemoveSSODomain implements DELETE /api/v1/sso/domains/{domain}.
+func (h *ConsoleHandlers) RemoveSSODomain(ctx context.Context, req apigen.RemoveSSODomainRequestObject) (apigen.RemoveSSODomainResponseObject, error) {
+	if err := h.con.RemoveSSODomain(ctx, req.Domain); err != nil {
+		return nil, mapSSOError(err)
+	}
+	return apigen.RemoveSSODomain204Response{}, nil
 }
 
 // GetSSO implements GET /api/v1/sso.
@@ -102,8 +154,13 @@ func (h *ConsoleHandlers) PutSSO(ctx context.Context, req apigen.PutSSORequestOb
 	if req.Body == nil {
 		return nil, httpx.InvalidRequest("A request body is required.", nil)
 	}
+	var jitRole *string
+	if req.Body.JitRole != nil {
+		jitRole = new(string(*req.Body.JitRole))
+	}
 	c, err := h.con.PutSSO(ctx, service.SSOInput{
 		Issuer: req.Body.Issuer, ClientID: req.Body.ClientId, ClientSecret: req.Body.ClientSecret, Enabled: req.Body.Enabled,
+		Required: req.Body.Required, JITEnabled: req.Body.JitEnabled, JITRole: jitRole,
 	})
 	if err != nil {
 		return nil, mapSSOError(err)

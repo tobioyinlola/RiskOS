@@ -112,6 +112,111 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/v1/auth/methods": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * How staff can sign in on this deployment
+         * @description Public, so the sign-in page can show the right options.
+         */
+        get: operations["getStaffAuthMethods"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/sso/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Start signing in with the platform's identity provider
+         * @description Returns where to send the browser. The request is bound to this browser by a short-lived
+         *     cookie and must be finished within ten minutes. Single sign-on does not replace the
+         *     passkey: the callback answers with the passkey step, and only that opens a session.
+         */
+        post: operations["startStaffSSO"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/sso/callback": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Finish the identity provider step
+         * @description Called by the console's callback page with the provider's `code` and `state`. The ID token
+         *     must verify. The first SSO sign-in also needs the provider to confirm the account's email
+         *     and binds the provider's subject to the staff member; later sign-ins must present the same
+         *     subject. The staff member must already have a passkey. Answers with the passkey assertion
+         *     to complete at `auth/sso/login`. Failures get 401 `SSO_FAILED`.
+         */
+        post: operations["finishStaffSSO"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/auth/sso/login": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Finish signing in after the identity provider step */
+        post: operations["staffSSOLogin"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/overview": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * What waits for the signed-in staff member
+         * @description Counts only: tenants by status, onboarding reviews and support requests awaiting a decision
+         *     (requests the caller made themselves are excluded: nobody decides their own), and active
+         *     support access.
+         */
+        get: operations["getAdminOverview"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/v1/tenants": {
         parameters: {
             query?: never;
@@ -119,10 +224,357 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        /** Tenants (identity and status only) */
+        /**
+         * Tenants (identity, status and counts only)
+         * @description Never tenant data; that is reached only through approved support access.
+         */
         get: operations["listAdminTenants"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenants/{tenant_id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** One tenant (identity, status, counts and staff activity only) */
+        get: operations["getAdminTenant"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenants/{tenant_id}/status-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Ask for a tenant to be suspended or reactivated
+         * @description A different staff member must approve it; nothing changes until they do. One request may be
+         *     pending per tenant. Recorded in the staff audit log.
+         */
+        post: operations["requestTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requests to suspend or reactivate tenants, newest first */
+        get: operations["listTenantStatusRequests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Approve another staff member's request
+         * @description Applies the change at once, in the same transaction as the audit entries. The tenant sees
+         *     `tenant.suspended` or `tenant.reactivated` in its audit log, without the reason.
+         */
+        post: operations["approveTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject another staff member's request */
+        post: operations["rejectTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenants/{tenant_id}/quota": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * A tenant's monthly event-volume quota and what it has used
+         * @description A soft limit: events are never refused for it. The worker counts the month's events hourly,
+         *     so `usage` can be up to an hour old (`usage.checked_at`).
+         */
+        get: operations["getTenantQuota"];
+        /**
+         * Set a tenant's monthly event-volume quota
+         * @description The first time the month's events pass it, staff are told (the staff audit log) and so is the
+         *     tenant (`tenant.quota_exceeded` in its audit log), once a month. Nothing is refused. The staff
+         *     audit log keeps the reason; the tenant's log records the new quota (`tenant.quota_changed`).
+         */
+        put: operations["setTenantQuota"];
+        post?: never;
+        /** Remove a tenant's quota */
+        delete: operations["clearTenantQuota"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenants/{tenant_id}/limits": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** A tenant's request limits, and the platform's beside them */
+        get: operations["getTenantLimits"];
+        /**
+         * Replace a tenant's per-key and per-tenant request limits
+         * @description Takes effect on every API instance within about 30 seconds. The staff audit log keeps the
+         *     reason; the tenant's own audit log records the new values (`tenant.limits_changed`) and not
+         *     the reason.
+         */
+        put: operations["setTenantLimits"];
+        post?: never;
+        /** Remove a tenant's override, so the platform's limits apply again */
+        delete: operations["clearTenantLimits"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenants/{tenant_id}/emergency-suspension": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Suspend an active tenant at once (break-glass, security administrators only)
+         * @description For an incident. Applies immediately and is recorded as an emergency in both audit logs; a
+         *     different staff member must then review it, and it stays on every other staff member's
+         *     queue until they do. There is no emergency reactivation, and a waiting request for the
+         *     tenant must be decided or withdrawn first.
+         */
+        post: operations["emergencySuspendTenant"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Review an emergency suspension made by someone else
+         * @description Records that you have looked at it. It does not undo the suspension; reactivation is an
+         *     ordinary request.
+         */
+        post: operations["reviewEmergencySuspension"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/tenant-status-requests/{request_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take back your own pending request */
+        post: operations["withdrawTenantStatus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Staff accounts (security administrators only)
+         * @description Role, status, passkey count, last sign-in and whether an enrollment link is outstanding.
+         *     Never a credential. Accounts are created, and enrollment links issued, with the operator
+         *     CLI only.
+         */
+        get: operations["listStaffRoster"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** Requests to create staff accounts, newest first (security administrators only) */
+        get: operations["listStaffAccountRequests"];
+        put?: never;
+        /**
+         * Ask for a staff account to be created (security administrators only)
+         * @description A different security administrator must approve it. On approval the account is created and
+         *     its enrollment link is emailed to the address given; neither administrator is shown the
+         *     link. Available only when the deployment can send email; otherwise accounts are created with
+         *     the operator CLI.
+         */
+        post: operations["requestStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests/{request_id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Approve another security administrator's request */
+        post: operations["approveStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests/{request_id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Reject another security administrator's request */
+        post: operations["rejectStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/account-requests/{request_id}/withdraw": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Take back your own pending request */
+        post: operations["withdrawStaffAccount"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/{staff_id}/disable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Disable another staff member's account
+         * @description Security administrators only. Ends the person's sessions at once. Refused for your own
+         *     account and for the last active security administrator. Recorded in the staff audit log.
+         */
+        post: operations["disableStaff"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/v1/staff/{staff_id}/enable": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Enable a disabled staff account
+         * @description Security administrators only; never your own account. Recorded in the staff audit log.
+         */
+        post: operations["enableStaff"];
         delete?: never;
         options?: never;
         head?: never;
@@ -350,6 +802,160 @@ export interface components {
         EnrollOptionsRequest: {
             token: string;
         };
+        StaffRosterEntry: {
+            id: string;
+            email: string;
+            name: string;
+            role: components["schemas"]["StaffRole"];
+            /** @enum {string} */
+            status: "active" | "disabled";
+            /**
+             * Format: int64
+             * @description Registered passkeys. Zero until the person has enrolled.
+             */
+            passkeys: number;
+            /** Format: date-time */
+            last_sign_in?: string | null;
+            /** @description An enrollment link has been issued and has not been used or expired. */
+            enrollment_pending: boolean;
+            /** Format: date-time */
+            created_at: string;
+        };
+        StaffAccountChange: {
+            email: string;
+            name: string;
+            role: components["schemas"]["StaffRole"];
+            reason: string;
+        };
+        StaffAccountRequest: {
+            id: string;
+            email: string;
+            name: string;
+            role: components["schemas"]["StaffRole"];
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "withdrawn";
+            requested_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            created_at: string;
+            decided_by?: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            decided_at?: string;
+            decision_note?: string;
+            /** @description The account created, once approved. */
+            staff_id?: string;
+        };
+        StaffAccountRequestList: {
+            data: components["schemas"]["StaffAccountRequest"][];
+        };
+        StaffRosterList: {
+            data: components["schemas"]["StaffRosterEntry"][];
+        };
+        TenantStatusChange: {
+            /** @enum {string} */
+            action: "suspend" | "reactivate";
+            /** @description Why. For the staff audit log and the approver; the tenant is not shown it. */
+            reason: string;
+        };
+        TenantStatusDecision: {
+            note?: string;
+        };
+        RateLimit: {
+            /**
+             * Format: double
+             * @description The sustained rate.
+             */
+            per_second: number;
+            /** @description How many requests may arrive at once before the rate applies. */
+            burst: number;
+        };
+        TenantLimitsChange: {
+            per_key: components["schemas"]["RateLimit"];
+            per_tenant: components["schemas"]["RateLimit"];
+            /** @description Why. For the staff audit log; the tenant is not shown it. */
+            reason: string;
+        };
+        TenantLimitsOverride: {
+            per_key: components["schemas"]["RateLimit"];
+            per_tenant: components["schemas"]["RateLimit"];
+            reason: string;
+            updated_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            updated_at: string;
+        };
+        TenantLimits: {
+            /** @description The platform's limits, which apply when there is no override. */
+            defaults: {
+                per_key: components["schemas"]["RateLimit"];
+                per_tenant: components["schemas"]["RateLimit"];
+            };
+            override?: components["schemas"]["TenantLimitsOverride"];
+        };
+        TenantQuotaChange: {
+            /**
+             * Format: int64
+             * @description Events a month (UTC calendar month) the tenant is expected to stay within.
+             */
+            monthly_events: number;
+            /** @description Why. For the staff audit log; the tenant is not shown it. */
+            reason: string;
+        };
+        TenantQuota: {
+            /** @description Null when the tenant has no quota. */
+            quota: components["schemas"]["TenantQuotaDetail"] | null;
+        };
+        TenantQuotaDetail: {
+            /** Format: int64 */
+            monthly_events: number;
+            reason: string;
+            updated_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            updated_at: string;
+            usage: components["schemas"]["TenantQuotaUsage"];
+        };
+        TenantQuotaUsage: {
+            /**
+             * Format: date
+             * @description The month measured (its first day, UTC); null before the first measurement.
+             */
+            month: string | null;
+            /** Format: int64 */
+            events: number;
+            /** Format: date-time */
+            checked_at: string | null;
+            /** @description Whether the measured month is over the quota. */
+            exceeded: boolean;
+        };
+        EmergencySuspension: {
+            /** @description Why, for the staff audit log and the reviewer. The tenant is not shown it. */
+            reason: string;
+        };
+        TenantStatusRequest: {
+            id: string;
+            tenant_id: string;
+            tenant_name: string;
+            /** @enum {string} */
+            action: "suspend" | "reactivate";
+            reason: string;
+            /** @enum {string} */
+            status: "pending" | "approved" | "rejected" | "withdrawn";
+            requested_by: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            created_at: string;
+            decided_by?: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            decided_at?: string;
+            decision_note?: string;
+            /** @description A break-glass suspension, applied at once and awaiting review by someone else. */
+            emergency: boolean;
+            reviewed_by?: components["schemas"]["StaffRef"];
+            /** Format: date-time */
+            reviewed_at?: string;
+            review_note?: string;
+        };
+        TenantStatusRequestList: {
+            data: components["schemas"]["TenantStatusRequest"][];
+        };
         EnrollRequest: {
             token: string;
             ceremony_id: string;
@@ -357,6 +963,22 @@ export interface components {
             credential: {
                 [key: string]: unknown;
             };
+        };
+        StaffAuthMethods: {
+            /** @description Single sign-on is configured. */
+            sso_enabled: boolean;
+            /**
+             * @description Every sign-in needs single sign-on first; direct passkey sign-in is refused with
+             *     403 `SSO_REQUIRED`.
+             */
+            sso_required: boolean;
+        };
+        StaffSSOStart: {
+            redirect_url: string;
+        };
+        StaffSSOCallbackRequest: {
+            state: string;
+            code: string;
         };
         LoginRequest: {
             ceremony_id: string;
@@ -390,9 +1012,70 @@ export interface components {
         AdminTenant: {
             id: string;
             name: string;
-            status: string;
+            region: string;
+            /** @enum {string} */
+            status: "active" | "suspended" | "disabled";
+            /** @enum {string} */
+            origin: "operator" | "self_serve";
+            /** @description Whether the production environment is open (self-serve workspaces open it when onboarding is approved). */
+            production_enabled: boolean;
             /** Format: date-time */
             created_at: string;
+            /** Format: int64 */
+            active_users: number;
+            /**
+             * Format: int64
+             * @description Keys that are neither revoked nor expired, in both environments.
+             */
+            active_api_keys: number;
+            /** @description The compliance onboarding's status, or null for a workspace that has none. */
+            onboarding_status?: string | null;
+        };
+        AdminTenantDetail: {
+            tenant: components["schemas"]["AdminTenant"];
+            security: components["schemas"]["TenantSecurity"];
+            /**
+             * Format: date-time
+             * @description The start of the window the security counts cover.
+             */
+            since: string;
+            /** @description The staff audit entries that name this tenant, newest first. */
+            recent_staff_actions: components["schemas"]["StaffAuditEntry"][];
+        };
+        AdminOverview: {
+            /** Format: int64 */
+            tenants_total: number;
+            /** Format: int64 */
+            tenants_active: number;
+            /** Format: int64 */
+            tenants_suspended: number;
+            /**
+             * Format: int64
+             * @description Onboarding reviews waiting for a decision.
+             */
+            onboarding_submitted: number;
+            /**
+             * Format: int64
+             * @description Support-access requests made by someone else, waiting for this staff member's decision.
+             */
+            support_pending: number;
+            /**
+             * Format: int64
+             * @description Support access that is approved and has not ended.
+             */
+            support_active: number;
+            /** Format: int64 */
+            staff_active: number;
+            /**
+             * Format: int64
+             * @description Requests to suspend or reactivate a tenant, made by someone else, waiting for this staff member's decision.
+             */
+            status_requests_pending: number;
+            /**
+             * Format: int64
+             * @description Emergency suspensions made by someone else that no one has reviewed yet.
+             */
+            emergency_reviews_pending: number;
         };
         AdminTenantList: {
             data: components["schemas"]["AdminTenant"][];
@@ -578,6 +1261,9 @@ export interface components {
     parameters: {
         TenantID: string;
         AccessID: string;
+        AccountRequestID: string;
+        StaffID: string;
+        StatusRequestID: string;
     };
     requestBodies: never;
     headers: never;
@@ -739,6 +1425,135 @@ export interface operations {
             default: components["responses"]["DefaultError"];
         };
     };
+    getStaffAuthMethods: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The enabled methods. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAuthMethods"];
+                };
+            };
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    startStaffSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The provider's authorization URL. */
+            200: {
+                headers: {
+                    /** @description Binds the request to this browser. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSSOStart"];
+                };
+            };
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    finishStaffSSO: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: {
+                riskos_staff_sso?: string;
+            };
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffSSOCallbackRequest"];
+            };
+        };
+        responses: {
+            /** @description WebAuthn assertion options and the ceremony to finish. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ceremony"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    staffSSOLogin: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LoginRequest"];
+            };
+        };
+        responses: {
+            /** @description The new session. */
+            200: {
+                headers: {
+                    /** @description The staff session cookie. */
+                    "Set-Cookie"?: string;
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffSession"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            429: components["responses"]["RateLimited"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAdminOverview: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The counts. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminOverview"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
     listAdminTenants: {
         parameters: {
             query?: never;
@@ -758,6 +1573,618 @@ export interface operations {
                 };
             };
             401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getAdminTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The tenant. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTenantDetail"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    requestTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusChange"];
+            };
+        };
+        responses: {
+            /** @description The pending request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listTenantStatusRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequestList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The approved request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The rejected request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The quota, or no quota. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    setTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantQuotaChange"];
+            };
+        };
+        responses: {
+            /** @description The quota now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    clearTenantQuota: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No quota now. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantQuota"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    getTenantLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The limits. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLimits"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    setTenantLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["TenantLimitsChange"];
+            };
+        };
+        responses: {
+            /** @description The limits now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLimits"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    clearTenantLimits: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The limits now in force. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantLimits"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            404: components["responses"]["NotFound"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    emergencySuspendTenant: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                tenant_id: components["parameters"]["TenantID"];
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["EmergencySuspension"];
+            };
+        };
+        responses: {
+            /** @description The applied emergency suspension. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    reviewEmergencySuspension: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The reviewed request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    withdrawTenantStatus: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["StatusRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The withdrawn request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TenantStatusRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listStaffRoster: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Staff accounts, oldest first. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRosterList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    listStaffAccountRequests: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Requests. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequestList"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    requestStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["StaffAccountChange"];
+            };
+        };
+        responses: {
+            /** @description The pending request. */
+            201: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    approveStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["AccountRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The approved request. The account exists and its link has been queued for email. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    rejectStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["AccountRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: {
+            content: {
+                "application/json": components["schemas"]["TenantStatusDecision"];
+            };
+        };
+        responses: {
+            /** @description The rejected request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            400: components["responses"]["InvalidRequest"];
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    withdrawStaffAccount: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                request_id: components["parameters"]["AccountRequestID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The withdrawn request. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffAccountRequest"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    disableStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: components["parameters"]["StaffID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRosterEntry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
+            409: components["responses"]["Conflict"];
+            default: components["responses"]["DefaultError"];
+        };
+    };
+    enableStaff: {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                staff_id: components["parameters"]["StaffID"];
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description The account. */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["StaffRosterEntry"];
+                };
+            };
+            401: components["responses"]["Unauthenticated"];
+            403: components["responses"]["Forbidden"];
+            404: components["responses"]["NotFound"];
             default: components["responses"]["DefaultError"];
         };
     };

@@ -161,11 +161,145 @@ paths:
           $ref: "#/components/responses/Unauthenticated"
         default:
           $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/methods:
+    get:
+      operationId: getStaffAuthMethods
+      tags: [staff-session]
+      summary: How staff can sign in on this deployment
+      description: Public, so the sign-in page can show the right options.
+      responses:
+        "200":
+          description: The enabled methods.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAuthMethods"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/sso/start:
+    post:
+      operationId: startStaffSSO
+      tags: [staff-session]
+      summary: Start signing in with the platform's identity provider
+      description: |
+        Returns where to send the browser. The request is bound to this browser by a short-lived
+        cookie and must be finished within ten minutes. Single sign-on does not replace the
+        passkey: the callback answers with the passkey step, and only that opens a session.
+      responses:
+        "200":
+          description: The provider's authorization URL.
+          headers:
+            Set-Cookie:
+              description: Binds the request to this browser.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSSOStart"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/sso/callback:
+    post:
+      operationId: finishStaffSSO
+      tags: [staff-session]
+      summary: Finish the identity provider step
+      description: |
+        Called by the console's callback page with the provider's `code` and `state`. The ID token
+        must verify. The first SSO sign-in also needs the provider to confirm the account's email
+        and binds the provider's subject to the staff member; later sign-ins must present the same
+        subject. The staff member must already have a passkey. Answers with the passkey assertion
+        to complete at `auth/sso/login`. Failures get 401 `SSO_FAILED`.
+      parameters:
+        - name: riskos_staff_sso
+          in: cookie
+          required: false
+          schema:
+            type: string
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffSSOCallbackRequest"
+      responses:
+        "200":
+          description: WebAuthn assertion options and the ceremony to finish.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Ceremony"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/auth/sso/login:
+    post:
+      operationId: staffSSOLogin
+      tags: [staff-session]
+      summary: Finish signing in after the identity provider step
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/LoginRequest"
+      responses:
+        "200":
+          description: The new session.
+          headers:
+            Set-Cookie:
+              description: The staff session cookie.
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffSession"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "429":
+          $ref: "#/components/responses/RateLimited"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/overview:
+    get:
+      operationId: getAdminOverview
+      tags: [staff]
+      summary: What waits for the signed-in staff member
+      description: |
+        Counts only: tenants by status, onboarding reviews and support requests awaiting a decision
+        (requests the caller made themselves are excluded: nobody decides their own), and active
+        support access.
+      responses:
+        "200":
+          description: The counts.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminOverview"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
   /api/admin/v1/tenants:
     get:
       operationId: listAdminTenants
       tags: [staff]
-      summary: Tenants (identity and status only)
+      summary: Tenants (identity, status and counts only)
+      description: Never tenant data; that is reached only through approved support access.
       responses:
         "200":
           description: Tenants, newest first.
@@ -175,6 +309,591 @@ paths:
                 $ref: "#/components/schemas/AdminTenantList"
         "401":
           $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}:
+    get:
+      operationId: getAdminTenant
+      tags: [staff]
+      summary: One tenant (identity, status, counts and staff activity only)
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The tenant.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AdminTenantDetail"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/status-requests:
+    post:
+      operationId: requestTenantStatus
+      tags: [staff]
+      summary: Ask for a tenant to be suspended or reactivated
+      description: |
+        A different staff member must approve it; nothing changes until they do. One request may be
+        pending per tenant. Recorded in the staff audit log.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusChange"
+      responses:
+        "201":
+          description: The pending request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests:
+    get:
+      operationId: listTenantStatusRequests
+      tags: [staff]
+      summary: Requests to suspend or reactivate tenants, newest first
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequestList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/approve:
+    post:
+      operationId: approveTenantStatus
+      tags: [staff]
+      summary: Approve another staff member's request
+      description: |
+        Applies the change at once, in the same transaction as the audit entries. The tenant sees
+        `tenant.suspended` or `tenant.reactivated` in its audit log, without the reason.
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The approved request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/reject:
+    post:
+      operationId: rejectTenantStatus
+      tags: [staff]
+      summary: Reject another staff member's request
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/quota:
+    get:
+      operationId: getTenantQuota
+      tags: [staff]
+      summary: A tenant's monthly event-volume quota and what it has used
+      description: |
+        A soft limit: events are never refused for it. The worker counts the month's events hourly,
+        so `usage` can be up to an hour old (`usage.checked_at`).
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The quota, or no quota.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: setTenantQuota
+      tags: [staff]
+      summary: Set a tenant's monthly event-volume quota
+      description: |
+        The first time the month's events pass it, staff are told (the staff audit log) and so is the
+        tenant (`tenant.quota_exceeded` in its audit log), once a month. Nothing is refused. The staff
+        audit log keeps the reason; the tenant's log records the new quota (`tenant.quota_changed`).
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantQuotaChange"
+      responses:
+        "200":
+          description: The quota now in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: clearTenantQuota
+      tags: [staff]
+      summary: Remove a tenant's quota
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: No quota now.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantQuota"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/limits:
+    get:
+      operationId: getTenantLimits
+      tags: [staff]
+      summary: A tenant's request limits, and the platform's beside them
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The limits.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantLimits"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    put:
+      operationId: setTenantLimits
+      tags: [staff]
+      summary: Replace a tenant's per-key and per-tenant request limits
+      description: |
+        Takes effect on every API instance within about 30 seconds. The staff audit log keeps the
+        reason; the tenant's own audit log records the new values (`tenant.limits_changed`) and not
+        the reason.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantLimitsChange"
+      responses:
+        "200":
+          description: The limits now in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantLimits"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    delete:
+      operationId: clearTenantLimits
+      tags: [staff]
+      summary: Remove a tenant's override, so the platform's limits apply again
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      responses:
+        "200":
+          description: The limits now in force.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantLimits"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenants/{tenant_id}/emergency-suspension:
+    post:
+      operationId: emergencySuspendTenant
+      tags: [staff]
+      summary: Suspend an active tenant at once (break-glass, security administrators only)
+      description: |
+        For an incident. Applies immediately and is recorded as an emergency in both audit logs; a
+        different staff member must then review it, and it stays on every other staff member's
+        queue until they do. There is no emergency reactivation, and a waiting request for the
+        tenant must be decided or withdrawn first.
+      parameters:
+        - $ref: "#/components/parameters/TenantID"
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmergencySuspension"
+      responses:
+        "201":
+          description: The applied emergency suspension.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/review:
+    post:
+      operationId: reviewEmergencySuspension
+      tags: [staff]
+      summary: Review an emergency suspension made by someone else
+      description: |
+        Records that you have looked at it. It does not undo the suspension; reactivation is an
+        ordinary request.
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The reviewed request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/tenant-status-requests/{request_id}/withdraw:
+    post:
+      operationId: withdrawTenantStatus
+      tags: [staff]
+      summary: Take back your own pending request
+      parameters:
+        - $ref: "#/components/parameters/StatusRequestID"
+      responses:
+        "200":
+          description: The withdrawn request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TenantStatusRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff:
+    get:
+      operationId: listStaffRoster
+      tags: [staff]
+      summary: Staff accounts (security administrators only)
+      description: |
+        Role, status, passkey count, last sign-in and whether an enrollment link is outstanding.
+        Never a credential. Accounts are created, and enrollment links issued, with the operator
+        CLI only.
+      responses:
+        "200":
+          description: Staff accounts, oldest first.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRosterList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests:
+    get:
+      operationId: listStaffAccountRequests
+      tags: [staff]
+      summary: Requests to create staff accounts, newest first (security administrators only)
+      responses:
+        "200":
+          description: Requests.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequestList"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        default:
+          $ref: "#/components/responses/DefaultError"
+    post:
+      operationId: requestStaffAccount
+      tags: [staff]
+      summary: Ask for a staff account to be created (security administrators only)
+      description: |
+        A different security administrator must approve it. On approval the account is created and
+        its enrollment link is emailed to the address given; neither administrator is shown the
+        link. Available only when the deployment can send email; otherwise accounts are created with
+        the operator CLI.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/StaffAccountChange"
+      responses:
+        "201":
+          description: The pending request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests/{request_id}/approve:
+    post:
+      operationId: approveStaffAccount
+      tags: [staff]
+      summary: Approve another security administrator's request
+      parameters:
+        - $ref: "#/components/parameters/AccountRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The approved request. The account exists and its link has been queued for email.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests/{request_id}/reject:
+    post:
+      operationId: rejectStaffAccount
+      tags: [staff]
+      summary: Reject another security administrator's request
+      parameters:
+        - $ref: "#/components/parameters/AccountRequestID"
+      requestBody:
+        required: false
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/TenantStatusDecision"
+      responses:
+        "200":
+          description: The rejected request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "400":
+          $ref: "#/components/responses/InvalidRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/account-requests/{request_id}/withdraw:
+    post:
+      operationId: withdrawStaffAccount
+      tags: [staff]
+      summary: Take back your own pending request
+      parameters:
+        - $ref: "#/components/parameters/AccountRequestID"
+      responses:
+        "200":
+          description: The withdrawn request.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffAccountRequest"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/{staff_id}/disable:
+    post:
+      operationId: disableStaff
+      tags: [staff]
+      summary: Disable another staff member's account
+      description: |
+        Security administrators only. Ends the person's sessions at once. Refused for your own
+        account and for the last active security administrator. Recorded in the staff audit log.
+      parameters:
+        - $ref: "#/components/parameters/StaffID"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRosterEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
+        "409":
+          $ref: "#/components/responses/Conflict"
+        default:
+          $ref: "#/components/responses/DefaultError"
+  /api/admin/v1/staff/{staff_id}/enable:
+    post:
+      operationId: enableStaff
+      tags: [staff]
+      summary: Enable a disabled staff account
+      description: Security administrators only; never your own account. Recorded in the staff audit log.
+      parameters:
+        - $ref: "#/components/parameters/StaffID"
+      responses:
+        "200":
+          description: The account.
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/StaffRosterEntry"
+        "401":
+          $ref: "#/components/responses/Unauthenticated"
+        "403":
+          $ref: "#/components/responses/Forbidden"
+        "404":
+          $ref: "#/components/responses/NotFound"
         default:
           $ref: "#/components/responses/DefaultError"
   /api/admin/v1/security:
@@ -465,6 +1184,27 @@ components:
       schema:
         type: string
         example: sac_01j9x2k7m3q4r5s6t7v8w9x0yz
+    AccountRequestID:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: sar_01j9x2k7m3q4r5s6t7v8w9x0yz
+    StaffID:
+      name: staff_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: stf_01j9x2k7m3q4r5s6t7v8w9x0yz
+    StatusRequestID:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        example: tsr_01j9x2k7m3q4r5s6t7v8w9x0yz
   responses:
     DefaultError:
       description: Error in the standard RiskOS error contract.
@@ -544,6 +1284,312 @@ components:
         token:
           type: string
           maxLength: 128
+    StaffRosterEntry:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role, status, passkeys, enrollment_pending, created_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/StaffRole"
+        status:
+          type: string
+          enum: [active, disabled]
+        passkeys:
+          type: integer
+          format: int64
+          description: Registered passkeys. Zero until the person has enrolled.
+        last_sign_in:
+          type: string
+          format: date-time
+          nullable: true
+        enrollment_pending:
+          type: boolean
+          description: An enrollment link has been issued and has not been used or expired.
+        created_at:
+          type: string
+          format: date-time
+    StaffAccountChange:
+      type: object
+      additionalProperties: false
+      required: [email, name, role, reason]
+      properties:
+        email:
+          type: string
+          maxLength: 254
+        name:
+          type: string
+          minLength: 1
+          maxLength: 100
+        role:
+          $ref: "#/components/schemas/StaffRole"
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+    StaffAccountRequest:
+      type: object
+      additionalProperties: false
+      required: [id, email, name, role, reason, status, requested_by, created_at]
+      properties:
+        id:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        role:
+          $ref: "#/components/schemas/StaffRole"
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, withdrawn]
+        requested_by:
+          $ref: "#/components/schemas/StaffRef"
+        created_at:
+          type: string
+          format: date-time
+        decided_by:
+          $ref: "#/components/schemas/StaffRef"
+        decided_at:
+          type: string
+          format: date-time
+        decision_note:
+          type: string
+        staff_id:
+          type: string
+          description: The account created, once approved.
+    StaffAccountRequestList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffAccountRequest"
+    StaffRosterList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/StaffRosterEntry"
+    TenantStatusChange:
+      type: object
+      additionalProperties: false
+      required: [action, reason]
+      properties:
+        action:
+          type: string
+          enum: [suspend, reactivate]
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why. For the staff audit log and the approver; the tenant is not shown it.
+    TenantStatusDecision:
+      type: object
+      additionalProperties: false
+      properties:
+        note:
+          type: string
+          maxLength: 500
+    RateLimit:
+      type: object
+      additionalProperties: false
+      required: [per_second, burst]
+      properties:
+        per_second:
+          type: number
+          format: double
+          exclusiveMinimum: true
+          minimum: 0
+          maximum: 100000
+          description: The sustained rate.
+        burst:
+          type: integer
+          minimum: 1
+          maximum: 1000000
+          description: How many requests may arrive at once before the rate applies.
+    TenantLimitsChange:
+      type: object
+      additionalProperties: false
+      required: [per_key, per_tenant, reason]
+      properties:
+        per_key:
+          $ref: "#/components/schemas/RateLimit"
+        per_tenant:
+          $ref: "#/components/schemas/RateLimit"
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why. For the staff audit log; the tenant is not shown it.
+    TenantLimitsOverride:
+      type: object
+      additionalProperties: false
+      required: [per_key, per_tenant, reason, updated_by, updated_at]
+      properties:
+        per_key:
+          $ref: "#/components/schemas/RateLimit"
+        per_tenant:
+          $ref: "#/components/schemas/RateLimit"
+        reason:
+          type: string
+        updated_by:
+          $ref: "#/components/schemas/StaffRef"
+        updated_at:
+          type: string
+          format: date-time
+    TenantLimits:
+      type: object
+      additionalProperties: false
+      required: [defaults]
+      properties:
+        defaults:
+          type: object
+          additionalProperties: false
+          required: [per_key, per_tenant]
+          description: The platform's limits, which apply when there is no override.
+          properties:
+            per_key:
+              $ref: "#/components/schemas/RateLimit"
+            per_tenant:
+              $ref: "#/components/schemas/RateLimit"
+        override:
+          $ref: "#/components/schemas/TenantLimitsOverride"
+    TenantQuotaChange:
+      type: object
+      additionalProperties: false
+      required: [monthly_events, reason]
+      properties:
+        monthly_events:
+          type: integer
+          format: int64
+          minimum: 1
+          maximum: 1000000000000
+          description: Events a month (UTC calendar month) the tenant is expected to stay within.
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why. For the staff audit log; the tenant is not shown it.
+    TenantQuota:
+      type: object
+      additionalProperties: false
+      required: [quota]
+      properties:
+        quota:
+          allOf:
+            - $ref: "#/components/schemas/TenantQuotaDetail"
+          nullable: true
+          description: Null when the tenant has no quota.
+    TenantQuotaDetail:
+      type: object
+      additionalProperties: false
+      required: [monthly_events, reason, updated_by, updated_at, usage]
+      properties:
+        monthly_events:
+          type: integer
+          format: int64
+        reason:
+          type: string
+        updated_by:
+          $ref: "#/components/schemas/StaffRef"
+        updated_at:
+          type: string
+          format: date-time
+        usage:
+          $ref: "#/components/schemas/TenantQuotaUsage"
+    TenantQuotaUsage:
+      type: object
+      additionalProperties: false
+      required: [month, events, checked_at, exceeded]
+      properties:
+        month:
+          type: string
+          format: date
+          nullable: true
+          description: The month measured (its first day, UTC); null before the first measurement.
+        events:
+          type: integer
+          format: int64
+        checked_at:
+          type: string
+          format: date-time
+          nullable: true
+        exceeded:
+          type: boolean
+          description: Whether the measured month is over the quota.
+    EmergencySuspension:
+      type: object
+      additionalProperties: false
+      required: [reason]
+      properties:
+        reason:
+          type: string
+          minLength: 10
+          maxLength: 500
+          description: Why, for the staff audit log and the reviewer. The tenant is not shown it.
+    TenantStatusRequest:
+      type: object
+      additionalProperties: false
+      required: [id, tenant_id, tenant_name, action, reason, status, requested_by, created_at, emergency]
+      properties:
+        id:
+          type: string
+        tenant_id:
+          type: string
+        tenant_name:
+          type: string
+        action:
+          type: string
+          enum: [suspend, reactivate]
+        reason:
+          type: string
+        status:
+          type: string
+          enum: [pending, approved, rejected, withdrawn]
+        requested_by:
+          $ref: "#/components/schemas/StaffRef"
+        created_at:
+          type: string
+          format: date-time
+        decided_by:
+          $ref: "#/components/schemas/StaffRef"
+        decided_at:
+          type: string
+          format: date-time
+        decision_note:
+          type: string
+        emergency:
+          type: boolean
+          description: A break-glass suspension, applied at once and awaiting review by someone else.
+        reviewed_by:
+          $ref: "#/components/schemas/StaffRef"
+        reviewed_at:
+          type: string
+          format: date-time
+        review_note:
+          type: string
+    TenantStatusRequestList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          items:
+            $ref: "#/components/schemas/TenantStatusRequest"
     EnrollRequest:
       type: object
       additionalProperties: false
@@ -561,6 +1607,37 @@ components:
         credential:
           type: object
           additionalProperties: true
+    StaffAuthMethods:
+      type: object
+      additionalProperties: false
+      required: [sso_enabled, sso_required]
+      properties:
+        sso_enabled:
+          type: boolean
+          description: Single sign-on is configured.
+        sso_required:
+          type: boolean
+          description: |
+            Every sign-in needs single sign-on first; direct passkey sign-in is refused with
+            403 `SSO_REQUIRED`.
+    StaffSSOStart:
+      type: object
+      additionalProperties: false
+      required: [redirect_url]
+      properties:
+        redirect_url:
+          type: string
+    StaffSSOCallbackRequest:
+      type: object
+      additionalProperties: false
+      required: [state, code]
+      properties:
+        state:
+          type: string
+          maxLength: 256
+        code:
+          type: string
+          maxLength: 4096
     LoginRequest:
       type: object
       additionalProperties: false
@@ -609,17 +1686,92 @@ components:
     AdminTenant:
       type: object
       additionalProperties: false
-      required: [id, name, status, created_at]
+      required: [id, name, region, status, origin, production_enabled, created_at, active_users, active_api_keys]
       properties:
         id:
           type: string
         name:
           type: string
+        region:
+          type: string
         status:
           type: string
+          enum: [active, suspended, disabled]
+        origin:
+          type: string
+          enum: [operator, self_serve]
+        production_enabled:
+          type: boolean
+          description: Whether the production environment is open (self-serve workspaces open it when onboarding is approved).
         created_at:
           type: string
           format: date-time
+        active_users:
+          type: integer
+          format: int64
+        active_api_keys:
+          type: integer
+          format: int64
+          description: Keys that are neither revoked nor expired, in both environments.
+        onboarding_status:
+          type: string
+          nullable: true
+          description: The compliance onboarding's status, or null for a workspace that has none.
+    AdminTenantDetail:
+      type: object
+      additionalProperties: false
+      required: [tenant, security, since, recent_staff_actions]
+      properties:
+        tenant:
+          $ref: "#/components/schemas/AdminTenant"
+        security:
+          $ref: "#/components/schemas/TenantSecurity"
+        since:
+          type: string
+          format: date-time
+          description: The start of the window the security counts cover.
+        recent_staff_actions:
+          type: array
+          description: The staff audit entries that name this tenant, newest first.
+          items:
+            $ref: "#/components/schemas/StaffAuditEntry"
+    AdminOverview:
+      type: object
+      additionalProperties: false
+      required: [tenants_total, tenants_active, tenants_suspended, onboarding_submitted, support_pending, support_active, staff_active, status_requests_pending, emergency_reviews_pending]
+      properties:
+        tenants_total:
+          type: integer
+          format: int64
+        tenants_active:
+          type: integer
+          format: int64
+        tenants_suspended:
+          type: integer
+          format: int64
+        onboarding_submitted:
+          type: integer
+          format: int64
+          description: Onboarding reviews waiting for a decision.
+        support_pending:
+          type: integer
+          format: int64
+          description: Support-access requests made by someone else, waiting for this staff member's decision.
+        support_active:
+          type: integer
+          format: int64
+          description: Support access that is approved and has not ended.
+        staff_active:
+          type: integer
+          format: int64
+        status_requests_pending:
+          type: integer
+          format: int64
+          description: Requests to suspend or reactivate a tenant, made by someone else, waiting for this staff member's decision.
+        emergency_reviews_pending:
+          type: integer
+          format: int64
+          description: Emergency suspensions made by someone else that no one has reviewed yet.
     AdminTenantList:
       type: object
       additionalProperties: false

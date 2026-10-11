@@ -1,5 +1,6 @@
 # RiskOS developer entry point. `make help` lists targets.
-# `make check` runs exactly what CI runs; keep the two in sync.
+# CI runs two checks, each a make target: `make verify` (also the pre-push gate) and `make check`
+# (Docker-based suites and images). Keep the workflow and these targets in sync.
 
 SHELL := /usr/bin/env bash
 .SHELLFLAGS := -euo pipefail -c
@@ -185,11 +186,11 @@ restore-drill: .env ## Back up, restore into a fresh server and prove the copy (
 ##@ CI
 
 .PHONY: verify
-verify: generate-check lint secrets test-race test-frontend ## The pre-push gate: what CI checks, minus Docker-based suites
-	@echo "verify: ok. Before a phase or a pull request to main, also run make test-integration test-e2e."
+verify: generate-check lint vuln secrets test-race test-frontend ## The pre-push gate, and the first CI check (the second needs Docker: make check)
+	@echo "verify: ok. Before a pull request to main, also run make check (the CI check that needs Docker)."
 
 .PHONY: check
-check: generate-check lint vuln secrets test-race test-integration test-frontend test-e2e docker-build ## Everything CI runs
+check: test-integration test-e2e docker-build ## The second CI check, which needs Docker (the first is make verify)
 
 .PHONY: docker-build
 docker-build: ## Build all runtime images

@@ -33,6 +33,7 @@ export function Login() {
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
   const [sso, setSSO] = useState(false);
+  const [ssoEmail, setSSOEmail] = useState("");
   const options = useSignupOptions();
 
   const enter = async () => {
@@ -80,6 +81,11 @@ export function Login() {
       if (st.state === "active") await enter();
       else setState(st);
     } catch (err) {
+      if (err instanceof ApiError && err.code === "SSO_REQUIRED") {
+        // The password was right, but this workspace allows only single sign-on: carry on there.
+        setSSOEmail(String(form.get("email") ?? ""));
+        setSSO(true);
+      }
       setError(
         err instanceof ApiError
           ? err.message
@@ -117,6 +123,7 @@ export function Login() {
               name="email"
               type="email"
               autoComplete="username"
+              defaultValue={ssoEmail}
               required
               autoFocus
             />
@@ -303,7 +310,7 @@ export function AcceptInvite() {
     () => new URLSearchParams(window.location.hash.slice(1)).get("token") ?? "",
     () => null,
   );
-  const [step, setStep] = useState<"form" | "enroll" | "codes">("form");
+  const [step, setStep] = useState<"form" | "enroll" | "codes" | "sso">("form");
   const [codes, setCodes] = useState<string[]>([]);
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
@@ -336,6 +343,12 @@ export function AcceptInvite() {
       window.history.replaceState(null, "", "/accept-invite");
       setStep("enroll");
     } catch (err) {
+      if (err instanceof ApiError && err.code === "SSO_REQUIRED") {
+        // The account was created; this workspace allows only single sign-on.
+        window.history.replaceState(null, "", "/accept-invite");
+        setStep("sso");
+        return;
+      }
       setError(
         err instanceof ApiError
           ? err.message
@@ -346,6 +359,20 @@ export function AcceptInvite() {
     }
   };
 
+  if (step === "sso") {
+    return (
+      <div className="flex flex-col gap-3">
+        <h1 className="text-heading-1">Your account is ready</h1>
+        <p className="text-body text-text-secondary">
+          Your organization requires single sign-on. Sign in with it to
+          continue; you will add a second factor then.
+        </p>
+        <Link href="/login" className="font-medium text-accent">
+          Go to sign in
+        </Link>
+      </div>
+    );
+  }
   if (step === "codes")
     return <RecoveryCodes codes={codes} onContinue={() => void enter()} />;
   if (step === "enroll") {

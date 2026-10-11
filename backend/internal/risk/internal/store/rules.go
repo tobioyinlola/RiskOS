@@ -17,11 +17,11 @@ import (
 
 // CountRules returns how many rules the environment has (enabled or not).
 func (Store) CountRules(ctx context.Context) (int64, error) {
-	q, _, err := scoped(ctx)
+	q, scope, err := scoped(ctx)
 	if err != nil {
 		return 0, err
 	}
-	n, err := q.CountRules(ctx)
+	n, err := q.CountRules(ctx, sqlcgen.CountRulesParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID})
 	if err != nil {
 		return 0, fmt.Errorf("count rules: %w", err)
 	}

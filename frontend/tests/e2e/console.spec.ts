@@ -149,6 +149,25 @@ test("the alert queue works from the keyboard", async ({ page, isMobile }) => {
   expect(api.problems).toEqual([]);
 });
 
+test("single sign-on: claim an email domain and see what to publish", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.ssoConnected = true;
+  await page.goto("/sso");
+  await expect(page.getByText("example.org", { exact: true })).toBeVisible();
+  await expect(page.getByText("_riskos-challenge.example.org")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Verify example.org" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Domain").fill("newco.example");
+  await page.getByRole("button", { name: "Claim domain" }).click();
+  await expect.poll(() => api.calls).toContain("POST /sso/domains");
+  expect(api.problems).toEqual([]);
+});
+
 test("a production rule change is approved by a second person", async ({
   page,
 }) => {
@@ -328,6 +347,24 @@ test("single sign-on: the provider round trip ends signed in", async ({
   );
   expect(api.problems).toEqual([]);
   expect(csp).toEqual([]);
+});
+
+test("a workspace that requires single sign-on sends a password sign-in there", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  await page.goto("/login");
+  await page.getByLabel("Email").fill("sso-only@example.com");
+  await page.getByLabel("Password").fill("correct horse battery staple");
+  await page.getByRole("button", { name: "Continue", exact: true }).click();
+  await expect(
+    page.getByRole("heading", { name: "Sign in with single sign-on" }),
+  ).toBeVisible();
+  await expect(page.getByText(/requires single sign-on/)).toBeVisible();
+  await expect(page.getByLabel("Work email")).toHaveValue(
+    "sso-only@example.com",
+  );
+  expect(api.problems).toEqual([]);
 });
 
 test("pages carry security headers and a nonce-based CSP", async ({

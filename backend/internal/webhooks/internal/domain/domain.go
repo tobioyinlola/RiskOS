@@ -71,14 +71,17 @@ const (
 
 // Endpoint is a customer's webhook endpoint.
 type Endpoint struct {
-	ID                       uuid.UUID
-	URL                      string
-	Description              string
-	EventTypes               []EventType
-	Status                   string
-	DisabledReason           *string
-	SecretVersion            int
+	ID             uuid.UUID
+	URL            string
+	Description    string
+	EventTypes     []EventType
+	Status         string
+	DisabledReason *string
+	SecretVersion  int
+	// SecretKeyID is the server-side key the current secret was derived with (ADR-0008).
+	SecretKeyID              int
 	PreviousSecretVersion    *int
+	PreviousSecretKeyID      *int
 	PreviousSecretValidUntil *time.Time
 	FailingSince             *time.Time
 	CreatedAt                time.Time

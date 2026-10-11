@@ -47,11 +47,32 @@ type Config struct {
 	SMTP      SMTP
 }
 
+// RotationsInProgress names the secrets that have a previous value configured (ADR-0008), with
+// the condition for removing each. Never the values. A previous value left in place keeps
+// accepting what it accepted, so the processes log this at start-up until it is removed.
+func (c Config) RotationsInProgress() map[string]string {
+	out := map[string]string{}
+	if c.Auth.APIKeyPepperPrevious != "" {
+		out["RISKOS_API_KEY_PEPPER_PREVIOUS"] = "remove once riskos.auth.previous_pepper has been zero for 14 days"
+	}
+	if c.Webhooks.PreviousSigningKey != "" {
+		out["RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS"] = "remove once `riskosctl webhooks key-usage` shows no endpoint on its id"
+	}
+	if c.Console.SecretPrevious != "" {
+		out["RISKOS_CONSOLE_SECRET_PREVIOUS"] = "run `riskosctl console reseal` until nothing is left, then remove after the longest session and invite lifetime"
+	}
+	return out
+}
+
 // Console configures the dashboard realm (console sign-in and sessions).
 type Console struct {
-	// Secret keys MFA secret encryption and CSRF tokens (at least 32 bytes, from the secrets
-	// manager). Rotating it invalidates enrolled authenticator apps and open sessions' CSRF tokens.
-	Secret string
+	// Secret keys MFA and SSO secret encryption, CSRF tokens and invite links (at least 32 bytes,
+	// from the secrets manager). Never replace it without a rotation (ADR-0008): set
+	// SecretPrevious to the old value, deploy, run `riskosctl console reseal`, and remove
+	// SecretPrevious once it reports nothing left and sessions and invites issued before have
+	// expired.
+	Secret         string
+	SecretPrevious string
 	// URL is the console's public base URL (invite links, passkey origin).
 	URL string
 	// Origins may make cookie-authenticated requests; defaults to URL's origin.
@@ -76,6 +97,14 @@ type Console struct {
 	// with the redirect URI <console URL>/signup/google). Both or neither; needs SignupEnabled.
 	GoogleClientID     string
 	GoogleClientSecret string
+	// StaffSSOIssuer, StaffSSOClientID and StaffSSOClientSecret register the platform's identity
+	// provider for staff sign-in (all three or none; the redirect URI is <console URL>/admin/sso/callback).
+	// StaffSSORequired makes it the first step of every staff sign-in; the passkey is still
+	// required after it.
+	StaffSSOIssuer       string
+	StaffSSOClientID     string
+	StaffSSOClientSecret string
+	StaffSSORequired     bool
 }
 
 // signupRegionPattern is a tenant region (the tenants table's check).
@@ -88,6 +117,14 @@ func (c Console) Validate(env Environment) error {
 	if len(c.Secret) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET: required, at least %d bytes", MinPepperBytes))
 	}
+	if p := c.SecretPrevious; p != "" {
+		if len(p) < MinPepperBytes {
+			errs = append(errs, fmt.Errorf("RISKOS_CONSOLE_SECRET_PREVIOUS: at least %d bytes when set", MinPepperBytes))
+		}
+		if p == c.Secret {
+			errs = append(errs, errors.New("RISKOS_CONSOLE_SECRET_PREVIOUS: must differ from RISKOS_CONSOLE_SECRET"))
+		}
+	}
 	if c.SSOAllowPrivate && env == EnvProduction {
 		errs = append(errs, errors.New("RISKOS_SSO_ALLOW_PRIVATE: not allowed in production"))
 	}
@@ -99,6 +136,13 @@ func (c Console) Validate(env Environment) error {
 	}
 	if c.GoogleClientID != "" && !c.SignupEnabled {
 		errs = append(errs, errors.New("RISKOS_GOOGLE_CLIENT_ID: Google sign-in needs RISKOS_SIGNUP_ENABLED=true"))
+	}
+	if set := c.StaffSSOIssuer != "" || c.StaffSSOClientID != "" || c.StaffSSOClientSecret != ""; set {
+		if c.StaffSSOIssuer == "" || c.StaffSSOClientID == "" || c.StaffSSOClientSecret == "" {
+			errs = append(errs, errors.New("RISKOS_STAFF_SSO_ISSUER, RISKOS_STAFF_SSO_CLIENT_ID and RISKOS_STAFF_SSO_CLIENT_SECRET: set all three or none"))
+		}
+	} else if c.StaffSSORequired {
+		errs = append(errs, errors.New("RISKOS_STAFF_SSO_REQUIRED: needs the staff identity provider (RISKOS_STAFF_SSO_ISSUER and its client)"))
 	}
 	if c.BreachedPasswordCheck != "" && c.BreachedPasswordCheck != "pwned" && c.BreachedPasswordCheck != "off" {
 		errs = append(errs, errors.New("RISKOS_BREACHED_PASSWORD_CHECK: must be pwned or off"))
@@ -120,16 +164,37 @@ func (c Console) Validate(env Environment) error {
 
 // Webhooks configures webhook signing and delivery.
 type Webhooks struct {
-	// SigningKey derives every endpoint's signing secret (at least 32 bytes, from the secrets
-	// manager). Rotating it changes every endpoint's secret at once.
-	SigningKey string
+	// SigningKey derives the signing secrets of new and rotated endpoints (at least 32 bytes,
+	// from the secrets manager). SigningKeyID names it (default 1). Secrets already issued keep
+	// the key they were derived with, so replacing the key needs a rotation (ADR-0008): set
+	// PreviousSigningKey to the old key, SigningKeyID to a new id, and PreviousSigningKeyID to the
+	// old one's.
+	SigningKey   string
+	SigningKeyID int
+	// PreviousSigningKey is set only during a key rotation, and removed once no endpoint uses it
+	// (riskosctl webhooks key-usage).
+	PreviousSigningKey   string
+	PreviousSigningKeyID int
 	// Timeout bounds each delivery attempt.
 	Timeout time.Duration
 	// Concurrency is the number of deliveries the worker runs at once.
 	Concurrency int
+	// TenantConcurrency bounds how many of those one tenant may hold, so a tenant with slow
+	// endpoints cannot starve the others. Zero in the struct means the default, half of
+	// Concurrency (at least 1); it never exceeds Concurrency.
+	TenantConcurrency int
 	// AllowPrivateTest lets test-environment endpoints use http:// and private addresses, for
 	// local development only. Refused when RISKOS_ENV=production.
 	AllowPrivateTest bool
+}
+
+// EffectiveTenantConcurrency is the per-tenant bound in force: TenantConcurrency, or half of
+// Concurrency (at least 1) when unset.
+func (w Webhooks) EffectiveTenantConcurrency() int {
+	if w.TenantConcurrency > 0 {
+		return w.TenantConcurrency
+	}
+	return max(1, w.Concurrency/2)
 }
 
 // Validate checks the webhook settings; call it in binaries that sign or deliver webhooks.
@@ -138,11 +203,32 @@ func (w Webhooks) Validate() error {
 	if len(w.SigningKey) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_WEBHOOK_SIGNING_KEY: required, at least %d bytes", MinPepperBytes))
 	}
+	current := w.SigningKeyID
+	if current == 0 {
+		current = 1 // the default
+	}
+	if current < 1 || current > 32000 {
+		errs = append(errs, errors.New("RISKOS_WEBHOOK_SIGNING_KEY_ID: must be between 1 and 32000"))
+	}
+	if w.PreviousSigningKey != "" {
+		if len(w.PreviousSigningKey) < MinPepperBytes {
+			errs = append(errs, fmt.Errorf("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS: at least %d bytes when set", MinPepperBytes))
+		}
+		if w.PreviousSigningKey == w.SigningKey {
+			errs = append(errs, errors.New("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS: must differ from RISKOS_WEBHOOK_SIGNING_KEY"))
+		}
+		if w.PreviousSigningKeyID < 1 || w.PreviousSigningKeyID > 32000 || w.PreviousSigningKeyID == current {
+			errs = append(errs, errors.New("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS_ID: required and different from RISKOS_WEBHOOK_SIGNING_KEY_ID"))
+		}
+	}
 	if w.Timeout < time.Second || w.Timeout > 30*time.Second {
 		errs = append(errs, errors.New("RISKOS_WEBHOOK_TIMEOUT: must be between 1s and 30s"))
 	}
 	if w.Concurrency < 1 {
 		errs = append(errs, errors.New("RISKOS_WEBHOOK_CONCURRENCY: must be at least 1"))
+	}
+	if w.TenantConcurrency < 0 || (w.Concurrency >= 1 && w.TenantConcurrency > w.Concurrency) {
+		errs = append(errs, errors.New("RISKOS_WEBHOOK_TENANT_CONCURRENCY: must be between 1 and RISKOS_WEBHOOK_CONCURRENCY (0 for the default)"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
@@ -161,6 +247,9 @@ type Risk struct {
 	// HistoryWarmup is how long history signals are held back after the feature store lost its
 	// state (DISASTER_RECOVERY.md). Zero detects and records resets without holding back.
 	HistoryWarmup time.Duration
+	// BaselineMaxPerHour caps how many transactions per hour teach one user's amount baseline in
+	// one currency, so a burst cannot move it quickly. Zero removes the cap.
+	BaselineMaxPerHour int
 }
 
 // Validate checks the risk settings; call it in binaries that evaluate events.
@@ -174,6 +263,9 @@ func (r Risk) Validate() error {
 	}
 	if r.HistoryWarmup < 0 || r.HistoryWarmup > 90*24*time.Hour {
 		errs = append(errs, errors.New("RISKOS_HISTORY_WARMUP: must be between 0 and 90 days"))
+	}
+	if r.BaselineMaxPerHour < 0 || r.BaselineMaxPerHour > 10000 {
+		errs = append(errs, errors.New("RISKOS_BASELINE_MAX_UPDATES_PER_HOUR: must be between 0 and 10000"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
@@ -248,6 +340,11 @@ type Auth struct {
 	// must be at least 32 bytes, and must never change without a rotation plan (every key would
 	// stop verifying).
 	APIKeyPepper string
+	// APIKeyPepperPrevious is set only during a pepper rotation (ADR-0008): the pepper keys were
+	// hashed with before APIKeyPepper. Keys that verify against it are rehashed under the
+	// current one; remove it once riskos.auth.previous_pepper has been zero for the retirement
+	// period.
+	APIKeyPepperPrevious string
 	// APIKeyCacheTTL bounds revocation staleness per instance (ARCHITECTURE.md §9: 5 s maximum).
 	APIKeyCacheTTL time.Duration
 }
@@ -263,6 +360,14 @@ func (a Auth) Validate() error {
 	var errs []error
 	if len(a.APIKeyPepper) < MinPepperBytes {
 		errs = append(errs, fmt.Errorf("RISKOS_API_KEY_PEPPER: required, at least %d bytes", MinPepperBytes))
+	}
+	if p := a.APIKeyPepperPrevious; p != "" {
+		if len(p) < MinPepperBytes {
+			errs = append(errs, fmt.Errorf("RISKOS_API_KEY_PEPPER_PREVIOUS: at least %d bytes when set", MinPepperBytes))
+		}
+		if p == a.APIKeyPepper {
+			errs = append(errs, errors.New("RISKOS_API_KEY_PEPPER_PREVIOUS: must differ from RISKOS_API_KEY_PEPPER"))
+		}
 	}
 	if a.APIKeyCacheTTL < 0 || a.APIKeyCacheTTL > MaxAPIKeyCacheTTL {
 		errs = append(errs, fmt.Errorf("RISKOS_API_KEY_CACHE_TTL: must be between 0s and %s", MaxAPIKeyCacheTTL))
@@ -293,6 +398,10 @@ type HTTP struct {
 	// TrustedProxies are the networks of proxies in front of the API (load balancer, the
 	// console's server). Only their X-Forwarded-For is believed; see httpx.ClientIP.
 	TrustedProxies []netip.Prefix
+	// AdminAllowedCIDRs limits the staff realm (/api/admin/) to these client networks; any other
+	// address gets the 404 of a path that does not exist. Empty allows every address. The
+	// address is the one httpx.ClientIP works out, so it depends on TrustedProxies being right.
+	AdminAllowedCIDRs []netip.Prefix
 	// ShutdownDrainDelay is how long readiness reports "unavailable" before the listener closes,
 	// giving load balancers time to stop routing new traffic.
 	ShutdownDrainDelay time.Duration
@@ -357,15 +466,21 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			Timeout:  r.duration("RISKOS_SMTP_TIMEOUT", 10*time.Second),
 		},
 		Webhooks: Webhooks{
-			SigningKey:       r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
-			Timeout:          r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
-			Concurrency:      r.integer("RISKOS_WEBHOOK_CONCURRENCY", 10),
-			AllowPrivateTest: r.boolean("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST", false),
+			SigningKey:           r.str("RISKOS_WEBHOOK_SIGNING_KEY", ""),
+			SigningKeyID:         r.integer("RISKOS_WEBHOOK_SIGNING_KEY_ID", 1),
+			PreviousSigningKey:   r.str("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS", ""),
+			PreviousSigningKeyID: r.integer("RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS_ID", 0),
+			Timeout:              r.duration("RISKOS_WEBHOOK_TIMEOUT", 10*time.Second),
+			Concurrency:          r.integer("RISKOS_WEBHOOK_CONCURRENCY", 10),
+			TenantConcurrency:    r.integer("RISKOS_WEBHOOK_TENANT_CONCURRENCY", 0),
+			AllowPrivateTest:     r.boolean("RISKOS_WEBHOOK_ALLOW_PRIVATE_TEST", false),
 		},
 		Risk: Risk{
 			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
 			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
 			HistoryWarmup:  r.duration("RISKOS_HISTORY_WARMUP", 7*24*time.Hour),
+
+			BaselineMaxPerHour: r.integer("RISKOS_BASELINE_MAX_UPDATES_PER_HOUR", 60),
 		},
 		RateLimit: RateLimit{
 			KeyPerSecond:          r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),
@@ -377,8 +492,9 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			AuthFailuresBurst:     r.integer("RISKOS_RATE_LIMIT_AUTH_FAILURES_BURST", 30),
 		},
 		Auth: Auth{
-			APIKeyPepper:   r.str("RISKOS_API_KEY_PEPPER", ""),
-			APIKeyCacheTTL: r.duration("RISKOS_API_KEY_CACHE_TTL", MaxAPIKeyCacheTTL),
+			APIKeyPepper:         r.str("RISKOS_API_KEY_PEPPER", ""),
+			APIKeyPepperPrevious: r.str("RISKOS_API_KEY_PEPPER_PREVIOUS", ""),
+			APIKeyCacheTTL:       r.duration("RISKOS_API_KEY_CACHE_TTL", MaxAPIKeyCacheTTL),
 		},
 		Env:         Environment(r.str("RISKOS_ENV", string(EnvDevelopment))),
 		ServiceName: r.str("RISKOS_SERVICE_NAME", "riskos"),
@@ -386,6 +502,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		HTTP: HTTP{
 			Addr:               r.str("RISKOS_HTTP_ADDR", ":8080"),
 			TrustedProxies:     r.prefixes("RISKOS_TRUSTED_PROXIES"),
+			AdminAllowedCIDRs:  r.prefixes("RISKOS_ADMIN_ALLOWED_CIDRS"),
 			ReadHeaderTimeout:  r.duration("RISKOS_HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
 			ReadTimeout:        r.duration("RISKOS_HTTP_READ_TIMEOUT", 10*time.Second),
 			WriteTimeout:       r.duration("RISKOS_HTTP_WRITE_TIMEOUT", 15*time.Second),
@@ -453,6 +570,11 @@ func (c Config) validate() []error {
 	for _, p := range c.HTTP.TrustedProxies {
 		if p.Bits() == 0 && c.Env == EnvProduction {
 			add("RISKOS_TRUSTED_PROXIES: production must name its proxies, not trust every address")
+		}
+	}
+	for _, p := range c.HTTP.AdminAllowedCIDRs {
+		if p.Bits() == 0 {
+			add("RISKOS_ADMIN_ALLOWED_CIDRS: %s allows every address; leave the list empty instead", p)
 		}
 	}
 	if c.RateLimit.AuthFailuresPerMinute < 0 || c.RateLimit.AuthFailuresBurst < 1 {
@@ -712,10 +834,11 @@ func (r *reader) logLevel(key string, def slog.Level) slog.Level {
 
 func consoleConfig(r *reader) Console {
 	c := Console{
-		Secret:       r.str("RISKOS_CONSOLE_SECRET", ""),
-		URL:          strings.TrimRight(r.str("RISKOS_CONSOLE_URL", "http://localhost:3000"), "/"),
-		RPID:         r.str("RISKOS_WEBAUTHN_RP_ID", ""),
-		CookieSecure: r.boolean("RISKOS_SESSION_COOKIE_SECURE", true),
+		Secret:         r.str("RISKOS_CONSOLE_SECRET", ""),
+		SecretPrevious: r.str("RISKOS_CONSOLE_SECRET_PREVIOUS", ""),
+		URL:            strings.TrimRight(r.str("RISKOS_CONSOLE_URL", "http://localhost:3000"), "/"),
+		RPID:           r.str("RISKOS_WEBAUTHN_RP_ID", ""),
+		CookieSecure:   r.boolean("RISKOS_SESSION_COOKIE_SECURE", true),
 
 		BreachedPasswordCheck: r.str("RISKOS_BREACHED_PASSWORD_CHECK", "pwned"),
 		BreachedPasswordURL:   r.str("RISKOS_BREACHED_PASSWORD_URL", ""),
@@ -724,6 +847,10 @@ func consoleConfig(r *reader) Console {
 		SignupRegion:          r.str("RISKOS_SIGNUP_REGION", ""),
 		GoogleClientID:        r.str("RISKOS_GOOGLE_CLIENT_ID", ""),
 		GoogleClientSecret:    r.str("RISKOS_GOOGLE_CLIENT_SECRET", ""),
+		StaffSSOIssuer:        r.str("RISKOS_STAFF_SSO_ISSUER", ""),
+		StaffSSOClientID:      r.str("RISKOS_STAFF_SSO_CLIENT_ID", ""),
+		StaffSSOClientSecret:  r.str("RISKOS_STAFF_SSO_CLIENT_SECRET", ""),
+		StaffSSORequired:      r.boolean("RISKOS_STAFF_SSO_REQUIRED", false),
 	}
 	if raw := r.str("RISKOS_CONSOLE_ORIGINS", ""); raw != "" {
 		for _, o := range strings.Split(raw, ",") {

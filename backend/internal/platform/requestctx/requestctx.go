@@ -1,7 +1,7 @@
 // Package requestctx carries request-scoped values through context.Context.
 //
-// Only correlation data lives here. Security principals (tenant, actor) will get their own typed
-// accessors during system design (TODO(phase-0)) and are never read from client-supplied input.
+// Only correlation data lives here. Security principals (tenant, actor) live in platform/tenancy and are never read from
+// client-supplied input.
 package requestctx
 
 import (

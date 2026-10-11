@@ -31,10 +31,16 @@ func (q *Queries) CountDenyEntries(ctx context.Context, arg CountDenyEntriesPara
 
 const countRules = `-- name: CountRules :one
 SELECT count(*) FROM rules
+WHERE tenant_id = $1 AND environment_id = $2
 `
 
-func (q *Queries) CountRules(ctx context.Context) (int64, error) {
-	row := q.db.QueryRow(ctx, countRules)
+type CountRulesParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+func (q *Queries) CountRules(ctx context.Context, arg CountRulesParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRules, arg.TenantID, arg.EnvironmentID)
 	var count int64
 	err := row.Scan(&count)
 	return count, err

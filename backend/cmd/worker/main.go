@@ -14,16 +14,20 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/tobioyinlola/RiskOS/backend/internal/admin"
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/config"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/db"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
@@ -63,6 +67,10 @@ func run() (err error) {
 		return err
 	}
 	defer func() { err = errors.Join(err, tel.Shutdown(context.WithoutCancel(ctx))) }()
+	appMetrics, err := appmetrics.New(tel.MeterProvider)
+	if err != nil {
+		return err
+	}
 
 	pool, err := db.NewPool(ctx, cfg.Postgres)
 	if err != nil {
@@ -82,14 +90,35 @@ func run() (err error) {
 	// alerts and webhooks depend on each other at run time only: alerts publish webhook events,
 	// and a webhook endpoint disabled for failing raises a security alert.
 	var alertsModule *alerts.Module
-	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, inserter, webhooks.Config{
-		SigningKey: []byte(cfg.Webhooks.SigningKey), Timeout: cfg.Webhooks.Timeout, AllowPrivateTest: cfg.Webhooks.AllowPrivateTest,
-	}, webhooks.NotifierFunc(func(ctx context.Context, id uuid.UUID) error {
+	webhookCfg := webhooks.Config{
+		SigningKey: []byte(cfg.Webhooks.SigningKey), SigningKeyID: cfg.Webhooks.SigningKeyID,
+		PreviousSigningKey: []byte(cfg.Webhooks.PreviousSigningKey), PreviousSigningKeyID: cfg.Webhooks.PreviousSigningKeyID,
+		Timeout: cfg.Webhooks.Timeout, AllowPrivateTest: cfg.Webhooks.AllowPrivateTest,
+		TenantConcurrency: cfg.Webhooks.EffectiveTenantConcurrency(),
+		Metrics:           appMetrics,
+	}
+	// Refuse to start without a signing key some endpoint still uses (ADR-0008).
+	if err := webhooks.VerifyKeyring(ctx, pool, webhookCfg); err != nil {
+		return err
+	}
+	logging.WarnRotations(ctx, logger, cfg.RotationsInProgress())
+	if unused, err := webhooks.PreviousKeyUnused(ctx, pool, webhookCfg); err == nil && unused {
+		logger.WarnContext(ctx, "no webhook endpoint uses the previous signing key any more; remove RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS")
+	}
+	webhooksModule := webhooks.New(runner, auditModule.Recorder(), clk, inserter, webhookCfg, webhooks.NotifierFunc(func(ctx context.Context, id uuid.UUID) error {
 		return alertsModule.WebhookEndpointDisabled(ctx, id)
 	}), logger)
 	alertsModule = alerts.New(runner, auditModule.Recorder(), clk, webhooksModule.Publisher(), logger)
 
 	registry := jobs.NewRegistry()
+	// The staff realm: its enrollment emails (below, with email) and the hourly usage check.
+	adminModule, err := admin.New(pool, tenantsModule, runner, auditModule.Recorder(), clk, admin.Config{
+		Secret: []byte(cfg.Console.Secret), SecretPrevious: []byte(cfg.Console.SecretPrevious), Logger: logger,
+	})
+	if err != nil {
+		return err
+	}
+	jobs.RegisterPeriodic(registry, time.Hour, admin.UsageCheckArgs{}, adminModule.UsageJob())
 	if cfg.SMTP.Enabled() {
 		sender, err := mail.NewSMTP(mail.Config{
 			Host: cfg.SMTP.Host, Port: cfg.SMTP.Port, Username: cfg.SMTP.Username, Password: cfg.SMTP.Password,
@@ -100,11 +129,14 @@ func run() (err error) {
 		}
 		cc := auth.DefaultConsole()
 		cc.Secret, cc.RPID, cc.Origins = []byte(cfg.Console.Secret), cfg.Console.RPID, cfg.Console.Origins
+		cc.SecretPrevious = []byte(cfg.Console.SecretPrevious)
 		authModule := auth.New(pool, runner, auditModule.Recorder(), clk, auth.Config{
 			Console: cc, Cookie: auth.CookieConfig{ConsoleURL: cfg.Console.URL}, Logger: logger,
 		})
 		jobs.Register(registry, authModule.InviteEmailJob(sender))
 		jobs.Register(registry, authModule.SignupEmailJob(sender))
+		// Staff accounts created from the console are emailed their enrollment link here.
+		jobs.Register(registry, adminModule.EnrollmentEmailJob(sender, cfg.Console.URL))
 		logger.InfoContext(ctx, "invite and sign-up emails enabled", slog.String("smtp_host", cfg.SMTP.Host))
 	}
 	jobs.Register(registry, jobs.NoopHandler(logger))
@@ -112,6 +144,11 @@ func run() (err error) {
 	rulesModule := rules.New(runner, auditModule.Recorder())
 	jobs.Register(registry, rulesModule.TasksJob(tenantsModule, clk, logger))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, rules.DailyArgs{}, rulesModule.DailyJob(pool, tenantsModule, clk, logger))
+	// The analytics page reads hourly rollups of events and signals, kept up to date here. The
+	// module is built without an evaluator: the job only reads and writes aggregates.
+	eventsModule := events.New(runner, nil, nil, nil, clk, nil)
+	jobs.RegisterPeriodic(registry, time.Hour, events.RollupArgs{},
+		eventsModule.RollupJob(pool, tenantsModule, risk.NewSignalRollup(runner, clk), logger))
 	jobs.Register(registry, webhooksModule.DeliverJob(tenantsModule))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, jobs.EnsurePartitionsArgs{}, func(ctx context.Context, _ jobs.EnsurePartitionsArgs) error {
 		created, err := db.EnsureTimePartitions(ctx, pool, db.PartitionMonthsAhead)
@@ -126,6 +163,7 @@ func run() (err error) {
 		Concurrency: cfg.Worker.Concurrency,
 		JobTimeout:  cfg.Worker.JobTimeout,
 		Queues:      map[string]int{jobs.QueueWebhooks: cfg.Webhooks.Concurrency},
+		Metrics:     appMetrics,
 	}, logger)
 	if err != nil {
 		return err

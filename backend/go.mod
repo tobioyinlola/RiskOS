@@ -2,7 +2,7 @@ module github.com/tobioyinlola/RiskOS/backend
 
 go 1.27
 
-toolchain go1.27.1
+toolchain go1.27.2
 
 require (
 	github.com/coreos/go-oidc/v3 v3.21.0
@@ -18,6 +18,7 @@ require (
 	github.com/redis/go-redis/v9 v9.22.0
 	github.com/riverqueue/river v0.47.0
 	github.com/riverqueue/river/riverdriver/riverpgxv5 v0.47.0
+	github.com/riverqueue/river/rivertype v0.47.0
 	github.com/stretchr/testify v1.12.1
 	github.com/testcontainers/testcontainers-go v0.44.0
 	github.com/testcontainers/testcontainers-go/modules/postgres v0.44.0
@@ -87,7 +88,6 @@ require (
 	github.com/power-devops/perfstat v0.0.0-20240221224432-82ca36839d55 // indirect
 	github.com/riverqueue/river/riverdriver v0.47.0 // indirect
 	github.com/riverqueue/river/rivershared v0.47.0 // indirect
-	github.com/riverqueue/river/rivertype v0.47.0 // indirect
 	github.com/santhosh-tekuri/jsonschema/v6 v6.0.3 // indirect
 	github.com/sethvargo/go-retry v0.4.0 // indirect
 	github.com/shirou/gopsutil/v4 v4.26.6 // indirect
@@ -107,7 +107,7 @@ require (
 	go.uber.org/atomic v1.11.0 // indirect
 	go.uber.org/multierr v1.11.0 // indirect
 	go.yaml.in/yaml/v3 v3.0.5 // indirect
-	golang.org/x/net v0.58.0 // indirect
+	golang.org/x/net v0.60.0 // indirect
 	golang.org/x/sync v0.23.0 // indirect
 	golang.org/x/sys v0.48.0 // indirect
 	google.golang.org/genproto/googleapis/api v0.0.0-20260819154853-08b0e4226688 // indirect

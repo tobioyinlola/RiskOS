@@ -2,7 +2,6 @@ package handler
 
 import (
 	"context"
-	"encoding/json"
 	"time"
 
 	"github.com/google/uuid"
@@ -127,16 +126,7 @@ func (h *Handlers) ListStaffAudit(ctx context.Context, req adminapi.ListStaffAud
 	}
 	out := adminapi.ListStaffAudit200JSONResponse{Data: make([]adminapi.StaffAuditEntry, len(rows))}
 	for i, r := range rows {
-		meta := map[string]any{}
-		_ = json.Unmarshal(r.Metadata, &meta) //nolint:errcheck // written by us as an object
-		e := adminapi.StaffAuditEntry{
-			Id: r.ID.String(), OccurredAt: r.OccurredAt, Actor: r.Actor, Action: r.Action,
-			ResourceId: r.ResourceID, Outcome: r.Outcome, Metadata: meta,
-		}
-		if r.TenantID != nil {
-			e.TenantId = new(ids.Format(ids.PrefixTenant, *r.TenantID))
-		}
-		out.Data[i] = e
+		out.Data[i] = auditToAPI(r)
 	}
 	return out, nil
 }

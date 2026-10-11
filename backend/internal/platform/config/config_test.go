@@ -37,6 +37,16 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, int64(64<<10), cfg.HTTP.MaxBodyBytes)
 	assert.Equal(t, int32(20), cfg.Postgres.MaxConns)
 	assert.False(t, cfg.Telemetry.Enabled)
+	assert.Empty(t, cfg.HTTP.AdminAllowedCIDRs, "the staff realm is open to every address unless limited")
+}
+
+func TestLoadAdminAllowlist(t *testing.T) {
+	env := minimalEnv()
+	env["RISKOS_ADMIN_ALLOWED_CIDRS"] = "203.0.113.0/24, 2001:db8::/32"
+	cfg, err := config.Load(lookupFrom(env))
+	require.NoError(t, err)
+	require.Len(t, cfg.HTTP.AdminAllowedCIDRs, 2)
+	assert.Equal(t, "203.0.113.0/24", cfg.HTTP.AdminAllowedCIDRs[0].String())
 }
 
 func TestLoadOverrides(t *testing.T) {
@@ -78,6 +88,8 @@ func TestLoadRejectsInvalid(t *testing.T) {
 		{"production requires redis password", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "RISKOS_REDIS_PASSWORD"},
 		{"production requires verified postgres TLS", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "sslmode=verify-full"},
 		{"bad migration url", func(e map[string]string) { e["RISKOS_POSTGRES_MIGRATION_URL"] = "not-a-url" }, "RISKOS_POSTGRES_MIGRATION_URL"},
+		{"admin allowlist that is every address", func(e map[string]string) { e["RISKOS_ADMIN_ALLOWED_CIDRS"] = "0.0.0.0/0" }, "RISKOS_ADMIN_ALLOWED_CIDRS"},
+		{"admin allowlist that is not a network", func(e map[string]string) { e["RISKOS_ADMIN_ALLOWED_CIDRS"] = "office" }, "RISKOS_ADMIN_ALLOWED_CIDRS"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -116,6 +128,9 @@ func TestAuthValidate(t *testing.T) {
 		{"missing pepper", config.Auth{APIKeyCacheTTL: time.Second}, "RISKOS_API_KEY_PEPPER"},
 		{"short pepper", config.Auth{APIKeyPepper: "short"}, "RISKOS_API_KEY_PEPPER"},
 		{"cache ttl above revocation bound", config.Auth{APIKeyPepper: strings.Repeat("p", 32), APIKeyCacheTTL: 6 * time.Second}, "RISKOS_API_KEY_CACHE_TTL"},
+		{"rotation", config.Auth{APIKeyPepper: strings.Repeat("n", 32), APIKeyPepperPrevious: strings.Repeat("o", 32)}, ""},
+		{"previous too weak", config.Auth{APIKeyPepper: strings.Repeat("n", 32), APIKeyPepperPrevious: "tiny"}, "RISKOS_API_KEY_PEPPER_PREVIOUS"},
+		{"previous equals current", config.Auth{APIKeyPepper: strings.Repeat("n", 32), APIKeyPepperPrevious: strings.Repeat("n", 32)}, "must differ"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -144,6 +159,7 @@ func TestRiskValidate(t *testing.T) {
 		{"no timeout", config.Risk{FeatureHashKey: key}, "RISKOS_FEATURE_TIMEOUT"},
 		{"timeout too long", config.Risk{FeatureHashKey: key, FeatureTimeout: 2 * time.Second}, "RISKOS_FEATURE_TIMEOUT"},
 		{"negative warm-up", config.Risk{FeatureHashKey: key, FeatureTimeout: 50 * time.Millisecond, HistoryWarmup: -time.Hour}, "RISKOS_HISTORY_WARMUP"},
+		{"negative baseline cap", config.Risk{FeatureHashKey: key, FeatureTimeout: 50 * time.Millisecond, BaselineMaxPerHour: -1}, "RISKOS_BASELINE_MAX_UPDATES_PER_HOUR"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -168,6 +184,40 @@ func TestWebhooksValidate(t *testing.T) {
 		assert.Contains(t, err.Error(), want)
 	}
 	assert.NotContains(t, err.Error(), "short", "the key must never be echoed")
+}
+
+func TestWebhooksKeyRotationValidate(t *testing.T) {
+	cur, prev := strings.Repeat("c", 32), strings.Repeat("p", 32)
+	base := config.Webhooks{SigningKey: cur, Timeout: 10 * time.Second, Concurrency: 1}
+	with := func(f func(*config.Webhooks)) config.Webhooks { w := base; f(&w); return w }
+
+	assert.NoError(t, with(func(w *config.Webhooks) { w.SigningKeyID = 2 }).Validate(), "a current key id alone")
+	assert.NoError(t, with(func(w *config.Webhooks) {
+		w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, prev, 1
+	}).Validate(), "a rotation")
+	assert.NoError(t, with(func(w *config.Webhooks) {
+		w.PreviousSigningKey, w.PreviousSigningKeyID = prev, 2
+	}).Validate(), "the current id defaults to 1")
+
+	for name, w := range map[string]config.Webhooks{
+		"previous without an id": with(func(w *config.Webhooks) { w.PreviousSigningKey = prev }),
+		"previous id equals current": with(func(w *config.Webhooks) {
+			w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, prev, 2
+		}),
+		"previous key equals current": with(func(w *config.Webhooks) {
+			w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, cur, 1
+		}),
+		"previous key too short": with(func(w *config.Webhooks) {
+			w.SigningKeyID, w.PreviousSigningKey, w.PreviousSigningKeyID = 2, "tiny", 1
+		}),
+	} {
+		t.Run(name, func(t *testing.T) {
+			err := w.Validate()
+			require.Error(t, err)
+			assert.Contains(t, err.Error(), "RISKOS_WEBHOOK_SIGNING_KEY_PREVIOUS")
+			assert.NotContains(t, err.Error(), prev, "keys are never echoed")
+		})
+	}
 }
 
 func TestPrivateWebhooksRefusedInProduction(t *testing.T) {
@@ -204,6 +254,7 @@ func TestLoadRiskDefaults(t *testing.T) {
 	require.NoError(t, err)
 	assert.Equal(t, 50*time.Millisecond, cfg.Risk.FeatureTimeout)
 	assert.Equal(t, 7*24*time.Hour, cfg.Risk.HistoryWarmup)
+	assert.Equal(t, 60, cfg.Risk.BaselineMaxPerHour)
 	assert.False(t, cfg.SMTP.Enabled())
 	assert.Equal(t, 587, cfg.SMTP.Port)
 	assert.Equal(t, "starttls", cfg.SMTP.TLS)

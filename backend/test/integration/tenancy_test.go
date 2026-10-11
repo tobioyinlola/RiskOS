@@ -71,6 +71,23 @@ type stackConfig struct {
 	// signup enables self-serve sign-up; google, when set, Google sign-in.
 	signup bool
 	google *auth.GoogleConfig
+	// assigneeCheck makes assigning alerts and cases require an active dashboard user, as in the API.
+	assigneeCheck bool
+	// adminEmail lets the staff console create accounts (enrollment links are emailed).
+	adminEmail bool
+	// staffSSO configures staff single sign-on.
+	staffSSO admin.SSOConfig
+}
+
+// withAdminEmail says the deployment can email enrollment links, so staff accounts can be created
+// from the console.
+func withAdminEmail() stackOption {
+	return func(c *stackConfig) { c.adminEmail = true }
+}
+
+// withAssigneeValidation turns on the assignee check the API binary has.
+func withAssigneeValidation() stackOption {
+	return func(c *stackConfig) { c.assigneeCheck = true }
 }
 
 // withSignup enables self-serve sign-up (and Google sign-in with google, if not nil).
@@ -183,26 +200,41 @@ func newStackWith(t *testing.T, cacheTTL time.Duration, limits httpapi.RateLimit
 	if sc.admin {
 		rpid, origins := authModule.PasskeyRP()
 		adminModule, err = admin.New(shared.pool, tenants.New(runner, auditModule.Recorder()), runner, auditModule.Recorder(), clk,
-			admin.Config{Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger})
+			admin.Config{
+				Secret: []byte("integration-admin-secret-0123456789abcdef"), RPID: rpid, Origins: origins, Logger: shared.logger,
+				DefaultLimits: ratelimit.Override{PerKey: limits.PerKey, PerTenant: limits.PerTenant},
+				LimitCacheTTL: 100 * time.Millisecond,
+				Jobs:          queue, EmailEnabled: sc.adminEmail,
+				SSO: sc.staffSSO,
+			})
 		require.NoError(t, err)
 		authModule.SetSupport(adminModule)
+	}
+	var overrides ratelimit.Overrides // a nil *admin.Module must not become a non-nil interface
+	if adminModule != nil {
+		overrides = adminModule
 	}
 	casesModule := cases.New(runner, alertsModule.Linker(), auditModule.Recorder(), clk, webhooksModule.Publisher())
 	rulesModule := rules.New(runner, auditModule.Recorder())
 	rulesModule.ConnectWorkflow(alertsModule, casesModule)
+	if sc.assigneeCheck {
+		alertsModule.SetAssignees(authModule)
+		casesModule.SetAssignees(authModule)
+	}
 	h, err := httpapi.New(httpapi.Deps{
 		Tenants: tenants.New(runner, auditModule.Recorder()),
 		Rules:   rulesModule,
 		Logger:  shared.logger, Clock: clk, Telemetry: tel,
 		HTTP:   config.HTTP{RequestTimeout: 5 * time.Second, MaxBodyBytes: 64 << 10},
 		Health: health.NewService(shared.logger), Auth: authModule, Audit: auditModule,
-		Events:   events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk),
-		Risk:     riskModule,
-		Alerts:   alertsModule,
-		Cases:    casesModule,
-		Webhooks: webhooksModule,
-		Admin:    adminModule,
-		Limiter:  ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
+		Events:    events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, nil),
+		Risk:      riskModule,
+		Alerts:    alertsModule,
+		Cases:     casesModule,
+		Webhooks:  webhooksModule,
+		Admin:     adminModule,
+		Overrides: overrides,
+		Limiter:   ratelimit.New(shared.rdb, 50*time.Millisecond), RateLimits: limits,
 	})
 	require.NoError(t, err)
 	return stack{
@@ -683,3 +715,6 @@ func TestSuspendedTenantIsRejected(t *testing.T) {
 	_, err = s.tenants.OperatorScope(t.Context(), a.id, tenancy.EnvironmentProduction, "riskosctl:integration")
 	assert.ErrorIs(t, err, tenants.ErrNotActive, "operators cannot issue keys for a suspended tenant either")
 }
+
+// withStaffSSO configures the identity provider staff sign in through.
+func withStaffSSO(c admin.SSOConfig) stackOption { return func(s *stackConfig) { s.staffSSO = c } }

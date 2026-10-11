@@ -76,6 +76,29 @@ type AlertEvaluation struct {
 	EvaluatedAt     time.Time
 }
 
+type AnalyticsHourly struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Bucket        time.Time
+	Events        int64
+	ScoreSum      int64
+	Minimal       int64
+	Low           int64
+	Elevated      int64
+	High          int64
+	Critical      int64
+	Allow         int64
+	Fee           int64
+	Flag          int64
+	StepUp        int64
+	Review        int64
+	Restrict      int64
+	Hold          int64
+	BlockSession  int64
+	Decline       int64
+	Block         int64
+}
+
 type ApiKey struct {
 	ID            uuid.UUID
 	TenantID      uuid.UUID
@@ -421,6 +444,15 @@ type RiskSetting struct {
 	AutoBlockShadowSince *time.Time
 }
 
+type RollupState struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Name          string
+	CoveredFrom   time.Time
+	RolledThrough time.Time
+	UpdatedAt     time.Time
+}
+
 type Rule struct {
 	TenantID       uuid.UUID
 	EnvironmentID  uuid.UUID
@@ -483,6 +515,15 @@ type RuleVersion struct {
 	RestoredFrom  *int32
 }
 
+type SignalsHourly struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Bucket        time.Time
+	Code          string
+	Label         string
+	Hits          int64
+}
+
 type Signup struct {
 	ID              uuid.UUID
 	TokenHash       []byte
@@ -509,15 +550,27 @@ type SsoConnection struct {
 	Enabled         bool
 	UpdatedAt       time.Time
 	UpdatedBy       string
+	Required        bool
+	JitEnabled      bool
+	JitRole         string
+}
+
+type SsoDomain struct {
+	TenantID   uuid.UUID
+	Domain     string
+	CreatedAt  time.Time
+	CreatedBy  string
+	VerifiedAt *time.Time
 }
 
 type SsoLogin struct {
 	StateHash   []byte
 	BrowserHash []byte
 	TenantID    uuid.UUID
-	UserID      uuid.UUID
+	UserID      *uuid.UUID
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
+	Email       *string
 }
 
 type Staff struct {
@@ -532,15 +585,40 @@ type Staff struct {
 	CreatedBy       string
 }
 
+type StaffAccountRequest struct {
+	ID           uuid.UUID
+	Email        string
+	Name         string
+	Role         string
+	Reason       string
+	Status       string
+	RequestedBy  uuid.UUID
+	CreatedAt    time.Time
+	DecidedBy    *uuid.UUID
+	DecidedAt    *time.Time
+	DecisionNote *string
+	StaffID      *uuid.UUID
+}
+
+type StaffAuditChainHead struct {
+	Singleton bool
+	Seq       int64
+	Hash      []byte
+}
+
 type StaffAuditLog struct {
-	ID         uuid.UUID
-	OccurredAt time.Time
-	Actor      string
-	Action     string
-	TenantID   *uuid.UUID
-	ResourceID string
-	Outcome    string
-	Metadata   []byte
+	ID           uuid.UUID
+	OccurredAt   time.Time
+	Actor        string
+	Action       string
+	TenantID     *uuid.UUID
+	ResourceID   string
+	Outcome      string
+	Metadata     []byte
+	Seq          *int64
+	PrevHash     []byte
+	Hash         []byte
+	MetadataText *string
 }
 
 type StaffCeremony struct {
@@ -577,6 +655,13 @@ type StaffSession struct {
 	UserAgent  string
 }
 
+type StaffSsoIdentity struct {
+	StaffID uuid.UUID
+	Issuer  string
+	Subject string
+	BoundAt time.Time
+}
+
 type SupportAccess struct {
 	ID              uuid.UUID
 	TenantID        uuid.UUID
@@ -602,6 +687,17 @@ type Tenant struct {
 	Origin            string
 }
 
+type TenantLimit struct {
+	TenantID           uuid.UUID
+	PerKeyPerSecond    float64
+	PerKeyBurst        int32
+	PerTenantPerSecond float64
+	PerTenantBurst     int32
+	Reason             string
+	UpdatedBy          uuid.UUID
+	UpdatedAt          time.Time
+}
+
 type TenantOnboarding struct {
 	TenantID    uuid.UUID
 	Answers     []byte
@@ -613,6 +709,35 @@ type TenantOnboarding struct {
 	ReviewedAt  *time.Time
 	ReviewedBy  *string
 	ReviewNote  *string
+}
+
+type TenantQuota struct {
+	TenantID       uuid.UUID
+	MonthlyEvents  int64
+	Reason         string
+	UpdatedBy      uuid.UUID
+	UpdatedAt      time.Time
+	UsageMonth     *time.Time
+	UsageEvents    int64
+	UsageCheckedAt *time.Time
+	ExceededMonth  *time.Time
+}
+
+type TenantStatusRequest struct {
+	ID           uuid.UUID
+	TenantID     uuid.UUID
+	Action       string
+	Reason       string
+	Status       string
+	RequestedBy  uuid.UUID
+	CreatedAt    time.Time
+	DecidedBy    *uuid.UUID
+	DecidedAt    *time.Time
+	DecisionNote *string
+	Emergency    bool
+	ReviewedBy   *uuid.UUID
+	ReviewedAt   *time.Time
+	ReviewNote   *string
 }
 
 type User struct {
@@ -709,4 +834,6 @@ type WebhookEndpoint struct {
 	CreatedAt                time.Time
 	CreatedBy                string
 	UpdatedAt                time.Time
+	SecretKeyID              int16
+	PreviousSecretKeyID      *int16
 }

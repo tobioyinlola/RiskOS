@@ -12,6 +12,7 @@ import (
 	"math"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -19,6 +20,19 @@ import (
 type Limit struct {
 	PerSecond float64
 	Burst     int
+}
+
+// Override replaces the platform's per-key and per-tenant limits for one tenant (set by RiskOS
+// staff, ADR-0010). It never changes who is limited, only how much.
+type Override struct {
+	PerKey    Limit
+	PerTenant Limit
+}
+
+// Overrides finds a tenant's override. A lookup that fails reports none, so limiting falls back
+// to the platform's limits instead of failing requests.
+type Overrides interface {
+	Override(ctx context.Context, tenantID uuid.UUID) (Override, bool)
 }
 
 // Decision is the outcome of a check.

@@ -28,6 +28,20 @@ import {
  */
 
 const NOW = "2026-09-30T12:00:00Z";
+
+const WEBHOOK = {
+  id: "whk_1",
+  url: "https://hooks.example.com/riskos",
+  description: "Fraud operations queue",
+  event_types: ["alert.created", "case.created"],
+  status: "active",
+  disabled_reason: null,
+  failing_since: null,
+  previous_secret_valid_until: null,
+  created_at: NOW,
+  created_by: "ada@example.com",
+  updated_at: NOW,
+};
 const b64url = (s: string) =>
   Buffer.from(s)
     .toString("base64")
@@ -117,6 +131,8 @@ export interface MockApi {
   /** Problems with what the browser sent; a test should end with none. */
   problems: string[];
   signedIn: boolean;
+  /** Whether the workspace has a single sign-on connection (with two claimed domains). */
+  ssoConnected: boolean;
   hasPasskey: boolean;
   changeStatus: "pending" | "approved";
   /** Events the console can list, newest first; tests push to it to simulate arrivals. */
@@ -405,6 +421,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     calls: [],
     problems: [],
     signedIn: false,
+    ssoConnected: false,
     hasPasskey: false,
     changeStatus: "pending",
     events: [],
@@ -1331,6 +1348,15 @@ export async function mockApi(page: Page): Promise<MockApi> {
           "The email or password is incorrect.",
         );
       }
+      if (body?.email === "sso-only@example.com") {
+        // A workspace that requires single sign-on refuses a correct password.
+        return error(
+          route,
+          403,
+          "SSO_REQUIRED",
+          "Your workspace requires single sign-on. Sign in with single sign-on instead.",
+        );
+      }
       return json(
         route,
         state.hasPasskey
@@ -1547,7 +1573,57 @@ export async function mockApi(page: Page): Promise<MockApi> {
       case "/sso":
         return json(route, {
           redirect_uri: `${url.origin}/sso/callback`,
-          connection: null,
+          connection: state.ssoConnected
+            ? {
+                issuer: "https://login.example.com",
+                client_id: "riskos",
+                enabled: true,
+                required: false,
+                jit_enabled: true,
+                jit_role: "analyst",
+                updated_at: NOW,
+                updated_by: "usr_admin",
+              }
+            : null,
+        });
+      case "/sso/domains":
+        if (method === "POST") {
+          return json(
+            route,
+            {
+              domain: body?.domain,
+              verified: false,
+              verified_at: null,
+              created_at: NOW,
+              txt_host: `_riskos-challenge.${body?.domain}`,
+              txt_value: "riskos-verification=abcdefghijklmnopqrstuvwxyz234567",
+            },
+            201,
+          );
+        }
+        return json(route, {
+          data: state.ssoConnected
+            ? [
+                {
+                  domain: "example.com",
+                  verified: true,
+                  verified_at: NOW,
+                  created_at: NOW,
+                  txt_host: "_riskos-challenge.example.com",
+                  txt_value:
+                    "riskos-verification=abcdefghijklmnopqrstuvwxyz234567",
+                },
+                {
+                  domain: "example.org",
+                  verified: false,
+                  verified_at: null,
+                  created_at: NOW,
+                  txt_host: "_riskos-challenge.example.org",
+                  txt_value:
+                    "riskos-verification=zyxwvutsrqponmlkjihgfedcba234567",
+                },
+              ]
+            : [],
         });
       case "/deny-list":
         if (method === "POST") {
@@ -1665,6 +1741,43 @@ export async function mockApi(page: Page): Promise<MockApi> {
         }
         return json(route, { data: state.rules });
       case "/webhooks":
+        return json(route, { data: [WEBHOOK] });
+      case "/webhooks/whk_1":
+        return json(route, WEBHOOK);
+      case "/webhooks/whk_1/deliveries":
+        return json(route, {
+          data: [
+            {
+              id: "whd_1",
+              webhook_id: "whk_1",
+              event_id: "wev_1",
+              event_type: "alert.created",
+              status: "succeeded",
+              attempts: 1,
+              next_attempt_at: null,
+              last_attempt_at: NOW,
+              last_status_code: 200,
+              last_error: null,
+              created_at: NOW,
+              completed_at: NOW,
+            },
+            {
+              id: "whd_2",
+              webhook_id: "whk_1",
+              event_id: "wev_2",
+              event_type: "case.created",
+              status: "failed",
+              attempts: 3,
+              next_attempt_at: null,
+              last_attempt_at: NOW,
+              last_status_code: 500,
+              last_error: "endpoint returned 500",
+              created_at: NOW,
+              completed_at: null,
+            },
+          ],
+          next_cursor: null,
+        });
       case "/team/invites":
         return json(route, { data: [] });
       case "/team/members":

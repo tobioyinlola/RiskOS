@@ -1,8 +1,15 @@
 "use client";
 
-import { useQueryClient } from "@tanstack/react-query";
-import { useRouter } from "next/navigation";
-import { useState, useSyncExternalStore, type FormEvent } from "react";
+import { useQuery, useQueryClient } from "@tanstack/react-query";
+import Link from "next/link";
+import { useRouter, useSearchParams } from "next/navigation";
+import {
+  useEffect,
+  useRef,
+  useState,
+  useSyncExternalStore,
+  type FormEvent,
+} from "react";
 
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/field";
@@ -23,12 +30,20 @@ function message(err: unknown, fallback: string): string {
   return fallback;
 }
 
-/** Staff sign-in: passkeys only, no email or password. */
+/** Staff sign-in: a passkey, after the identity provider when the deployment has one. */
 export function StaffLogin() {
   const router = useRouter();
   const qc = useQueryClient();
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const methods = useQuery({
+    queryKey: ["staff-auth-methods"],
+    queryFn: async () =>
+      unwrap(await adminApi().GET("/api/admin/v1/auth/methods")),
+    retry: false,
+  });
+  const sso = methods.data?.sso_enabled ?? false;
+  const ssoRequired = methods.data?.sso_required ?? false;
 
   const signIn = async () => {
     setBusy(true);
@@ -53,27 +68,115 @@ export function StaffLogin() {
     }
   };
 
+  const signInWithProvider = async () => {
+    setBusy(true);
+    setError(undefined);
+    try {
+      const s = unwrap(await adminApi().POST("/api/admin/v1/auth/sso/start"));
+      window.location.assign(s.redirect_url);
+    } catch (err) {
+      setError(message(err, "Single sign-on is unavailable. Try again."));
+      setBusy(false);
+    }
+  };
+
   return (
     <div className="flex flex-col gap-4">
       <div>
         <h1 className="text-heading-1">RiskOS staff</h1>
         <p className="mt-1 text-body text-text-secondary">
-          Sign in with the passkey you registered. Staff accounts have no
-          password.
+          {ssoRequired
+            ? "Sign in with your company identity provider, then confirm with the passkey you registered."
+            : "Sign in with the passkey you registered. Staff accounts have no password."}
         </p>
       </div>
       {error ? <Notice tone="error">{error}</Notice> : null}
       {passkeysSupported() ? null : (
         <Notice tone="warn">This browser does not support passkeys.</Notice>
       )}
-      <Button
-        variant="primary"
-        icon={<Key />}
-        disabled={busy}
-        onClick={() => void signIn()}
-      >
-        Sign in with passkey
-      </Button>
+      {sso ? (
+        <Button
+          variant="primary"
+          disabled={busy}
+          onClick={() => void signInWithProvider()}
+        >
+          Continue with single sign-on
+        </Button>
+      ) : null}
+      {ssoRequired ? null : (
+        <Button
+          variant={sso ? "secondary" : "primary"}
+          icon={<Key />}
+          disabled={busy || methods.isPending}
+          onClick={() => void signIn()}
+        >
+          Sign in with passkey
+        </Button>
+      )}
+    </div>
+  );
+}
+
+/**
+ * Where the identity provider returns: finishes its step, then asks for the passkey of the
+ * staff member it identified. The request is used up on the first try, so a failure starts
+ * again from the sign-in page.
+ */
+export function StaffSSOCallback() {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const params = useSearchParams();
+  const [error, setError] = useState<string>();
+  const started = useRef(false);
+
+  useEffect(() => {
+    if (started.current) return;
+    started.current = true;
+    const code = params.get("code");
+    const state = params.get("state");
+    void (async () => {
+      if (params.get("error") || !code || !state) {
+        setError("The identity provider did not complete the sign-in.");
+        return;
+      }
+      try {
+        // Keep the one-time code out of history before anything else happens.
+        window.history.replaceState(null, "", "/admin/sso/callback");
+        const c = unwrap(
+          await adminApi().POST("/api/admin/v1/auth/sso/callback", {
+            body: { code, state },
+          }),
+        );
+        const credential = await assertPasskey(c.options);
+        const sess = unwrap(
+          await adminApi().POST("/api/admin/v1/auth/sso/login", {
+            body: { ceremony_id: c.ceremony_id, credential },
+          }),
+        );
+        setStaffCsrfToken(sess.csrf_token);
+        await qc.resetQueries({ queryKey: ["staff"] });
+        router.replace("/admin");
+      } catch (err) {
+        setError(message(err, "Sign-in is unavailable. Try again."));
+      }
+    })();
+  }, [params, qc, router]);
+
+  return (
+    <div className="flex flex-col gap-4">
+      <h1 className="text-heading-1">Signing you in</h1>
+      {error ? (
+        <>
+          <Notice tone="error">{error}</Notice>
+          <Button asChild variant="secondary">
+            <Link href="/admin/login">Back to sign-in</Link>
+          </Button>
+        </>
+      ) : (
+        <p className="text-body text-text-secondary">
+          Confirm with your passkey when your browser asks.
+        </p>
+      )}
     </div>
   );
 }
@@ -95,6 +198,7 @@ export function StaffEnroll() {
   );
   const [error, setError] = useState<string>();
   const [busy, setBusy] = useState(false);
+  const [registered, setRegistered] = useState(false);
 
   const onSubmit = async (e: FormEvent<HTMLFormElement>) => {
     e.preventDefault();
@@ -124,6 +228,12 @@ export function StaffEnroll() {
       await qc.resetQueries({ queryKey: ["staff"] });
       router.replace("/admin");
     } catch (err) {
+      if (err instanceof ApiError && err.code === "SSO_REQUIRED") {
+        // The passkey is registered; this deployment signs in through the provider first.
+        window.history.replaceState(null, "", "/admin/enroll");
+        setRegistered(true);
+        return;
+      }
       setError(
         message(
           err,
@@ -135,6 +245,19 @@ export function StaffEnroll() {
     }
   };
 
+  if (registered) {
+    return (
+      <div className="flex flex-col gap-4">
+        <Notice tone="ok">
+          Your passkey is registered. Sign in with single sign-on, then confirm
+          with this passkey.
+        </Notice>
+        <Button asChild variant="primary">
+          <Link href="/admin/login">Go to sign-in</Link>
+        </Button>
+      </div>
+    );
+  }
   if (token === "") {
     return (
       <Notice tone="error">

@@ -18,6 +18,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/domain"
 	"github.com/tobioyinlola/RiskOS/backend/internal/events/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
@@ -36,11 +37,13 @@ type Service struct {
 	tester risk.RuleTester
 	jobs   jobs.Enqueuer
 	clock  clock.Clock
+	// metrics may be nil.
+	metrics *appmetrics.Metrics
 }
 
-// New returns a Service.
-func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, enq jobs.Enqueuer, clk clock.Clock) *Service {
-	return &Service{runner: runner, risk: evaluator, tester: tester, jobs: enq, clock: clk}
+// New returns a Service. metrics may be nil.
+func New(runner txn.Runner, evaluator risk.Evaluator, tester risk.RuleTester, enq jobs.Enqueuer, clk clock.Clock, metrics *appmetrics.Metrics) *Service {
+	return &Service{runner: runner, risk: evaluator, tester: tester, jobs: enq, clock: clk, metrics: metrics}
 }
 
 // TestRule normalizes an event and tests a rule against it without storing anything. The time
@@ -93,6 +96,18 @@ func (s *Service) prepare(raw []byte, e domain.Event) (prepared, error) {
 // event key: a retry with the same payload returns the stored outcome (replay = true); the same
 // key with a different payload returns domain.ErrIdempotencyConflict. Requires events:write.
 func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outcome domain.Outcome, replay bool, err error) {
+	defer func() {
+		switch {
+		case err == nil && replay:
+			s.metrics.Ingested(ctx, appmetrics.IngestReplayed)
+		case err == nil:
+			s.metrics.Ingested(ctx, appmetrics.IngestAccepted)
+		case isCallerError(err):
+			s.metrics.Ingested(ctx, appmetrics.IngestRejected)
+		default:
+			s.metrics.Ingested(ctx, appmetrics.IngestError)
+		}
+	}()
 	if err := authz.Require(ctx, authz.EventsWrite); err != nil {
 		return domain.Outcome{}, false, err
 	}
@@ -118,7 +133,7 @@ func (s *Service) Ingest(ctx context.Context, raw []byte, e domain.Event) (outco
 			return json.Unmarshal(prev.Response, &outcome)
 		}
 
-		res, err := s.risk.Evaluate(ctx, risk.Input{
+		res, err := s.evaluate(ctx, risk.Input{
 			Features:  risk.Features{EventType: p.normalized.Type, Normalized: p.encoded},
 			EventKey:  e.Key,
 			EventID:   &eventID,
@@ -240,7 +255,7 @@ func (s *Service) Evaluate(ctx context.Context, raw []byte, e domain.Event) (dom
 	if err != nil {
 		return domain.Outcome{}, err
 	}
-	res, err := s.risk.Evaluate(ctx, risk.Input{
+	res, err := s.evaluate(ctx, risk.Input{
 		Features:  risk.Features{EventType: p.normalized.Type, Normalized: p.encoded},
 		EventKey:  e.Key,
 		RequestID: requestctx.RequestID(ctx),
@@ -249,6 +264,25 @@ func (s *Service) Evaluate(ctx context.Context, raw []byte, e domain.Event) (dom
 		return domain.Outcome{}, err
 	}
 	return toOutcome(res), nil
+}
+
+// evaluate runs the risk evaluator and records how long it took by decision. Failed evaluations
+// are not timed: they show up as ingest errors.
+func (s *Service) evaluate(ctx context.Context, in risk.Input) (risk.Result, error) {
+	start := s.clock.Now()
+	res, err := s.risk.Evaluate(ctx, in)
+	if err == nil {
+		s.metrics.Evaluated(ctx, s.clock.Now().Sub(start), string(res.Decision))
+	}
+	return res, err
+}
+
+// isCallerError reports whether err is the caller's doing (a refused event or credential), as
+// opposed to a failure on our side.
+func isCallerError(err error) bool {
+	return errors.Is(err, authz.ErrForbidden) || errors.Is(err, domain.ErrInvalidEvent) ||
+		errors.Is(err, domain.ErrStaleEvent) || errors.Is(err, domain.ErrSensitiveData) ||
+		errors.Is(err, domain.ErrIdempotencyConflict)
 }
 
 // List returns a newest-first page of events. Requires events:read.
@@ -370,6 +404,63 @@ func (s *Service) Analytics(ctx context.Context, w domain.Window) (Analytics, er
 		return err
 	})
 	return out, err
+}
+
+// How the analytics rollups are kept: the first run covers rollupHistory back (the longest
+// window is 30 days), a run recomputes the last rollupRecompute hours again so a row that
+// committed late is picked up, and a run catches up at most rollupMaxSpan at a time so a back-fill
+// cannot hold a transaction for long.
+const (
+	rollupHistory   = 31 * 24 * time.Hour
+	rollupRecompute = 3 * time.Hour
+	rollupMaxSpan   = 7 * 24 * time.Hour
+)
+
+// Rollup brings the hourly analytics rollups of the scope in ctx up to date: events here and
+// signals in the risk module. It is idempotent, and safe to run from several workers at once
+// (they compute the same values). The page reads a rollup only for hours it has finished, so a
+// run that is behind makes the page slower, never wrong.
+func (s *Service) Rollup(ctx context.Context, signals SignalRoller) error {
+	now := s.clock.Now().UTC()
+	end := now.Truncate(time.Hour)
+	// The first run is a back-fill of a month, in chunks of rollupMaxSpan, one transaction each.
+	for range int(rollupHistory/rollupMaxSpan) + 2 {
+		var caughtUp bool
+		err := s.runner.Run(ctx, func(ctx context.Context) error {
+			covered := end.Add(-rollupHistory)
+			from := covered
+			if st, err := s.store.RollupState(ctx, store.RollupAnalytics); err != nil {
+				return err
+			} else if st != nil {
+				covered = st.CoveredFrom
+				from = st.RolledThrough.Add(-rollupRecompute)
+				if from.Before(covered) {
+					from = covered
+				}
+			}
+			until := from.Add(rollupMaxSpan)
+			if !until.Before(end) {
+				until, caughtUp = end, true
+			}
+			if !until.After(from) {
+				caughtUp = true
+				return nil
+			}
+			return s.store.RollupEvents(ctx, covered, from, until, now)
+		})
+		if err != nil {
+			return err
+		}
+		if caughtUp {
+			break
+		}
+	}
+	return signals.RollupSignals(ctx, now)
+}
+
+// SignalRoller keeps the hourly signal counts, which the risk module owns.
+type SignalRoller interface {
+	RollupSignals(ctx context.Context, now time.Time) error
 }
 
 // jurisdictionOf is the country whose pack judged an evaluation ("" when none did).

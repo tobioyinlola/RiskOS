@@ -9,10 +9,13 @@ import { createContext, useContext, useEffect, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Loading } from "@/components/ui/states";
 import {
+  Lock,
+  Organization,
   Report,
   Scroll,
   ShieldCheck,
   SignOut,
+  Team,
   UserAdmin,
 } from "@/components/ui/icons";
 import { pillTabClass } from "@/components/ui/misc";
@@ -45,10 +48,14 @@ export function useStaff(): StaffSession {
 }
 
 const NAV = [
-  { href: "/admin", label: "Security", icon: ShieldCheck },
+  { href: "/admin", label: "Overview", icon: ShieldCheck },
+  { href: "/admin/tenants", label: "Tenants", icon: Organization },
+  { href: "/admin/status-requests", label: "Status requests", icon: Lock },
   { href: "/admin/onboarding", label: "Onboarding reviews", icon: Report },
   { href: "/admin/support", label: "Support access", icon: UserAdmin },
   { href: "/admin/audit", label: "Staff audit log", icon: Scroll },
+  // Only security administrators are offered the roster (the API refuses everyone else).
+  { href: "/admin/staff", label: "Staff", icon: Team, role: "security_admin" },
 ] as const;
 
 /** The "Admin" badge beside the workspace name, so the two realms never look alike. */
@@ -98,6 +105,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
   const isActive = (href: string) =>
     href === "/admin" ? pathname === "/admin" : pathname.startsWith(href);
   const staff = q.data.staff;
+  const visibleNav = NAV.filter((n) => !("role" in n) || n.role === staff.role);
   return (
     <StaffContext.Provider value={q.data}>
       <TooltipProvider>
@@ -137,7 +145,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
           >
             <nav aria-label="Staff console">
               <NavGroup>
-                {NAV.map((n) => (
+                {visibleNav.map((n) => (
                   <li key={n.href}>
                     <NavItem
                       href={n.href}
@@ -176,7 +184,7 @@ export function StaffShell({ children }: { children: ReactNode }) {
                 aria-label="Staff console sections"
                 className="flex gap-2 overflow-x-auto px-4 pb-3 lg:hidden"
               >
-                {NAV.map((n) => (
+                {visibleNav.map((n) => (
                   <Link
                     key={n.href}
                     href={n.href}

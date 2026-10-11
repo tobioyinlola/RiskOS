@@ -17,6 +17,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/service"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
@@ -92,6 +93,10 @@ type ConsoleHandlers interface {
 	GetSSO(ctx context.Context, req apigen.GetSSORequestObject) (apigen.GetSSOResponseObject, error)
 	PutSSO(ctx context.Context, req apigen.PutSSORequestObject) (apigen.PutSSOResponseObject, error)
 	DeleteSSO(ctx context.Context, req apigen.DeleteSSORequestObject) (apigen.DeleteSSOResponseObject, error)
+	ListSSODomains(ctx context.Context, req apigen.ListSSODomainsRequestObject) (apigen.ListSSODomainsResponseObject, error)
+	AddSSODomain(ctx context.Context, req apigen.AddSSODomainRequestObject) (apigen.AddSSODomainResponseObject, error)
+	VerifySSODomain(ctx context.Context, req apigen.VerifySSODomainRequestObject) (apigen.VerifySSODomainResponseObject, error)
+	RemoveSSODomain(ctx context.Context, req apigen.RemoveSSODomainRequestObject) (apigen.RemoveSSODomainResponseObject, error)
 	GetSignupOptions(ctx context.Context, req apigen.GetSignupOptionsRequestObject) (apigen.GetSignupOptionsResponseObject, error)
 	StartSignup(ctx context.Context, req apigen.StartSignupRequestObject) (apigen.StartSignupResponseObject, error)
 	ResendSignupCode(ctx context.Context, req apigen.ResendSignupCodeRequestObject) (apigen.ResendSignupCodeResponseObject, error)
@@ -110,10 +115,28 @@ type ConsoleHandlers interface {
 // satisfies it.
 type Pool = store.Querier
 
+// ResealDB is what ResealConsoleSecrets needs: a connection as the schema owner.
+type ResealDB = store.DB
+
+// ResealResult counts what ResealConsoleSecrets did.
+type ResealResult = service.ResealResult
+
+// ResealConsoleSecrets moves every value sealed under the previous console secret (authenticator
+// secrets, SSO client secrets) to the current one, so the previous secret can be retired
+// (ADR-0008). db must connect as the schema owner. Operator tooling only.
+func ResealConsoleSecrets(ctx context.Context, db ResealDB, secret, previous []byte) (ResealResult, error) {
+	return service.Reseal(ctx, db, secret, previous)
+}
+
 // Config configures the auth module.
 type Config struct {
 	// Pepper keys the HMAC of stored API key secrets. At least 32 bytes.
 	Pepper []byte
+	// PepperPrevious, during a rotation (ADR-0008), is the pepper keys were hashed with before
+	// Pepper. Keys that verify against it are rehashed under Pepper. Nil outside a rotation.
+	PepperPrevious []byte
+	// Metrics records pepper rotation progress; nil records nothing.
+	Metrics *appmetrics.Metrics
 	// CacheTTL bounds API key lookup caching (the revocation staleness bound).
 	CacheTTL time.Duration
 	// Console configures the dashboard realm. Zero values take DefaultConsole's; without a
@@ -225,7 +248,9 @@ func New(pool Pool, runner txn.Runner, rec audit.Recorder, clk clock.Clock, cfg 
 		cookie.Origins = cc.Origins
 	}
 	return &Module{
-		svc:     service.New(st, runner, rec, clk, service.Config{Pepper: cfg.Pepper, CacheTTL: cfg.CacheTTL}),
+		svc: service.New(st, runner, rec, clk, service.Config{
+			Pepper: cfg.Pepper, PepperPrevious: cfg.PepperPrevious, CacheTTL: cfg.CacheTTL, Metrics: cfg.Metrics,
+		}),
 		console: con, cookie: cookie, clock: clk,
 	}
 }
@@ -265,6 +290,7 @@ func ReauthOperations() []string {
 	return []string{
 		"CreateAPIKey", "RotateAPIKey", "RevokeAPIKey", "CreateWebhook", "UpdateWebhook", "RotateWebhookSecret",
 		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember", "PutSSO", "DeleteSSO",
+		"AddSSODomain", "VerifySSODomain", "RemoveSSODomain",
 		"PutComplianceProfile", "PutPackRuleConfig", "RollbackPackRule", "ApprovePackRuleChange",
 		"PutComplianceFXRate", "DeleteComplianceFXRate", "ApproveComplianceReport", "FileComplianceReport",
 		"ConfirmSuspicion", "CreateComplianceActivation", "UpdateComplianceActivation", "SetComplianceActivationStatus",
@@ -289,6 +315,19 @@ func (m *Module) ConsoleHTTPHandlers() ConsoleHandlers {
 // to issue a tenant's first key; customers use the API.
 func (m *Module) CreateKey(ctx context.Context, in CreateKeyInput) (CreatedKey, error) {
 	return m.svc.CreateKey(ctx, in)
+}
+
+// ResolveAssignee implements assignee.Resolver: it finds the active dashboard user of the
+// caller's workspace that ref (an email) names. It runs in the caller's transaction.
+func (m *Module) ResolveAssignee(ctx context.Context, ref string) (string, bool, error) {
+	return m.console.ResolveAssignee(ctx, ref)
+}
+
+// LiftSSORequirement stops requiring single sign-on in the tenant of the scope in ctx, so people
+// can use their passwords again, and reports whether it was required. Operator tooling uses it
+// when an identity provider is unavailable.
+func (m *Module) LiftSSORequirement(ctx context.Context) (bool, error) {
+	return m.console.LiftSSORequirement(ctx)
 }
 
 // Invite creates an invite in the tenant of the scope in ctx and returns its link (shown once).

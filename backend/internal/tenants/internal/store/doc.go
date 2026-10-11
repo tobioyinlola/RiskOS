@@ -1,3 +1,4 @@
 // Package store is the only code that reads or writes the tenants module's tables. Every query is
-// tenant-scoped by construction once tenancy is designed (TODO(phase-0)).
+// tenant-scoped by construction: the tenant and environment come from the request scope
+// (docs/TENANCY.md).
 package store

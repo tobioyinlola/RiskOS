@@ -36,6 +36,14 @@ type Store struct {
 // New returns a store on pool.
 func New(pool Pool) Store { return Store{pool: pool} }
 
+// Tx is a database transaction, for work that must enqueue a job in the same one.
+type Tx = pgx.Tx
+
+// TxWith runs fn in a transaction like Tx, and also hands it the transaction itself.
+func (s Store) TxWith(ctx context.Context, fn func(tx Tx, q *sqlcgen.Queries) error) error {
+	return pgx.BeginFunc(ctx, s.pool, func(tx pgx.Tx) error { return fn(tx, sqlcgen.New(tx)) })
+}
+
 // Q returns queries outside a transaction.
 func (s Store) Q() *sqlcgen.Queries { return sqlcgen.New(s.pool) }
 

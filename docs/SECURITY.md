@@ -55,7 +55,7 @@ A dedicated disclosure contact and response targets are defined before any produ
 
 | Area | Design | Build step |
 |---|---|---|
-| Authentication realms (remaining) | Staff SSO, hardware-key attestation and a private access path for the admin realm | 9 |
+| Authentication realms (remaining) | Hardware-key attestation and a private access path for the admin realm (staff SSO is built, optional, and always followed by the passkey) | 9 |
 | Audit anchoring | Chain head anchored to write-once storage in a separate account | 8 |
 | Privileged access | Four-eyes approvals, just-in-time expiring access, sealed break-glass with alerts, no standing production access | 2 (approvals), 8 |
 | Data minimization (remaining) | Field classification driving masking, encryption, logging and retention | 8 |

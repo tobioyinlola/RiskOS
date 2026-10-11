@@ -83,8 +83,11 @@ sign-ins, enrollments, re-authentications and sign-outs are in the tenant's audi
 A tenant can connect one OpenID Connect identity provider (Team → Single sign-on, or
 `PUT /api/v1/sso`). People then choose "Sign in with single sign-on" and enter their work email.
 
-- **Existing accounts only.** SSO signs in people who already have an account (invited as usual).
-  It never creates accounts or changes roles. Password sign-in keeps working.
+- **Existing accounts, unless the workspace opts in.** SSO signs in people who already have an
+  account (invited as usual). It never changes roles. Accounts are created at the first sign-in
+  only for the email domains a workspace has proved and chosen to let in
+  ([Just-in-time accounts](#just-in-time-accounts)). Password sign-in keeps working unless the
+  workspace requires SSO ([below](#requiring-single-sign-on)).
 - **RiskOS's second factor still applies.** After the provider, the session needs a passkey,
   authenticator code or recovery code, exactly as after a password.
 - **The flow.** Authorization code with PKCE (S256), `state` and `nonce`. RiskOS verifies the ID
@@ -112,6 +115,61 @@ A tenant can connect one OpenID Connect identity provider (Team → Single sign-
 - **Known trade-off.** Starting SSO answers differently for an email with SSO (a redirect) and one
   without (404 `SSO_NOT_CONFIGURED`), so it reveals that an account uses SSO. Attempts are
   throttled per email and per IP, like password sign-in.
+
+### Requiring single sign-on
+
+An administrator can make single sign-on the only way in (`required: true` on `PUT /api/v1/sso`,
+or the checkbox on Team → Single sign-on).
+
+- **What is refused.** Password sign-in and Google sign-in answer `403 SSO_REQUIRED` and open no
+  session, and accepting an invite creates the account but opens no session (the person signs in
+  through the provider). The password must be right first, so this reveals nothing to someone
+  who does not have it; wrong passwords and unknown emails still answer `401`. Each refusal is
+  audited (`user.login_failed` or `user.google_failed`, reason `sso_required`). People still
+  need RiskOS's second factor after the provider.
+- **It cannot lock the workspace out by itself.** It is accepted only for a saved, enabled
+  connection that the request does not change, and only from a person who has signed in through
+  the provider themselves (their provider subject is bound). Switching the connection off while
+  it is required is refused, and changing the issuer needs the requirement off first, because
+  nobody has used the new provider yet. Removing the connection removes the requirement.
+- **When the provider is down.** Nobody can sign in, the administrators included. The operator
+  lifts the requirement with `riskosctl sso optional --operator NAME --tenant ten_…`: passwords
+  work again, the connection is kept, and it is audited as `sso.requirement_lifted` under the
+  operator's name.
+- **Not covered.** API keys are unaffected (they are not people). Sessions already open stay
+  open until they end; sign people out by disabling their account if that matters.
+
+### Just-in-time accounts
+
+A workspace can let people in without an invite when their email is at a domain the workspace
+has proved it controls (Team → Single sign-on → Email domains, or `/api/v1/sso/domains`).
+
+- **Proving a domain.** Claiming `example.com` gives a TXT record to publish at
+  `_riskos-challenge.example.com` whose value is derived from the console secret, the workspace
+  and the domain, so no other workspace can publish it for itself. Verify looks the record up
+  (5-second timeout; "not found yet" means DNS has not caught up) and marks the claim verified.
+  **One workspace holds a domain verified**; a second claim gets `409`. A workspace can claim
+  at most 20 domains. Rotating the console secret invalidates pending proofs only; verified
+  claims stay. Claims are audited (`sso.domain_added`, `.domain_verified`, `.domain_removed`).
+- **Turning it on.** `jit_enabled` and `jit_role` on the connection. It needs the connection
+  enabled and at least one verified domain. The role is one of developer, risk manager, analyst,
+  compliance officer or auditor (default auditor, read-only): **never `customer_admin`**, and
+  roles are never taken from the provider. Settings left out of a `PUT /api/v1/sso` keep their
+  stored values, so a client that does not know them cannot switch them off.
+- **What happens.** Starting SSO for an email with no account looks up the workspace that has
+  verified its domain; if it lets people in, the person goes to that workspace's provider. At
+  the callback the provider must vouch (`email_verified`) for the very address asked for, the
+  domain must still be verified and the setting still on. Then the account is created in the
+  same transaction: the fixed role, **no password**, the provider's subject bound, created by
+  `sso:jit`, and the session still needs RiskOS's second factor. Failures are audited
+  (`user.sso_failed`, with `just_in_time`, and a reason).
+- **An existing account always wins.** An email that already has an account, in any workspace,
+  signs in to that account; a domain claim never moves or duplicates it. Emails are unique
+  across RiskOS, so a workspace cannot create an account for an address that is taken.
+- **Known trade-offs.** Asking to sign in with an unknown email at a JIT domain redirects to
+  the provider (it reveals that the domain is let in), like an existing SSO account does.
+  Releasing a domain or removing the connection stops new accounts; accounts already created
+  stay and can be disabled from Team. SCIM (deprovisioning, groups) is not built.
 
 ## Sign-up
 
@@ -179,8 +237,8 @@ Mailpit, which catches every message (inbox at http://localhost:8025).
 ## Deviations and pending work
 
 - SAML is not supported; SSO is OpenID Connect only.
-- Requiring SSO (turning off password sign-in for a tenant) and provisioning accounts from the
-  provider (SCIM or just-in-time) are not built. TODO(phase-9)
+- SCIM provisioning (deprovisioning when someone leaves the provider, groups) is not built:
+  accounts created just in time are disabled from Team. TODO(phase-9)
 - Operator invites (`riskosctl`) print the link and are not emailed.
 - Passkey ceremonies are verified by the go-webauthn library; the integration tests cover their
   request and rejection paths. The stack browser test (`make test-e2e-stack`, in CI) registers a

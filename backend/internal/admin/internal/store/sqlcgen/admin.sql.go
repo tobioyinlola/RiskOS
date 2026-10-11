@@ -13,6 +13,96 @@ import (
 	"github.com/google/uuid"
 )
 
+const adminOverview = `-- name: AdminOverview :one
+SELECT tenants_active::bigint AS tenants_active, tenants_suspended::bigint AS tenants_suspended,
+       tenants_total::bigint AS tenants_total, onboarding_submitted::bigint AS onboarding_submitted,
+       support_pending::bigint AS support_pending, support_active::bigint AS support_active,
+       staff_active::bigint AS staff_active, status_requests_pending::bigint AS status_requests_pending,
+       emergency_reviews_pending::bigint AS emergency_reviews_pending
+FROM admin_overview($1)
+`
+
+type AdminOverviewRow struct {
+	TenantsActive           int64
+	TenantsSuspended        int64
+	TenantsTotal            int64
+	OnboardingSubmitted     int64
+	SupportPending          int64
+	SupportActive           int64
+	StaffActive             int64
+	StatusRequestsPending   int64
+	EmergencyReviewsPending int64
+}
+
+func (q *Queries) AdminOverview(ctx context.Context, staffID uuid.UUID) (AdminOverviewRow, error) {
+	row := q.db.QueryRow(ctx, adminOverview, staffID)
+	var i AdminOverviewRow
+	err := row.Scan(
+		&i.TenantsActive,
+		&i.TenantsSuspended,
+		&i.TenantsTotal,
+		&i.OnboardingSubmitted,
+		&i.SupportPending,
+		&i.SupportActive,
+		&i.StaffActive,
+		&i.StatusRequestsPending,
+		&i.EmergencyReviewsPending,
+	)
+	return i, err
+}
+
+const adminTenantDirectory = `-- name: AdminTenantDirectory :many
+SELECT id::uuid AS id, name::text AS name, region::text AS region, status::text AS status, origin::text AS origin,
+       production_enabled::boolean AS production_enabled, created_at::timestamptz AS created_at,
+       active_users::bigint AS active_users, active_api_keys::bigint AS active_api_keys,
+       onboarding_status::text AS onboarding_status
+FROM admin_tenant_directory()
+`
+
+type AdminTenantDirectoryRow struct {
+	ID                uuid.UUID
+	Name              string
+	Region            string
+	Status            string
+	Origin            string
+	ProductionEnabled bool
+	CreatedAt         time.Time
+	ActiveUsers       int64
+	ActiveApiKeys     int64
+	OnboardingStatus  string
+}
+
+func (q *Queries) AdminTenantDirectory(ctx context.Context) ([]AdminTenantDirectoryRow, error) {
+	rows, err := q.db.Query(ctx, adminTenantDirectory)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminTenantDirectoryRow
+	for rows.Next() {
+		var i AdminTenantDirectoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Region,
+			&i.Status,
+			&i.Origin,
+			&i.ProductionEnabled,
+			&i.CreatedAt,
+			&i.ActiveUsers,
+			&i.ActiveApiKeys,
+			&i.OnboardingStatus,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const adminTenants = `-- name: AdminTenants :many
 SELECT id::uuid AS id, name::text AS name, status::text AS status, created_at::timestamptz AS created_at
 FROM admin_tenants()
@@ -50,12 +140,78 @@ func (q *Queries) AdminTenants(ctx context.Context) ([]AdminTenantsRow, error) {
 	return items, nil
 }
 
+const bindStaffSSOIdentity = `-- name: BindStaffSSOIdentity :exec
+INSERT INTO staff_sso_identities (staff_id, issuer, subject, bound_at)
+VALUES ($1, $2, $3, $4)
+`
+
+type BindStaffSSOIdentityParams struct {
+	StaffID uuid.UUID
+	Issuer  string
+	Subject string
+	Now     time.Time
+}
+
+func (q *Queries) BindStaffSSOIdentity(ctx context.Context, arg BindStaffSSOIdentityParams) error {
+	_, err := q.db.Exec(ctx, bindStaffSSOIdentity,
+		arg.StaffID,
+		arg.Issuer,
+		arg.Subject,
+		arg.Now,
+	)
+	return err
+}
+
 const clearEnrollToken = `-- name: ClearEnrollToken :exec
 UPDATE staff SET enroll_token_hash = NULL, enroll_expires_at = NULL WHERE id = $1
 `
 
 func (q *Queries) ClearEnrollToken(ctx context.Context, id uuid.UUID) error {
 	_, err := q.db.Exec(ctx, clearEnrollToken, id)
+	return err
+}
+
+const countTenantEvents = `-- name: CountTenantEvents :one
+SELECT admin_count_events($1::uuid, $2::timestamptz)::bigint
+`
+
+type CountTenantEventsParams struct {
+	TenantID uuid.UUID
+	Since    time.Time
+}
+
+func (q *Queries) CountTenantEvents(ctx context.Context, arg CountTenantEventsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTenantEvents, arg.TenantID, arg.Since)
+	var column_1 int64
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const decideStaffAccountRequest = `-- name: DecideStaffAccountRequest :exec
+UPDATE staff_account_requests
+SET status = $1, decided_by = $2, decided_at = $3::timestamptz,
+    decision_note = $4, staff_id = $5
+WHERE id = $6
+`
+
+type DecideStaffAccountRequestParams struct {
+	Status       string
+	DecidedBy    *uuid.UUID
+	Now          time.Time
+	DecisionNote *string
+	StaffID      *uuid.UUID
+	ID           uuid.UUID
+}
+
+func (q *Queries) DecideStaffAccountRequest(ctx context.Context, arg DecideStaffAccountRequestParams) error {
+	_, err := q.db.Exec(ctx, decideStaffAccountRequest,
+		arg.Status,
+		arg.DecidedBy,
+		arg.Now,
+		arg.DecisionNote,
+		arg.StaffID,
+		arg.ID,
+	)
 	return err
 }
 
@@ -83,6 +239,91 @@ func (q *Queries) DecideSupportAccess(ctx context.Context, arg DecideSupportAcce
 	return err
 }
 
+const decideTenantStatusRequest = `-- name: DecideTenantStatusRequest :one
+SELECT outcome::text AS outcome, tenant_id::uuid AS tenant_id, action::text AS action
+FROM admin_decide_tenant_status($1, $2, $3::boolean, $4, $5::timestamptz)
+`
+
+type DecideTenantStatusRequestParams struct {
+	RequestID uuid.UUID
+	DeciderID uuid.UUID
+	Approve   bool
+	Note      string
+	Now       time.Time
+}
+
+type DecideTenantStatusRequestRow struct {
+	Outcome  string
+	TenantID uuid.UUID
+	Action   string
+}
+
+func (q *Queries) DecideTenantStatusRequest(ctx context.Context, arg DecideTenantStatusRequestParams) (DecideTenantStatusRequestRow, error) {
+	row := q.db.QueryRow(ctx, decideTenantStatusRequest,
+		arg.RequestID,
+		arg.DeciderID,
+		arg.Approve,
+		arg.Note,
+		arg.Now,
+	)
+	var i DecideTenantStatusRequestRow
+	err := row.Scan(&i.Outcome, &i.TenantID, &i.Action)
+	return i, err
+}
+
+const deleteTenantLimits = `-- name: DeleteTenantLimits :execrows
+DELETE FROM tenant_limits WHERE tenant_id = $1
+`
+
+func (q *Queries) DeleteTenantLimits(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTenantLimits, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteTenantQuota = `-- name: DeleteTenantQuota :execrows
+DELETE FROM tenant_quotas WHERE tenant_id = $1
+`
+
+func (q *Queries) DeleteTenantQuota(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTenantQuota, tenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const emergencySuspendTenant = `-- name: EmergencySuspendTenant :one
+SELECT outcome::text AS outcome, COALESCE(request_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS request_id
+FROM admin_emergency_suspend($1, $2, $3, $4::timestamptz)
+`
+
+type EmergencySuspendTenantParams struct {
+	TenantID uuid.UUID
+	StaffID  uuid.UUID
+	Reason   string
+	Now      time.Time
+}
+
+type EmergencySuspendTenantRow struct {
+	Outcome   string
+	RequestID uuid.UUID
+}
+
+func (q *Queries) EmergencySuspendTenant(ctx context.Context, arg EmergencySuspendTenantParams) (EmergencySuspendTenantRow, error) {
+	row := q.db.QueryRow(ctx, emergencySuspendTenant,
+		arg.TenantID,
+		arg.StaffID,
+		arg.Reason,
+		arg.Now,
+	)
+	var i EmergencySuspendTenantRow
+	err := row.Scan(&i.Outcome, &i.RequestID)
+	return i, err
+}
+
 const getStaff = `-- name: GetStaff :one
 SELECT id, email, name, role, status, enroll_token_hash, enroll_expires_at, created_at, created_by FROM staff WHERE id = $1
 `
@@ -101,6 +342,70 @@ func (q *Queries) GetStaff(ctx context.Context, id uuid.UUID) (Staff, error) {
 		&i.CreatedAt,
 		&i.CreatedBy,
 	)
+	return i, err
+}
+
+const getStaffAccountRequest = `-- name: GetStaffAccountRequest :one
+SELECT id, email, name, role, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, staff_id FROM staff_account_requests WHERE id = $1
+`
+
+func (q *Queries) GetStaffAccountRequest(ctx context.Context, id uuid.UUID) (StaffAccountRequest, error) {
+	row := q.db.QueryRow(ctx, getStaffAccountRequest, id)
+	var i StaffAccountRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.Reason,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.StaffID,
+	)
+	return i, err
+}
+
+const getStaffAccountRequestForUpdate = `-- name: GetStaffAccountRequestForUpdate :one
+SELECT id, email, name, role, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, staff_id FROM staff_account_requests WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetStaffAccountRequestForUpdate(ctx context.Context, id uuid.UUID) (StaffAccountRequest, error) {
+	row := q.db.QueryRow(ctx, getStaffAccountRequestForUpdate, id)
+	var i StaffAccountRequest
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.Reason,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.StaffID,
+	)
+	return i, err
+}
+
+const getStaffAuditHead = `-- name: GetStaffAuditHead :one
+SELECT seq, hash FROM staff_audit_chain_head WHERE singleton
+`
+
+type GetStaffAuditHeadRow struct {
+	Seq  int64
+	Hash []byte
+}
+
+func (q *Queries) GetStaffAuditHead(ctx context.Context) (GetStaffAuditHeadRow, error) {
+	row := q.db.QueryRow(ctx, getStaffAuditHead)
+	var i GetStaffAuditHeadRow
+	err := row.Scan(&i.Seq, &i.Hash)
 	return i, err
 }
 
@@ -148,6 +453,99 @@ func (q *Queries) GetSupportAccessForUpdate(ctx context.Context, id uuid.UUID) (
 		&i.ExpiresAt,
 		&i.RevokedBy,
 		&i.RevokedAt,
+	)
+	return i, err
+}
+
+const getTenantLimits = `-- name: GetTenantLimits :one
+SELECT tenant_id, per_key_per_second, per_key_burst, per_tenant_per_second, per_tenant_burst, reason, updated_by, updated_at FROM tenant_limits WHERE tenant_id = $1
+`
+
+func (q *Queries) GetTenantLimits(ctx context.Context, tenantID uuid.UUID) (TenantLimit, error) {
+	row := q.db.QueryRow(ctx, getTenantLimits, tenantID)
+	var i TenantLimit
+	err := row.Scan(
+		&i.TenantID,
+		&i.PerKeyPerSecond,
+		&i.PerKeyBurst,
+		&i.PerTenantPerSecond,
+		&i.PerTenantBurst,
+		&i.Reason,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTenantQuota = `-- name: GetTenantQuota :one
+SELECT tenant_id, monthly_events, reason, updated_by, updated_at, usage_month, usage_events, usage_checked_at, exceeded_month FROM tenant_quotas WHERE tenant_id = $1
+`
+
+func (q *Queries) GetTenantQuota(ctx context.Context, tenantID uuid.UUID) (TenantQuota, error) {
+	row := q.db.QueryRow(ctx, getTenantQuota, tenantID)
+	var i TenantQuota
+	err := row.Scan(
+		&i.TenantID,
+		&i.MonthlyEvents,
+		&i.Reason,
+		&i.UpdatedBy,
+		&i.UpdatedAt,
+		&i.UsageMonth,
+		&i.UsageEvents,
+		&i.UsageCheckedAt,
+		&i.ExceededMonth,
+	)
+	return i, err
+}
+
+const getTenantStatusRequest = `-- name: GetTenantStatusRequest :one
+SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests WHERE id = $1
+`
+
+func (q *Queries) GetTenantStatusRequest(ctx context.Context, id uuid.UUID) (TenantStatusRequest, error) {
+	row := q.db.QueryRow(ctx, getTenantStatusRequest, id)
+	var i TenantStatusRequest
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Action,
+		&i.Reason,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.Emergency,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.ReviewNote,
+	)
+	return i, err
+}
+
+const getTenantStatusRequestForUpdate = `-- name: GetTenantStatusRequestForUpdate :one
+SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests WHERE id = $1 FOR UPDATE
+`
+
+func (q *Queries) GetTenantStatusRequestForUpdate(ctx context.Context, id uuid.UUID) (TenantStatusRequest, error) {
+	row := q.db.QueryRow(ctx, getTenantStatusRequestForUpdate, id)
+	var i TenantStatusRequest
+	err := row.Scan(
+		&i.ID,
+		&i.TenantID,
+		&i.Action,
+		&i.Reason,
+		&i.Status,
+		&i.RequestedBy,
+		&i.CreatedAt,
+		&i.DecidedBy,
+		&i.DecidedAt,
+		&i.DecisionNote,
+		&i.Emergency,
+		&i.ReviewedBy,
+		&i.ReviewedAt,
+		&i.ReviewNote,
 	)
 	return i, err
 }
@@ -208,20 +606,54 @@ func (q *Queries) InsertStaff(ctx context.Context, arg InsertStaffParams) error 
 	return err
 }
 
+const insertStaffAccountRequest = `-- name: InsertStaffAccountRequest :exec
+INSERT INTO staff_account_requests (id, email, name, role, reason, status, requested_by, created_at)
+VALUES ($1, $2, $3, $4, $5, 'pending', $6, $7)
+`
+
+type InsertStaffAccountRequestParams struct {
+	ID          uuid.UUID
+	Email       string
+	Name        string
+	Role        string
+	Reason      string
+	RequestedBy uuid.UUID
+	Now         time.Time
+}
+
+func (q *Queries) InsertStaffAccountRequest(ctx context.Context, arg InsertStaffAccountRequestParams) error {
+	_, err := q.db.Exec(ctx, insertStaffAccountRequest,
+		arg.ID,
+		arg.Email,
+		arg.Name,
+		arg.Role,
+		arg.Reason,
+		arg.RequestedBy,
+		arg.Now,
+	)
+	return err
+}
+
 const insertStaffAudit = `-- name: InsertStaffAudit :exec
-INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO staff_audit_log (id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata,
+                             seq, prev_hash, hash, metadata_text)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12)
 `
 
 type InsertStaffAuditParams struct {
-	ID         uuid.UUID
-	Now        time.Time
-	Actor      string
-	Action     string
-	TenantID   *uuid.UUID
-	ResourceID string
-	Outcome    string
-	Metadata   []byte
+	ID           uuid.UUID
+	Now          time.Time
+	Actor        string
+	Action       string
+	TenantID     *uuid.UUID
+	ResourceID   string
+	Outcome      string
+	Metadata     []byte
+	Seq          *int64
+	PrevHash     []byte
+	Hash         []byte
+	MetadataText *string
 }
 
 func (q *Queries) InsertStaffAudit(ctx context.Context, arg InsertStaffAuditParams) error {
@@ -234,6 +666,10 @@ func (q *Queries) InsertStaffAudit(ctx context.Context, arg InsertStaffAuditPara
 		arg.ResourceID,
 		arg.Outcome,
 		arg.Metadata,
+		arg.Seq,
+		arg.PrevHash,
+		arg.Hash,
+		arg.MetadataText,
 	)
 	return err
 }
@@ -326,6 +762,83 @@ func (q *Queries) InsertSupportAccess(ctx context.Context, arg InsertSupportAcce
 	return err
 }
 
+const insertTenantStatusRequest = `-- name: InsertTenantStatusRequest :exec
+INSERT INTO tenant_status_requests (id, tenant_id, action, reason, status, requested_by, created_at)
+VALUES ($1, $2, $3, $4, 'pending', $5, $6)
+`
+
+type InsertTenantStatusRequestParams struct {
+	ID          uuid.UUID
+	TenantID    uuid.UUID
+	Action      string
+	Reason      string
+	RequestedBy uuid.UUID
+	Now         time.Time
+}
+
+func (q *Queries) InsertTenantStatusRequest(ctx context.Context, arg InsertTenantStatusRequestParams) error {
+	_, err := q.db.Exec(ctx, insertTenantStatusRequest,
+		arg.ID,
+		arg.TenantID,
+		arg.Action,
+		arg.Reason,
+		arg.RequestedBy,
+		arg.Now,
+	)
+	return err
+}
+
+const listChainedStaffAudit = `-- name: ListChainedStaffAudit :many
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, seq, prev_hash, hash, metadata_text
+FROM staff_audit_log WHERE seq IS NOT NULL ORDER BY seq
+`
+
+type ListChainedStaffAuditRow struct {
+	ID           uuid.UUID
+	OccurredAt   time.Time
+	Actor        string
+	Action       string
+	TenantID     *uuid.UUID
+	ResourceID   string
+	Outcome      string
+	Seq          *int64
+	PrevHash     []byte
+	Hash         []byte
+	MetadataText *string
+}
+
+func (q *Queries) ListChainedStaffAudit(ctx context.Context) ([]ListChainedStaffAuditRow, error) {
+	rows, err := q.db.Query(ctx, listChainedStaffAudit)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListChainedStaffAuditRow
+	for rows.Next() {
+		var i ListChainedStaffAuditRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredAt,
+			&i.Actor,
+			&i.Action,
+			&i.TenantID,
+			&i.ResourceID,
+			&i.Outcome,
+			&i.Seq,
+			&i.PrevHash,
+			&i.Hash,
+			&i.MetadataText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaff = `-- name: ListStaff :many
 SELECT id, email, name, role, status, enroll_token_hash, enroll_expires_at, created_at, created_by FROM staff ORDER BY created_at
 `
@@ -360,8 +873,45 @@ func (q *Queries) ListStaff(ctx context.Context) ([]Staff, error) {
 	return items, nil
 }
 
+const listStaffAccountRequests = `-- name: ListStaffAccountRequests :many
+SELECT id, email, name, role, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, staff_id FROM staff_account_requests ORDER BY created_at DESC LIMIT 200
+`
+
+func (q *Queries) ListStaffAccountRequests(ctx context.Context) ([]StaffAccountRequest, error) {
+	rows, err := q.db.Query(ctx, listStaffAccountRequests)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffAccountRequest
+	for rows.Next() {
+		var i StaffAccountRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.Reason,
+			&i.Status,
+			&i.RequestedBy,
+			&i.CreatedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.DecisionNote,
+			&i.StaffID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaffAudit = `-- name: ListStaffAudit :many
-SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT $1
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata, seq, prev_hash, hash, metadata_text FROM staff_audit_log ORDER BY occurred_at DESC, id DESC LIMIT $1
 `
 
 func (q *Queries) ListStaffAudit(ctx context.Context, lim int32) ([]StaffAuditLog, error) {
@@ -382,6 +932,52 @@ func (q *Queries) ListStaffAudit(ctx context.Context, lim int32) ([]StaffAuditLo
 			&i.ResourceID,
 			&i.Outcome,
 			&i.Metadata,
+			&i.Seq,
+			&i.PrevHash,
+			&i.Hash,
+			&i.MetadataText,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaffAuditForTenant = `-- name: ListStaffAuditForTenant :many
+SELECT id, occurred_at, actor, action, tenant_id, resource_id, outcome, metadata, seq, prev_hash, hash, metadata_text FROM staff_audit_log WHERE tenant_id = $1 ORDER BY occurred_at DESC, id DESC LIMIT $2
+`
+
+type ListStaffAuditForTenantParams struct {
+	TenantID *uuid.UUID
+	Lim      int32
+}
+
+func (q *Queries) ListStaffAuditForTenant(ctx context.Context, arg ListStaffAuditForTenantParams) ([]StaffAuditLog, error) {
+	rows, err := q.db.Query(ctx, listStaffAuditForTenant, arg.TenantID, arg.Lim)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffAuditLog
+	for rows.Next() {
+		var i StaffAuditLog
+		if err := rows.Scan(
+			&i.ID,
+			&i.OccurredAt,
+			&i.Actor,
+			&i.Action,
+			&i.TenantID,
+			&i.ResourceID,
+			&i.Outcome,
+			&i.Metadata,
+			&i.Seq,
+			&i.PrevHash,
+			&i.Hash,
+			&i.MetadataText,
 		); err != nil {
 			return nil, err
 		}
@@ -430,6 +1026,139 @@ func (q *Queries) ListSupportAccess(ctx context.Context) ([]SupportAccess, error
 	return items, nil
 }
 
+const listTenantQuotas = `-- name: ListTenantQuotas :many
+SELECT tenant_id, monthly_events, reason, updated_by, updated_at, usage_month, usage_events, usage_checked_at, exceeded_month FROM tenant_quotas ORDER BY tenant_id
+`
+
+func (q *Queries) ListTenantQuotas(ctx context.Context) ([]TenantQuota, error) {
+	rows, err := q.db.Query(ctx, listTenantQuotas)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TenantQuota
+	for rows.Next() {
+		var i TenantQuota
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.MonthlyEvents,
+			&i.Reason,
+			&i.UpdatedBy,
+			&i.UpdatedAt,
+			&i.UsageMonth,
+			&i.UsageEvents,
+			&i.UsageCheckedAt,
+			&i.ExceededMonth,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTenantStatusRequests = `-- name: ListTenantStatusRequests :many
+SELECT id, tenant_id, action, reason, status, requested_by, created_at, decided_by, decided_at, decision_note, emergency, reviewed_by, reviewed_at, review_note FROM tenant_status_requests ORDER BY created_at DESC LIMIT 200
+`
+
+func (q *Queries) ListTenantStatusRequests(ctx context.Context) ([]TenantStatusRequest, error) {
+	rows, err := q.db.Query(ctx, listTenantStatusRequests)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TenantStatusRequest
+	for rows.Next() {
+		var i TenantStatusRequest
+		if err := rows.Scan(
+			&i.ID,
+			&i.TenantID,
+			&i.Action,
+			&i.Reason,
+			&i.Status,
+			&i.RequestedBy,
+			&i.CreatedAt,
+			&i.DecidedBy,
+			&i.DecidedAt,
+			&i.DecisionNote,
+			&i.Emergency,
+			&i.ReviewedBy,
+			&i.ReviewedAt,
+			&i.ReviewNote,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockActiveSecurityAdmins = `-- name: LockActiveSecurityAdmins :many
+SELECT id FROM staff WHERE role = 'security_admin' AND status = 'active' FOR UPDATE
+`
+
+func (q *Queries) LockActiveSecurityAdmins(ctx context.Context) ([]uuid.UUID, error) {
+	rows, err := q.db.Query(ctx, lockActiveSecurityAdmins)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []uuid.UUID
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			return nil, err
+		}
+		items = append(items, id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const lockStaffAuditHead = `-- name: LockStaffAuditHead :one
+SELECT seq, hash FROM staff_audit_chain_head WHERE singleton FOR UPDATE
+`
+
+type LockStaffAuditHeadRow struct {
+	Seq  int64
+	Hash []byte
+}
+
+func (q *Queries) LockStaffAuditHead(ctx context.Context) (LockStaffAuditHeadRow, error) {
+	row := q.db.QueryRow(ctx, lockStaffAuditHead)
+	var i LockStaffAuditHeadRow
+	err := row.Scan(&i.Seq, &i.Hash)
+	return i, err
+}
+
+const markTenantQuotaExceeded = `-- name: MarkTenantQuotaExceeded :execrows
+UPDATE tenant_quotas SET exceeded_month = $1
+WHERE tenant_id = $2 AND exceeded_month IS DISTINCT FROM $1
+`
+
+type MarkTenantQuotaExceededParams struct {
+	Month    *time.Time
+	TenantID uuid.UUID
+}
+
+// Claims the announcement for the month: only the first caller gets a row, so an overage is
+// announced once even with several workers.
+func (q *Queries) MarkTenantQuotaExceeded(ctx context.Context, arg MarkTenantQuotaExceededParams) (int64, error) {
+	result, err := q.db.Exec(ctx, markTenantQuotaExceeded, arg.Month, arg.TenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const purgeCeremonies = `-- name: PurgeCeremonies :exec
 DELETE FROM staff_ceremonies WHERE expires_at < $1
 `
@@ -437,6 +1166,35 @@ DELETE FROM staff_ceremonies WHERE expires_at < $1
 func (q *Queries) PurgeCeremonies(ctx context.Context, now time.Time) error {
 	_, err := q.db.Exec(ctx, purgeCeremonies, now)
 	return err
+}
+
+const reviewEmergencySuspension = `-- name: ReviewEmergencySuspension :one
+SELECT outcome::text AS outcome, COALESCE(tenant_id, '00000000-0000-0000-0000-000000000000'::uuid)::uuid AS tenant_id
+FROM admin_review_emergency($1, $2, $3, $4::timestamptz)
+`
+
+type ReviewEmergencySuspensionParams struct {
+	RequestID  uuid.UUID
+	ReviewerID uuid.UUID
+	Note       string
+	Now        time.Time
+}
+
+type ReviewEmergencySuspensionRow struct {
+	Outcome  string
+	TenantID uuid.UUID
+}
+
+func (q *Queries) ReviewEmergencySuspension(ctx context.Context, arg ReviewEmergencySuspensionParams) (ReviewEmergencySuspensionRow, error) {
+	row := q.db.QueryRow(ctx, reviewEmergencySuspension,
+		arg.RequestID,
+		arg.ReviewerID,
+		arg.Note,
+		arg.Now,
+	)
+	var i ReviewEmergencySuspensionRow
+	err := row.Scan(&i.Outcome, &i.TenantID)
+	return i, err
 }
 
 const revokeStaffSession = `-- name: RevokeStaffSession :exec
@@ -545,6 +1303,20 @@ func (q *Queries) SetEnrollToken(ctx context.Context, arg SetEnrollTokenParams) 
 	return result.RowsAffected(), nil
 }
 
+const setStaffAuditHead = `-- name: SetStaffAuditHead :exec
+UPDATE staff_audit_chain_head SET seq = $1, hash = $2 WHERE singleton
+`
+
+type SetStaffAuditHeadParams struct {
+	Seq  int64
+	Hash []byte
+}
+
+func (q *Queries) SetStaffAuditHead(ctx context.Context, arg SetStaffAuditHeadParams) error {
+	_, err := q.db.Exec(ctx, setStaffAuditHead, arg.Seq, arg.Hash)
+	return err
+}
+
 const setStaffStatus = `-- name: SetStaffStatus :execrows
 UPDATE staff SET status = $1 WHERE id = $2
 `
@@ -560,6 +1332,28 @@ func (q *Queries) SetStaffStatus(ctx context.Context, arg SetStaffStatusParams) 
 		return 0, err
 	}
 	return result.RowsAffected(), nil
+}
+
+const setTenantQuotaUsage = `-- name: SetTenantQuotaUsage :exec
+UPDATE tenant_quotas SET usage_month = $1, usage_events = $2, usage_checked_at = $3
+WHERE tenant_id = $4
+`
+
+type SetTenantQuotaUsageParams struct {
+	UsageMonth  *time.Time
+	UsageEvents int64
+	Now         *time.Time
+	TenantID    uuid.UUID
+}
+
+func (q *Queries) SetTenantQuotaUsage(ctx context.Context, arg SetTenantQuotaUsageParams) error {
+	_, err := q.db.Exec(ctx, setTenantQuotaUsage,
+		arg.UsageMonth,
+		arg.UsageEvents,
+		arg.Now,
+		arg.TenantID,
+	)
+	return err
 }
 
 const staffByEmail = `-- name: StaffByEmail :one
@@ -589,6 +1383,33 @@ SELECT id, email, name, role, status, enroll_token_hash, enroll_expires_at, crea
 
 func (q *Queries) StaffByEnrollToken(ctx context.Context, tokenHash []byte) (Staff, error) {
 	row := q.db.QueryRow(ctx, staffByEnrollToken, tokenHash)
+	var i Staff
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.Status,
+		&i.EnrollTokenHash,
+		&i.EnrollExpiresAt,
+		&i.CreatedAt,
+		&i.CreatedBy,
+	)
+	return i, err
+}
+
+const staffBySSOSubject = `-- name: StaffBySSOSubject :one
+SELECT s.id, s.email, s.name, s.role, s.status, s.enroll_token_hash, s.enroll_expires_at, s.created_at, s.created_by FROM staff s JOIN staff_sso_identities i ON i.staff_id = s.id
+WHERE i.issuer = $1 AND i.subject = $2
+`
+
+type StaffBySSOSubjectParams struct {
+	Issuer  string
+	Subject string
+}
+
+func (q *Queries) StaffBySSOSubject(ctx context.Context, arg StaffBySSOSubjectParams) (Staff, error) {
+	row := q.db.QueryRow(ctx, staffBySSOSubject, arg.Issuer, arg.Subject)
 	var i Staff
 	err := row.Scan(
 		&i.ID,
@@ -638,6 +1459,74 @@ func (q *Queries) StaffPasskeys(ctx context.Context, staffID uuid.UUID) ([]Staff
 		return nil, err
 	}
 	return items, nil
+}
+
+const staffRoster = `-- name: StaffRoster :many
+SELECT s.id::uuid AS id, s.email::text AS email, s.name::text AS name, s.role::text AS role,
+       s.status::text AS status, s.created_at::timestamptz AS created_at,
+       (SELECT count(*) FROM staff_passkeys p WHERE p.staff_id = s.id)::bigint AS passkeys,
+       -- The epoch means "never signed in".
+       COALESCE((SELECT max(ss.created_at) FROM staff_sessions ss WHERE ss.staff_id = s.id), 'epoch'::timestamptz)::timestamptz AS last_sign_in,
+       COALESCE(s.enroll_token_hash IS NOT NULL AND s.enroll_expires_at > now(), false)::boolean AS enrollment_pending
+FROM staff s ORDER BY s.created_at
+`
+
+type StaffRosterRow struct {
+	ID                uuid.UUID
+	Email             string
+	Name              string
+	Role              string
+	Status            string
+	CreatedAt         time.Time
+	Passkeys          int64
+	LastSignIn        time.Time
+	EnrollmentPending bool
+}
+
+func (q *Queries) StaffRoster(ctx context.Context) ([]StaffRosterRow, error) {
+	rows, err := q.db.Query(ctx, staffRoster)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StaffRosterRow
+	for rows.Next() {
+		var i StaffRosterRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.Status,
+			&i.CreatedAt,
+			&i.Passkeys,
+			&i.LastSignIn,
+			&i.EnrollmentPending,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const staffSSOIdentity = `-- name: StaffSSOIdentity :one
+SELECT staff_id, issuer, subject, bound_at FROM staff_sso_identities WHERE staff_id = $1
+`
+
+func (q *Queries) StaffSSOIdentity(ctx context.Context, staffID uuid.UUID) (StaffSsoIdentity, error) {
+	row := q.db.QueryRow(ctx, staffSSOIdentity, staffID)
+	var i StaffSsoIdentity
+	err := row.Scan(
+		&i.StaffID,
+		&i.Issuer,
+		&i.Subject,
+		&i.BoundAt,
+	)
+	return i, err
 }
 
 const staffSessionByToken = `-- name: StaffSessionByToken :one
@@ -715,6 +1604,18 @@ func (q *Queries) TouchStaffSession(ctx context.Context, arg TouchStaffSessionPa
 	return err
 }
 
+const unbindStaffSSOIdentity = `-- name: UnbindStaffSSOIdentity :execrows
+DELETE FROM staff_sso_identities WHERE staff_id = $1
+`
+
+func (q *Queries) UnbindStaffSSOIdentity(ctx context.Context, staffID uuid.UUID) (int64, error) {
+	result, err := q.db.Exec(ctx, unbindStaffSSOIdentity, staffID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const updateStaffPasskeyUse = `-- name: UpdateStaffPasskeyUse :exec
 UPDATE staff_passkeys SET sign_count = $1, flags = $2, last_used_at = $3::timestamptz WHERE id = $4
 `
@@ -734,4 +1635,106 @@ func (q *Queries) UpdateStaffPasskeyUse(ctx context.Context, arg UpdateStaffPass
 		arg.ID,
 	)
 	return err
+}
+
+const upsertTenantLimits = `-- name: UpsertTenantLimits :exec
+INSERT INTO tenant_limits (tenant_id, per_key_per_second, per_key_burst, per_tenant_per_second, per_tenant_burst,
+                           reason, updated_by, updated_at)
+VALUES ($1, $2, $3, $4, $5,
+        $6, $7, $8)
+ON CONFLICT (tenant_id) DO UPDATE SET
+  per_key_per_second = EXCLUDED.per_key_per_second, per_key_burst = EXCLUDED.per_key_burst,
+  per_tenant_per_second = EXCLUDED.per_tenant_per_second, per_tenant_burst = EXCLUDED.per_tenant_burst,
+  reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by, updated_at = EXCLUDED.updated_at
+`
+
+type UpsertTenantLimitsParams struct {
+	TenantID           uuid.UUID
+	PerKeyPerSecond    float64
+	PerKeyBurst        int32
+	PerTenantPerSecond float64
+	PerTenantBurst     int32
+	Reason             string
+	UpdatedBy          uuid.UUID
+	Now                time.Time
+}
+
+func (q *Queries) UpsertTenantLimits(ctx context.Context, arg UpsertTenantLimitsParams) error {
+	_, err := q.db.Exec(ctx, upsertTenantLimits,
+		arg.TenantID,
+		arg.PerKeyPerSecond,
+		arg.PerKeyBurst,
+		arg.PerTenantPerSecond,
+		arg.PerTenantBurst,
+		arg.Reason,
+		arg.UpdatedBy,
+		arg.Now,
+	)
+	return err
+}
+
+const upsertTenantQuota = `-- name: UpsertTenantQuota :exec
+INSERT INTO tenant_quotas (tenant_id, monthly_events, reason, updated_by, updated_at)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (tenant_id) DO UPDATE SET
+  monthly_events = EXCLUDED.monthly_events, reason = EXCLUDED.reason, updated_by = EXCLUDED.updated_by,
+  updated_at = EXCLUDED.updated_at, usage_checked_at = NULL
+`
+
+type UpsertTenantQuotaParams struct {
+	TenantID      uuid.UUID
+	MonthlyEvents int64
+	Reason        string
+	UpdatedBy     uuid.UUID
+	Now           time.Time
+}
+
+// A new quota starts a new measurement: the worker counts the month again on its next run.
+func (q *Queries) UpsertTenantQuota(ctx context.Context, arg UpsertTenantQuotaParams) error {
+	_, err := q.db.Exec(ctx, upsertTenantQuota,
+		arg.TenantID,
+		arg.MonthlyEvents,
+		arg.Reason,
+		arg.UpdatedBy,
+		arg.Now,
+	)
+	return err
+}
+
+const withdrawStaffAccountRequest = `-- name: WithdrawStaffAccountRequest :execrows
+UPDATE staff_account_requests SET status = 'withdrawn', decided_at = $1::timestamptz
+WHERE id = $2 AND requested_by = $3 AND status = 'pending'
+`
+
+type WithdrawStaffAccountRequestParams struct {
+	Now     time.Time
+	ID      uuid.UUID
+	StaffID uuid.UUID
+}
+
+func (q *Queries) WithdrawStaffAccountRequest(ctx context.Context, arg WithdrawStaffAccountRequestParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withdrawStaffAccountRequest, arg.Now, arg.ID, arg.StaffID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const withdrawTenantStatusRequest = `-- name: WithdrawTenantStatusRequest :execrows
+UPDATE tenant_status_requests SET status = 'withdrawn', decided_by = NULL, decided_at = $1::timestamptz
+WHERE id = $2 AND requested_by = $3 AND status = 'pending'
+`
+
+type WithdrawTenantStatusRequestParams struct {
+	Now     time.Time
+	ID      uuid.UUID
+	StaffID uuid.UUID
+}
+
+func (q *Queries) WithdrawTenantStatusRequest(ctx context.Context, arg WithdrawTenantStatusRequestParams) (int64, error) {
+	result, err := q.db.Exec(ctx, withdrawTenantStatusRequest, arg.Now, arg.ID, arg.StaffID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

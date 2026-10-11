@@ -18,12 +18,12 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/console"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/domain"
-	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth/internal/store/sqlcgen"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/authz"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ids"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/sso"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/tenancy"
 )
 
@@ -528,7 +528,15 @@ func (c *Console) googleSignIn(ctx context.Context, userID, tenantID uuid.UUID, 
 	}
 	var out SignIn
 	var reason string
+	var required bool
 	err := c.runner.Run(tctx, func(ctx context.Context) error {
+		var err error
+		if required, err = c.ssoRequired(ctx); err != nil {
+			return err
+		}
+		if required {
+			return c.record(ctx, "user.google_failed", "user", userRef, audit.OutcomeFailure, map[string]any{"reason": "sso_required"})
+		}
 		ok, err := c.store.BindGoogleSubject(ctx, userID, subject, c.clock.Now())
 		if err != nil {
 			return err
@@ -554,6 +562,9 @@ func (c *Console) googleSignIn(ctx context.Context, userID, tenantID uuid.UUID, 
 		}
 		return c.record(ctx, "user.google_authenticated", "user", userRef, audit.OutcomeSuccess, nil)
 	})
+	if err == nil && required {
+		return SignIn{}, domain.ErrSSORequired
+	}
 	if errors.Is(err, store.ErrSubjectTaken) {
 		return fail("subject_taken")
 	}

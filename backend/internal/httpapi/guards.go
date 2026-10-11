@@ -8,6 +8,7 @@ import (
 	"strconv"
 
 	"github.com/tobioyinlola/RiskOS/backend/internal/apigen"
+	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/httpx"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/ratelimit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/requestctx"
@@ -27,6 +28,8 @@ func DefaultOperationLimits() map[string]ratelimit.Limit {
 		"RotateAPIKey":     {PerSecond: 0.2, Burst: 10},
 		"CreateInvite":     {PerSecond: 0.2, Burst: 10},
 		"PutSSO":           {PerSecond: 0.2, Burst: 10}, // outbound HTTP to an identity provider
+		"AddSSODomain":     {PerSecond: 0.2, Burst: 10},
+		"VerifySSODomain":  {PerSecond: 0.2, Burst: 10}, // outbound DNS lookup
 		"EvaluateRisk":     {PerSecond: 20, Burst: 50},  // dry runs; ingest has its own budget
 	}
 }
@@ -57,37 +60,42 @@ func (s *statusRecorder) Unwrap() http.ResponseWriter { return s.ResponseWriter 
 // get 429 before any credential lookup, which bounds key guessing and the database load of
 // invalid keys. Successful requests consume nothing, so normal traffic never trips it. Like
 // every limit it fails open when Redis is unavailable.
-func authFailureGuard(limiter Allower, limit ratelimit.Limit, logger *slog.Logger) func(http.Handler) http.Handler {
+func authFailureGuard(limiter Allower, limit ratelimit.Limit, logger *slog.Logger, m *appmetrics.Metrics) func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
-		if limit.PerSecond <= 0 {
-			return next
-		}
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			ip, ok := requestctx.ClientIP(r.Context())
-			if !ok {
-				next.ServeHTTP(w, r)
-				return
-			}
-			rule := ratelimit.Rule{Key: "rl:authfail:" + ip.String(), Limit: limit}
-			if d, err := limiter.Peek(r.Context(), rule); err == nil && !d.Allowed {
-				logger.WarnContext(r.Context(), "authentication failures limit exceeded")
-				tooMany(w, r, logger, d)
-				return
+			ip, hasIP := requestctx.ClientIP(r.Context())
+			limited := limit.PerSecond > 0 && hasIP
+			var rule ratelimit.Rule
+			if limited {
+				rule = ratelimit.Rule{Key: "rl:authfail:" + ip.String(), Limit: limit}
+				if d, err := limiter.Peek(r.Context(), rule); err == nil && !d.Allowed {
+					logger.WarnContext(r.Context(), "authentication failures limit exceeded")
+					m.RateLimited(r.Context(), appmetrics.LimitAuthFailure)
+					tooMany(w, r, logger, d)
+					return
+				}
 			}
 			rec := &statusRecorder{ResponseWriter: w}
 			next.ServeHTTP(rec, r)
-			if rec.status == http.StatusUnauthorized {
-				// Counted after the response; WithoutCancel so a client hanging up still counts.
-				if _, err := limiter.Allow(context.WithoutCancel(r.Context()), rule); err != nil {
-					logger.WarnContext(r.Context(), "rate limiter unavailable; failure not counted", slog.Any("error", err))
-				}
+			if rec.status != http.StatusUnauthorized {
+				return
+			}
+			// Counted after the response; WithoutCancel so a client hanging up still counts.
+			ctx := context.WithoutCancel(r.Context())
+			m.AuthFailed(ctx)
+			if !limited {
+				return
+			}
+			if _, err := limiter.Allow(ctx, rule); err != nil {
+				m.LimiterUnavailable(ctx)
+				logger.WarnContext(r.Context(), "rate limiter unavailable; failure not counted", slog.Any("error", err))
 			}
 		})
 	}
 }
 
 // operationLimit applies limits per tenant and operation (see DefaultOperationLimits).
-func operationLimit(limiter Allower, limits map[string]ratelimit.Limit, logger *slog.Logger) apigen.StrictMiddlewareFunc {
+func operationLimit(limiter Allower, limits map[string]ratelimit.Limit, logger *slog.Logger, m *appmetrics.Metrics) apigen.StrictMiddlewareFunc {
 	return func(f apigen.StrictHandlerFunc, operationID string) apigen.StrictHandlerFunc {
 		limit, ok := limits[operationID]
 		if !ok {
@@ -100,10 +108,12 @@ func operationLimit(limiter Allower, limits map[string]ratelimit.Limit, logger *
 			}
 			d, err := limiter.Allow(ctx, ratelimit.Rule{Key: "rl:op:" + scope.TenantID.String() + ":" + operationID, Limit: limit})
 			if err != nil {
+				m.LimiterUnavailable(ctx)
 				logger.WarnContext(ctx, "rate limiter unavailable; request allowed", slog.Any("error", err))
 				return f(ctx, w, r, req)
 			}
 			if !d.Allowed {
+				m.RateLimited(ctx, appmetrics.LimitOperation)
 				return nil, httpx.NewError(http.StatusTooManyRequests, httpx.CodeRateLimited,
 					"Too many requests for this operation. Retry after the time given in Retry-After.", nil).
 					WithHeader("Retry-After", strconv.Itoa(int(math.Ceil(d.RetryAfter.Seconds()))))

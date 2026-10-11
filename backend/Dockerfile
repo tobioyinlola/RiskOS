@@ -4,7 +4,7 @@
 # Runtime images are distroless/static running as nonroot: no shell, no package manager.
 # Base images are pinned by digest; Dependabot keeps them current (.github/dependabot.yml).
 
-ARG GO_IMAGE=golang:1.27.1-trixie@sha256:3b77fc618ec235a1ab412de7737f120dd507c57e8d87de4cbb7994fb94275ed5
+ARG GO_IMAGE=golang:1.27.2-trixie@sha256:e58d6f83b3416618d8bcac2b3dde1b7f7e3c4a77d25e88637f8bbae81536c48d
 ARG RUNTIME_IMAGE=gcr.io/distroless/static-debian13:nonroot@sha256:e2e927ec666bae08560abb3c55d0659eceabb657f56b6782ab500a9fc7f555e3
 
 # ---- source + module cache ---------------------------------------------------------------

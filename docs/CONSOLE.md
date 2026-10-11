@@ -33,8 +33,13 @@ rules, tune risk settings and manage keys, webhooks and their team. It is a Next
 A section appears in the navigation only when the user holds one of its permissions; the API
 enforces the same permissions on every request.
 
-Analytics are computed from the events when you open the page. TODO(phase-9): precompute
-hourly rollups if 30-day windows become slow at production volumes.
+Analytics read hourly rollups of events and signals for the hours that are finished, and the raw
+events for the hour in progress; the worker keeps the rollups up to date every hour
+([PERFORMANCE_BASELINE.md](PERFORMANCE_BASELINE.md#8-analytics-at-volume-rollups)). The numbers
+are the same as aggregating the raw events, with one visible difference: an event that is
+recorded into an hour that has already finished (a transaction that committed late) is counted
+in that hour's bar from the next hourly run, not at once. The highest-risk users are read from
+the events by score, never from the rollup.
 
 ## Onboarding
 
