@@ -30,8 +30,8 @@ import (
 // Events and evaluations are spread evenly over the last 30 days for one tenant, with 50,000 users
 // and two signals per evaluation. The method and results are in docs/PERFORMANCE_BASELINE.md.
 func TestAnalyticsAtVolume(t *testing.T) {
-	raw := os.Getenv("RISKOS_ANALYTICS_ROWS")
-	if raw == "" {
+	raw, ok := os.LookupEnv("RISKOS_ANALYTICS_ROWS")
+	if !ok || raw == "" {
 		t.Skip("set RISKOS_ANALYTICS_ROWS to measure analytics against that many events")
 	}
 	rows, err := strconv.Atoi(raw)

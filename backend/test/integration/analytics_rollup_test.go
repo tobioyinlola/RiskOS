@@ -138,13 +138,19 @@ GROUP BY user_ref ORDER BY max(risk_score) DESC, max(received_at) DESC LIMIT 10`
 		require.NoError(t, rows.Err())
 		require.Len(t, want, 10)
 
+		// Decode the page's users through their typed shape rather than asserting on a map.
+		blob, err := json.Marshal(raw["30d"]["top_users"])
+		require.NoError(t, err)
+		var shown []struct {
+			UserID   string `json:"user_id"`
+			MaxScore int    `json:"max_score"`
+			Events   int    `json:"events"`
+			Flagged  int    `json:"flagged"`
+		}
+		require.NoError(t, json.Unmarshal(blob, &shown))
 		var got []user
-		for _, raw := range raw["30d"]["top_users"].([]any) {
-			m := raw.(map[string]any)
-			got = append(got, user{
-				User: m["user_id"].(string), MaxScore: int(m["max_score"].(float64)),
-				Events: int(m["events"].(float64)), Flagged: int(m["flagged"].(float64)),
-			})
+		for _, u := range shown {
+			got = append(got, user{User: u.UserID, MaxScore: u.MaxScore, Events: u.Events, Flagged: u.Flagged})
 		}
 		assert.Equal(t, want, got)
 	})
