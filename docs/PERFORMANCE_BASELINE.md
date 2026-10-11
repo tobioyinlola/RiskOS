@@ -243,6 +243,43 @@ Every pack stays far inside the budget at p95. Ghana costs the most (GH-TM-07's 
 tiers and the agent rules), and its p99 in this single short round is an outlier the other
 percentiles do not share: rerun with `ROUNDS=2 WARM_S=60` before treating it as a tail.
 
+## 8. Analytics at volume (rollups)
+
+The console's analytics page (events per bucket, highest-risk users, most frequent signals) used to
+aggregate a tenant's raw events and evaluations on every request. Measured with
+`RISKOS_ANALYTICS_ROWS=600000 go test -tags integration ./test/integration -run TestAnalyticsAtVolume -v`
+(600,000 events and evaluations spread over 30 days, 50,000 users, two signals each; laptop,
+WSL 2 under Docker Desktop, 2026-10-11), page latency through the API, five requests per window:
+
+| Window | min | median | max |
+|---|---|---|---|
+| 24 h | 77 ms | 83 ms | 104 ms |
+| 7 d | 644 ms | 697 ms | 810 ms |
+| 30 d | 2.45 s | 3.13 s | 5.02 s (the request timeout: a 503) |
+
+The 30-day statements on their own: timeline 0.74 s, top users 0.82 s, **top signals 2.74 s**
+(unpacking every evaluation's signal array). An earlier run while the machine was busy gave 5 s
+and more for the 30-day window, so treat the figures as noisy. They show the page would not
+scale: its cost grows with the events in the window, and at the design rate (100 events/s) a
+30-day window is 260 million events.
+
+**What was built** (migration 00045): hourly rollups of events (`analytics_hourly`) and signals
+(`signals_hourly`), kept by the worker every hour, which the page reads for finished hours and
+combines with the raw rows of the hour in progress; and the highest-risk users are found by
+walking the window's events in score order (`events_by_score`) and computing statistics only for
+the few users that can make the list, instead of aggregating every event.
+
+**What was verified:** `TestAnalyticsRollups` shows the page returns exactly the same series,
+users and signals from the rollups as from the raw events: before any rollup, after it, after a
+second (idempotent) run, with a rollup 30 hours behind, and with an event that committed late into
+a finished hour (visible from the next run). The users are compared with the aggregate they
+replace, with fifteen users tied at the top score.
+
+**Not measured:** the page's latency *with* the rollups at 600,000 events. That run was stopped
+when the machine ran out of memory; re-run the command above (it now measures before and after one
+rollup run, and times the rollup itself) on a machine with room. Until then the improvement is
+expected from the design (the rollup read touches at most 720 hourly rows a window), not shown.
+
 ## Findings
 
 1. **Latency is far inside budget.** At 2,000 req/s the p99 of the full network path is below
