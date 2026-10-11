@@ -28,6 +28,20 @@ import {
  */
 
 const NOW = "2026-09-30T12:00:00Z";
+
+const WEBHOOK = {
+  id: "whk_1",
+  url: "https://hooks.example.com/riskos",
+  description: "Fraud operations queue",
+  event_types: ["alert.created", "case.created"],
+  status: "active",
+  disabled_reason: null,
+  failing_since: null,
+  previous_secret_valid_until: null,
+  created_at: NOW,
+  created_by: "ada@example.com",
+  updated_at: NOW,
+};
 const b64url = (s: string) =>
   Buffer.from(s)
     .toString("base64")
@@ -1665,6 +1679,43 @@ export async function mockApi(page: Page): Promise<MockApi> {
         }
         return json(route, { data: state.rules });
       case "/webhooks":
+        return json(route, { data: [WEBHOOK] });
+      case "/webhooks/whk_1":
+        return json(route, WEBHOOK);
+      case "/webhooks/whk_1/deliveries":
+        return json(route, {
+          data: [
+            {
+              id: "whd_1",
+              webhook_id: "whk_1",
+              event_id: "wev_1",
+              event_type: "alert.created",
+              status: "succeeded",
+              attempts: 1,
+              next_attempt_at: null,
+              last_attempt_at: NOW,
+              last_status_code: 200,
+              last_error: null,
+              created_at: NOW,
+              completed_at: NOW,
+            },
+            {
+              id: "whd_2",
+              webhook_id: "whk_1",
+              event_id: "wev_2",
+              event_type: "case.created",
+              status: "failed",
+              attempts: 3,
+              next_attempt_at: null,
+              last_attempt_at: NOW,
+              last_status_code: 500,
+              last_error: "endpoint returned 500",
+              created_at: NOW,
+              completed_at: null,
+            },
+          ],
+          next_cursor: null,
+        });
       case "/team/invites":
         return json(route, { data: [] });
       case "/team/members":

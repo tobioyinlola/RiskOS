@@ -374,6 +374,7 @@ function Footer() {
       </div>
       <p
         aria-hidden="true"
+        data-decorative
         className="pointer-events-none -mb-[0.22em] text-center text-[clamp(96px,22vw,320px)] leading-none font-bold tracking-[-0.06em] text-bg-sunken select-none"
       >
         RiskOS
