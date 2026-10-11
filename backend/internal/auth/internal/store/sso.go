@@ -87,6 +87,20 @@ func (Store) DeleteSSOConnection(ctx context.Context) (bool, error) {
 	return n > 0, nil
 }
 
+// SetSSOOptional stops requiring single sign-on for the scope's tenant; false if it was not
+// required.
+func (Store) SetSSOOptional(ctx context.Context, now time.Time, updatedBy string) (bool, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return false, err
+	}
+	n, err := q.SetSSORequired(ctx, sqlcgen.SetSSORequiredParams{TenantID: scope.TenantID, Now: now, UpdatedBy: updatedBy})
+	if err != nil {
+		return false, fmt.Errorf("lift sso requirement: %w", err)
+	}
+	return n > 0, nil
+}
+
 // ClearSSOSubjects forgets every user's provider subject in the scope's tenant.
 func (Store) ClearSSOSubjects(ctx context.Context) error {
 	q, scope, err := scoped(ctx)

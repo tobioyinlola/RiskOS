@@ -318,6 +318,13 @@ func (m *Module) ResolveAssignee(ctx context.Context, ref string) (string, bool,
 	return m.console.ResolveAssignee(ctx, ref)
 }
 
+// LiftSSORequirement stops requiring single sign-on in the tenant of the scope in ctx, so people
+// can use their passwords again, and reports whether it was required. Operator tooling uses it
+// when an identity provider is unavailable.
+func (m *Module) LiftSSORequirement(ctx context.Context) (bool, error) {
+	return m.console.LiftSSORequirement(ctx)
+}
+
 // Invite creates an invite in the tenant of the scope in ctx and returns its link (shown once).
 // Operator tooling uses it to invite a tenant's first administrator.
 func (m *Module) Invite(ctx context.Context, email string, role Role) (string, error) {

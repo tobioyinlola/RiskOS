@@ -81,7 +81,7 @@ func (h *ConsoleHandlers) FinishSSO(ctx context.Context, req apigen.FinishSSOReq
 }
 
 func ssoToAPI(c service.SSOConnection) apigen.SSOConnection {
-	return apigen.SSOConnection{Issuer: c.Issuer, ClientId: c.ClientID, Enabled: c.Enabled, UpdatedAt: c.UpdatedAt, UpdatedBy: c.UpdatedBy}
+	return apigen.SSOConnection{Issuer: c.Issuer, ClientId: c.ClientID, Enabled: c.Enabled, Required: c.Required, UpdatedAt: c.UpdatedAt, UpdatedBy: c.UpdatedBy}
 }
 
 // GetSSO implements GET /api/v1/sso.
@@ -104,6 +104,7 @@ func (h *ConsoleHandlers) PutSSO(ctx context.Context, req apigen.PutSSORequestOb
 	}
 	c, err := h.con.PutSSO(ctx, service.SSOInput{
 		Issuer: req.Body.Issuer, ClientID: req.Body.ClientId, ClientSecret: req.Body.ClientSecret, Enabled: req.Body.Enabled,
+		Required: req.Body.Required != nil && *req.Body.Required,
 	})
 	if err != nil {
 		return nil, mapSSOError(err)

@@ -362,6 +362,14 @@ func (c *Console) Login(ctx context.Context, email, password string, cl Client) 
 		if err != nil {
 			return err
 		}
+		required, err := c.ssoRequired(ctx)
+		if err != nil {
+			return err
+		}
+		if required {
+			// The password was right, so saying why is not an enumeration; no session is opened.
+			return c.record(ctx, "user.login_failed", "user", sys.ID, audit.OutcomeFailure, map[string]any{"reason": "sso_required"})
+		}
 		state := StateEnrollmentRequired
 		if user.TotpSecretEnc != nil || len(creds) > 0 {
 			state = StateMFARequired
@@ -369,6 +377,9 @@ func (c *Console) Login(ctx context.Context, email, password string, cl Client) 
 		out, err = c.openSession(ctx, u.ID, state, cl)
 		return err
 	})
+	if err == nil && out.Token == "" {
+		return SignIn{}, domain.ErrSSORequired // the workspace allows only single sign-on
+	}
 	return out, err
 }
 
@@ -1130,9 +1141,17 @@ func (c *Console) AcceptInvite(ctx context.Context, token, name, password string
 			map[string]any{"role": inv.Role, "invite_id": ids.Format(ids.PrefixInvite, inv.ID)}); err != nil {
 			return err
 		}
+		required, err := c.ssoRequired(ctx)
+		if err != nil || required {
+			// The account exists, but a password is not a way in here: no session is opened.
+			return err
+		}
 		out, err = c.openSession(ctx, userID, StateEnrollmentRequired, cl)
 		return err
 	})
+	if err == nil && out.Token == "" {
+		return SignIn{}, domain.ErrSSORequired
+	}
 	return out, err
 }
 

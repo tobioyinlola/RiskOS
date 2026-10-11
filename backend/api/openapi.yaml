@@ -6594,7 +6594,7 @@ components:
     SSOConnection:
       type: object
       additionalProperties: false
-      required: [issuer, client_id, enabled, updated_at, updated_by]
+      required: [issuer, client_id, enabled, required, updated_at, updated_by]
       properties:
         issuer:
           type: string
@@ -6604,6 +6604,11 @@ components:
         enabled:
           type: boolean
           description: When false, the connection is kept but nobody can sign in with it.
+        required:
+          type: boolean
+          description: |
+            When true, single sign-on is the only way in: password and Google sign-in are refused
+            for the workspace's people (403 `SSO_REQUIRED`). It needs `enabled`.
         updated_at:
           type: string
           format: date-time
@@ -6639,6 +6644,14 @@ components:
           description: Required the first time; leave out to keep the stored secret.
         enabled:
           type: boolean
+        required:
+          type: boolean
+          default: false
+          description: |
+            Make single sign-on the only way in. It is accepted only for a saved, enabled connection
+            whose issuer is unchanged, and only from a person who has themselves signed in through
+            the provider, so the workspace cannot lock itself out. Changing the issuer needs it off.
+            The operator tool can lift it if the provider is unavailable.
     LoginRequest:
       type: object
       additionalProperties: false

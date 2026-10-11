@@ -113,6 +113,29 @@ A tenant can connect one OpenID Connect identity provider (Team → Single sign-
   without (404 `SSO_NOT_CONFIGURED`), so it reveals that an account uses SSO. Attempts are
   throttled per email and per IP, like password sign-in.
 
+### Requiring single sign-on
+
+An administrator can make single sign-on the only way in (`required: true` on `PUT /api/v1/sso`,
+or the checkbox on Team → Single sign-on).
+
+- **What is refused.** Password sign-in and Google sign-in answer `403 SSO_REQUIRED` and open no
+  session, and accepting an invite creates the account but opens no session (the person signs in
+  through the provider). The password must be right first, so this reveals nothing to someone
+  who does not have it; wrong passwords and unknown emails still answer `401`. Each refusal is
+  audited (`user.login_failed` or `user.google_failed`, reason `sso_required`). People still
+  need RiskOS's second factor after the provider.
+- **It cannot lock the workspace out by itself.** It is accepted only for a saved, enabled
+  connection that the request does not change, and only from a person who has signed in through
+  the provider themselves (their provider subject is bound). Switching the connection off while
+  it is required is refused, and changing the issuer needs the requirement off first, because
+  nobody has used the new provider yet. Removing the connection removes the requirement.
+- **When the provider is down.** Nobody can sign in, the administrators included. The operator
+  lifts the requirement with `riskosctl sso optional --operator NAME --tenant ten_…`: passwords
+  work again, the connection is kept, and it is audited as `sso.requirement_lifted` under the
+  operator's name.
+- **Not covered.** API keys are unaffected (they are not people). Sessions already open stay
+  open until they end; sign people out by disabling their account if that matters.
+
 ## Sign-up
 
 Self-serve sign-up ([ADR-0005](adr/ADR-0005-self-serve-signup.md)). On with
@@ -179,8 +202,7 @@ Mailpit, which catches every message (inbox at http://localhost:8025).
 ## Deviations and pending work
 
 - SAML is not supported; SSO is OpenID Connect only.
-- Requiring SSO (turning off password sign-in for a tenant) and provisioning accounts from the
-  provider (SCIM or just-in-time) are not built. TODO(phase-9)
+- Provisioning accounts from the provider (SCIM or just-in-time) is not built. TODO(phase-9)
 - Operator invites (`riskosctl`) print the link and are not emailed.
 - Passkey ceremonies are verified by the go-webauthn library; the integration tests cover their
   request and rejection paths. The stack browser test (`make test-e2e-stack`, in CI) registers a

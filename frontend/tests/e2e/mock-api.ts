@@ -1345,6 +1345,15 @@ export async function mockApi(page: Page): Promise<MockApi> {
           "The email or password is incorrect.",
         );
       }
+      if (body?.email === "sso-only@example.com") {
+        // A workspace that requires single sign-on refuses a correct password.
+        return error(
+          route,
+          403,
+          "SSO_REQUIRED",
+          "Your workspace requires single sign-on. Sign in with single sign-on instead.",
+        );
+      }
       return json(
         route,
         state.hasPasskey

@@ -58,8 +58,7 @@ func (q *Queries) DeleteSSOConnection(ctx context.Context, tenantID uuid.UUID) (
 
 const getSSOConnection = `-- name: GetSSOConnection :one
 
-SELECT tenant_id, issuer, client_id, client_secret_enc, enabled, updated_at, updated_by
-FROM sso_connections WHERE tenant_id = $1
+SELECT tenant_id, issuer, client_id, client_secret_enc, enabled, updated_at, updated_by, required FROM sso_connections WHERE tenant_id = $1
 `
 
 // Single sign-on (OIDC). Every tenant-scoped query takes tenant_id explicitly (TENANCY.md).
@@ -74,16 +73,38 @@ func (q *Queries) GetSSOConnection(ctx context.Context, tenantID uuid.UUID) (Sso
 		&i.Enabled,
 		&i.UpdatedAt,
 		&i.UpdatedBy,
+		&i.Required,
 	)
 	return i, err
 }
 
+const setSSORequired = `-- name: SetSSORequired :execrows
+UPDATE sso_connections SET required = false, updated_at = $1, updated_by = $2
+WHERE tenant_id = $3 AND required
+`
+
+type SetSSORequiredParams struct {
+	Now       time.Time
+	UpdatedBy string
+	TenantID  uuid.UUID
+}
+
+// The operator's way out when an identity provider is unavailable (riskosctl sso optional).
+func (q *Queries) SetSSORequired(ctx context.Context, arg SetSSORequiredParams) (int64, error) {
+	result, err := q.db.Exec(ctx, setSSORequired, arg.Now, arg.UpdatedBy, arg.TenantID)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const upsertSSOConnection = `-- name: UpsertSSOConnection :exec
-INSERT INTO sso_connections (tenant_id, issuer, client_id, client_secret_enc, enabled, updated_at, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO sso_connections (tenant_id, issuer, client_id, client_secret_enc, enabled, required, updated_at, updated_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (tenant_id) DO UPDATE
   SET issuer = EXCLUDED.issuer, client_id = EXCLUDED.client_id, client_secret_enc = EXCLUDED.client_secret_enc,
-      enabled = EXCLUDED.enabled, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
+      enabled = EXCLUDED.enabled, required = EXCLUDED.required, updated_at = EXCLUDED.updated_at,
+      updated_by = EXCLUDED.updated_by
 `
 
 type UpsertSSOConnectionParams struct {
@@ -92,6 +113,7 @@ type UpsertSSOConnectionParams struct {
 	ClientID        string
 	ClientSecretEnc []byte
 	Enabled         bool
+	Required        bool
 	Now             time.Time
 	UpdatedBy       string
 }
@@ -103,6 +125,7 @@ func (q *Queries) UpsertSSOConnection(ctx context.Context, arg UpsertSSOConnecti
 		arg.ClientID,
 		arg.ClientSecretEnc,
 		arg.Enabled,
+		arg.Required,
 		arg.Now,
 		arg.UpdatedBy,
 	)

@@ -43,6 +43,7 @@ var (
 	ErrSSOFailed        = errors.New("single sign-on failed")
 	ErrSSOProvider      = errors.New("identity provider unavailable")
 	ErrSSONotFound      = errors.New("no single sign-on connection")
+	ErrSSORequired      = errors.New("single sign-on is required for this workspace")
 
 	// ErrProductionLocked means the tenant's production environment opens only after RiskOS
 	// approves its onboarding.

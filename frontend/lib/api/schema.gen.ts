@@ -3484,6 +3484,11 @@ export interface components {
             client_id: string;
             /** @description When false, the connection is kept but nobody can sign in with it. */
             enabled: boolean;
+            /**
+             * @description When true, single sign-on is the only way in: password and Google sign-in are refused
+             *     for the workspace's people (403 `SSO_REQUIRED`). It needs `enabled`.
+             */
+            required: boolean;
             /** Format: date-time */
             updated_at: string;
             updated_by: string;
@@ -3499,6 +3504,14 @@ export interface components {
             /** @description Required the first time; leave out to keep the stored secret. */
             client_secret?: string;
             enabled: boolean;
+            /**
+             * @description Make single sign-on the only way in. It is accepted only for a saved, enabled connection
+             *     whose issuer is unchanged, and only from a person who has themselves signed in through
+             *     the provider, so the workspace cannot lock itself out. Changing the issuer needs it off.
+             *     The operator tool can lift it if the provider is unavailable.
+             * @default false
+             */
+            required: boolean;
         };
         LoginRequest: {
             email: string;

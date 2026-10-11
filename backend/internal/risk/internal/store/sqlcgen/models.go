@@ -509,6 +509,7 @@ type SsoConnection struct {
 	Enabled         bool
 	UpdatedAt       time.Time
 	UpdatedBy       string
+	Required        bool
 }
 
 type SsoLogin struct {

@@ -72,7 +72,19 @@ function ConnectionForm({
   const [clientID, setClientID] = useState(connection?.client_id ?? "");
   const [secret, setSecret] = useState("");
   const [enabled, setEnabled] = useState(connection?.enabled ?? true);
+  const [required, setRequired] = useState(connection?.required ?? false);
   const [removing, setRemoving] = useState(false);
+  // Requiring it is a step of its own, on a connection that has been saved and used.
+  const changed =
+    secret !== "" ||
+    issuer.trim() !== (connection?.issuer ?? "") ||
+    clientID.trim() !== (connection?.client_id ?? "");
+  const canRequire =
+    writable &&
+    !!connection &&
+    enabled &&
+    (!changed || connection.required) &&
+    (issuer.trim() === connection.issuer || !connection.required);
   const save = useAction(
     async () =>
       unwrap(
@@ -81,6 +93,7 @@ function ConnectionForm({
             issuer: issuer.trim(),
             client_id: clientID.trim(),
             enabled,
+            required: required && enabled,
             ...(secret ? { client_secret: secret } : {}),
           },
         }),
@@ -171,6 +184,25 @@ function ConnectionForm({
           />
           Allow sign-in with this provider
         </label>
+        <div className="flex flex-col gap-1">
+          <label className="flex items-center gap-2 text-body">
+            <input
+              type="checkbox"
+              checked={required && enabled}
+              onChange={(e) => setRequired(e.target.checked)}
+              disabled={!canRequire && !required}
+              className="accent-accent"
+            />
+            Require single sign-on
+          </label>
+          <p className="text-label text-text-muted">
+            Password and Google sign-in are refused for everyone in this
+            workspace. You must have signed in through your provider yourself
+            first, and the connection is saved before it is required. If the
+            provider becomes unavailable, RiskOS support can switch the
+            requirement off.
+          </p>
+        </div>
         {connection ? (
           <p className="text-label text-text-muted">
             Last changed {formatTimestamp(connection.updated_at)} by{" "}

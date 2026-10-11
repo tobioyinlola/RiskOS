@@ -8,6 +8,7 @@
 //	riskosctl apikey create --operator NAME --tenant ten_… --env test|production --name NAME [--scopes a,b]
 //	riskosctl audit verify --tenant ten_…
 //	riskosctl user invite --operator NAME --tenant ten_… --email EMAIL [--role customer_admin]
+//	riskosctl sso optional --operator NAME --tenant ten_…
 //	riskosctl staff create --operator NAME --email EMAIL --name NAME [--role operations_admin|security_admin]
 //	riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
 //	riskosctl staff list
@@ -45,6 +46,7 @@ const usage = `usage:
   riskosctl apikey create --operator NAME --tenant ten_... --env test|production --name NAME [--scopes a,b]
   riskosctl audit verify --tenant ten_...
   riskosctl user invite --operator NAME --tenant ten_... --email EMAIL [--role customer_admin]
+  riskosctl sso optional --operator NAME --tenant ten_...
   riskosctl staff create --operator NAME --email EMAIL --name NAME [--role operations_admin|security_admin]
   riskosctl staff enroll|disable|enable --operator NAME --email EMAIL
   riskosctl staff list
@@ -89,6 +91,8 @@ func run(args []string, out io.Writer) error {
 		return auditVerify(ctx, cfg, args[2:], out)
 	case "user invite":
 		return userInvite(ctx, cfg, args[2:], out)
+	case "sso optional":
+		return ssoOptional(ctx, cfg, args[2:], out)
 	case "staff create", "staff enroll", "staff disable", "staff enable", "staff list", "staff unbind-sso":
 		return staffCommand(ctx, cfg, args[1], args[2:], out)
 	case "webhooks key-usage":
@@ -256,6 +260,45 @@ func userInvite(ctx context.Context, cfg config.Config, args []string, out io.Wr
 	}
 	_, err = fmt.Fprintf(out, "Invite created for %s (%s). Valid for 72 hours, usable once. Share it directly:\n  %s\n",
 		strings.ToLower(strings.TrimSpace(*email)), *role, link)
+	return err
+}
+
+// ssoOptional stops requiring single sign-on for a tenant, so its people can use their passwords
+// again. It is the way out when the identity provider is unavailable or misconfigured and nobody,
+// the administrators included, can sign in. The connection itself is kept.
+func ssoOptional(ctx context.Context, cfg config.Config, args []string, out io.Writer) error {
+	fs := flag.NewFlagSet("sso optional", flag.ContinueOnError)
+	operator := fs.String("operator", "", "who is running this command (recorded in the audit log)")
+	tenant := fs.String("tenant", "", "tenant ID (ten_…)")
+	if err := fs.Parse(args); err != nil {
+		return err
+	}
+	actor, err := operatorActor(*operator)
+	if err != nil {
+		return err
+	}
+	tenantID, err := ids.Parse(ids.PrefixTenant, *tenant)
+	if err != nil {
+		return fmt.Errorf("--tenant: %w", err)
+	}
+	a, err := newApp(ctx, cfg)
+	if err != nil {
+		return err
+	}
+	defer a.close()
+	scoped, err := a.tenants.OperatorScope(ctx, tenantID, tenancy.EnvironmentTest, actor)
+	if err != nil {
+		return err
+	}
+	lifted, err := a.auth.LiftSSORequirement(scoped)
+	if err != nil {
+		return err
+	}
+	if !lifted {
+		_, err = fmt.Fprintln(out, "Single sign-on was not required for this tenant; nothing changed.")
+		return err
+	}
+	_, err = fmt.Fprintln(out, "Single sign-on is no longer required. People can sign in with their passwords again.")
 	return err
 }
 

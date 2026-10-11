@@ -10195,6 +10195,7 @@
      "issuer",
      "client_id",
      "enabled",
+     "required",
      "updated_at",
      "updated_by"
     ],
@@ -10209,6 +10210,10 @@
      "enabled": {
       "type": "boolean",
       "description": "When false, the connection is kept but nobody can sign in with it."
+     },
+     "required": {
+      "type": "boolean",
+      "description": "When true, single sign-on is the only way in: password and Google sign-in are refused\nfor the workspace's people (403 `SSO_REQUIRED`). It needs `enabled`.\n"
      },
      "updated_at": {
       "type": "string",
@@ -10266,6 +10271,11 @@
      },
      "enabled": {
       "type": "boolean"
+     },
+     "required": {
+      "type": "boolean",
+      "default": false,
+      "description": "Make single sign-on the only way in. It is accepted only for a saved, enabled connection\nwhose issuer is unchanged, and only from a person who has themselves signed in through\nthe provider, so the workspace cannot lock itself out. Changing the issuer needs it off.\nThe operator tool can lift it if the provider is unavailable.\n"
      }
     }
    },

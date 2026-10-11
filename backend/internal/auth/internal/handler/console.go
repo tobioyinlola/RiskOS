@@ -39,6 +39,7 @@ const (
 	CodeReauthRequired     = "REAUTH_REQUIRED"
 	CodeCSRF               = "CSRF_FAILED"
 	CodeSessionState       = "SESSION_STATE"
+	CodeSSORequired        = "SSO_REQUIRED"
 )
 
 // CookieConfig configures the session cookie and the console's origin.
@@ -699,6 +700,9 @@ func mapConsoleError(err error) error {
 			WithHeader("Retry-After", strconv.Itoa(int(math.Ceil(rl.RetryAfter.Seconds()))))
 	case errors.Is(err, domain.ErrInvalidCredentials):
 		return httpx.NewError(http.StatusUnauthorized, CodeInvalidCredentials, "The email or password is incorrect.", err)
+	case errors.Is(err, domain.ErrSSORequired):
+		return httpx.NewError(http.StatusForbidden, CodeSSORequired,
+			"Your workspace requires single sign-on. Sign in with single sign-on instead.", err)
 	case errors.Is(err, domain.ErrUnauthenticated):
 		return httpx.NewError(http.StatusUnauthorized, httpx.CodeUnauthenticated, "Sign in to continue.", err)
 	case errors.Is(err, domain.ErrTenantSuspended):
