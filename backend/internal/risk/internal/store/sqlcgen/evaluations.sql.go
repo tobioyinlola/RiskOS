@@ -90,6 +90,28 @@ func (q *Queries) GetEvaluation(ctx context.Context, arg GetEvaluationParams) (G
 	return i, err
 }
 
+const getSignalsRollupState = `-- name: GetSignalsRollupState :one
+SELECT covered_from, rolled_through FROM rollup_state
+WHERE tenant_id = $1 AND environment_id = $2 AND name = 'signals'
+`
+
+type GetSignalsRollupStateParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+}
+
+type GetSignalsRollupStateRow struct {
+	CoveredFrom   time.Time
+	RolledThrough time.Time
+}
+
+func (q *Queries) GetSignalsRollupState(ctx context.Context, arg GetSignalsRollupStateParams) (GetSignalsRollupStateRow, error) {
+	row := q.db.QueryRow(ctx, getSignalsRollupState, arg.TenantID, arg.EnvironmentID)
+	var i GetSignalsRollupStateRow
+	err := row.Scan(&i.CoveredFrom, &i.RolledThrough)
+	return i, err
+}
+
 const insertEvaluation = `-- name: InsertEvaluation :exec
 
 INSERT INTO evaluations (
@@ -216,6 +238,32 @@ func (q *Queries) PackReplays(ctx context.Context, arg PackReplaysParams) ([]Pac
 	return items, nil
 }
 
+const putSignalsRollupState = `-- name: PutSignalsRollupState :exec
+INSERT INTO rollup_state (tenant_id, environment_id, name, covered_from, rolled_through, updated_at)
+VALUES ($1, $2, 'signals', $3, $4, $5)
+ON CONFLICT (tenant_id, environment_id, name) DO UPDATE SET
+  rolled_through = EXCLUDED.rolled_through, updated_at = EXCLUDED.updated_at
+`
+
+type PutSignalsRollupStateParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	CoveredFrom   time.Time
+	RolledThrough time.Time
+	Now           time.Time
+}
+
+func (q *Queries) PutSignalsRollupState(ctx context.Context, arg PutSignalsRollupStateParams) error {
+	_, err := q.db.Exec(ctx, putSignalsRollupState,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.CoveredFrom,
+		arg.RolledThrough,
+		arg.Now,
+	)
+	return err
+}
+
 const recentFacts = `-- name: RecentFacts :many
 SELECT id, event_id, created_at, (features->'facts')::jsonb AS facts, decision, risk_score
 FROM evaluations
@@ -321,6 +369,39 @@ func (q *Queries) RestrictedSignals(ctx context.Context, arg RestrictedSignalsPa
 	return items, nil
 }
 
+const rollupSignalHours = `-- name: RollupSignalHours :execrows
+INSERT INTO signals_hourly (tenant_id, environment_id, bucket, code, label, hits)
+SELECT $1, $2, date_bin('1 hour', created_at, '2000-01-01T00:00:00Z'::timestamptz),
+       sig->>'code', coalesce(max(sig->>'label'), ''), count(*)
+FROM evaluations, jsonb_array_elements(signals) AS sig
+WHERE tenant_id = $1 AND environment_id = $2 AND NOT dry_run
+  AND created_at >= $3::timestamptz AND created_at < $4::timestamptz AND sig->>'code' IS NOT NULL
+GROUP BY 3, 4
+ON CONFLICT (tenant_id, environment_id, bucket, code) DO UPDATE SET label = EXCLUDED.label, hits = EXCLUDED.hits
+`
+
+type RollupSignalHoursParams struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	RangeStart    time.Time
+	RangeEnd      time.Time
+}
+
+// Recomputes the hourly signal counts of [@range_start, @range_end) (whole hours) from evaluations. A rollup
+// row is a function of its hour's immutable evaluations, so this is idempotent.
+func (q *Queries) RollupSignalHours(ctx context.Context, arg RollupSignalHoursParams) (int64, error) {
+	result, err := q.db.Exec(ctx, rollupSignalHours,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.RangeStart,
+		arg.RangeEnd,
+	)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const ruleMatchesByDay = `-- name: RuleMatchesByDay :many
 SELECT s.code::text AS code,
        date_trunc('day', e.created_at AT TIME ZONE 'UTC')::date AS day,
@@ -384,12 +465,22 @@ func (q *Queries) RuleMatchesByDay(ctx context.Context, arg RuleMatchesByDayPara
 }
 
 const topSignals = `-- name: TopSignals :many
-SELECT (sig->>'code')::text AS code, coalesce(max(sig->>'label'), '')::text AS label, count(*)::bigint AS hits
-FROM evaluations, jsonb_array_elements(signals) AS sig
-WHERE tenant_id = $1 AND environment_id = $2 AND created_at >= $3
-  AND NOT dry_run
-GROUP BY sig->>'code'
-ORDER BY count(*) DESC
+WITH parts AS (
+  SELECT s.code, s.label, s.hits FROM signals_hourly s
+  WHERE s.tenant_id = $1 AND s.environment_id = $2
+    AND s.bucket >= GREATEST($3::timestamptz, $4::timestamptz) AND s.bucket < $5::timestamptz
+  UNION ALL
+  SELECT (sig->>'code')::text, coalesce(max(sig->>'label'), '')::text, count(*)::bigint
+  FROM evaluations ev, jsonb_array_elements(ev.signals) AS sig
+  WHERE ev.tenant_id = $1 AND ev.environment_id = $2 AND NOT ev.dry_run
+    AND ((ev.created_at >= $3 AND ev.created_at < $4)
+      OR ev.created_at >= GREATEST($3::timestamptz, $5::timestamptz))
+  GROUP BY sig->>'code'
+)
+SELECT code::text AS code, coalesce(max(label), '')::text AS label, sum(hits)::bigint AS hits
+FROM parts
+GROUP BY code
+ORDER BY sum(hits) DESC
 LIMIT 15
 `
 
@@ -397,6 +488,8 @@ type TopSignalsParams struct {
 	TenantID      uuid.UUID
 	EnvironmentID uuid.UUID
 	Since         time.Time
+	CoveredFrom   time.Time
+	RolledThrough time.Time
 }
 
 type TopSignalsRow struct {
@@ -405,9 +498,17 @@ type TopSignalsRow struct {
 	Hits  int64
 }
 
-// Analytics: how often each signal fired in events since @since.
+// Analytics: how often each signal fired in events since @since. Hours [@covered_from,
+// @rolled_through) come from the hourly rollup (signals_hourly); the rest is read from
+// evaluations. With no rollup, pass both as @since and everything is read raw.
 func (q *Queries) TopSignals(ctx context.Context, arg TopSignalsParams) ([]TopSignalsRow, error) {
-	rows, err := q.db.Query(ctx, topSignals, arg.TenantID, arg.EnvironmentID, arg.Since)
+	rows, err := q.db.Query(ctx, topSignals,
+		arg.TenantID,
+		arg.EnvironmentID,
+		arg.Since,
+		arg.CoveredFrom,
+		arg.RolledThrough,
+	)
 	if err != nil {
 		return nil, err
 	}

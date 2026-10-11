@@ -76,6 +76,29 @@ type AlertEvaluation struct {
 	EvaluatedAt     time.Time
 }
 
+type AnalyticsHourly struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Bucket        time.Time
+	Events        int64
+	ScoreSum      int64
+	Minimal       int64
+	Low           int64
+	Elevated      int64
+	High          int64
+	Critical      int64
+	Allow         int64
+	Fee           int64
+	Flag          int64
+	StepUp        int64
+	Review        int64
+	Restrict      int64
+	Hold          int64
+	BlockSession  int64
+	Decline       int64
+	Block         int64
+}
+
 type ApiKey struct {
 	ID            uuid.UUID
 	TenantID      uuid.UUID
@@ -421,6 +444,15 @@ type RiskSetting struct {
 	AutoBlockShadowSince *time.Time
 }
 
+type RollupState struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Name          string
+	CoveredFrom   time.Time
+	RolledThrough time.Time
+	UpdatedAt     time.Time
+}
+
 type Rule struct {
 	TenantID       uuid.UUID
 	EnvironmentID  uuid.UUID
@@ -481,6 +513,15 @@ type RuleVersion struct {
 	CreatedAt     time.Time
 	CreatedBy     string
 	RestoredFrom  *int32
+}
+
+type SignalsHourly struct {
+	TenantID      uuid.UUID
+	EnvironmentID uuid.UUID
+	Bucket        time.Time
+	Code          string
+	Label         string
+	Hits          int64
 }
 
 type Signup struct {

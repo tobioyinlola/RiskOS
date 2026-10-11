@@ -406,6 +406,63 @@ func (s *Service) Analytics(ctx context.Context, w domain.Window) (Analytics, er
 	return out, err
 }
 
+// How the analytics rollups are kept: the first run covers rollupHistory back (the longest
+// window is 30 days), a run recomputes the last rollupRecompute hours again so a row that
+// committed late is picked up, and a run catches up at most rollupMaxSpan at a time so a back-fill
+// cannot hold a transaction for long.
+const (
+	rollupHistory   = 31 * 24 * time.Hour
+	rollupRecompute = 3 * time.Hour
+	rollupMaxSpan   = 7 * 24 * time.Hour
+)
+
+// Rollup brings the hourly analytics rollups of the scope in ctx up to date: events here and
+// signals in the risk module. It is idempotent, and safe to run from several workers at once
+// (they compute the same values). The page reads a rollup only for hours it has finished, so a
+// run that is behind makes the page slower, never wrong.
+func (s *Service) Rollup(ctx context.Context, signals SignalRoller) error {
+	now := s.clock.Now().UTC()
+	end := now.Truncate(time.Hour)
+	// The first run is a back-fill of a month, in chunks of rollupMaxSpan, one transaction each.
+	for range int(rollupHistory/rollupMaxSpan) + 2 {
+		var caughtUp bool
+		err := s.runner.Run(ctx, func(ctx context.Context) error {
+			covered := end.Add(-rollupHistory)
+			from := covered
+			if st, err := s.store.RollupState(ctx, store.RollupAnalytics); err != nil {
+				return err
+			} else if st != nil {
+				covered = st.CoveredFrom
+				from = st.RolledThrough.Add(-rollupRecompute)
+				if from.Before(covered) {
+					from = covered
+				}
+			}
+			until := from.Add(rollupMaxSpan)
+			if !until.Before(end) {
+				until, caughtUp = end, true
+			}
+			if !until.After(from) {
+				caughtUp = true
+				return nil
+			}
+			return s.store.RollupEvents(ctx, covered, from, until, now)
+		})
+		if err != nil {
+			return err
+		}
+		if caughtUp {
+			break
+		}
+	}
+	return signals.RollupSignals(ctx, now)
+}
+
+// SignalRoller keeps the hourly signal counts, which the risk module owns.
+type SignalRoller interface {
+	RollupSignals(ctx context.Context, now time.Time) error
+}
+
 // jurisdictionOf is the country whose pack judged an evaluation ("" when none did).
 func jurisdictionOf(r risk.Result) string {
 	if r.Jurisdiction == nil {

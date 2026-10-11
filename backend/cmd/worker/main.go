@@ -18,6 +18,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/alerts"
 	"github.com/tobioyinlola/RiskOS/backend/internal/audit"
 	"github.com/tobioyinlola/RiskOS/backend/internal/auth"
+	"github.com/tobioyinlola/RiskOS/backend/internal/events"
 	"github.com/tobioyinlola/RiskOS/backend/internal/jobs"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/appmetrics"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/clock"
@@ -26,6 +27,7 @@ import (
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/logging"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/mail"
 	"github.com/tobioyinlola/RiskOS/backend/internal/platform/telemetry"
+	"github.com/tobioyinlola/RiskOS/backend/internal/risk"
 	"github.com/tobioyinlola/RiskOS/backend/internal/rules"
 	"github.com/tobioyinlola/RiskOS/backend/internal/tenants"
 	"github.com/tobioyinlola/RiskOS/backend/internal/webhooks"
@@ -142,6 +144,11 @@ func run() (err error) {
 	rulesModule := rules.New(runner, auditModule.Recorder())
 	jobs.Register(registry, rulesModule.TasksJob(tenantsModule, clk, logger))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, rules.DailyArgs{}, rulesModule.DailyJob(pool, tenantsModule, clk, logger))
+	// The analytics page reads hourly rollups of events and signals, kept up to date here. The
+	// module is built without an evaluator: the job only reads and writes aggregates.
+	eventsModule := events.New(runner, nil, nil, nil, clk, nil)
+	jobs.RegisterPeriodic(registry, time.Hour, events.RollupArgs{},
+		eventsModule.RollupJob(pool, tenantsModule, risk.NewSignalRollup(runner, clk), logger))
 	jobs.Register(registry, webhooksModule.DeliverJob(tenantsModule))
 	jobs.RegisterPeriodic(registry, 24*time.Hour, jobs.EnsurePartitionsArgs{}, func(ctx context.Context, _ jobs.EnsurePartitionsArgs) error {
 		created, err := db.EnsureTimePartitions(ctx, pool, db.PartitionMonthsAhead)

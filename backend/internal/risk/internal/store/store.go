@@ -148,13 +148,66 @@ func nonNilStrings(s []string) []string {
 	return s
 }
 
-// TopSignals counts how often each signal fired in events since since, most frequent first.
-func (Store) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCount, error) {
+// RollupWindow is how far the signal rollup has been computed: whole hours in
+// [CoveredFrom, RolledThrough).
+type RollupWindow struct {
+	CoveredFrom, RolledThrough time.Time
+}
+
+// SignalsRollup returns the scope's signal rollup window, or nil if it has none yet.
+func (Store) SignalsRollup(ctx context.Context) (*RollupWindow, error) {
 	q, scope, err := scoped(ctx)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := q.TopSignals(ctx, sqlcgen.TopSignalsParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since})
+	row, err := q.GetSignalsRollupState(ctx, sqlcgen.GetSignalsRollupStateParams{TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil //nolint:nilnil // not rolled up yet is a normal outcome
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get signals rollup state: %w", err)
+	}
+	return &RollupWindow{CoveredFrom: row.CoveredFrom, RolledThrough: row.RolledThrough}, nil
+}
+
+// RollupSignals recomputes the hourly signal counts of [from, until) and moves the scope's rollup
+// window to cover through until (starting at coveredFrom).
+func (Store) RollupSignals(ctx context.Context, coveredFrom, from, until, now time.Time) error {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return err
+	}
+	if _, err := q.RollupSignalHours(ctx, sqlcgen.RollupSignalHoursParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, RangeStart: from, RangeEnd: until,
+	}); err != nil {
+		return fmt.Errorf("roll up signals: %w", err)
+	}
+	if err := q.PutSignalsRollupState(ctx, sqlcgen.PutSignalsRollupStateParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, CoveredFrom: coveredFrom, RolledThrough: until, Now: now,
+	}); err != nil {
+		return fmt.Errorf("put signals rollup state: %w", err)
+	}
+	return nil
+}
+
+// TopSignals counts how often each signal fired in events since since, most frequent first. Hours
+// the rollup has computed are read from it and the rest from evaluations, with the same result.
+func (s Store) TopSignals(ctx context.Context, since time.Time) ([]domain.SignalCount, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	// Without a rollup both bounds are since: the rollup part is empty and everything is raw.
+	covered, through := since, since
+	if st, err := s.SignalsRollup(ctx); err != nil {
+		return nil, err
+	} else if st != nil {
+		covered, through = st.CoveredFrom, st.RolledThrough
+	}
+	rows, err := q.TopSignals(ctx, sqlcgen.TopSignalsParams{
+		TenantID: scope.TenantID, EnvironmentID: scope.EnvironmentID, Since: since,
+		CoveredFrom: covered, RolledThrough: through,
+	})
 	if err != nil {
 		return nil, fmt.Errorf("top signals: %w", err)
 	}

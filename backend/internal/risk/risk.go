@@ -56,6 +56,21 @@ type Evaluator interface {
 	TopSignals(ctx context.Context, since time.Time) ([]SignalCount, error)
 }
 
+// SignalRollup keeps the hourly signal counts the analytics page reads. It needs the database
+// alone, so the worker can run it without the feature store the evaluator carries.
+type SignalRollup struct{ svc *service.Service }
+
+// NewSignalRollup returns the signal rollup.
+func NewSignalRollup(runner txn.Runner, clk clock.Clock) *SignalRollup {
+	return &SignalRollup{svc: service.New(nil, runner, nil, clk, slog.New(slog.DiscardHandler), nil)}
+}
+
+// RollupSignals brings the hourly signal counts of the scope in ctx up to date. It is idempotent
+// and no permission is checked: call it in a job scope.
+func (r *SignalRollup) RollupSignals(ctx context.Context, now time.Time) error {
+	return r.svc.RollupSignals(ctx, now)
+}
+
 // RuleTester evaluates a rule against a normalized event without side effects. The events
 // module serves the test endpoint because it owns event validation and normalization.
 type RuleTester interface {

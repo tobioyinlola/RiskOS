@@ -23,14 +23,48 @@ FROM evaluations
 WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at = @created_at AND id = @id;
 
 -- name: TopSignals :many
--- Analytics: how often each signal fired in events since @since.
-SELECT (sig->>'code')::text AS code, coalesce(max(sig->>'label'), '')::text AS label, count(*)::bigint AS hits
-FROM evaluations, jsonb_array_elements(signals) AS sig
-WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND created_at >= @since
-  AND NOT dry_run
-GROUP BY sig->>'code'
-ORDER BY count(*) DESC
+-- Analytics: how often each signal fired in events since @since. Hours [@covered_from,
+-- @rolled_through) come from the hourly rollup (signals_hourly); the rest is read from
+-- evaluations. With no rollup, pass both as @since and everything is read raw.
+WITH parts AS (
+  SELECT s.code, s.label, s.hits FROM signals_hourly s
+  WHERE s.tenant_id = @tenant_id AND s.environment_id = @environment_id
+    AND s.bucket >= GREATEST(@since::timestamptz, @covered_from::timestamptz) AND s.bucket < @rolled_through::timestamptz
+  UNION ALL
+  SELECT (sig->>'code')::text, coalesce(max(sig->>'label'), '')::text, count(*)::bigint
+  FROM evaluations ev, jsonb_array_elements(ev.signals) AS sig
+  WHERE ev.tenant_id = @tenant_id AND ev.environment_id = @environment_id AND NOT ev.dry_run
+    AND ((ev.created_at >= @since AND ev.created_at < @covered_from)
+      OR ev.created_at >= GREATEST(@since::timestamptz, @rolled_through::timestamptz))
+  GROUP BY sig->>'code'
+)
+SELECT code::text AS code, coalesce(max(label), '')::text AS label, sum(hits)::bigint AS hits
+FROM parts
+GROUP BY code
+ORDER BY sum(hits) DESC
 LIMIT 15;
+
+-- name: GetSignalsRollupState :one
+SELECT covered_from, rolled_through FROM rollup_state
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND name = 'signals';
+
+-- name: PutSignalsRollupState :exec
+INSERT INTO rollup_state (tenant_id, environment_id, name, covered_from, rolled_through, updated_at)
+VALUES (@tenant_id, @environment_id, 'signals', @covered_from, @rolled_through, @now)
+ON CONFLICT (tenant_id, environment_id, name) DO UPDATE SET
+  rolled_through = EXCLUDED.rolled_through, updated_at = EXCLUDED.updated_at;
+
+-- name: RollupSignalHours :execrows
+-- Recomputes the hourly signal counts of [@range_start, @range_end) (whole hours) from evaluations. A rollup
+-- row is a function of its hour's immutable evaluations, so this is idempotent.
+INSERT INTO signals_hourly (tenant_id, environment_id, bucket, code, label, hits)
+SELECT @tenant_id, @environment_id, date_bin('1 hour', created_at, '2000-01-01T00:00:00Z'::timestamptz),
+       sig->>'code', coalesce(max(sig->>'label'), ''), count(*)
+FROM evaluations, jsonb_array_elements(signals) AS sig
+WHERE tenant_id = @tenant_id AND environment_id = @environment_id AND NOT dry_run
+  AND created_at >= @range_start::timestamptz AND created_at < @range_end::timestamptz AND sig->>'code' IS NOT NULL
+GROUP BY 3, 4
+ON CONFLICT (tenant_id, environment_id, bucket, code) DO UPDATE SET label = EXCLUDED.label, hits = EXCLUDED.hits;
 
 -- name: PackReplays :many
 -- Backtests: evaluations of ingested events with a rule pack replay record, oldest first. One
