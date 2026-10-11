@@ -149,6 +149,25 @@ test("the alert queue works from the keyboard", async ({ page, isMobile }) => {
   expect(api.problems).toEqual([]);
 });
 
+test("single sign-on: claim an email domain and see what to publish", async ({
+  page,
+}) => {
+  const api = await mockApi(page);
+  api.signedIn = true;
+  api.ssoConnected = true;
+  await page.goto("/sso");
+  await expect(page.getByText("example.org", { exact: true })).toBeVisible();
+  await expect(page.getByText("_riskos-challenge.example.org")).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Verify example.org" }),
+  ).toBeVisible();
+
+  await page.getByLabel("Domain").fill("newco.example");
+  await page.getByRole("button", { name: "Claim domain" }).click();
+  await expect.poll(() => api.calls).toContain("POST /sso/domains");
+  expect(api.problems).toEqual([]);
+});
+
 test("a production rule change is approved by a second person", async ({
   page,
 }) => {

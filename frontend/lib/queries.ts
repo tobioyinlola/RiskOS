@@ -107,6 +107,13 @@ export function useSSO() {
   });
 }
 
+export function useSSODomains() {
+  return useQuery({
+    queryKey: ["sso-domains"],
+    queryFn: async () => unwrap(await api().GET("/api/v1/sso/domains")),
+  });
+}
+
 export type AnalyticsWindow = "24h" | "7d" | "30d";
 
 export function useAnalytics(window: AnalyticsWindow) {

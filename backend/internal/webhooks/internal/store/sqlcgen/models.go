@@ -510,15 +510,26 @@ type SsoConnection struct {
 	UpdatedAt       time.Time
 	UpdatedBy       string
 	Required        bool
+	JitEnabled      bool
+	JitRole         string
+}
+
+type SsoDomain struct {
+	TenantID   uuid.UUID
+	Domain     string
+	CreatedAt  time.Time
+	CreatedBy  string
+	VerifiedAt *time.Time
 }
 
 type SsoLogin struct {
 	StateHash   []byte
 	BrowserHash []byte
 	TenantID    uuid.UUID
-	UserID      uuid.UUID
+	UserID      *uuid.UUID
 	CreatedAt   time.Time
 	ExpiresAt   time.Time
+	Email       *string
 }
 
 type Staff struct {

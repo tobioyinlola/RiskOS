@@ -44,6 +44,17 @@ func (q *Queries) ClearSSOSubjects(ctx context.Context, tenantID uuid.UUID) erro
 	return err
 }
 
+const countVerifiedSSODomains = `-- name: CountVerifiedSSODomains :one
+SELECT count(*) FROM sso_domains WHERE tenant_id = $1 AND verified_at IS NOT NULL
+`
+
+func (q *Queries) CountVerifiedSSODomains(ctx context.Context, tenantID uuid.UUID) (int64, error) {
+	row := q.db.QueryRow(ctx, countVerifiedSSODomains, tenantID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteSSOConnection = `-- name: DeleteSSOConnection :execrows
 DELETE FROM sso_connections WHERE tenant_id = $1
 `
@@ -56,9 +67,35 @@ func (q *Queries) DeleteSSOConnection(ctx context.Context, tenantID uuid.UUID) (
 	return result.RowsAffected(), nil
 }
 
+const deleteSSODomain = `-- name: DeleteSSODomain :execrows
+DELETE FROM sso_domains WHERE tenant_id = $1 AND domain = $2
+`
+
+type DeleteSSODomainParams struct {
+	TenantID uuid.UUID
+	Domain   string
+}
+
+func (q *Queries) DeleteSSODomain(ctx context.Context, arg DeleteSSODomainParams) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteSSODomain, arg.TenantID, arg.Domain)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const deleteSSODomains = `-- name: DeleteSSODomains :exec
+DELETE FROM sso_domains WHERE tenant_id = $1
+`
+
+func (q *Queries) DeleteSSODomains(ctx context.Context, tenantID uuid.UUID) error {
+	_, err := q.db.Exec(ctx, deleteSSODomains, tenantID)
+	return err
+}
+
 const getSSOConnection = `-- name: GetSSOConnection :one
 
-SELECT tenant_id, issuer, client_id, client_secret_enc, enabled, updated_at, updated_by, required FROM sso_connections WHERE tenant_id = $1
+SELECT tenant_id, issuer, client_id, client_secret_enc, enabled, updated_at, updated_by, required, jit_enabled, jit_role FROM sso_connections WHERE tenant_id = $1
 `
 
 // Single sign-on (OIDC). Every tenant-scoped query takes tenant_id explicitly (TENANCY.md).
@@ -74,8 +111,84 @@ func (q *Queries) GetSSOConnection(ctx context.Context, tenantID uuid.UUID) (Sso
 		&i.UpdatedAt,
 		&i.UpdatedBy,
 		&i.Required,
+		&i.JitEnabled,
+		&i.JitRole,
 	)
 	return i, err
+}
+
+const getSSODomain = `-- name: GetSSODomain :one
+SELECT tenant_id, domain, created_at, created_by, verified_at FROM sso_domains WHERE tenant_id = $1 AND domain = $2
+`
+
+type GetSSODomainParams struct {
+	TenantID uuid.UUID
+	Domain   string
+}
+
+func (q *Queries) GetSSODomain(ctx context.Context, arg GetSSODomainParams) (SsoDomain, error) {
+	row := q.db.QueryRow(ctx, getSSODomain, arg.TenantID, arg.Domain)
+	var i SsoDomain
+	err := row.Scan(
+		&i.TenantID,
+		&i.Domain,
+		&i.CreatedAt,
+		&i.CreatedBy,
+		&i.VerifiedAt,
+	)
+	return i, err
+}
+
+const insertSSODomain = `-- name: InsertSSODomain :exec
+INSERT INTO sso_domains (tenant_id, domain, created_at, created_by)
+VALUES ($1, $2, $3, $4)
+`
+
+type InsertSSODomainParams struct {
+	TenantID  uuid.UUID
+	Domain    string
+	Now       time.Time
+	CreatedBy string
+}
+
+func (q *Queries) InsertSSODomain(ctx context.Context, arg InsertSSODomainParams) error {
+	_, err := q.db.Exec(ctx, insertSSODomain,
+		arg.TenantID,
+		arg.Domain,
+		arg.Now,
+		arg.CreatedBy,
+	)
+	return err
+}
+
+const listSSODomains = `-- name: ListSSODomains :many
+SELECT tenant_id, domain, created_at, created_by, verified_at FROM sso_domains WHERE tenant_id = $1 ORDER BY domain
+`
+
+func (q *Queries) ListSSODomains(ctx context.Context, tenantID uuid.UUID) ([]SsoDomain, error) {
+	rows, err := q.db.Query(ctx, listSSODomains, tenantID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SsoDomain
+	for rows.Next() {
+		var i SsoDomain
+		if err := rows.Scan(
+			&i.TenantID,
+			&i.Domain,
+			&i.CreatedAt,
+			&i.CreatedBy,
+			&i.VerifiedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const setSSORequired = `-- name: SetSSORequired :execrows
@@ -99,12 +212,12 @@ func (q *Queries) SetSSORequired(ctx context.Context, arg SetSSORequiredParams) 
 }
 
 const upsertSSOConnection = `-- name: UpsertSSOConnection :exec
-INSERT INTO sso_connections (tenant_id, issuer, client_id, client_secret_enc, enabled, required, updated_at, updated_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+INSERT INTO sso_connections (tenant_id, issuer, client_id, client_secret_enc, enabled, required, jit_enabled, jit_role, updated_at, updated_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
 ON CONFLICT (tenant_id) DO UPDATE
   SET issuer = EXCLUDED.issuer, client_id = EXCLUDED.client_id, client_secret_enc = EXCLUDED.client_secret_enc,
-      enabled = EXCLUDED.enabled, required = EXCLUDED.required, updated_at = EXCLUDED.updated_at,
-      updated_by = EXCLUDED.updated_by
+      enabled = EXCLUDED.enabled, required = EXCLUDED.required, jit_enabled = EXCLUDED.jit_enabled,
+      jit_role = EXCLUDED.jit_role, updated_at = EXCLUDED.updated_at, updated_by = EXCLUDED.updated_by
 `
 
 type UpsertSSOConnectionParams struct {
@@ -114,6 +227,8 @@ type UpsertSSOConnectionParams struct {
 	ClientSecretEnc []byte
 	Enabled         bool
 	Required        bool
+	JitEnabled      bool
+	JitRole         string
 	Now             time.Time
 	UpdatedBy       string
 }
@@ -126,8 +241,30 @@ func (q *Queries) UpsertSSOConnection(ctx context.Context, arg UpsertSSOConnecti
 		arg.ClientSecretEnc,
 		arg.Enabled,
 		arg.Required,
+		arg.JitEnabled,
+		arg.JitRole,
 		arg.Now,
 		arg.UpdatedBy,
 	)
 	return err
+}
+
+const verifySSODomain = `-- name: VerifySSODomain :execrows
+UPDATE sso_domains SET verified_at = $1
+WHERE tenant_id = $2 AND domain = $3 AND verified_at IS NULL
+`
+
+type VerifySSODomainParams struct {
+	Now      *time.Time
+	TenantID uuid.UUID
+	Domain   string
+}
+
+// A unique violation means another workspace holds the domain verified.
+func (q *Queries) VerifySSODomain(ctx context.Context, arg VerifySSODomainParams) (int64, error) {
+	result, err := q.db.Exec(ctx, verifySSODomain, arg.Now, arg.TenantID, arg.Domain)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
 }

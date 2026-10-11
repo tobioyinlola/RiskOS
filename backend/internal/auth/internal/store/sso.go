@@ -45,6 +45,141 @@ func (s Store) SSOForEmail(ctx context.Context, email string) (*SSOLookup, error
 	return &r, nil
 }
 
+// ErrDomainTaken is returned when another workspace has verified the domain.
+var ErrDomainTaken = errors.New("sso domain verified by another workspace")
+
+// SSODomain is a domain a workspace claims.
+type SSODomain = sqlcgen.SsoDomain
+
+// SSODomainLookup is what signing in a person with no account needs (pre-authentication): the
+// workspace that has verified their email's domain, and whether it lets people in just in time.
+type SSODomainLookup struct {
+	TenantID     uuid.UUID
+	TenantStatus string
+	Enabled      bool
+	JITEnabled   bool
+	JITRole      string
+}
+
+// SSOForDomain finds the workspace that has verified domain; nil if none has.
+func (s Store) SSOForDomain(ctx context.Context, domain string) (*SSODomainLookup, error) {
+	var r SSODomainLookup
+	err := preAuth(ctx, "look up sso domain", func(ctx context.Context) error {
+		return s.pool.QueryRow(ctx,
+			`SELECT tenant_id, tenant_status, sso_enabled, jit_enabled, jit_role FROM auth_sso_for_domain($1)`, domain,
+		).Scan(&r.TenantID, &r.TenantStatus, &r.Enabled, &r.JITEnabled, &r.JITRole)
+	})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil //nolint:nilnil // an unclaimed domain is a normal outcome
+	}
+	if err != nil {
+		return nil, err
+	}
+	return &r, nil
+}
+
+// SSODomains lists the scope's claimed domains.
+func (Store) SSODomains(ctx context.Context) ([]SSODomain, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	out, err := q.ListSSODomains(ctx, scope.TenantID)
+	if err != nil {
+		return nil, fmt.Errorf("list sso domains: %w", err)
+	}
+	return out, nil
+}
+
+// SSODomain returns one claimed domain, or nil.
+func (Store) SSODomain(ctx context.Context, domain string) (*SSODomain, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return nil, err
+	}
+	d, err := q.GetSSODomain(ctx, sqlcgen.GetSSODomainParams{TenantID: scope.TenantID, Domain: domain})
+	if errors.Is(err, pgx.ErrNoRows) {
+		return nil, nil //nolint:nilnil // not claimed is a normal outcome
+	}
+	if err != nil {
+		return nil, fmt.Errorf("get sso domain: %w", err)
+	}
+	return &d, nil
+}
+
+// InsertSSODomain claims domain for the scope; false if it is already claimed.
+func (Store) InsertSSODomain(ctx context.Context, domain string, now time.Time, by string) (bool, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return false, err
+	}
+	err = q.InsertSSODomain(ctx, sqlcgen.InsertSSODomainParams{TenantID: scope.TenantID, Domain: domain, Now: now, CreatedBy: by})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return false, nil
+	}
+	if err != nil {
+		return false, fmt.Errorf("claim sso domain: %w", err)
+	}
+	return true, nil
+}
+
+// VerifySSODomain marks the scope's claim verified; false if there is no unverified claim, and
+// ErrDomainTaken when another workspace holds the domain verified.
+func (Store) VerifySSODomain(ctx context.Context, domain string, now time.Time) (bool, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return false, err
+	}
+	n, err := q.VerifySSODomain(ctx, sqlcgen.VerifySSODomainParams{TenantID: scope.TenantID, Domain: domain, Now: &now})
+	var pgErr *pgconn.PgError
+	if errors.As(err, &pgErr) && pgErr.Code == "23505" {
+		return false, ErrDomainTaken
+	}
+	if err != nil {
+		return false, fmt.Errorf("verify sso domain: %w", err)
+	}
+	return n > 0, nil
+}
+
+// DeleteSSODomain removes the scope's claim; false if there was none.
+func (Store) DeleteSSODomain(ctx context.Context, domain string) (bool, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return false, err
+	}
+	n, err := q.DeleteSSODomain(ctx, sqlcgen.DeleteSSODomainParams{TenantID: scope.TenantID, Domain: domain})
+	if err != nil {
+		return false, fmt.Errorf("delete sso domain: %w", err)
+	}
+	return n > 0, nil
+}
+
+// DeleteSSODomains removes every claim of the scope's tenant.
+func (Store) DeleteSSODomains(ctx context.Context) error {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return err
+	}
+	if err := q.DeleteSSODomains(ctx, scope.TenantID); err != nil {
+		return fmt.Errorf("delete sso domains: %w", err)
+	}
+	return nil
+}
+
+// VerifiedSSODomains counts the scope's verified claims.
+func (Store) VerifiedSSODomains(ctx context.Context) (int64, error) {
+	q, scope, err := scoped(ctx)
+	if err != nil {
+		return 0, err
+	}
+	n, err := q.CountVerifiedSSODomains(ctx, scope.TenantID)
+	if err != nil {
+		return 0, fmt.Errorf("count sso domains: %w", err)
+	}
+	return n, nil
+}
+
 // SSOConnection returns the scope's connection, or nil if there is none.
 func (Store) SSOConnection(ctx context.Context) (*SSOConnection, error) {
 	q, scope, err := scoped(ctx)
@@ -118,18 +253,28 @@ type SSOLogin struct {
 	StateHash   []byte
 	BrowserHash []byte
 	TenantID    uuid.UUID
-	UserID      uuid.UUID
+	// UserID is the existing account being signed in, or uuid.Nil for someone with no account
+	// yet, who is identified by Email until the provider vouches for it (just-in-time accounts).
+	UserID uuid.UUID
+	Email  string
 }
 
 // InsertSSOLogin records an authorization request in flight, purging expired ones.
 func (s Store) InsertSSOLogin(ctx context.Context, l SSOLogin, now, expiresAt time.Time) error {
+	var user *uuid.UUID
+	var email *string
+	if l.UserID != uuid.Nil {
+		user = &l.UserID
+	} else {
+		email = &l.Email
+	}
 	return preAuth(ctx, "record sso login", func(ctx context.Context) error {
 		var one int
 		return s.pool.QueryRow(ctx,
 			`WITH purged AS (DELETE FROM sso_logins WHERE expires_at < $5)
-			 INSERT INTO sso_logins (state_hash, browser_hash, tenant_id, user_id, created_at, expires_at)
-			 VALUES ($1, $2, $3, $4, $5, $6) RETURNING 1`,
-			l.StateHash, l.BrowserHash, l.TenantID, l.UserID, now, expiresAt,
+			 INSERT INTO sso_logins (state_hash, browser_hash, tenant_id, user_id, email, created_at, expires_at)
+			 VALUES ($1, $2, $3, $4, $7, $5, $6) RETURNING 1`,
+			l.StateHash, l.BrowserHash, l.TenantID, user, now, expiresAt, email,
 		).Scan(&one)
 	})
 }
@@ -138,10 +283,21 @@ func (s Store) InsertSSOLogin(ctx context.Context, l SSOLogin, now, expiresAt ti
 func (s Store) TakeSSOLogin(ctx context.Context, stateHash []byte, now time.Time) (*SSOLogin, error) {
 	l := SSOLogin{StateHash: stateHash}
 	err := preAuth(ctx, "take sso login", func(ctx context.Context) error {
-		return s.pool.QueryRow(ctx,
+		var user *uuid.UUID
+		var email *string
+		if err := s.pool.QueryRow(ctx,
 			`DELETE FROM sso_logins WHERE state_hash = $1 AND expires_at > $2
-			 RETURNING browser_hash, tenant_id, user_id`, stateHash, now,
-		).Scan(&l.BrowserHash, &l.TenantID, &l.UserID)
+			 RETURNING browser_hash, tenant_id, user_id, email`, stateHash, now,
+		).Scan(&l.BrowserHash, &l.TenantID, &user, &email); err != nil {
+			return err
+		}
+		if user != nil {
+			l.UserID = *user
+		}
+		if email != nil {
+			l.Email = *email
+		}
+		return nil
 	})
 	if errors.Is(err, pgx.ErrNoRows) {
 		return nil, nil //nolint:nilnil // unknown request is a normal outcome

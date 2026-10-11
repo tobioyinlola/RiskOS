@@ -93,6 +93,10 @@ type ConsoleHandlers interface {
 	GetSSO(ctx context.Context, req apigen.GetSSORequestObject) (apigen.GetSSOResponseObject, error)
 	PutSSO(ctx context.Context, req apigen.PutSSORequestObject) (apigen.PutSSOResponseObject, error)
 	DeleteSSO(ctx context.Context, req apigen.DeleteSSORequestObject) (apigen.DeleteSSOResponseObject, error)
+	ListSSODomains(ctx context.Context, req apigen.ListSSODomainsRequestObject) (apigen.ListSSODomainsResponseObject, error)
+	AddSSODomain(ctx context.Context, req apigen.AddSSODomainRequestObject) (apigen.AddSSODomainResponseObject, error)
+	VerifySSODomain(ctx context.Context, req apigen.VerifySSODomainRequestObject) (apigen.VerifySSODomainResponseObject, error)
+	RemoveSSODomain(ctx context.Context, req apigen.RemoveSSODomainRequestObject) (apigen.RemoveSSODomainResponseObject, error)
 	GetSignupOptions(ctx context.Context, req apigen.GetSignupOptionsRequestObject) (apigen.GetSignupOptionsResponseObject, error)
 	StartSignup(ctx context.Context, req apigen.StartSignupRequestObject) (apigen.StartSignupResponseObject, error)
 	ResendSignupCode(ctx context.Context, req apigen.ResendSignupCodeRequestObject) (apigen.ResendSignupCodeResponseObject, error)
@@ -286,6 +290,7 @@ func ReauthOperations() []string {
 	return []string{
 		"CreateAPIKey", "RotateAPIKey", "RevokeAPIKey", "CreateWebhook", "UpdateWebhook", "RotateWebhookSecret",
 		"PutRiskSettings", "CreateRule", "UpdateRule", "RollbackRule", "ApproveRuleChange", "CreateDenyEntry", "DeleteDenyEntry", "CreateInvite", "UpdateTeamMember", "PutSSO", "DeleteSSO",
+		"AddSSODomain", "VerifySSODomain", "RemoveSSODomain",
 		"PutComplianceProfile", "PutPackRuleConfig", "RollbackPackRule", "ApprovePackRuleChange",
 		"PutComplianceFXRate", "DeleteComplianceFXRate", "ApproveComplianceReport", "FileComplianceReport",
 		"ConfirmSuspicion", "CreateComplianceActivation", "UpdateComplianceActivation", "SetComplianceActivationStatus",

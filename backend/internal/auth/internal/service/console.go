@@ -77,6 +77,9 @@ type ConsoleConfig struct {
 	// SSOAllowPrivate lets identity providers be http and on private addresses (local
 	// development and tests only; configuration refuses it in production).
 	SSOAllowPrivate bool
+	// TXTLookup resolves DNS TXT records, for proving an email domain; nil uses the system
+	// resolver.
+	TXTLookup func(ctx context.Context, name string) ([]string, error)
 }
 
 // BreachChecker reports whether a password appears in known data breaches.

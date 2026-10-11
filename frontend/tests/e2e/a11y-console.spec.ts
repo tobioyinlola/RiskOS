@@ -48,6 +48,8 @@ for (const { name, path } of consolePages) {
   test(`console: ${name}`, async ({ page }) => {
     const api = await mockApi(page);
     api.signedIn = true;
+    // A connection with its domains, so the whole of the page is audited.
+    api.ssoConnected = path === "/sso";
     await page.goto(path);
     await expect(page.locator("main")).toBeVisible();
     await expect(page.getByRole("heading", { level: 1 })).toBeVisible();

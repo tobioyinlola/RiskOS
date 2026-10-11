@@ -131,6 +131,8 @@ export interface MockApi {
   /** Problems with what the browser sent; a test should end with none. */
   problems: string[];
   signedIn: boolean;
+  /** Whether the workspace has a single sign-on connection (with two claimed domains). */
+  ssoConnected: boolean;
   hasPasskey: boolean;
   changeStatus: "pending" | "approved";
   /** Events the console can list, newest first; tests push to it to simulate arrivals. */
@@ -419,6 +421,7 @@ export async function mockApi(page: Page): Promise<MockApi> {
     calls: [],
     problems: [],
     signedIn: false,
+    ssoConnected: false,
     hasPasskey: false,
     changeStatus: "pending",
     events: [],
@@ -1570,7 +1573,57 @@ export async function mockApi(page: Page): Promise<MockApi> {
       case "/sso":
         return json(route, {
           redirect_uri: `${url.origin}/sso/callback`,
-          connection: null,
+          connection: state.ssoConnected
+            ? {
+                issuer: "https://login.example.com",
+                client_id: "riskos",
+                enabled: true,
+                required: false,
+                jit_enabled: true,
+                jit_role: "analyst",
+                updated_at: NOW,
+                updated_by: "usr_admin",
+              }
+            : null,
+        });
+      case "/sso/domains":
+        if (method === "POST") {
+          return json(
+            route,
+            {
+              domain: body?.domain,
+              verified: false,
+              verified_at: null,
+              created_at: NOW,
+              txt_host: `_riskos-challenge.${body?.domain}`,
+              txt_value: "riskos-verification=abcdefghijklmnopqrstuvwxyz234567",
+            },
+            201,
+          );
+        }
+        return json(route, {
+          data: state.ssoConnected
+            ? [
+                {
+                  domain: "example.com",
+                  verified: true,
+                  verified_at: NOW,
+                  created_at: NOW,
+                  txt_host: "_riskos-challenge.example.com",
+                  txt_value:
+                    "riskos-verification=abcdefghijklmnopqrstuvwxyz234567",
+                },
+                {
+                  domain: "example.org",
+                  verified: false,
+                  verified_at: null,
+                  created_at: NOW,
+                  txt_host: "_riskos-challenge.example.org",
+                  txt_value:
+                    "riskos-verification=zyxwvutsrqponmlkjihgfedcba234567",
+                },
+              ]
+            : [],
         });
       case "/deny-list":
         if (method === "POST") {

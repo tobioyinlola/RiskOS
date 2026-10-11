@@ -28,6 +28,8 @@ func DefaultOperationLimits() map[string]ratelimit.Limit {
 		"RotateAPIKey":     {PerSecond: 0.2, Burst: 10},
 		"CreateInvite":     {PerSecond: 0.2, Burst: 10},
 		"PutSSO":           {PerSecond: 0.2, Burst: 10}, // outbound HTTP to an identity provider
+		"AddSSODomain":     {PerSecond: 0.2, Burst: 10},
+		"VerifySSODomain":  {PerSecond: 0.2, Burst: 10}, // outbound DNS lookup
 		"EvaluateRisk":     {PerSecond: 20, Burst: 50},  // dry runs; ingest has its own budget
 	}
 }
