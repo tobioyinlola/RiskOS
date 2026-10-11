@@ -247,6 +247,9 @@ type Risk struct {
 	// HistoryWarmup is how long history signals are held back after the feature store lost its
 	// state (DISASTER_RECOVERY.md). Zero detects and records resets without holding back.
 	HistoryWarmup time.Duration
+	// BaselineMaxPerHour caps how many transactions per hour teach one user's amount baseline in
+	// one currency, so a burst cannot move it quickly. Zero removes the cap.
+	BaselineMaxPerHour int
 }
 
 // Validate checks the risk settings; call it in binaries that evaluate events.
@@ -260,6 +263,9 @@ func (r Risk) Validate() error {
 	}
 	if r.HistoryWarmup < 0 || r.HistoryWarmup > 90*24*time.Hour {
 		errs = append(errs, errors.New("RISKOS_HISTORY_WARMUP: must be between 0 and 90 days"))
+	}
+	if r.BaselineMaxPerHour < 0 || r.BaselineMaxPerHour > 10000 {
+		errs = append(errs, errors.New("RISKOS_BASELINE_MAX_UPDATES_PER_HOUR: must be between 0 and 10000"))
 	}
 	if len(errs) > 0 {
 		return fmt.Errorf("invalid configuration: %w", errors.Join(errs...))
@@ -469,6 +475,8 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 			FeatureHashKey: r.str("RISKOS_FEATURE_HASH_KEY", ""),
 			FeatureTimeout: r.duration("RISKOS_FEATURE_TIMEOUT", 50*time.Millisecond),
 			HistoryWarmup:  r.duration("RISKOS_HISTORY_WARMUP", 7*24*time.Hour),
+
+			BaselineMaxPerHour: r.integer("RISKOS_BASELINE_MAX_UPDATES_PER_HOUR", 60),
 		},
 		RateLimit: RateLimit{
 			KeyPerSecond:          r.float("RISKOS_RATE_LIMIT_KEY_PER_SECOND", 100),

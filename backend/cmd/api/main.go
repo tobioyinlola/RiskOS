@@ -172,6 +172,8 @@ func run() (err error) {
 		FeatureTimeout: cfg.Risk.FeatureTimeout,
 		StateDB:        pool,
 		HistoryWarmup:  cfg.Risk.HistoryWarmup,
+
+		BaselineMaxPerHour: cfg.Risk.BaselineMaxPerHour,
 	})
 	riskModule.WatchFeatureState(ctx)
 	eventsModule := events.New(runner, riskModule.Evaluator(), riskModule.RuleTester(), queue, clk, appMetrics)

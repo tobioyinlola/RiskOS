@@ -99,6 +99,9 @@ type Config struct {
 	StateDB StateDB
 	// HistoryWarmup is how long history signals are held back after a reset.
 	HistoryWarmup time.Duration
+	// BaselineMaxPerHour caps the transactions per hour that teach one user's amount baseline
+	// in one currency. Zero means no cap.
+	BaselineMaxPerHour int
 	// Packs gives each tenant's rule pack (the rules module); nil evaluates none.
 	Packs PackSource
 }
@@ -121,7 +124,7 @@ type Module struct {
 
 // New returns the risk module.
 func New(rdb Redis, runner txn.Runner, rec audit.Recorder, clk clock.Clock, logger *slog.Logger, cfg Config) *Module {
-	fs := store.NewFeatureStore(rdb, cfg.FeatureHashKey, cfg.FeatureTimeout)
+	fs := store.NewFeatureStore(rdb, cfg.FeatureHashKey, cfg.FeatureTimeout).WithBaselineCap(cfg.BaselineMaxPerHour)
 	m := &Module{}
 	if cfg.StateDB != nil {
 		m.state = store.NewStateWatcher(rdb, cfg.StateDB, cfg.FeatureHashKey, cfg.HistoryWarmup, clk, logger)

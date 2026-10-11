@@ -469,7 +469,12 @@ non-high-risk debit):
 - **Network:** HyperLogLog distinct counts of users per device and per beneficiary per day.
 - **Amount baseline:** a running mean and variance per user and currency (Welford), weighted
   towards the last ~500 transactions.
-- **Anti-poisoning:** HIGH and CRITICAL events never update the amount baseline (§16.8).
+- **Anti-poisoning:** HIGH and CRITICAL events never update the amount baseline (§16.8), and one
+  user's baseline in one currency learns from at most `RISKOS_BASELINE_MAX_UPDATES_PER_HOUR`
+  transactions in a clock hour (default 60; 0 removes the cap). Later transactions that hour are
+  scored against the baseline but not learned from, so a burst, or amounts chosen to drag the
+  mean upwards, can move it by at most that many observations an hour. A very busy account
+  learns more slowly; the baseline's weight is already about its last 500 transactions.
 - **Privacy:** identifiers never reach Redis in the clear. Keys are
   `rk:<tenant>:<environment>:{<kind>:<hmac>}`, with an HMAC keyed by `RISKOS_FEATURE_HASH_KEY`
   (at least 32 bytes). The braces are the Redis Cluster hash tag. Rotating the key resets history.
