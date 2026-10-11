@@ -5,6 +5,7 @@ import (
 	"errors"
 	"log/slog"
 	"net/http"
+	"net/netip"
 	"strings"
 	"time"
 
@@ -65,6 +66,9 @@ type Config struct {
 	Origins []string
 	// SSO is the identity provider for staff sign-in; the zero value disables it.
 	SSO SSOConfig
+	// AllowedAddresses limits the realm to these client networks; others get 404. Empty allows
+	// every address (ADMIN.md).
+	AllowedAddresses []netip.Prefix
 	// CookieSecure sets Secure on the staff session cookie (required in production).
 	CookieSecure bool
 	// Limiter throttles passkey ceremonies per client address; nil disables throttling.
@@ -77,6 +81,7 @@ type Module struct {
 	svc     *service.Service
 	h       *handler.Handlers
 	origins []string
+	allowed []netip.Prefix
 	logger  *slog.Logger
 }
 
@@ -109,12 +114,15 @@ func New(pool Pool, tenantsModule *tenants.Module, runner txn.Runner, rec audit.
 	if err != nil {
 		return nil, err
 	}
-	return &Module{svc: svc, h: handler.New(svc, cfg.CookieSecure), origins: cfg.Origins, logger: logger}, nil
+	return &Module{svc: svc, h: handler.New(svc, cfg.CookieSecure), origins: cfg.Origins,
+		allowed: cfg.AllowedAddresses, logger: logger}, nil
 }
 
 // Middleware authenticates admin realm requests (paths under /api/admin/).
 func (m *Module) Middleware() func(http.Handler) http.Handler {
-	return handler.Middleware(m.svc, m.origins, m.logger)
+	authenticate := handler.Middleware(m.svc, m.origins, m.logger)
+	allow := handler.AllowAddresses(m.allowed, m.logger)
+	return func(next http.Handler) http.Handler { return allow(authenticate(next)) }
 }
 
 // Mount adds the admin API's routes to r.

@@ -37,6 +37,16 @@ func TestLoadDefaults(t *testing.T) {
 	assert.Equal(t, int64(64<<10), cfg.HTTP.MaxBodyBytes)
 	assert.Equal(t, int32(20), cfg.Postgres.MaxConns)
 	assert.False(t, cfg.Telemetry.Enabled)
+	assert.Empty(t, cfg.HTTP.AdminAllowedCIDRs, "the staff realm is open to every address unless limited")
+}
+
+func TestLoadAdminAllowlist(t *testing.T) {
+	env := minimalEnv()
+	env["RISKOS_ADMIN_ALLOWED_CIDRS"] = "203.0.113.0/24, 2001:db8::/32"
+	cfg, err := config.Load(lookupFrom(env))
+	require.NoError(t, err)
+	require.Len(t, cfg.HTTP.AdminAllowedCIDRs, 2)
+	assert.Equal(t, "203.0.113.0/24", cfg.HTTP.AdminAllowedCIDRs[0].String())
 }
 
 func TestLoadOverrides(t *testing.T) {
@@ -78,6 +88,8 @@ func TestLoadRejectsInvalid(t *testing.T) {
 		{"production requires redis password", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "RISKOS_REDIS_PASSWORD"},
 		{"production requires verified postgres TLS", func(e map[string]string) { e["RISKOS_ENV"] = "production" }, "sslmode=verify-full"},
 		{"bad migration url", func(e map[string]string) { e["RISKOS_POSTGRES_MIGRATION_URL"] = "not-a-url" }, "RISKOS_POSTGRES_MIGRATION_URL"},
+		{"admin allowlist that is every address", func(e map[string]string) { e["RISKOS_ADMIN_ALLOWED_CIDRS"] = "0.0.0.0/0" }, "RISKOS_ADMIN_ALLOWED_CIDRS"},
+		{"admin allowlist that is not a network", func(e map[string]string) { e["RISKOS_ADMIN_ALLOWED_CIDRS"] = "office" }, "RISKOS_ADMIN_ALLOWED_CIDRS"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {

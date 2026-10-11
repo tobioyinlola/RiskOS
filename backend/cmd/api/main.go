@@ -203,7 +203,8 @@ func run() (err error) {
 		Limiter: ratelimit.New(rdb, cfg.RateLimit.Timeout), Logger: logger,
 		// Accounts can be created from the console only when the enrollment link can be emailed.
 		Jobs: queue, EmailEnabled: cfg.SMTP.Enabled(),
-		SSO: staffSSO(cfg.Console),
+		SSO:              staffSSO(cfg.Console),
+		AllowedAddresses: cfg.HTTP.AdminAllowedCIDRs,
 		DefaultLimits: ratelimit.Override{
 			PerKey:    ratelimit.Limit{PerSecond: cfg.RateLimit.KeyPerSecond, Burst: cfg.RateLimit.KeyBurst},
 			PerTenant: ratelimit.Limit{PerSecond: cfg.RateLimit.TenantPerSecond, Burst: cfg.RateLimit.TenantBurst},

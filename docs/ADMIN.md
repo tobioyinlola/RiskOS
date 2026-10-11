@@ -199,10 +199,34 @@ refuses the request and accounts are created with the operator CLI (`make staff`
 **Re-issuing a link for someone who lost their passkey stays in the CLI**, since it replaces a
 live credential.
 
+## Address allowlist
+
+`RISKOS_ADMIN_ALLOWED_CIDRS` (comma-separated networks, e.g. `203.0.113.0/24,2001:db8::/32`)
+limits the staff realm, every path under `/api/admin/`, to clients inside those networks. Any
+other address, and a request whose address is unknown, gets the 404 of a path that does not
+exist, so the realm is not revealed to the rest of the internet; each refusal is logged as a
+warning. Empty (the default) allows every address.
+
+- **It is a second control, not the first.** Sign-in (SSO and passkey) is unchanged and still
+  required from inside the networks. It narrows who can attempt it.
+- **The address must be right.** It is the client address `RISKOS_TRUSTED_PROXIES` yields:
+  `X-Forwarded-For` is believed only from those proxies. A list that is wrong behind a proxy
+  either locks staff out or lets the proxy's address through, so set both together and test
+  from outside the networks.
+- **`0.0.0.0/0` and `::/0` are refused at start-up**, since they would look like a control and be
+  none.
+- **Lock-out.** There is no way in from outside the networks, including the sign-in
+  ceremonies. Change the variable and restart to recover; the operator CLI (`riskosctl staff`)
+  does not go through this check.
+- It filters the API only. The console's `/admin` pages are a static shell that loads nothing
+  without the API; put them behind the same path if hiding them matters.
+
 ## Not built yet
 
 - Quotas other than request rate (storage, event volume) per tenant. TODO(phase-9)
-- A private access path (zero-trust proxy or VPN) and an IP allowlist in front of `/admin`, and
-  hardware-key attestation for staff passkeys. TODO(phase-9)
+- A private access path (zero-trust proxy or VPN) in front of `/admin`: it is deployment
+  infrastructure. TODO(phase-8)
+- Hardware-key attestation for staff passkeys (needs a decision on which authenticators to
+  trust). TODO(phase-9)
 - Group or role claims from the provider (roles stay in the roster), and a second provider.
 - Anchoring the staff and tenant audit chains' heads in write-once storage. TODO(phase-8)

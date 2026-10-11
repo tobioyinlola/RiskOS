@@ -398,6 +398,10 @@ type HTTP struct {
 	// TrustedProxies are the networks of proxies in front of the API (load balancer, the
 	// console's server). Only their X-Forwarded-For is believed; see httpx.ClientIP.
 	TrustedProxies []netip.Prefix
+	// AdminAllowedCIDRs limits the staff realm (/api/admin/) to these client networks; any other
+	// address gets the 404 of a path that does not exist. Empty allows every address. The
+	// address is the one httpx.ClientIP works out, so it depends on TrustedProxies being right.
+	AdminAllowedCIDRs []netip.Prefix
 	// ShutdownDrainDelay is how long readiness reports "unavailable" before the listener closes,
 	// giving load balancers time to stop routing new traffic.
 	ShutdownDrainDelay time.Duration
@@ -498,6 +502,7 @@ func Load(lookup func(string) (string, bool)) (Config, error) {
 		HTTP: HTTP{
 			Addr:               r.str("RISKOS_HTTP_ADDR", ":8080"),
 			TrustedProxies:     r.prefixes("RISKOS_TRUSTED_PROXIES"),
+			AdminAllowedCIDRs:  r.prefixes("RISKOS_ADMIN_ALLOWED_CIDRS"),
 			ReadHeaderTimeout:  r.duration("RISKOS_HTTP_READ_HEADER_TIMEOUT", 5*time.Second),
 			ReadTimeout:        r.duration("RISKOS_HTTP_READ_TIMEOUT", 10*time.Second),
 			WriteTimeout:       r.duration("RISKOS_HTTP_WRITE_TIMEOUT", 15*time.Second),
@@ -565,6 +570,11 @@ func (c Config) validate() []error {
 	for _, p := range c.HTTP.TrustedProxies {
 		if p.Bits() == 0 && c.Env == EnvProduction {
 			add("RISKOS_TRUSTED_PROXIES: production must name its proxies, not trust every address")
+		}
+	}
+	for _, p := range c.HTTP.AdminAllowedCIDRs {
+		if p.Bits() == 0 {
+			add("RISKOS_ADMIN_ALLOWED_CIDRS: %s allows every address; leave the list empty instead", p)
 		}
 	}
 	if c.RateLimit.AuthFailuresPerMinute < 0 || c.RateLimit.AuthFailuresBurst < 1 {
